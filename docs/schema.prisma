@@ -1,0 +1,1822 @@
+// ============================================================
+// Platform Marketplace Jasa On-Demand "Jasana"
+// I Nyoman Gede Candra Wikananta - 2305551065
+//
+// VERSI 2.7. 34 model, 35 enum.
+// Rujukan keputusan lengkap: Keputusan-Desain-Sistem.md (D1 sampai D80)
+//
+// Lokasi yang disarankan pada monorepo:
+//   packages/database/prisma/schema.prisma
+// Supaya tipe hasil generate bisa diimpor oleh apps/api dan apps/web.
+//
+// CATATAN PENTING 1
+// Prisma tidak mendukung partial unique index maupun CHECK constraint.
+// Setelah `prisma migrate dev`, jalankan migrasi SQL manual (file terpisah).
+// Tanpa itu, SEBELAS pengaman kritikal tidak aktif, termasuk kunci in-flight
+// per pekerja (H4) dan eksklusivitas keanggotaan pekerja (H23).
+//
+// CATATAN PENTING 2 - VERSI PRISMA
+// Skema ini sudah diverifikasi valid untuk Prisma 6.19 (dan 7.x).
+// WAJIB pin versinya, JANGAN `npm install prisma` tanpa versi:
+//
+//     npm install -D prisma@6.19.3
+//     npm install @prisma/client@6.19.3
+//
+// Alasan: tag `latest` di npm saat ini menunjuk ke 8.0.0-rc (release
+// candidate, belum stabil). Tanpa pin, project TA-mu akan terpasang RC.
+//
+// Kalau nanti naik ke Prisma 7 atau 8, `url` di blok datasource TIDAK
+// LAGI didukung dan harus dipindah ke berkas `prisma.config.ts`.
+// Untuk lingkup TA, tetap di Prisma 6 lebih aman.
+//
+// PERUBAHAN BESAR SEJAK VERSI PERTAMA
+//   D31-D53  Tenaga kerja: ProviderWorker, WorkerListing. Order dikerjakan
+//            pekerja, bukan akun provider. Lokasi real-time dan kunci
+//            in-flight pindah ke pekerja.
+//   D54-D57  Penerimaan order per mode, pola siapa cepat dia dapat.
+//   D58-D64  Notifikasi email, VerificationToken, penggantian alamat email.
+//   D68-D69  Satu penanggung jawab per order, OrderCrew untuk pendamping.
+//   D72-D73  Atribut berperan SPEC atau OPTION, ListingOptionPrice.
+//            basePrice jadi listingBaseAmount + optionsAmount.
+//   D74      TaxonomyRequest, usulan katalog dari penyedia ke admin.
+//   D76      RefreshToken dengan rotasi dan deteksi pemakaian ulang.
+//   D77      Chatbot terbuka untuk tamu, ChatSession.userId jadi nullable.
+//   D78-D79  ListingFaq dan OrderMessage. Percakapan PRA-ORDER sengaja TIDAK
+//            disediakan. JANGAN menamainya chat: nama itu milik chatbot AI.
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// CATATAN: `directUrl` sudah TIDAK didukung sejak Prisma 6.19, jadi jangan
+// ditambahkan di sini. Untuk Supabase, pakai satu DATABASE_URL saja:
+//   - Migrasi (prisma migrate)  -> koneksi langsung port 5432
+//   - Runtime aplikasi          -> connection pooler port 6543
+
+// ============================================================
+// ENUM
+// ============================================================
+
+enum UserRole {
+  CLIENT
+  ADMIN
+
+  @@map("user_role")
+}
+
+/// DRAFT = baru klik ajukan, dokumen belum lengkap (belum masuk antrean admin).
+/// PENDING = dokumen wajib lengkap, benar-benar menunggu pemeriksaan admin.
+enum VerificationStatus {
+  DRAFT
+  PENDING
+  VERIFIED
+  REJECTED
+  SUSPENDED
+
+  @@map("verification_status")
+}
+
+/// D32. Freelancer = usaha dengan satu pekerja (pemiliknya sendiri).
+/// D46. Menentukan dokumen e-KYC yang diminta saat apply:
+///   INDIVIDUAL cukup KTP dan selfie
+///   BUSINESS perlu tambahan NPWP atau izin usaha
+enum ProviderType {
+  INDIVIDUAL
+  BUSINESS
+
+  @@map("provider_type")
+}
+
+/// D37. Bukan boolean, karena pelamar bukan anggota aktif tapi juga bukan
+/// tidak ada. Eksklusivitas ditegakkan partial unique index pada userId
+/// dengan predikat membershipStatus = ACTIVE (migrasi SQL manual, H23).
+enum WorkerMembershipStatus {
+  PENDING
+  ACTIVE
+  REJECTED
+  RESIGNED
+
+  @@map("worker_membership_status")
+}
+
+/// Dari mana koordinat lokasi layanan didapat saat order dibuat.
+enum LocationSourceType {
+  SAVED_ADDRESS
+  CURRENT_LOCATION
+  MAP_PIN
+
+  @@map("location_source_type")
+}
+
+enum KycDocumentType {
+  KTP
+  SELFIE_KTP
+  NPWP
+  CERTIFICATE
+  BUSINESS_LICENSE
+
+  @@map("kyc_document_type")
+}
+
+enum KycStatus {
+  PENDING
+  APPROVED
+  REJECTED
+
+  @@map("kyc_status")
+}
+
+enum AttributeDataType {
+  TEXT
+  NUMBER
+  BOOLEAN
+  SELECT
+  MULTISELECT
+  DATE
+
+  @@map("attribute_data_type")
+}
+
+/// D72. SPEC diisi provider saat membuat listing dan tidak memengaruhi harga.
+/// OPTION dipilih client saat memesan dan punya delta harga.
+enum AttributeRole {
+  SPEC
+  OPTION
+
+  @@map("attribute_role")
+}
+
+/// D72. FLAT_PER_OPTION untuk SELECT, MULTISELECT dan BOOLEAN.
+/// PER_UNIT untuk NUMBER, delta dikali nilai yang diisi client.
+enum PricingMode {
+  NONE
+  FLAT_PER_OPTION
+  PER_UNIT
+
+  @@map("pricing_mode")
+}
+
+enum PriceUnitType {
+  PER_JOB
+  PER_HOUR
+  PER_UNIT
+
+  @@map("price_unit_type")
+}
+
+enum ListingStatus {
+  DRAFT
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+
+  @@map("listing_status")
+}
+
+enum BookingModeType {
+  SCHEDULED
+  AVAILABLE_NOW
+
+  @@map("booking_mode_type")
+}
+
+enum OrderStatus {
+  PENDING_ACCEPTANCE
+  ACCEPTED
+  PAID
+  ON_THE_WAY
+  ARRIVED
+  IN_PROGRESS
+  AWAITING_VERIFICATION
+  COMPLETED
+  SETTLED
+  REJECTED
+  EXPIRED
+  PAYMENT_EXPIRED
+  CANCELLED
+  DISPUTED
+  REFUNDED
+
+  @@map("order_status")
+}
+
+/// WORKER ditambahkan karena pekerja yang melakukan transisi ON_THE_WAY
+/// sampai AWAITING_VERIFICATION (D31). Tanpa nilai ini, kolom actor pada
+/// audit trail akan berbohong.
+enum OrderActorType {
+  CLIENT
+  PROVIDER
+  WORKER
+  ADMIN
+  SYSTEM
+
+  @@map("order_actor_type")
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  EXPIRED
+  FAILED
+
+  @@map("payment_status")
+}
+
+enum WebhookDomain {
+  PAYMENT
+  PAYOUT
+  REFUND
+
+  @@map("webhook_domain")
+}
+
+enum WebhookProcessingStatus {
+  RECEIVED
+  PROCESSING
+  PROCESSED
+  FAILED
+  IGNORED
+
+  @@map("webhook_processing_status")
+}
+
+enum WalletTransactionType {
+  ESCROW_HOLD
+  ESCROW_RELEASE
+  WITHDRAWAL
+  WITHDRAWAL_REVERSAL
+  REFUND_DEDUCTION
+  ADJUSTMENT
+
+  @@map("wallet_transaction_type")
+}
+
+enum TransactionCreator {
+  SYSTEM
+  ADMIN
+
+  @@map("transaction_creator")
+}
+
+enum WithdrawalStatus {
+  REQUESTED
+  APPROVED
+  DISBURSING
+  COMPLETED
+  REJECTED
+  FAILED
+  REVERSED
+
+  @@map("withdrawal_status")
+}
+
+enum XenditPayoutStatus {
+  ACCEPTED
+  REQUESTED
+  SUCCEEDED
+  FAILED
+  CANCELLED
+  REVERSED
+
+  @@map("xendit_payout_status")
+}
+
+enum RefundType {
+  FULL
+  PARTIAL
+
+  @@map("refund_type")
+}
+
+enum RefundStatus {
+  REQUESTED
+  PROCESSING
+  COMPLETED
+  FAILED
+
+  @@map("refund_status")
+}
+
+enum DisputeRaiserRole {
+  CLIENT
+  PROVIDER
+
+  @@map("dispute_raiser_role")
+}
+
+enum DisputeCategory {
+  WORK_NOT_DONE
+  POOR_QUALITY
+  PROVIDER_NO_SHOW
+  CLIENT_NO_SHOW
+  PAYMENT_ISSUE
+  OTHER
+
+  @@map("dispute_category")
+}
+
+enum DisputeStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED_REFUND
+  RESOLVED_RELEASE
+  RESOLVED_PARTIAL
+  CLOSED
+
+  @@map("dispute_status")
+}
+
+enum ChatSessionStatus {
+  ACTIVE
+  ENDED
+
+  @@map("chat_session_status")
+}
+
+enum ChatMessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+
+  @@map("chat_message_role")
+}
+
+enum NotificationType {
+  ORDER_STATUS
+  PAYMENT
+  WITHDRAWAL
+  KYC
+  DISPUTE
+  REVIEW
+  WORKER_APPLICATION
+  TAXONOMY_REQUEST
+  ACCOUNT
+  SYSTEM
+
+  @@map("notification_type")
+}
+
+/// D58. Email adalah kanal pelengkap. Untuk Available Now yang SLA-nya
+/// 5 menit, kanal utamanya tetap Socket.IO.
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+
+  @@map("notification_channel")
+}
+
+enum EmailDeliveryStatus {
+  PENDING
+  SENT
+  FAILED
+
+  @@map("email_delivery_status")
+}
+
+/// D63. Tiga keperluan dengan mekanisme identik, satu tabel.
+/// Token DI-HASH, berbeda dengan kode verifikasi order yang dienkripsi,
+/// karena token link tidak pernah perlu ditampilkan lagi ke pengguna.
+enum TokenPurpose {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+  EMAIL_CHANGE
+
+  @@map("token_purpose")
+}
+
+/// D74. Bobot admin berbeda per jenis:
+///   NEW_SUBCATEGORY       berat, merancang seluruh atributnya
+///   NEW_ATTRIBUTE         sedang, meninjau lalu SELALU masuk opsional
+///   NEW_ATTRIBUTE_OPTION  ringan, menambah satu nilai ke options
+enum TaxonomyRequestType {
+  NEW_SUBCATEGORY
+  NEW_ATTRIBUTE
+  NEW_ATTRIBUTE_OPTION
+
+  @@map("taxonomy_request_type")
+}
+
+/// MERGED untuk usulan yang ternyata sudah ada. Provider diberi tautan ke
+/// yang sudah ada, bukan sekadar ditolak.
+enum TaxonomyRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  MERGED
+
+  @@map("taxonomy_request_status")
+}
+
+// ============================================================
+// A. IDENTITAS DAN AKSES
+// ============================================================
+
+/// PROVIDER bukan role. Provider adalah User yang punya ProviderProfile
+/// berstatus VERIFIED (D4).
+/// PEKERJA juga bukan role. Pekerja adalah User yang punya ProviderWorker
+/// berstatus ACTIVE (D35).
+/// D61. Satu orang satu akun satu alamat email, verifikasi cukup sekali
+/// saat registrasi.
+model User {
+  id              String    @id @default(uuid()) @db.Uuid
+  fullName        String    @map("full_name") @db.VarChar(100)
+  email           String    @unique @db.VarChar(255)
+  /// D64. Alamat baru yang menunggu verifikasi. SENGAJA TANPA @unique,
+  /// supaya alamat yang pernah diketik lalu ditinggalkan tidak memblokir
+  /// pemilik aslinya. Keunikan divalidasi di service layer, dua kali:
+  /// saat permintaan diajukan dan lagi di dalam transaksi saat verifikasi.
+  pendingEmail    String?   @map("pending_email") @db.VarChar(255)
+  phone           String    @unique @db.VarChar(20)
+  passwordHash    String    @map("password_hash") @db.VarChar(255)
+  role            UserRole  @default(CLIENT)
+  avatarUrl       String?   @map("avatar_url")
+  isActive        Boolean   @default(true) @map("is_active")
+  emailVerifiedAt DateTime? @map("email_verified_at") @db.Timestamptz(6)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  addresses           UserAddress[]
+  verificationTokens  VerificationToken[]
+  refreshTokens       RefreshToken[]
+  providerProfile     ProviderProfile?     @relation("ProviderOwner")
+  verifiedProviders   ProviderProfile[]    @relation("ProviderVerifier")
+  workerMemberships   ProviderWorker[]     @relation("WorkerAccount")
+  approvedWorkers     ProviderWorker[]     @relation("WorkerApprover")
+  orders              Order[]
+  acceptedOrders      Order[]              @relation("OrderAcceptor")
+  addedCrew           OrderCrew[]
+  sentOrderMessages   OrderMessage[]
+  statusChanges       OrderStatusHistory[]
+  reviewedWithdrawals Withdrawal[]
+  initiatedRefunds    Refund[]
+  raisedDisputes      Dispute[]            @relation("DisputeRaiser")
+  resolvedDisputes    Dispute[]            @relation("DisputeResolver")
+  disputeEvidences    DisputeEvidence[]
+  reviews             Review[]
+  chatSessions        ChatSession[]
+  notifications       Notification[]
+  reviewedTaxonomy    TaxonomyRequest[]
+  updatedSettings     PlatformSetting[]
+
+  @@map("users")
+}
+
+/// Salah satu dari empat sumber data personalisasi chatbot.
+/// D77. TIDAK dipakai untuk sesi tamu, karena tamu belum punya alamat tersimpan.
+model UserAddress {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  label       String?  @db.VarChar(50)
+  addressLine String   @map("address_line")
+  district    String?  @db.VarChar(100)
+  city        String?  @db.VarChar(100)
+  province    String?  @db.VarChar(100)
+  postalCode  String?  @map("postal_code") @db.VarChar(10)
+  latitude    Decimal  @db.Decimal(10, 8)
+  longitude   Decimal  @db.Decimal(11, 8)
+  isDefault   Boolean  @default(false) @map("is_default")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isDefault])
+  @@map("user_addresses")
+}
+
+/// D63. Token sekali pakai untuk verifikasi email, lupa password, dan
+/// penggantian alamat email.
+///
+/// Token dibuat dengan crypto.randomBytes(32), yang disimpan hanya hash
+/// SHA-256 nya. Token mentahnya TIDAK PERNAH tersimpan di basis data.
+///
+/// Kenapa di-hash padahal kode verifikasi order dienkripsi: token link
+/// tidak pernah perlu ditampilkan lagi ke pengguna, sedangkan kode order
+/// harus bisa dilihat client berulang kali. Token juga tidak punya lockout
+/// seperti kode order (H8), jadi ruang tebakannya yang harus besar.
+///
+/// Masa berlaku: EMAIL_VERIFICATION dan EMAIL_CHANGE 24 jam,
+/// PASSWORD_RESET 1 jam karena dampaknya pengambilalihan akun.
+/// Kirim ulang SELALU membatalkan token lama dengan mengisi usedAt.
+model VerificationToken {
+  id        String       @id @default(uuid()) @db.Uuid
+  userId    String       @map("user_id") @db.Uuid
+  tokenHash String       @unique @map("token_hash") @db.VarChar(255)
+  purpose   TokenPurpose
+  expiresAt DateTime     @map("expires_at") @db.Timestamptz(6)
+  usedAt    DateTime?    @map("used_at") @db.Timestamptz(6)
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose])
+  @@map("verification_tokens")
+}
+
+/// D76. Sesi login berumur panjang. Access token JWT hanya 15 menit,
+/// refresh token inilah yang memperpanjangnya. Menutup keputusan terbuka
+/// nomor 3: tanpa tabel ini logout hanya client-side.
+///
+/// ROTASI WAJIB. Setiap pemakaian mencabut token lama (revokedAt) dan
+/// menerbitkan pengganti dalam familyId yang sama.
+///
+/// DETEKSI PEMAKAIAN ULANG, dan inilah alasan rotasi berguna. Token yang
+/// sah tidak akan pernah dipakai dua kali, jadi kalau token yang sudah
+/// revokedAt dipakai lagi, itu tanda pasti ada salinan yang dicuri.
+/// Seluruh familyId dicabut dan semua pihak dipaksa login ulang.
+///
+/// Empat pemicu pencabutan:
+///   logout                 satu token
+///   logout semua perangkat semua token milik user
+///   ganti password         semua token milik user
+///   pemakaian ulang        seluruh familyId
+model RefreshToken {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  tokenHash  String    @unique @map("token_hash") @db.VarChar(255)
+  /// Rantai rotasi, satu per sesi login.
+  familyId   String    @map("family_id") @db.Uuid
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz(6)
+  revokedAt  DateTime? @map("revoked_at") @db.Timestamptz(6)
+  replacedBy String?   @map("replaced_by") @db.Uuid
+  /// Untuk halaman daftar perangkat aktif, bukan untuk keamanan.
+  userAgent  String?   @map("user_agent") @db.VarChar(255)
+  ipAddress  String?   @map("ip_address") @db.VarChar(45)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, revokedAt])
+  @@index([familyId])
+  @@map("refresh_tokens")
+}
+
+/// Data penyedia jasa, relasi 1:1 dengan User.
+///
+/// D38. currentLatitude, currentLongitude dan locationUpdatedAt DIPINDAH
+/// ke ProviderWorker, karena yang bergerak ke lokasi client adalah pekerja,
+/// bukan usaha. serviceRadiusKm tetap di sini karena itu kebijakan usaha.
+///
+/// D33. Saat admin menyetujui e-KYC, sistem membuat Wallet DAN satu baris
+/// ProviderWorker untuk pemiliknya dengan isOwner = true, dalam satu transaksi.
+model ProviderProfile {
+  id                    String             @id @default(uuid()) @db.Uuid
+  userId                String             @unique @map("user_id") @db.Uuid
+  /// D46. Dipilih saat apply, menentukan dokumen e-KYC yang diminta.
+  /// Bukan setting bebas di dashboard, karena itu lubang verifikasi.
+  providerType          ProviderType       @default(INDIVIDUAL) @map("provider_type")
+  /// D47. Pengajuan perubahan tipe. verificationStatus TIDAK direset ke
+  /// PENDING selama menunggu, supaya listing yang tayang tidak ikut mati
+  /// dan order berjalan tidak kacau.
+  requestedProviderType ProviderType?      @map("requested_provider_type")
+  businessName          String?            @map("business_name") @db.VarChar(150)
+  bio                   String?
+  verificationStatus    VerificationStatus @default(DRAFT) @map("verification_status")
+  verifiedAt            DateTime?          @map("verified_at") @db.Timestamptz(6)
+  verifiedBy            String?            @map("verified_by") @db.Uuid
+  rejectionReason       String?            @map("rejection_reason")
+  baseAddress           String?            @map("base_address")
+  baseLatitude          Decimal?           @map("base_latitude") @db.Decimal(10, 8)
+  baseLongitude         Decimal?           @map("base_longitude") @db.Decimal(11, 8)
+  /// Kebijakan usaha, berlaku sama untuk semua pekerjanya.
+  serviceRadiusKm       Decimal?           @default(10) @map("service_radius_km") @db.Decimal(5, 2)
+  ratingAverage         Decimal            @default(0) @map("rating_average") @db.Decimal(3, 2)
+  ratingCount           Int                @default(0) @map("rating_count")
+  completedOrdersCount  Int                @default(0) @map("completed_orders_count")
+  createdAt             DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user     User  @relation("ProviderOwner", fields: [userId], references: [id], onDelete: Cascade)
+  verifier User? @relation("ProviderVerifier", fields: [verifiedBy], references: [id], onDelete: SetNull)
+
+  kycDocuments      KycDocument[]
+  workers           ProviderWorker[]
+  listings          Listing[]
+  orders            Order[]
+  wallet            Wallet?
+  reviews           Review[]
+  taxonomyRequests  TaxonomyRequest[]
+
+  @@index([verificationStatus])
+  @@index([providerType])
+  @@map("provider_profiles")
+}
+
+/// D34. e-KYC hanya di tingkat usaha. Pekerja divalidasi oleh pemilik
+/// provider, bukan oleh admin platform. Ditulis eksplisit sebagai batasan
+/// penelitian (H29): platform memverifikasi usaha, usaha bertanggung jawab
+/// atas pekerjanya.
+model KycDocument {
+  id                String          @id @default(uuid()) @db.Uuid
+  providerProfileId String          @map("provider_profile_id") @db.Uuid
+  documentType      KycDocumentType @map("document_type")
+  fileUrl           String          @map("file_url")
+  status            KycStatus       @default(PENDING)
+  note              String?
+  uploadedAt        DateTime        @default(now()) @map("uploaded_at") @db.Timestamptz(6)
+  reviewedAt        DateTime?       @map("reviewed_at") @db.Timestamptz(6)
+
+  providerProfile ProviderProfile @relation(fields: [providerProfileId], references: [id], onDelete: Cascade)
+
+  @@index([providerProfileId])
+  @@map("kyc_documents")
+}
+
+// ============================================================
+// A2. TENAGA KERJA
+// ============================================================
+
+/// D31. Order SELALU dikerjakan pekerja, tidak pernah oleh akun provider
+/// secara langsung. Provider jadi entitas usaha yang mengelola, pekerja
+/// jadi entitas yang bergerak ke lokasi.
+///
+/// D36. Satu orang hanya boleh punya SATU keanggotaan aktif. Ditegakkan
+/// partial unique index pada userId dengan predikat membershipStatus =
+/// ACTIVE (H23, ada di migrasi SQL manual). Prisma tidak bisa menyatakan
+/// partial unique index, jadi JANGAN tambahkan @@unique([userId]) di sini,
+/// karena itu akan mengunci orang selamanya dan dia tidak bisa pindah usaha.
+///
+/// D39. Setiap provider WAJIB punya minimal satu pekerja ACTIVE dengan
+/// acceptsAssignments = true (H27, dijaga service layer).
+model ProviderWorker {
+  id                String                 @id @default(uuid()) @db.Uuid
+  providerProfileId String                 @map("provider_profile_id") @db.Uuid
+  userId            String                 @map("user_id") @db.Uuid
+  displayName       String                 @map("display_name") @db.VarChar(100)
+  photoUrl          String?                @map("photo_url")
+  /// Diisi pelamar saat melamar.
+  experienceNote    String?                @map("experience_note")
+  /// D33. Dibuat otomatis saat admin menyetujui e-KYC. Pemilik tidak
+  /// pernah melamar ke usahanya sendiri.
+  isOwner           Boolean                @default(false) @map("is_owner")
+  membershipStatus  WorkerMembershipStatus @default(PENDING) @map("membership_status")
+  /// D39. Bersedia turun ke lapangan sama sekali. false = pengelola saja,
+  /// tidak pernah muncul di penugasan mode apapun.
+  /// BEDA dengan isAvailable: penugasan Scheduled tidak melihat isAvailable,
+  /// dia melihat bentrok jadwal, jadi pemilik yang cuma mengelola tidak
+  /// cukup mematikan isAvailable saja.
+  acceptsAssignments Boolean               @default(true) @map("accepts_assignments")
+  /// D39. Toggle online Available Now, sifatnya harian. Hanya bermakna
+  /// kalau acceptsAssignments true.
+  isAvailable       Boolean                @default(false) @map("is_available")
+  currentLatitude   Decimal?               @map("current_latitude") @db.Decimal(10, 8)
+  currentLongitude  Decimal?               @map("current_longitude") @db.Decimal(11, 8)
+  /// D66. Dikirim saat berpindah lebih dari 200 m atau tiap 5 menit, bukan
+  /// interval tetap. D65: penanda ONLINE diambil dari koneksi Socket.IO,
+  /// bukan dari umur kolom ini.
+  locationUpdatedAt DateTime?              @map("location_updated_at") @db.Timestamptz(6)
+  /// Pemilik yang menyetujui lamaran. NULL untuk baris pemilik sendiri.
+  approvedBy        String?                @map("approved_by") @db.Uuid
+  approvedAt        DateTime?              @map("approved_at") @db.Timestamptz(6)
+  createdAt         DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  providerProfile ProviderProfile @relation(fields: [providerProfileId], references: [id], onDelete: Cascade)
+  user            User            @relation("WorkerAccount", fields: [userId], references: [id], onDelete: Restrict)
+  approver        User?           @relation("WorkerApprover", fields: [approvedBy], references: [id], onDelete: SetNull)
+
+  listings        WorkerListing[]
+  assignedOrders  Order[]         @relation("OrderAssignee")
+  crewAssignments OrderCrew[]
+  checkins        OrderCheckin[]
+
+  /// Dipakai bounding box filter sebelum Haversine presisi (D6).
+  /// WAJIB ada sebelum stress testing, karena filter available_now sekarang
+  /// join ke tabel ini, bukan membaca kolom di listings (D45).
+  @@index([currentLatitude, currentLongitude], map: "idx_worker_geo")
+  @@index([providerProfileId, membershipStatus, isAvailable], map: "idx_worker_matching")
+  @@index([userId])
+  @@map("provider_workers")
+}
+
+/// D50. Pemetaan pekerja ke listing, relasi banyak ke banyak. Menjawab
+/// pertanyaan "siapa bisa mengerjakan jasa apa".
+///
+/// Tanpa ini, pencocokan Available Now bisa mengirim fotografer untuk
+/// mencuci mobil, karena sistem tidak tahu siapa bisa apa. Mode Scheduled
+/// sebenarnya masih aman karena pemilik memilih manual, yang rusak adalah
+/// Available Now di mana sistem yang memilih.
+///
+/// D51. Di level listing, bukan sub-kategori, karena yang dipesan client
+/// adalah listing. Pemetaan ke sub-kategori terlalu kasar: seseorang bisa
+/// sanggup foto produk tapi tidak sanggup prewedding delapan jam.
+///
+/// D52. Pilihan pelamar bersifat USULAN, pemilik yang mengesahkan. Baris
+/// dibuat sejak pelamar mencentang, tapi baru berlaku ketika keanggotaannya
+/// ACTIVE. Tidak perlu kolom status tambahan, karena semua kueri pencocokan
+/// sudah menyaring dengan predikat itu.
+///
+/// D53. Listing tanpa satu pun pekerja terpetakan tertahan di DRAFT (H39).
+model WorkerListing {
+  id        String   @id @default(uuid()) @db.Uuid
+  workerId  String   @map("worker_id") @db.Uuid
+  listingId String   @map("listing_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  worker  ProviderWorker @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  listing Listing        @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@unique([workerId, listingId])
+  @@index([listingId])
+  @@map("worker_listings")
+}
+
+// ============================================================
+// B. KATALOG JASA (HYBRID APPROACH 2-LEVEL)
+// ============================================================
+
+model Category {
+  id           String   @id @default(uuid()) @db.Uuid
+  name         String   @unique @db.VarChar(100)
+  slug         String   @unique @db.VarChar(120)
+  description  String?
+  /// Nama ikon dari whitelist Lucide, mis. "spray-can". Diprioritaskan di atas iconUrl.
+  iconName     String?  @map("icon_name") @db.VarChar(50)
+  iconUrl      String?  @map("icon_url")
+  displayOrder Int      @default(0) @map("display_order")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  subcategories    Subcategory[]
+  taxonomyRequests TaxonomyRequest[]
+
+  @@map("categories")
+}
+
+/// Daftar sub-kategori aktif disuntikkan ke system prompt Gemini sebagai
+/// target intent extraction.
+/// Definisi dua belas sub-kategori contoh untuk pengujian ada di Lampiran B
+/// Keputusan-Desain-Sistem.md (D71).
+model Subcategory {
+  id                       String   @id @default(uuid()) @db.Uuid
+  categoryId               String   @map("category_id") @db.Uuid
+  name                     String   @db.VarChar(100)
+  slug                     String   @db.VarChar(120)
+  description              String?
+  /// Panduan harga bagi provider. PERINGATAN LUNAK, bukan batas keras,
+  /// supaya penyedia premium tidak terkunci di luar.
+  suggestedPriceMin        Decimal? @map("suggested_price_min") @db.Decimal(12, 2)
+  suggestedPriceMax        Decimal? @map("suggested_price_max") @db.Decimal(12, 2)
+  estimatedDurationMinutes Int?     @map("estimated_duration_minutes")
+  displayOrder             Int      @default(0) @map("display_order")
+  isActive                 Boolean  @default(true) @map("is_active")
+  createdAt                DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  category         Category               @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  attributes       SubcategoryAttribute[]
+  listings         Listing[]
+  taxonomyRequests TaxonomyRequest[]
+
+  @@unique([categoryId, slug])
+  @@map("subcategories")
+}
+
+/// INTI HYBRID APPROACH (D2, D3). Backend memvalidasi Listing.attributes
+/// terhadap definisi di tabel ini. Inilah yang membuat penambahan kategori
+/// baru tidak mengubah struktur basis data.
+///
+/// D72. attributeRole membagi atribut jadi dua peran:
+///   SPEC    diisi provider saat membuat listing, tidak memengaruhi harga
+///   OPTION  dipilih client saat memesan, punya delta harga di
+///           ListingOptionPrice
+///
+/// D67. Empat aturan saat admin mengubah definisi yang sudah dipakai listing:
+///   1. Validasi hanya dijalankan saat TULIS, tidak pernah saat baca.
+///      Listing lama tetap tayang.
+///   2. Atribut wajib baru hanya berlaku untuk listing baru. Listing lama
+///      ditandai attributesNeedUpdate dan dipaksa melengkapi saat diedit.
+///   3. Penghapusan atribut dan option bersifat SOFT lewat isActive.
+///   4. TIDAK ADA backfill otomatis. Sistem tidak menebak nilai atas nama
+///      provider.
+///
+/// D74. Option baru hanya boleh ditambahkan admin. Provider mengusulkan
+/// lewat TaxonomyRequest, karena kosakata yang tidak seragam merusak filter
+/// lintas penyedia yang jadi tujuan penelitian nomor 1.
+model SubcategoryAttribute {
+  id             String            @id @default(uuid()) @db.Uuid
+  subcategoryId  String            @map("subcategory_id") @db.Uuid
+  /// Key di JSONB Listing.attributes. snake_case, TIDAK PERNAH berubah.
+  attributeKey   String            @map("attribute_key") @db.VarChar(50)
+  /// Yang ditampilkan ke manusia, boleh diedit kapan saja.
+  label          String            @db.VarChar(100)
+  dataType       AttributeDataType @map("data_type")
+  attributeRole  AttributeRole     @default(SPEC) @map("attribute_role")
+  /// Hanya bermakna kalau attributeRole = OPTION.
+  pricingMode    PricingMode       @default(NONE) @map("pricing_mode")
+  /// Untuk SELECT / MULTISELECT. Nilai ditandai aktif atau tidak,
+  /// BUKAN dibuang, supaya nilai lama di listing tetap punya arti (D67).
+  options        Json?
+  unit           String?           @db.VarChar(20)
+  isRequired     Boolean           @default(false) @map("is_required")
+  isFilterable   Boolean           @default(false) @map("is_filterable")
+  /// D67. Penghapusan bersifat soft.
+  isActive       Boolean           @default(true) @map("is_active")
+  /// min, max, regex
+  validationRule Json?             @map("validation_rule")
+  displayOrder   Int               @default(0) @map("display_order")
+  createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  subcategory Subcategory @relation(fields: [subcategoryId], references: [id], onDelete: Cascade)
+
+  @@unique([subcategoryId, attributeKey])
+  @@index([subcategoryId, isActive])
+  @@map("subcategory_attributes")
+}
+
+/// D45. isAvailableNow DIBUANG. Status online sekarang TURUNAN, bukan kolom:
+/// listing bisa dipesan mendadak kalau punya minimal satu pekerja TERPETAKAN
+/// (WorkerListing) yang isAvailable = true, presence belum basi, dan tidak
+/// sedang in-flight.
+///
+/// Alasannya: sejak status online pindah ke pekerja, kalau kolom di listing
+/// dan kolom di pekerja sama-sama menyimpan ketersediaan, ada DUA sumber
+/// kebenaran dan pasti bentrok.
+///
+/// Konsekuensi: filter available_now pada GET /listings jadi join ke
+/// WorkerListing dan ProviderWorker, sehingga idx_worker_geo WAJIB ada
+/// sebelum stress testing.
+///
+/// supportsAvailableNow tetap ada sebagai KAPABILITAS: jasa ini memang
+/// cocok dipesan mendadak. Dekorasi pernikahan misalnya, tidak.
+model Listing {
+  id                       String        @id @default(uuid()) @db.Uuid
+  providerProfileId        String        @map("provider_profile_id") @db.Uuid
+  subcategoryId            String        @map("subcategory_id") @db.Uuid
+  title                    String        @db.VarChar(150)
+  description              String?
+  /// Harga dasar SEBELUM delta opsi (D73).
+  price                    Decimal       @db.Decimal(12, 2)
+  priceUnit                PriceUnitType @default(PER_JOB) @map("price_unit")
+  estimatedDurationMinutes Int?          @map("estimated_duration_minutes")
+  /// HANYA nilai atribut SPEC. Nilai atribut OPTION ada di ListingOptionPrice.
+  /// Index GIN di bawah; kalau versi Prisma tidak mendukungnya, tambahkan
+  /// manual lewat migrasi SQL (H18).
+  attributes               Json
+  /// D67. Penanda listing lama yang belum memenuhi atribut wajib yang baru
+  /// ditambahkan admin. Dipaksa dilengkapi pada kali berikutnya diedit (H48).
+  attributesNeedUpdate     Boolean       @default(false) @map("attributes_need_update")
+  supportsScheduled        Boolean       @default(true) @map("supports_scheduled")
+  supportsAvailableNow     Boolean       @default(false) @map("supports_available_now")
+  status                   ListingStatus @default(DRAFT)
+  ratingAverage            Decimal       @default(0) @map("rating_average") @db.Decimal(3, 2)
+  ratingCount              Int           @default(0) @map("rating_count")
+  orderCount               Int           @default(0) @map("order_count")
+  createdAt                DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  /// Soft delete, order lama tetap merujuk ke sini.
+  deletedAt                DateTime?     @map("deleted_at") @db.Timestamptz(6)
+
+  providerProfile ProviderProfile @relation(fields: [providerProfileId], references: [id], onDelete: Cascade)
+  subcategory     Subcategory     @relation(fields: [subcategoryId], references: [id], onDelete: Restrict)
+
+  photos       ListingPhoto[]
+  optionPrices ListingOptionPrice[]
+  faqs         ListingFaq[]
+  workers      WorkerListing[]
+  orders       Order[]
+  reviews      Review[]
+
+  @@index([subcategoryId, status], map: "idx_listing_search")
+  @@index([providerProfileId])
+  @@index([attributes(ops: JsonbOps)], type: Gin, map: "idx_listing_attributes")
+  @@map("listings")
+}
+
+/// D72. Nominal tambahan untuk tiap opsi yang ditawarkan sebuah listing.
+///
+/// Pembagian wewenang: ADMIN menentukan opsi APA SAJA yang tersedia (di
+/// SubcategoryAttribute.options), PROVIDER menentukan NOMINAL-nya dan MANA
+/// yang dia layani (di tabel ini). Opsi yang tidak dicentang tidak pernah
+/// muncul sebagai pilihan bagi client.
+///
+/// Cara hitung per dataType:
+///   SELECT       satu delta terpilih
+///   MULTISELECT  jumlah semua delta terpilih
+///   BOOLEAN      delta datar kalau true
+///   NUMBER       delta dikali nilai yang diisi client (PER_UNIT)
+///
+/// D73. HARGA SELALU DIHITUNG ULANG DI SERVER dari tabel ini (H55, prioritas
+/// tinggi). Request pemesanan hanya berisi PILIHAN opsi, tidak pernah berisi
+/// angka. Kalau client boleh mengirim total, siapa pun bisa memesan jasa
+/// premium seharga seribu rupiah lewat alat seperti Postman.
+model ListingOptionPrice {
+  id           String   @id @default(uuid()) @db.Uuid
+  listingId    String   @map("listing_id") @db.Uuid
+  attributeKey String   @map("attribute_key") @db.VarChar(50)
+  /// null untuk BOOLEAN dan NUMBER (PER_UNIT).
+  optionValue  String?  @map("option_value") @db.VarChar(100)
+  priceDelta   Decimal  @default(0) @map("price_delta") @db.Decimal(12, 2)
+  /// Opsi yang tidak dicentang provider tidak muncul ke client.
+  isOffered    Boolean  @default(true) @map("is_offered")
+
+  listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@unique([listingId, attributeKey, optionValue])
+  @@index([listingId])
+  @@map("listing_option_prices")
+}
+
+model ListingPhoto {
+  id           String   @id @default(uuid()) @db.Uuid
+  listingId    String   @map("listing_id") @db.Uuid
+  fileUrl      String   @map("file_url")
+  caption      String?  @db.VarChar(150)
+  displayOrder Int      @default(0) @map("display_order")
+  isPrimary    Boolean  @default(false) @map("is_primary")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@index([listingId])
+  @@map("listing_photos")
+}
+
+/// D78. Provider menulis sendiri tanya jawabnya di muka, tampil di halaman
+/// listing, terbaca SEMUA calon client. Teks saja, maksimal
+/// listingFaqMaxItems butir per listing (H73).
+///
+/// KENAPA INI DAN BUKAN PERCAKAPAN PRA-ORDER: pertanyaan sebelum memesan
+/// seharusnya dijawab STRUKTUR, bukan percakapan. Atribut SPEC sudah menjawab
+/// sebagian besar (sumber_air, sparepart, material, merek_dilayani semuanya
+/// adalah pertanyaan pra-order yang sudah jadi kolom), dan FAQ menutup sisanya.
+///
+/// Bedanya dengan percakapan: yang terbantu SEMUA calon client bukan satu
+/// penanya, provider tidak perlu online, tidak ada risiko disintermediasi,
+/// dan tidak menggeser platform ke model quotation yang ditolak D23.
+///
+/// Isi ditulis provider dan TIDAK dimoderasi otomatis (H76). Admin
+/// menonaktifkan lewat isActive kalau ada laporan.
+model ListingFaq {
+  id           String   @id @default(uuid()) @db.Uuid
+  listingId    String   @map("listing_id") @db.Uuid
+  question     String   @db.VarChar(200)
+  answer       String
+  displayOrder Int      @default(0) @map("display_order")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@index([listingId, displayOrder])
+  @@map("listing_faqs")
+}
+
+/// D74. Usulan penambahan katalog dari penyedia ke admin, tiga jenis dalam
+/// satu tabel. Menutup kelemahan model terpusat dari tiga arah sekaligus.
+///
+/// Provider TIDAK boleh membuat taksonomi sendiri. Bedanya dengan aplikasi
+/// pesan antar makanan: di sana orang memilih restoran dulu, sehingga option
+/// group satu penjual tidak pernah dibandingkan dengan penjual lain. Di sini
+/// filter LINTAS PENYEDIA adalah tujuan penelitian nomor 1, dan itu menuntut
+/// kosakata seragam. Kalau bebas, dalam sebulan akan ada "SUV", "Suv", dan
+/// "Kendaraan Besar" sebagai nilai berbeda, dan filter gagal tanpa terlihat
+/// gagal.
+///
+/// Usulan NEW_ATTRIBUTE yang disetujui SELALU masuk sebagai opsional, tidak
+/// pernah otomatis wajib. Satu provider tidak boleh memaksa puluhan provider
+/// lain mengisi kolom baru.
+///
+/// Batas 3 usulan aktif per provider, dihitung LINTAS JENIS (H57).
+/// Validasi bercabang per requestType (H56): NEW_ATTRIBUTE wajib
+/// subcategoryId, NEW_ATTRIBUTE_OPTION wajib subcategoryId dan attributeKey.
+model TaxonomyRequest {
+  id                    String                @id @default(uuid()) @db.Uuid
+  requestType           TaxonomyRequestType   @map("request_type")
+  providerProfileId     String                @map("provider_profile_id") @db.Uuid
+
+  /// Konteks NEW_SUBCATEGORY.
+  categoryId            String?               @map("category_id") @db.Uuid
+  /// Konteks NEW_ATTRIBUTE dan NEW_ATTRIBUTE_OPTION.
+  subcategoryId         String?               @map("subcategory_id") @db.Uuid
+  /// Konteks NEW_ATTRIBUTE_OPTION.
+  attributeKey          String?               @map("attribute_key") @db.VarChar(50)
+
+  /// Nama jasa, nama atribut, atau nilai option yang diusulkan.
+  proposedName          String                @map("proposed_name") @db.VarChar(150)
+  workDescription       String?               @map("work_description")
+  /// Jawaban "apa yang membuat harganya berbeda". Bahan admin menentukan
+  /// atribut OPTION.
+  priceFactors          String?               @map("price_factors")
+  /// Jawaban "hal yang biasanya ditanyakan client". Bahan admin menentukan
+  /// atribut SPEC.
+  commonQuestions       String?               @map("common_questions")
+  durationMinMinutes    Int?                  @map("duration_min_minutes")
+  durationMaxMinutes    Int?                  @map("duration_max_minutes")
+  bookingModeSuggestion String?               @map("booking_mode_suggestion") @db.VarChar(20)
+  marketPriceMin        Decimal?              @map("market_price_min") @db.Decimal(12, 2)
+  marketPriceMax        Decimal?              @map("market_price_max") @db.Decimal(12, 2)
+
+  /// SPEC atau OPTION menurut provider. Admin yang memutuskan final.
+  proposedRole          String?               @map("proposed_role") @db.VarChar(10)
+  proposedDataType      String?               @map("proposed_data_type") @db.VarChar(20)
+  affectsPrice          Boolean?              @map("affects_price")
+  /// Satu nilai per baris.
+  proposedOptions       String?               @map("proposed_options")
+  /// Kenapa ini perlu. PENENTU UTAMA diterima atau tidak, karena usulan
+  /// atribut sering sebenarnya kebutuhan opsi kustom yang menyamar.
+  reason                String?
+
+  status                TaxonomyRequestStatus @default(PENDING)
+  adminNote             String?               @map("admin_note")
+  /// Id taksonomi yang terbentuk kalau disetujui. Bahan angka Bab IV:
+  /// berapa usulan dari lapangan yang jadi taksonomi resmi.
+  resultingId           String?               @map("resulting_id") @db.Uuid
+  reviewedBy            String?               @map("reviewed_by") @db.Uuid
+  reviewedAt            DateTime?             @map("reviewed_at") @db.Timestamptz(6)
+  createdAt             DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  providerProfile ProviderProfile @relation(fields: [providerProfileId], references: [id], onDelete: Cascade)
+  category        Category?       @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  subcategory     Subcategory?    @relation(fields: [subcategoryId], references: [id], onDelete: SetNull)
+  reviewer        User?           @relation(fields: [reviewedBy], references: [id], onDelete: SetNull)
+
+  @@index([providerProfileId, status])
+  @@index([status, requestType])
+  @@index([subcategoryId, requestType])
+  @@map("taxonomy_requests")
+}
+
+// ============================================================
+// C. ORDER
+// ============================================================
+
+/// Harga dan atribut di-snapshot saat pemesanan (D10). Deadline disimpan
+/// sebagai kolom, bukan timer memori, supaya tahan restart server (D11).
+///
+/// DUA INVARIANT TERPISAH, dua pertanyaan berbeda:
+///   totalAmount = listingBaseAmount + optionsAmount   dari mana angkanya (D73)
+///   totalAmount = providerEarning + platformFee       ke mana angkanya pergi (D28)
+/// Keduanya ditegakkan CHECK constraint di migrasi SQL manual (H5, H53).
+///
+/// D40. KUNCI IN-FLIGHT PINDAH dari provider ke PEKERJA. Partial unique index
+/// pada assignedWorkerId, bukan providerProfileId, supaya usaha dengan lima
+/// pekerja bisa memegang lima order paralel. Kalau index lama dibiarkan,
+/// fitur yang diminta Pembimbing 1 justru diblokir oleh constraint sendiri.
+///
+/// D41. DUA JENIS PENGUNCIAN yang berbeda:
+///   in-flight  ditegakkan DATABASE lewat partial unique index
+///   jadwal     ditegakkan SERVICE LAYER lewat pemeriksaan tumpang tindih
+///              [scheduledAt, scheduledAt + snapshotDurationMinutes + buffer)
+/// Yang dikunci pada mode Scheduled bukan tanggal dan bukan orangnya,
+/// melainkan RENTANG WAKTU. Pekerja yang punya jadwal 12 September tetap
+/// boleh menerima pekerjaan 8 September.
+///
+/// D43. Slot dikunci DUA TINGKAT: tentatif saat ACCEPTED (lepas otomatis
+/// saat PAYMENT_EXPIRED atau CANCELLED), pasti saat PAID.
+///
+/// D70. Available Now: order ditawarkan ke maksimal 5 pekerja terdekat DAN
+/// muncul di dashboard pemilik. Yang pertama berhasil yang menang, lewat
+/// UPDATE bersyarat atomik (H38), pola yang sama dengan lock webhook.
+model Order {
+  id                  String            @id @default(uuid()) @db.Uuid
+  /// Nomor yang dibaca manusia: ORD-20260914-0001. UUID tidak enak dibacakan.
+  orderNumber         String            @unique @map("order_number") @db.VarChar(30)
+  clientId            String            @map("client_id") @db.Uuid
+  /// USAHA yang bertanggung jawab, penerima uang, pemilik rating.
+  providerProfileId   String            @map("provider_profile_id") @db.Uuid
+  /// D42, D68. PENANGGUNG JAWAB order, pekerja yang mengerjakan.
+  /// Nullable saat PENDING_ACCEPTANCE, WAJIB terisi mulai ACCEPTED (H24).
+  /// Di antarmuka dinamai "Penanggung jawab", bukan "Pekerja yang mengerjakan",
+  /// supaya client tidak kaget kalau datang lebih dari satu orang.
+  assignedWorkerId    String?           @map("assigned_worker_id") @db.Uuid
+  /// D70. Siapa yang menekan tombol terima. Bisa BERBEDA dari penanggung
+  /// jawab kalau pemilik yang menerima order Available Now.
+  acceptedBy          String?           @map("accepted_by") @db.Uuid
+  listingId           String            @map("listing_id") @db.Uuid
+  bookingMode         BookingModeType   @map("booking_mode")
+  status              OrderStatus       @default(PENDING_ACCEPTANCE)
+  /// Hanya mode SCHEDULED.
+  scheduledAt         DateTime?         @map("scheduled_at") @db.Timestamptz(6)
+
+  serviceAddress      String            @map("service_address")
+  serviceLatitude     Decimal           @map("service_latitude") @db.Decimal(10, 8)
+  serviceLongitude    Decimal           @map("service_longitude") @db.Decimal(11, 8)
+  serviceNotes        String?           @map("service_notes")
+
+  locationSource      LocationSourceType @map("location_source")
+  /// Akurasi GPS client saat memesan. HANYA bermakna kalau locationSource =
+  /// CURRENT_LOCATION, kalau tidak harus NULL (ditegakkan CHECK constraint).
+  /// Tanpa pemisahan ini, data pengukuran Bab IV tercampur antara yang
+  /// benar-benar dari GPS dan yang bukan.
+  locationAccuracyM   Decimal?          @map("location_accuracy_m") @db.Decimal(8, 2)
+
+  snapshotListingTitle    String   @map("snapshot_listing_title") @db.VarChar(150)
+  /// D68. Nama penanggung jawab saat ditugaskan, supaya riwayat lama tetap
+  /// benar kalau pekerja keluar.
+  snapshotAssigneeName    String?  @map("snapshot_assignee_name") @db.VarChar(100)
+  /// Nilai atribut SPEC listing saat dipesan.
+  snapshotAttributes      Json?    @map("snapshot_attributes")
+  /// D73. Opsi yang dipilih client: key, label, nilai, dan DELTA SAAT ITU.
+  /// Provider boleh mengubah tarif besok, order kemarin harus tetap bisa
+  /// dijelaskan angkanya baris per baris. Penerapan D10 di tingkat opsi.
+  snapshotSelectedOptions Json?    @map("snapshot_selected_options")
+  /// Durasi saat dipesan. Dipakai pemeriksaan bentrok jadwal Scheduled (D41)
+  /// dan estimasi waktu selesai.
+  snapshotDurationMinutes Int?     @map("snapshot_duration_minutes")
+
+  /// D73. Harga listing saat dipesan, TANPA opsi. Menggantikan basePrice,
+  /// karena nama "base" jadi menyesatkan begitu isinya sudah termasuk tambahan.
+  listingBaseAmount   Decimal           @map("listing_base_amount") @db.Decimal(12, 2)
+  /// D73. Jumlah seluruh delta opsi. WAJIB jadi kolom, bukan sekadar
+  /// dijumlahkan dari snapshotSelectedOptions, karena CHECK constraint tidak
+  /// bisa membaca isi JSONB.
+  optionsAmount       Decimal           @default(0) @map("options_amount") @db.Decimal(12, 2)
+  /// Komisi platform, 10 persen dari totalAmount.
+  platformFee         Decimal           @map("platform_fee") @db.Decimal(12, 2)
+  /// Yang dibayar client = listingBaseAmount + optionsAmount.
+  totalAmount         Decimal           @map("total_amount") @db.Decimal(12, 2)
+  /// totalAmount - platformFee.
+  providerEarning     Decimal           @map("provider_earning") @db.Decimal(12, 2)
+  platformFeeRefunded Decimal           @default(0) @map("platform_fee_refunded") @db.Decimal(12, 2)
+
+  /// AES reversible, BUKAN hash, karena client harus bisa melihatnya
+  /// berulang kali di layar. Digenerate saat transisi ke AWAITING_VERIFICATION,
+  /// bukan saat PAID.
+  /// D60. TIDAK PERNAH dikirim lewat email. Kalau kodenya bisa dibaca dari
+  /// inbox, client tidak perlu berada di lokasi untuk memberikannya, dan
+  /// seluruh nilai validasi dua lapis runtuh.
+  verificationCodeEncrypted String?   @map("verification_code_encrypted") @db.VarChar(255)
+  verificationAttempts      Int       @default(0) @map("verification_attempts") @db.SmallInt
+  /// Lockout setelah 5 percobaan gagal. INILAH yang sebenarnya melindungi
+  /// uang, bukan enkripsinya (H8).
+  verificationLockedUntil   DateTime? @map("verification_locked_until") @db.Timestamptz(6)
+  verificationExpiresAt     DateTime? @map("verification_expires_at") @db.Timestamptz(6)
+  verifiedAt                DateTime? @map("verified_at") @db.Timestamptz(6)
+
+  /// 5 menit AVAILABLE_NOW / 24 jam SCHEDULED.
+  responseDeadlineAt DateTime? @map("response_deadline_at") @db.Timestamptz(6)
+  paymentDeadlineAt  DateTime? @map("payment_deadline_at") @db.Timestamptz(6)
+  /// Akhir holding window 24 jam. Juga batas akhir client boleh buka dispute.
+  settlementDueAt    DateTime? @map("settlement_due_at") @db.Timestamptz(6)
+
+  acceptedAt         DateTime?       @map("accepted_at") @db.Timestamptz(6)
+  paidAt             DateTime?       @map("paid_at") @db.Timestamptz(6)
+  startedAt          DateTime?       @map("started_at") @db.Timestamptz(6)
+  completedAt        DateTime?       @map("completed_at") @db.Timestamptz(6)
+  settledAt          DateTime?       @map("settled_at") @db.Timestamptz(6)
+  cancelledAt        DateTime?       @map("cancelled_at") @db.Timestamptz(6)
+  cancellationReason String?         @map("cancellation_reason")
+  cancelledBy        OrderActorType? @map("cancelled_by")
+  createdAt          DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  client          User            @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  providerProfile ProviderProfile @relation(fields: [providerProfileId], references: [id], onDelete: Restrict)
+  assignedWorker  ProviderWorker? @relation("OrderAssignee", fields: [assignedWorkerId], references: [id], onDelete: Restrict)
+  acceptor        User?           @relation("OrderAcceptor", fields: [acceptedBy], references: [id], onDelete: SetNull)
+  listing         Listing         @relation(fields: [listingId], references: [id], onDelete: Restrict)
+
+  crew               OrderCrew[]
+  messages           OrderMessage[]
+  statusHistories    OrderStatusHistory[]
+  checkins           OrderCheckin[]
+  payments           Payment[]
+  walletTransactions WalletTransaction[]
+  refunds            Refund[]
+  dispute            Dispute?
+  review             Review?
+
+  @@index([clientId, status])
+  @@index([providerProfileId, status])
+  @@index([assignedWorkerId, status], map: "idx_order_worker_status")
+  /// Dipanggil setiap kali pemilik membuka dropdown penugasan (D41).
+  @@index([assignedWorkerId, scheduledAt], map: "idx_order_worker_schedule")
+  @@index([status, responseDeadlineAt], map: "idx_order_sla_sweep")
+  @@index([status, settlementDueAt], map: "idx_order_settlement_sweep")
+  @@index([clientId, createdAt], map: "idx_order_client_history")
+  @@map("orders")
+}
+
+/// D69. Pekerja PENDAMPING yang ikut turun ke lapangan, HANYA untuk mode
+/// SCHEDULED (H47).
+///
+/// Efeknya HANYA SATU: memblokir ketersediaan mereka selama rentang order itu
+/// (H45). Pendamping TIDAK bisa mengubah status order, TIDAK bisa check-in,
+/// dan TIDAK bisa memasukkan kode verifikasi. Semua itu tetap milik
+/// Order.assignedWorkerId saja.
+///
+/// Tanpa tabel ini, pekerja yang ikut turun tetap terlihat bebas dan bisa
+/// ditawari order lain di jam yang sama, sehingga ketersediaan pekerja
+/// sebagai sumber kebenaran tunggal jadi bolong.
+///
+/// KENAPA BUKAN PENUGASAN JAMAK: empat hal rusak sekaligus. Kunci in-flight
+/// tidak lagi bisa memakai partial unique index, tidak jelas siapa yang
+/// mengetik kode verifikasi, check-in menghasilkan beberapa koordinat dengan
+/// hasil berbeda, dan tabel akurasi geolokasi di Bab IV jadi ambigu.
+///
+/// Aturan: tidak wajib terpetakan ke listing (pendamping bisa saja hanya
+/// membantu mengangkat), ikut pemeriksaan bentrok jadwal (H46), batas jumlah
+/// = pekerja aktif dikurangi satu, bisa diubah sampai status ON_THE_WAY.
+model OrderCrew {
+  id        String   @id @default(uuid()) @db.Uuid
+  orderId   String   @map("order_id") @db.Uuid
+  workerId  String   @map("worker_id") @db.Uuid
+  /// Pemilik yang mencentang.
+  addedBy   String   @map("added_by") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  order   Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  worker  ProviderWorker @relation(fields: [workerId], references: [id], onDelete: Restrict)
+  addedByUser User       @relation(fields: [addedBy], references: [id], onDelete: Restrict)
+
+  @@unique([orderId, workerId])
+  /// Dipanggil di setiap pencocokan dan dropdown penugasan.
+  @@index([workerId])
+  @@map("order_crew")
+}
+
+/// D79. Pesan dalam order antara client dan penyedia. SATU percakapan per
+/// order, tidak ada percakapan lintas order dan tidak ada percakapan tanpa
+/// order.
+///
+/// MASA AKTIF: sejak ACCEPTED sampai settlementDueAt lewat, lalu READ-ONLY,
+/// tidak dihapus. Ditegakkan service layer (H70), karena bergantung pada
+/// status order yang berubah-ubah.
+///
+/// PESERTA: client pemilik order, pemilik provider, dan assignedWorkerId.
+/// Pendamping (OrderCrew) TIDAK ikut, dan pekerja lain di usaha yang sama
+/// juga ditolak (H71), sama polanya dengan ASSIGNEE_ONLY_TRANSITIONS di
+/// state machine. Admin MEMBACA saja saat menangani dispute.
+///
+/// DUA SISI, BUKAN TIGA. Client di satu sisi, penyedia di sisi lain, dan
+/// pemilik maupun pekerja sama-sama di sisi penyedia. Itu sebabnya readAt
+/// cukup satu kolom: artinya dibaca oleh SISI LAWAN. Kalau per orang, butuh
+/// tabel tanda baca tersendiri, tidak sebanding untuk cakupan ini.
+///
+/// CLIENT BICARA DENGAN ORDER, BUKAN DENGAN ORANG. Konsisten dengan D68 dan
+/// D49: yang bertanggung jawab adalah usaha. Client tidak perlu tahu nomor
+/// pribadi siapa pun, dan pemilik tetap bisa mengawasi apa yang dijanjikan
+/// atas nama usahanya.
+///
+/// TEKS SAJA, tanpa lampiran (H75). senderRole memakai OrderActorType yang
+/// sudah ada, dibatasi CHECK ke CLIENT, PROVIDER, WORKER, supaya tidak perlu
+/// enum baru.
+///
+/// TIDAK ADA model OrderConversation terpisah: satu order satu percakapan,
+/// jadi order itu sendiri yang jadi wadahnya.
+model OrderMessage {
+  id           BigInt         @id @default(autoincrement())
+  orderId      String         @map("order_id") @db.Uuid
+  senderUserId String         @map("sender_user_id") @db.Uuid
+  senderRole   OrderActorType @map("sender_role")
+  /// Teks saja, 1 sampai 2000 karakter (CHECK di migrasi SQL).
+  content      String
+  /// Dibaca oleh SISI LAWAN, bukan per orang.
+  readAt       DateTime?      @map("read_at") @db.Timestamptz(6)
+  createdAt    DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  order  Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  sender User  @relation(fields: [senderUserId], references: [id], onDelete: Restrict)
+
+  @@index([orderId, id])
+  @@index([orderId, readAt])
+  @@map("order_messages")
+}
+
+/// Audit trail state machine. Bukti transisi nyata untuk sidang, bukan hanya
+/// diagram di laporan. Append-only.
+/// Pergantian penanggung jawab (D44) juga dicatat di sini lewat metadata.
+model OrderStatusHistory {
+  id              BigInt         @id @default(autoincrement())
+  orderId         String         @map("order_id") @db.Uuid
+  fromStatus      OrderStatus?   @map("from_status")
+  toStatus        OrderStatus    @map("to_status")
+  actor           OrderActorType
+  changedByUserId String?        @map("changed_by_user_id") @db.Uuid
+  reason          String?
+  metadata        Json?
+  createdAt       DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  order     Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  changedBy User? @relation(fields: [changedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([orderId, id])
+  @@map("order_status_histories")
+}
+
+/// Setiap percobaan check-in direkam, TERMASUK yang gagal. Data mentah untuk
+/// analisis akurasi validasi geolokasi di Bab IV.
+///
+/// D31. workerId adalah bukti SIAPA yang benar-benar datang. Hanya
+/// assignedWorkerId yang boleh check-in, pendamping tidak (D69).
+model OrderCheckin {
+  id                    String   @id @default(uuid()) @db.Uuid
+  orderId               String   @map("order_id") @db.Uuid
+  workerId              String   @map("worker_id") @db.Uuid
+  latitude              Decimal  @db.Decimal(10, 8)
+  longitude             Decimal  @db.Decimal(11, 8)
+  /// Hasil perhitungan Haversine di SISI SERVER, tidak pernah mempercayai
+  /// nilai dari client.
+  distanceMeters        Decimal  @map("distance_meters") @db.Decimal(10, 2)
+  /// Disimpan per baris supaya data lama tetap bisa dianalisis kalau radius
+  /// diubah saat eksperimen.
+  radiusThresholdMeters Int      @default(100) @map("radius_threshold_meters")
+  /// Dari GPS browser.
+  accuracyMeters        Decimal? @map("accuracy_meters") @db.Decimal(8, 2)
+  isValid               Boolean  @map("is_valid")
+  attemptNumber         Int      @default(1) @map("attempt_number") @db.SmallInt
+  createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  order  Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  worker ProviderWorker @relation(fields: [workerId], references: [id], onDelete: Restrict)
+
+  @@index([orderId, attemptNumber])
+  @@index([workerId])
+  @@map("order_checkins")
+}
+
+// ============================================================
+// D. PEMBAYARAN DAN UANG
+// ============================================================
+// Modul ini TIDAK terdampak sama sekali oleh penambahan tenaga kerja, dan
+// itu disengaja. Uang tetap milik usaha (D48), rating tetap milik usaha
+// (D49). Pekerja tidak punya dompet, penggajian di luar cakupan sistem.
+
+/// Relasi ke order 1:N. Invoice expired tidak ditimpa, dibuat baris baru,
+/// supaya riwayat percobaan pembayaran tetap utuh.
+/// Partial unique index di migrasi SQL mencegah dua baris PAID atau dua
+/// baris PENDING per order (H2).
+model Payment {
+  id               String        @id @default(uuid()) @db.Uuid
+  orderId          String        @map("order_id") @db.Uuid
+  /// ID yang KITA generate dan kirim ke Xendit sebagai referensi.
+  xenditExternalId String        @unique @map("xendit_external_id") @db.VarChar(100)
+  xenditInvoiceId  String?       @unique @map("xendit_invoice_id") @db.VarChar(100)
+  paymentMethod    String?       @map("payment_method") @db.VarChar(50)
+  paymentChannel   String?       @map("payment_channel") @db.VarChar(50)
+  /// Yang kita tagih.
+  amount           Decimal       @db.Decimal(12, 2)
+  /// Yang BENAR-BENAR masuk. Pada Virtual Account nominalnya bisa berbeda,
+  /// jadi keduanya dipisah supaya selisih bisa dideteksi (H12).
+  paidAmount       Decimal?      @map("paid_amount") @db.Decimal(12, 2)
+  status           PaymentStatus @default(PENDING)
+  invoiceUrl       String?       @map("invoice_url")
+  expiresAt        DateTime?     @map("expires_at") @db.Timestamptz(6)
+  paidAt           DateTime?     @map("paid_at") @db.Timestamptz(6)
+  rawResponse      Json?         @map("raw_response")
+  createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  order   Order    @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  refunds Refund[]
+
+  @@index([orderId])
+  @@map("payments")
+}
+
+/// KUNCI IDEMPOTENCY. Tabel ini yang mencegah dana dobel.
+///
+/// Xendit melakukan retry sampai 6 kali dengan exponential backoff kalau
+/// endpoint tidak merespons 2xx, jadi handler PASTI menerima event yang sama
+/// berulang kali.
+///
+/// eventId disusun SENDIRI sebagai kunci komposit (invoice:<id>:<status>),
+/// karena Xendit tidak menyediakan header webhook id yang stabil. Kalau asal
+/// memakai payload.id, satu invoice yang mengirim callback PENDING lalu PAID
+/// akan bentrok di unique constraint.
+///
+/// Ambil lock dengan UPDATE bersyarat ATOMIK, bukan findUnique lalu if (H11).
+/// SENGAJA TANPA foreign key supaya log selalu bisa masuk walaupun
+/// referensinya belum ada.
+model WebhookEvent {
+  id               String                  @id @default(uuid()) @db.Uuid
+  provider         String                  @default("XENDIT") @db.VarChar(20)
+  domain           WebhookDomain
+  eventId          String                  @unique @map("event_id") @db.VarChar(150)
+  eventType        String?                 @map("event_type") @db.VarChar(50)
+  referenceId      String?                 @map("reference_id") @db.VarChar(100)
+  payload          Json
+  signatureValid   Boolean?                @map("signature_valid")
+  processingStatus WebhookProcessingStatus @default(RECEIVED) @map("processing_status")
+  /// Deteksi proses yang mati di tengah jalan. Baris PROCESSING yang lockedAt
+  /// lebih dari 5 menit dikembalikan ke FAILED oleh cron.
+  lockedAt         DateTime?               @map("locked_at") @db.Timestamptz(6)
+  retryCount       Int                     @default(0) @map("retry_count") @db.SmallInt
+  errorMessage     String?                 @map("error_message")
+  processedAt      DateTime?               @map("processed_at") @db.Timestamptz(6)
+  receivedAt       DateTime                @default(now()) @map("received_at") @db.Timestamptz(6)
+
+  @@index([processingStatus, lockedAt])
+  @@index([referenceId])
+  @@map("webhook_events")
+}
+
+/// D48. Wallet tetap milik USAHA, bukan pekerja.
+/// Kolom saldo adalah CACHE. Sumber kebenaran ada di WalletTransaction dan
+/// selalu bisa direkonsiliasi (kueri verifikasi V1).
+///
+/// Catatan untuk antarmuka: dana masuk pending saat CLIENT MEMBAYAR, bukan
+/// saat pekerjaan selesai. Kartu "dana ditahan" di dashboard muncul sejak
+/// pembayaran, bukan sejak pekerja menekan selesai. Ini sering tertukar.
+model Wallet {
+  id                String   @id @default(uuid()) @db.Uuid
+  providerProfileId String   @unique @map("provider_profile_id") @db.Uuid
+  /// Boleh ditarik.
+  balanceAvailable  Decimal  @default(0) @map("balance_available") @db.Decimal(14, 2)
+  /// Escrow, belum lewat holding window.
+  balancePending    Decimal  @default(0) @map("balance_pending") @db.Decimal(14, 2)
+  currency          String   @default("IDR") @db.Char(3)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  providerProfile ProviderProfile     @relation(fields: [providerProfileId], references: [id], onDelete: Cascade)
+  transactions    WalletTransaction[]
+  withdrawals     Withdrawal[]
+
+  @@map("wallets")
+}
+
+/// LEDGER append-only, model delta dua saldo. Tanpa updatedAt, tanpa delete.
+/// Koreksi dilakukan dengan baris ADJUSTMENT berlawanan arah, BUKAN UPDATE.
+///
+/// Peta delta per tipe:
+///   ESCROW_HOLD          available  0          pending +providerEarning
+///   ESCROW_RELEASE       available +earning    pending -providerEarning
+///   WITHDRAWAL           available -amount     pending  0
+///   WITHDRAWAL_REVERSAL  available +amount     pending  0
+///   REFUND_DEDUCTION     available  0          pending -amount
+///
+/// Kenapa model delta DUA kolom, bukan satu kolom dengan CREDIT/DEBIT:
+/// karena ESCROW_RELEASE adalah SATU peristiwa yang mengubah DUA saldo
+/// sekaligus. Model satu kolom dengan penanda arah tidak bisa
+/// merepresentasikannya.
+///
+/// Invariant yang diuji otomatis di Bab IV:
+///   SUM(amountAvailableDelta) = Wallet.balanceAvailable
+///   SUM(amountPendingDelta)   = Wallet.balancePending
+model WalletTransaction {
+  id                    BigInt                @id @default(autoincrement())
+  walletId              String                @map("wallet_id") @db.Uuid
+  orderId               String?               @map("order_id") @db.Uuid
+  withdrawalId          String?               @map("withdrawal_id") @db.Uuid
+  type                  WalletTransactionType
+  amountAvailableDelta  Decimal               @default(0) @map("amount_available_delta") @db.Decimal(14, 2)
+  amountPendingDelta    Decimal               @default(0) @map("amount_pending_delta") @db.Decimal(14, 2)
+  balanceAvailableAfter Decimal               @map("balance_available_after") @db.Decimal(14, 2)
+  balancePendingAfter   Decimal               @map("balance_pending_after") @db.Decimal(14, 2)
+  description           String?               @db.VarChar(255)
+  createdBy             TransactionCreator    @default(SYSTEM) @map("created_by")
+  createdAt             DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  wallet     Wallet      @relation(fields: [walletId], references: [id], onDelete: Restrict)
+  order      Order?      @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  withdrawal Withdrawal? @relation(fields: [withdrawalId], references: [id], onDelete: SetNull)
+
+  @@index([walletId, id])
+  @@index([orderId])
+  @@index([withdrawalId])
+  @@map("wallet_transactions")
+}
+
+/// Saldo didebit saat REQUESTED, BUKAN saat COMPLETED, supaya provider tidak
+/// bisa mengajukan berkali-kali melebihi saldonya. WITHDRAWAL_REVERSAL dipakai
+/// untuk REJECTED, FAILED, maupun REVERSED.
+///
+/// REQUESTED di sini berarti "provider mengajukan", BERBEDA ARTI dengan
+/// REQUESTED milik Xendit yang berarti "payout sudah dikirim ke channel bank".
+/// Karena itu status internal dan status mentah Xendit dipisah dua kolom.
+///
+/// REVERSED ada karena payout bisa berhasil lalu DIPANTULKAN bank tujuan,
+/// setelah sistem terlanjur menandai COMPLETED.
+model Withdrawal {
+  id                 String              @id @default(uuid()) @db.Uuid
+  walletId           String              @map("wallet_id") @db.Uuid
+  amount             Decimal             @db.Decimal(14, 2)
+  adminFee           Decimal             @default(0) @map("admin_fee") @db.Decimal(12, 2)
+  netAmount          Decimal             @map("net_amount") @db.Decimal(14, 2)
+  bankCode           String              @map("bank_code") @db.VarChar(20)
+  bankAccountNumber  String              @map("bank_account_number") @db.VarChar(40)
+  bankAccountName    String              @map("bank_account_name") @db.VarChar(150)
+  /// Status INTERNAL kita.
+  status             WithdrawalStatus    @default(REQUESTED)
+  xenditPayoutId     String?             @unique @map("xendit_payout_id") @db.VarChar(100)
+  /// Salinan MENTAH dari Xendit, jangan diterjemahkan.
+  xenditPayoutStatus XenditPayoutStatus? @map("xendit_payout_status")
+  /// INSUFFICIENT_BALANCE, INVALID_DESTINATION, REJECTED_BY_CHANNEL, dst.
+  failureCode        String?             @map("failure_code") @db.VarChar(50)
+  reviewedBy         String?             @map("reviewed_by") @db.Uuid
+  rejectionReason    String?             @map("rejection_reason")
+  reviewedAt         DateTime?           @map("reviewed_at") @db.Timestamptz(6)
+  completedAt        DateTime?           @map("completed_at") @db.Timestamptz(6)
+  reversedAt         DateTime?           @map("reversed_at") @db.Timestamptz(6)
+  createdAt          DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  wallet       Wallet              @relation(fields: [walletId], references: [id], onDelete: Restrict)
+  reviewer     User?               @relation(fields: [reviewedBy], references: [id], onDelete: SetNull)
+  transactions WalletTransaction[]
+
+  @@index([walletId, status])
+  @@map("withdrawals")
+}
+
+/// D29. Platform fee DIKEMBALIKAN PENUH saat refund akibat kesalahan provider.
+/// Client menerima 100 persen uangnya dan platform menanggung kehilangan
+/// komisinya. Paling mudah dipertahankan secara etis di sidang.
+/// Jejaknya di Order.platformFeeRefunded.
+model Refund {
+  id                  String       @id @default(uuid()) @db.Uuid
+  orderId             String       @map("order_id") @db.Uuid
+  paymentId           String       @map("payment_id") @db.Uuid
+  type                RefundType
+  amount              Decimal      @db.Decimal(12, 2)
+  includesPlatformFee Boolean      @default(true) @map("includes_platform_fee")
+  reason              String?
+  status              RefundStatus @default(REQUESTED)
+  xenditRefundId      String?      @map("xendit_refund_id") @db.VarChar(100)
+  initiatedBy         String       @map("initiated_by") @db.Uuid
+  createdAt           DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  completedAt         DateTime?    @map("completed_at") @db.Timestamptz(6)
+
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  payment   Payment @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  initiator User    @relation(fields: [initiatedBy], references: [id], onDelete: Restrict)
+
+  @@index([orderId])
+  @@map("refunds")
+}
+
+// ============================================================
+// E. DISPUTE
+// ============================================================
+
+/// Boleh dibuka sejak order berstatus ARRIVED sampai Order.settlementDueAt.
+/// Batas bawahnya ARRIVED karena sebelum pekerja tiba, masalah masih bisa
+/// diselesaikan dengan pembatalan biasa. Batas atasnya settlementDueAt karena
+/// setelah dana cair, order dianggap selesai permanen.
+///
+/// INILAH SEBABNYA holding window harus ada: kalau dana cair instan begitu
+/// kode diverifikasi, fitur dispute praktis tidak berguna karena uang sudah
+/// keluar sebelum client bisa mengadu.
+///
+/// Satu order satu dispute (UNIQUE), disengaja sebagai penyederhanaan
+/// ruang lingkup.
+model Dispute {
+  id              String            @id @default(uuid()) @db.Uuid
+  orderId         String            @unique @map("order_id") @db.Uuid
+  raisedByUserId  String            @map("raised_by_user_id") @db.Uuid
+  raisedByRole    DisputeRaiserRole @map("raised_by_role")
+  category        DisputeCategory
+  description     String
+  status          DisputeStatus     @default(OPEN)
+  resolutionNote  String?           @map("resolution_note")
+  refundAmount    Decimal?          @map("refund_amount") @db.Decimal(12, 2)
+  resolvedBy      String?           @map("resolved_by") @db.Uuid
+  createdAt       DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  resolvedAt      DateTime?         @map("resolved_at") @db.Timestamptz(6)
+
+  order    Order @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  raisedBy User  @relation("DisputeRaiser", fields: [raisedByUserId], references: [id], onDelete: Restrict)
+  resolver User? @relation("DisputeResolver", fields: [resolvedBy], references: [id], onDelete: SetNull)
+
+  evidences DisputeEvidence[]
+
+  @@map("disputes")
+}
+
+model DisputeEvidence {
+  id               String   @id @default(uuid()) @db.Uuid
+  disputeId        String   @map("dispute_id") @db.Uuid
+  uploadedByUserId String   @map("uploaded_by_user_id") @db.Uuid
+  fileUrl          String   @map("file_url")
+  fileType         String?  @map("file_type") @db.VarChar(20)
+  description      String?
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  dispute    Dispute @relation(fields: [disputeId], references: [id], onDelete: Cascade)
+  uploadedBy User    @relation(fields: [uploadedByUserId], references: [id], onDelete: Restrict)
+
+  @@index([disputeId])
+  @@map("dispute_evidences")
+}
+
+// ============================================================
+// F. REVIEW
+// ============================================================
+
+/// D49. Rating jatuh ke USAHA, bukan ke pekerja. Reputasi yang dilihat client
+/// di halaman listing adalah reputasi usaha. Kalau rating per pekerja, client
+/// harus memilih pekerja saat memesan supaya rating itu ada gunanya, dan itu
+/// mengubah alur pemesanan jauh lebih dalam dari yang diminta Pembimbing 1.
+/// Order.assignedWorkerId tetap disimpan sebagai jejak audit.
+///
+/// orderId UNIQUE: satu order hanya boleh menghasilkan satu review, supaya
+/// client tidak bisa memanipulasi reputasi dengan rating berkali-kali.
+///
+/// Denormalisasi providerProfileId dan listingId disengaja supaya query
+/// review provider tidak perlu join berlapis.
+/// Juga salah satu dari empat sumber personalisasi chatbot.
+model Review {
+  id                String    @id @default(uuid()) @db.Uuid
+  orderId           String    @unique @map("order_id") @db.Uuid
+  clientId          String    @map("client_id") @db.Uuid
+  providerProfileId String    @map("provider_profile_id") @db.Uuid
+  listingId         String    @map("listing_id") @db.Uuid
+  /// CHECK BETWEEN 1 AND 5, di migrasi SQL manual (H6).
+  rating            Int       @db.SmallInt
+  comment           String?
+  providerReply     String?   @map("provider_reply")
+  providerRepliedAt DateTime? @map("provider_replied_at") @db.Timestamptz(6)
+  isVisible         Boolean   @default(true) @map("is_visible")
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  order           Order           @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  client          User            @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  providerProfile ProviderProfile @relation(fields: [providerProfileId], references: [id], onDelete: Cascade)
+  listing         Listing         @relation(fields: [listingId], references: [id], onDelete: Restrict)
+
+  @@index([providerProfileId, isVisible])
+  @@index([listingId])
+  @@index([clientId, createdAt], map: "idx_review_client_history")
+  @@map("reviews")
+}
+
+// ============================================================
+// G. AI SERVICE DISCOVERY CHATBOT
+// ============================================================
+
+/// D77 (arahan Pembimbing 1), MEREVISI D26. Chatbot terbuka untuk TAMU,
+/// tidak lagi wajib login. Orang tidak akan mendaftar lebih dulu untuk
+/// mencari tahu apakah platformnya punya yang dia butuhkan, padahal justru
+/// di titik itulah chatbot paling berguna.
+///
+/// Tiga alasan asli D26 tetap dijaga dengan MEMISAHKAN TINGKAT, bukan dengan
+/// menutup akses:
+///                          TAMU                     SUDAH LOGIN
+///   intent extraction      ya                       ya
+///   rekomendasi listing    ya                       ya
+///   sumber lokasi          geolokasi browser        UserAddress
+///   riwayat dan harga      tidak                    ya
+///   personalizationSnap    null                     terisi
+///   lanjut ke pemesanan    diminta login dulu       langsung
+///   riwayat percakapan     sampai expiresAt         permanen
+///
+/// Yang hilang untuk tamu HANYA personalisasi, bukan fungsinya. Ini sekaligus
+/// jadi ajakan mendaftar yang wajar.
+///
+/// CHECK: userId IS NOT NULL OR guestToken IS NOT NULL (H63), di migrasi SQL.
+///
+/// PENGAMAN WAJIB (H19, prioritas tinggi): rate limiting berbasis identitas
+/// hilang untuk tamu, padahal tiap pesan memanggil Gemini yang ada biayanya.
+/// Tiga lapis: per guestToken 20 pesan per sesi, per alamat IP 50 pesan per
+/// jam (karena guestToken gampang dibuang dan dibuat baru), dan rem global
+/// harian. Jawaban ke tamu juga tidak boleh memuat data pribadi penyedia (H67).
+model ChatSession {
+  id                      String            @id @default(uuid()) @db.Uuid
+  /// D77. NULLABLE. Tamu boleh bertanya sebelum punya akun.
+  userId                  String?           @map("user_id") @db.Uuid
+  /// D77. Identitas sesi tamu, disimpan di localStorage browser.
+  guestToken              String?           @unique @map("guest_token") @db.VarChar(64)
+  title                   String?           @db.VarChar(150)
+  status                  ChatSessionStatus @default(ACTIVE)
+  /// Konteks pengguna yang disuntikkan ke system prompt Gemini: riwayat
+  /// kategori, alamat default, rata-rata rating yang diberikan, rentang harga.
+  /// INI YANG MEMBUAT klaim personalisasi bisa dibuktikan, bukan sekadar label.
+  /// TETAP NULL untuk tamu (H66).
+  personalizationSnapshot Json?             @map("personalization_snapshot")
+  lastIntent              Json?             @map("last_intent")
+  /// Penegakan batas pesan tamu tanpa perlu COUNT ke ChatMessage tiap pesan.
+  messageCount            Int               @default(0) @map("message_count")
+  /// D77. Hanya untuk sesi tamu.
+  expiresAt               DateTime?         @map("expires_at") @db.Timestamptz(6)
+  /// D77. Terisi saat sesi tamu diklaim setelah mendaftar. SUMBER METRIK
+  /// KONVERSI untuk Bab IV: berapa persen sesi chat tamu yang berlanjut jadi
+  /// pendaftaran akun (H68). Menjawab "apa gunanya chatbot ini" dengan angka.
+  claimedAt               DateTime?         @map("claimed_at") @db.Timestamptz(6)
+  startedAt               DateTime          @default(now()) @map("started_at") @db.Timestamptz(6)
+  endedAt                 DateTime?         @map("ended_at") @db.Timestamptz(6)
+  updatedAt               DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user     User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages ChatMessage[]
+
+  @@index([userId, startedAt])
+  @@index([guestToken])
+  @@index([status, expiresAt])
+  @@map("chat_sessions")
+}
+
+/// extractedIntent, intentConfidence dan latencyMs adalah INSTRUMEN
+/// PENGUKURAN untuk Bab IV, bukan kolom iseng. Rekam sejak hari pertama
+/// implementasi, jangan mulai dikumpulkan saat tahap pengujian.
+///
+/// Gemini dipanggil dengan structured output atau function calling, BUKAN
+/// parsing teks bebas dengan regex (H14). Kalau parsing teks bebas, satu
+/// perubahan gaya bahasa model bisa merusak seluruh fitur.
+model ChatMessage {
+  id                    BigInt          @id @default(autoincrement())
+  sessionId             String          @map("session_id") @db.Uuid
+  role                  ChatMessageRole
+  content               String
+  /// subcategoryId, lokasi, waktu, budget, preferensi.
+  extractedIntent       Json?           @map("extracted_intent")
+  intentConfidence      Decimal?        @map("intent_confidence") @db.Decimal(4, 3)
+  /// Array UUID.
+  recommendedListingIds Json?           @map("recommended_listing_ids")
+  geminiModel           String?         @map("gemini_model") @db.VarChar(50)
+  tokenUsage            Json?           @map("token_usage")
+  latencyMs             Int?            @map("latency_ms")
+  createdAt             DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  session ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, id])
+  @@map("chat_messages")
+}
+
+// ============================================================
+// H. NOTIFIKASI DAN SISTEM
+// ============================================================
+
+/// D58. Baris ditulis DI DALAM transaksi order, pengiriman email dilakukan
+/// SESUDAH commit. Panggilan API eksternal tidak boleh berada di dalam
+/// transaksi basis data, karena itu menahan lock selama menunggu jaringan.
+///
+/// Kegagalan kirim email TIDAK PERNAH membatalkan transisi order, karena uang
+/// dan status pekerjaan tidak boleh bergantung pada SMTP. Cron mengirim ulang
+/// baris FAILED maksimal tiga kali (H37).
+///
+/// D59. Email adalah kanal PELENGKAP untuk Available Now yang SLA-nya 5 menit,
+/// karena email butuh belasan detik sampai beberapa menit dan bisa masuk spam.
+/// Kanal utamanya Socket.IO. Untuk Scheduled yang SLA-nya 24 jam, email adalah
+/// kanal yang tepat.
+///
+/// referenceType dan referenceId adalah polymorphic reference, BUKAN foreign
+/// key, karena notifikasi bisa menunjuk ke order, withdrawal, dispute, lamaran
+/// pekerja, atau usulan taksonomi. Konsekuensinya tidak ada jaminan integritas
+/// referensial di kolom itu, dan itu trade-off yang diterima karena notifikasi
+/// bukan data kritikal.
+model Notification {
+  id            BigInt               @id @default(autoincrement())
+  userId        String               @map("user_id") @db.Uuid
+  type          NotificationType
+  channel       NotificationChannel  @default(IN_APP)
+  title         String               @db.VarChar(150)
+  body          String?
+  referenceType String?              @map("reference_type") @db.VarChar(30)
+  referenceId   String?              @map("reference_id") @db.Uuid
+  isRead        Boolean              @default(false) @map("is_read")
+  readAt        DateTime?            @map("read_at") @db.Timestamptz(6)
+  /// Hanya untuk channel EMAIL.
+  emailStatus   EmailDeliveryStatus? @map("email_status")
+  emailError    String?              @map("email_error")
+  sentAt        DateTime?            @map("sent_at") @db.Timestamptz(6)
+  createdAt     DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead, createdAt])
+  @@index([channel, emailStatus], map: "idx_notification_email_retry")
+  @@map("notifications")
+}
+
+/// Parameter PENELITIAN, supaya bisa diubah saat eksperimen tanpa deploy
+/// ulang. Inilah yang memungkinkan menjawab "kenapa radiusnya 100 meter"
+/// dengan data, bukan dengan asumsi.
+///
+///   platformFeePercentage              = 10
+///   geolocationRadiusMeters            = 100
+///   availableNowResponseMinutes        = 5
+///   scheduledApprovalHours             = 24
+///   settlementHoldingHours             = 24
+///   paymentWindowMinutes               = 10
+///   verificationMaxAttempts            = 5
+///   verificationLockoutMinutes         = 15
+///   availableNowOfferLimit             = 5     (D55)
+///   workerPresenceTimeoutMinutes       = 10    (D57, D65)
+///   workerLocationMoveThresholdMeters  = 200   (D66)
+///   workerLocationMaxIntervalMinutes   = 5     (D66)
+///   scheduleConflictBufferMinutes      = 30    (D41)
+///   emailRetryMaxAttempts              = 3     (D58)
+///   guestChatMessageLimit              = 20    (D77)
+///   guestChatIpHourlyLimit             = 50    (D77)
+///   guestChatDailyGlobalLimit          = TBD   (D77)
+///   accessTokenTtlMinutes              = 15    (D76)
+///   refreshTokenTtlDays                = 30    (D76)
+///   listingFaqMaxItems                 = 10    (D78)
+///   orderMessageMaxLength              = 2000  (D79)
+///   orderMessageRatePerMinute          = 20    (D79)
+///   kycDocumentMaxSizeMb               = 5     (D80)
+///   disputeEvidenceMaxSizeMb           = 5     (D80)
+///   orphanUploadCleanupHours           = 24    (D80)
+model PlatformSetting {
+  key         String   @id @db.VarChar(50)
+  value       Json
+  description String?
+  updatedBy   String?  @map("updated_by") @db.Uuid
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  updater User? @relation(fields: [updatedBy], references: [id], onDelete: SetNull)
+
+  @@map("platform_settings")
+}
