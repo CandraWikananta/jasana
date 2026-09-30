@@ -1,0 +1,21 @@
+node_modules/
+dist/
+build/
+coverage/
+.turbo/
+
+# Env: hanya .env.example yang masuk repo
+.env
+.env.*
+!.env.example
+
+# Prisma client hasil generate
+packages/database/generated/
+packages/database/node_modules/
+
+# Log dan berkas sementara
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+tmp/

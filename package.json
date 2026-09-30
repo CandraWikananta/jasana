@@ -1,0 +1,33 @@
+{
+  "name": "jasana",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Platform marketplace jasa on-demand berbasis web (Tugas Akhir)",
+  "engines": {
+    "node": ">=20"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace @jasana/api",
+    "build": "npm run build --workspace @jasana/shared && npm run build --workspace @jasana/database && npm run build --workspace @jasana/api",
+    "start": "npm run start --workspace @jasana/api",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "verify:phase-0": "node scripts/verify-phase-0.mjs",
+    "db:generate": "npm run generate --workspace @jasana/database",
+    "db:migrate": "npm run migrate --workspace @jasana/database",
+    "db:migrate:create": "npm run migrate:create --workspace @jasana/database",
+    "db:deploy": "npm run deploy --workspace @jasana/database",
+    "db:status": "npm run status --workspace @jasana/database",
+    "db:reset": "npm run reset --workspace @jasana/database",
+    "db:studio": "npm run studio --workspace @jasana/database",
+    "db:verify": "npm run verify --workspace @jasana/database",
+    "db:check-constraints": "npm run check-constraints --workspace @jasana/database"
+  },
+  "devDependencies": {
+    "typescript": "5.6.3"
+  }
+}

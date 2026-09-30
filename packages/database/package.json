@@ -1,0 +1,27 @@
+{
+  "name": "@jasana/database",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "generate": "prisma generate",
+    "migrate": "dotenv -e ../../.env -v PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK=true -- prisma migrate dev",
+    "migrate:create": "dotenv -e ../../.env -v PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK=true -- prisma migrate dev --create-only",
+    "deploy": "dotenv -e ../../.env -v PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK=true -- prisma migrate deploy",
+    "status": "dotenv -e ../../.env -- prisma migrate status",
+    "reset": "dotenv -e ../../.env -v PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK=true -- prisma migrate reset",
+    "studio": "dotenv -e ../../.env -- prisma studio",
+    "verify": "dotenv -e ../../.env -- node scripts/verify.mjs",
+    "check-constraints": "dotenv -e ../../.env -- node scripts/check-constraints.mjs"
+  },
+  "dependencies": {
+    "@prisma/client": "6.19.3"
+  },
+  "devDependencies": {
+    "dotenv-cli": "11.0.0",
+    "prisma": "6.19.3"
+  }
+}
