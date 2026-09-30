@@ -1,0 +1,2825 @@
+{
+  "info": {
+    "_postman_id": "af198717-a688-4d67-908c-386d74f63eda",
+    "name": "Jasana Backend - Fase 1 (Auth dan Akun)",
+    "description": "Pengujian endpoint Fase 1: autentikasi, sesi, verifikasi email, reset password, penggantian email, profil, dan alamat.\n\n## Persiapan\n1. Impor juga environment **Jasana Lokal**, lalu pilih di pojok kanan atas.\n2. Isi SMTP di `.env` dengan akun Ethereal (ethereal.email > Create Ethereal Account): `SMTP_HOST=smtp.ethereal.email`, `SMTP_PORT=587`, `SMTP_USER` dan `SMTP_PASSWORD` dari Ethereal. Tanpa ini, request yang butuh token dari email dilewati.\n3. Jalankan server: `npm run dev` di akar repo.\n\n## Cara menjalankan\n- Jalankan folder berurutan dari 00. Folder 01 membuat akun baru setiap kali, jadi setiap putaran dimulai bersih.\n- Folder 04, 05, dan 07 butuh token dari inbox Ethereal. Jalankan per request: setelah email masuk, salin token ke variabel environment, lalu lanjutkan.\n- Lewat Collection Runner, request yang butuh token email otomatis DILEWATI kalau variabelnya kosong. Folder lain tetap berjalan.\n\n## Rate limit (in-memory, PRD 5.5)\nLogin 10 per 15 menit per IP, dan satu putaran penuh memakai tepat 10. Forgot-password 3 per jam per IP, resend-verification 1 per menit per akun, ganti email 3 per hari per akun. Kalau kena 429 saat mengulang, restart `npm run dev`.\n\n## Access token\nBerlaku 15 menit. Skrip pre-request collection memperpanjangnya otomatis lewat `/auth/refresh` kalau hampir habis.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{access_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Perpanjang access token otomatis kalau sisa umurnya < 30 detik.",
+          "// Access token hanya berlaku 15 menit, sedangkan menguji manual bisa lebih lama.",
+          "const access = pm.environment.get('access_token');",
+          "const refresh = pm.environment.get('refresh_token');",
+          "const isRefreshCall = pm.request.url.toString().indexOf('/auth/refresh') !== -1;",
+          "",
+          "function expOf(jwt) {",
+          "  try {",
+          "    let part = jwt.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');",
+          "    part += '='.repeat((4 - (part.length % 4)) % 4);",
+          "    return JSON.parse(atob(part)).exp;",
+          "  } catch (e) {",
+          "    return null;",
+          "  }",
+          "}",
+          "",
+          "const exp = access ? expOf(access) : null;",
+          "if (exp && refresh && !isRefreshCall && exp * 1000 - Date.now() < 30 * 1000) {",
+          "  pm.sendRequest({",
+          "    url: pm.environment.get('base_url') + '/auth/refresh',",
+          "    method: 'POST',",
+          "    header: { 'Content-Type': 'application/json' },",
+          "    body: { mode: 'raw', raw: JSON.stringify({ refresh_token: refresh }) }",
+          "  }, function (err, res) {",
+          "    if (!err && res.code === 200) {",
+          "      const result = res.json().data;",
+          "      pm.environment.set('access_token', result.access_token);",
+          "      pm.environment.set('refresh_token', result.refresh_token);",
+          "      console.log('Access token diperpanjang otomatis lewat /auth/refresh');",
+          "    } else {",
+          "      console.warn('Gagal memperpanjang access token otomatis. Jalankan request Login lagi.');",
+          "    }",
+          "  });",
+          "}"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "if (pm.response.code === 429) {",
+          "  console.warn('Kena rate limit (hitungan di memori server). Restart \"npm run dev\" untuk mengosongkannya.');",
+          "}",
+          "pm.test('Respons berbentuk envelope PRD 4.1', function () {",
+          "  const body = pm.response.json();",
+          "  pm.expect(body).to.have.property('success');",
+          "  if (body.success) pm.expect(body).to.have.property('data');",
+          "  else pm.expect(body.error).to.include.keys('code', 'message', 'details');",
+          "});"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "00. Health check",
+      "description": "Memastikan server dan basis data hidup sebelum menguji apa pun.",
+      "item": [
+        {
+          "name": "Health",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Basis data up', function () {",
+                  "  pm.expect(pm.response.json().data.database).to.eql('up');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "01. Registrasi dan login",
+      "description": "Registrasi SELALU membuat akun baru dengan email dan nomor ponsel acak, lalu mengosongkan token sisa putaran sebelumnya. Jalankan folder ini lebih dulu setiap memulai putaran uji baru.\n\nEmail verifikasi terkirim ke inbox Ethereal, dipakai di folder 04.",
+      "item": [
+        {
+          "name": "Registrasi",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const stamp = Date.now();",
+                  "pm.environment.set('full_name', 'Pengguna Postman');",
+                  "pm.environment.set('email', 'pengguna.' + stamp + '@jasana.test');",
+                  "pm.environment.set('phone', '0812' + String(Math.floor(10000000 + Math.random() * 89999999)));",
+                  "pm.environment.set('password', 'Rahasia-' + stamp);",
+                  "[",
+                  "  'access_token', 'refresh_token', 'user_id', 'rt_A', 'rt_B', 'rt_C', 'rt_device2', 'at_device2',",
+                  "  'rt_revoked', 'verification_token', 'reset_token', 'email_change_token', 'old_email',",
+                  "  'new_email', 'new_password', 'address_id', 'address_id_2'",
+                  "].forEach(function (key) { pm.environment.set(key, ''); });"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', function () { pm.response.to.have.status(201); });",
+                  "const user = pm.response.json().data.user;",
+                  "pm.environment.set('user_id', user.id);",
+                  "pm.test('Role tetap CLIENT walau body mengirim ADMIN', function () { pm.expect(user.role).to.eql('CLIENT'); });",
+                  "pm.test('Email belum terverifikasi (D62)', function () { pm.expect(user.email_verified).to.eql(false); });",
+                  "pm.test('Nomor ponsel dinormalisasi ke +628', function () { pm.expect(user.phone).to.match(/^\\+628\\d+$/); });",
+                  "pm.test('Password tidak pernah ikut di respons', function () {",
+                  "  pm.expect(pm.response.text().toLowerCase()).to.not.include('password');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/register",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "register"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"{{full_name}}\",\n  \"email\": \"{{email}}\",\n  \"phone\": \"{{phone}}\",\n  \"password\": \"{{password}}\",\n  \"role\": \"ADMIN\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Body sengaja menyelipkan `role: \"ADMIN\"`. Field yang tidak dikenal dibuang Zod, jadi akun tetap CLIENT."
+          },
+          "response": []
+        },
+        {
+          "name": "Registrasi email duplikat (huruf besar)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.environment.set('email_upper', String(pm.environment.get('email')).toUpperCase());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () { pm.response.to.have.status(422); });",
+                  "pm.test('Kode error VALIDATION_ERROR', function () {",
+                  "  pm.expect(pm.response.json().error.code).to.eql('VALIDATION_ERROR');",
+                  "});",
+                  "pm.test('Field yang bermasalah: email', function () {",
+                  "  pm.expect(pm.response.json().error.details[0].path).to.eql('email');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/register",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "register"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"Duplikat\",\n  \"email\": \"{{email_upper}}\",\n  \"phone\": \"081300000000\",\n  \"password\": \"password-duplikat\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login (email)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "const result = pm.response.json().data;",
+                  "pm.environment.set('access_token', result.access_token);",
+                  "pm.environment.set('refresh_token', result.refresh_token);",
+                  "pm.test('Access token berlaku 15 menit', function () { pm.expect(result.expires_in).to.eql(900); });",
+                  "pm.test('Refresh token 64 hex', function () { pm.expect(result.refresh_token).to.match(/^[0-9a-f]{64}$/); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Sesi utama. Token disimpan ke `access_token` dan `refresh_token`."
+          },
+          "response": []
+        },
+        {
+          "name": "Login (nomor ponsel)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Akun yang sama', function () {",
+                  "  pm.expect(pm.response.json().data.user.id).to.eql(pm.environment.get('user_id'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"{{phone}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login password salah",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401', function () { pm.response.to.have.status(401); });",
+                  "pm.test('Kode error UNAUTHORIZED', function () {",
+                  "  pm.expect(pm.response.json().error.code).to.eql('UNAUTHORIZED');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"bukan-passwordnya\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Profil saya (GET /auth/me)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "const me = pm.response.json().data;",
+                  "pm.test('Belum verifikasi tapi tetap boleh login (D62)', function () { pm.expect(me.email_verified).to.eql(false); });",
+                  "pm.test('Belum jadi provider maupun pekerja', function () {",
+                  "  pm.expect(me.provider).to.eql(null);",
+                  "  pm.expect(me.worker).to.eql(null);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "02. Rotasi dan deteksi pemakaian ulang (KRITERIA FASE 1)",
+      "description": "Kriteria selesai Fase 1 (PRD Bagian 9): rotasi terbukti mencabut `family_id` saat token lama dipakai ulang.\n\nSkenario pencurian: penyerang menyalin refresh token A, korban terus memakai aplikasi (A -> B -> C), lalu penyerang memakai A. Server tidak tahu mana pemilik asli, jadi SELURUH rantai dicabut, termasuk C milik korban.\n\nFolder ini memakai sesi terpisah (`rt_A`, `rt_B`, `rt_C`). Sesi utama dari folder 01 tidak ikut mati karena family-nya berbeda.\n\nBukti di basis data (SQL editor Supabase):\n```sql\nSELECT family_id, revoked_at, replaced_by, created_at\nFROM refresh_tokens\nWHERE user_id = '<user_id dari environment>'\nORDER BY created_at;\n```\nTiga baris family korban: `revoked_at` terisi semua, `replaced_by` membentuk rantai A -> B -> C.",
+      "item": [
+        {
+          "name": "1. Login sesi korban (dapat A)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.environment.set('rt_A', pm.response.json().data.refresh_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "User-Agent",
+                "value": "Browser-Korban"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "2. Refresh A (dapat B)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "const next = pm.response.json().data.refresh_token;",
+                  "pm.test('Token dirotasi, bukan dipakai ulang', function () { pm.expect(next).to.not.eql(pm.environment.get('rt_A')); });",
+                  "pm.environment.set('rt_B', next);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/refresh",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "refresh"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{rt_A}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "3. Refresh B (dapat C)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.environment.set('rt_C', pm.response.json().data.refresh_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/refresh",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "refresh"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{rt_B}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "4. Penyerang memakai ulang A",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401', function () { pm.response.to.have.status(401); });",
+                  "pm.test('Kode error UNAUTHORIZED', function () {",
+                  "  pm.expect(pm.response.json().error.code).to.eql('UNAUTHORIZED');",
+                  "});",
+                  "pm.test('Pesan menyebut pemakaian ulang', function () {",
+                  "  pm.expect(pm.response.json().error.message).to.include('sudah pernah dipakai');",
+                  "});",
+                  "pm.test('Penyerang tidak mendapat token apa pun', function () {",
+                  "  pm.expect(pm.response.json()).to.not.have.property('data');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/refresh",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "refresh"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{rt_A}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "5. Korban memakai C (terbaru) -> ikut mati",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401', function () { pm.response.to.have.status(401); });",
+                  "pm.test('Kode error UNAUTHORIZED', function () {",
+                  "  pm.expect(pm.response.json().error.code).to.eql('UNAUTHORIZED');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/refresh",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "refresh"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{rt_C}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Bukti seluruh rantai dicabut, bukan hanya token yang dipakai ulang."
+          },
+          "response": []
+        },
+        {
+          "name": "6. Sesi utama (family lain) tetap hidup",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
+            },
+            "description": "Pencabutan sebatas satu family, bukan seluruh akun."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "03. Daftar perangkat dan logout",
+      "description": "Empat pemicu pencabutan refresh token (D76): logout (satu token), logout semua perangkat, ganti password, dan pemakaian ulang.\n\nCatatan: access token tetap berlaku sampai kedaluwarsa (maksimal 15 menit) walau refresh token sudah dicabut, karena JWT tanpa state (PRD 5.1).",
+      "item": [
+        {
+          "name": "Login perangkat kedua",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "const result = pm.response.json().data;",
+                  "pm.environment.set('rt_device2', result.refresh_token);",
+                  "pm.environment.set('at_device2', result.access_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "User-Agent",
+                "value": "Postman-Ponsel"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Daftar perangkat aktif",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "const sessions = pm.response.json().data;",
+                  "pm.test('Perangkat kedua terdaftar', function () {",
+                  "  pm.expect(sessions.map(function (s) { return s.user_agent; })).to.include('Postman-Ponsel');",
+                  "});",
+                  "pm.test('Sesi korban dari folder 02 sudah tidak terdaftar', function () {",
+                  "  pm.expect(sessions.map(function (s) { return s.user_agent; })).to.not.include('Browser-Korban');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/sessions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "sessions"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Logout perangkat kedua",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Token dicabut', function () { pm.expect(pm.response.json().data.revoked).to.eql(true); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/logout",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "logout"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{at_device2}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{rt_device2}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Refresh perangkat kedua -> 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401', function () { pm.response.to.have.status(401); });",
+                  "pm.test('Kode error UNAUTHORIZED', function () {",
+                  "  pm.expect(pm.response.json().error.code).to.eql('UNAUTHORIZED');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/refresh",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "refresh"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{rt_device2}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Logout semua perangkat",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Minimal satu sesi dicabut', function () {",
+                  "  pm.expect(pm.response.json().data.revoked_count).to.be.at.least(1);",
+                  "});",
+                  "pm.environment.set('refresh_token', '');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/logout-all",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "logout-all"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login ulang",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "const result = pm.response.json().data;",
+                  "pm.environment.set('access_token', result.access_token);",
+                  "pm.environment.set('refresh_token', result.refresh_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "04. Verifikasi email (butuh Ethereal)",
+      "description": "Token verifikasi hanya ada di email. Basis data cuma menyimpan hash SHA-256-nya, jadi tidak bisa diambil dari tabel.\n\nUrutan:\n1. Send \"Kirim ulang verifikasi\". Ini membatalkan tautan dari email registrasi.\n2. Buka inbox Ethereal (ethereal.email > Messages), cari email terbaru berjudul \"Verifikasi alamat email Jasana\", salin nilai token dari tautan (bagian setelah ?token=) ke variabel `verification_token`, lalu Send.\n\nRequest yang butuh `verification_token` otomatis DILEWATI kalau variabelnya masih kosong.",
+      "item": [
+        {
+          "name": "Kirim ulang verifikasi",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Email dikirim', function () { pm.expect(pm.response.json().data.sent).to.eql(true); });",
+                  "pm.environment.set('verification_token', '');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/resend-verification",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "resend-verification"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Kirim ulang lagi dalam 1 menit -> 429",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 429', function () { pm.response.to.have.status(429); });",
+                  "pm.test('Kode error RATE_LIMIT_EXCEEDED', function () {",
+                  "  pm.expect(pm.response.json().error.code).to.eql('RATE_LIMIT_EXCEEDED');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/resend-verification",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "resend-verification"
+              ]
+            },
+            "description": "Rate limit 1 per menit per akun (PRD 5.5)."
+          },
+          "response": []
+        },
+        {
+          "name": "Verifikasi email",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.environment.get('verification_token')) {",
+                  "  console.warn('[LEWATI] verification_token belum diisi. Buka inbox Ethereal (ethereal.email > Messages), cari email terbaru berjudul \"Verifikasi alamat email Jasana\", salin nilai token dari tautan (bagian setelah ?token=) ke variabel environment ini, lalu Send.');",
+                  "  if (pm.execution && pm.execution.skipRequest) pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Waktu verifikasi terisi', function () {",
+                  "  pm.expect(pm.response.json().data.email_verified_at).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/verify-email",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "verify-email"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{verification_token}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Verifikasi dengan token yang sama -> sekali pakai",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.environment.get('verification_token')) {",
+                  "  console.warn('[LEWATI] verification_token belum diisi. Isi dulu lewat request sebelumnya.');",
+                  "  if (pm.execution && pm.execution.skipRequest) pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () { pm.response.to.have.status(422); });",
+                  "pm.test('Kode error TOKEN_ALREADY_USED', function () {",
+                  "  pm.expect(pm.response.json().error.code).to.eql('TOKEN_ALREADY_USED');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/verify-email",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "verify-email"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{verification_token}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Verifikasi dengan token asal",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () { pm.response.to.have.status(422); });",
+                  "pm.test('Kode error TOKEN_INVALID', function () {",
+                  "  pm.expect(pm.response.json().error.code).to.eql('TOKEN_INVALID');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/verify-email",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "verify-email"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Profil setelah verifikasi",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.environment.get('verification_token')) {",
+                  "  console.warn('[LEWATI] verification_token belum diisi. Verifikasi belum dilakukan.');",
+                  "  if (pm.execution && pm.execution.skipRequest) pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Email terverifikasi', function () { pm.expect(pm.response.json().data.email_verified).to.eql(true); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "05. Lupa dan reset password",
+      "description": "`forgot-password` SELALU membalas sukses dengan balasan identik, terdaftar atau tidak, supaya tidak bisa dipakai menebak siapa yang punya akun (PRD 5.4).\n\nSetelah menjalankan \"Lupa password (email terdaftar)\": Buka inbox Ethereal (ethereal.email > Messages), cari email terbaru berjudul \"Reset password Jasana\", salin nilai token dari tautan (bagian setelah ?token=) ke variabel `reset_token`, lalu Send.\n\nRate limit 3 per jam per IP. Folder ini memakai 2, jadi menjalankannya dua kali dalam satu jam akan kena 429. Restart server untuk mengosongkan hitungan.",
+      "item": [
+        {
+          "name": "Lupa password (email terdaftar)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.environment.set('forgot_body_registered', pm.response.text());",
+                  "pm.environment.set('reset_token', '');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/forgot-password",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "forgot-password"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Lupa password (email TIDAK terdaftar)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Balasan identik dengan email terdaftar', function () {",
+                  "  pm.expect(pm.response.text()).to.eql(pm.environment.get('forgot_body_registered'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/forgot-password",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "forgot-password"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"tidak.terdaftar.{{$timestamp}}@jasana.test\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Reset password",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.environment.get('reset_token')) {",
+                  "  console.warn('[LEWATI] reset_token belum diisi. Buka inbox Ethereal (ethereal.email > Messages), cari email terbaru berjudul \"Reset password Jasana\", salin nilai token dari tautan (bagian setelah ?token=) ke variabel environment ini, lalu Send.');",
+                  "  if (pm.execution && pm.execution.skipRequest) pm.execution.skipRequest();",
+                  "}",
+                  "pm.environment.set('new_password', 'Reset-' + Date.now());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Seluruh sesi dicabut (H65)', function () {",
+                  "  pm.expect(pm.response.json().data.sessions_revoked).to.be.at.least(1);",
+                  "});",
+                  "pm.environment.set('rt_revoked', pm.environment.get('refresh_token'));",
+                  "pm.environment.set('password', pm.environment.get('new_password'));",
+                  "pm.environment.set('refresh_token', '');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/reset-password",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "reset-password"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{reset_token}}\",\n  \"new_password\": \"{{new_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Reset dengan token yang sama -> sekali pakai",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.environment.get('reset_token')) {",
+                  "  console.warn('[LEWATI] reset_token belum diisi. Isi dulu lewat request sebelumnya.');",
+                  "  if (pm.execution && pm.execution.skipRequest) pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () { pm.response.to.have.status(422); });",
+                  "pm.test('Kode error TOKEN_ALREADY_USED', function () {",
+                  "  pm.expect(pm.response.json().error.code).to.eql('TOKEN_ALREADY_USED');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/reset-password",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "reset-password"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{reset_token}}\",\n  \"new_password\": \"password-lain-789\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Refresh sesi lama -> 401",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.environment.get('rt_revoked')) {",
+                  "  console.warn('[LEWATI] rt_revoked belum diisi. Reset password belum dilakukan.');",
+                  "  if (pm.execution && pm.execution.skipRequest) pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401', function () { pm.response.to.have.status(401); });",
+                  "pm.test('Kode error UNAUTHORIZED', function () {",
+                  "  pm.expect(pm.response.json().error.code).to.eql('UNAUTHORIZED');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/refresh",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "refresh"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{rt_revoked}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login (password terkini)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "const result = pm.response.json().data;",
+                  "pm.environment.set('access_token', result.access_token);",
+                  "pm.environment.set('refresh_token', result.refresh_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Memakai password baru kalau reset dilakukan, atau password lama kalau reset dilewati."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "06. Profil dan ganti password",
+      "description": "Ganti password mencabut SELURUH refresh token milik user, termasuk sesi pemanggil sendiri (D76, H65), jadi setelahnya login ulang.",
+      "item": [
+        {
+          "name": "Ubah profil",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "const user = pm.response.json().data;",
+                  "pm.test('Nama berubah', function () { pm.expect(user.full_name).to.eql('Nama Diperbarui'); });",
+                  "pm.test('Email tidak berubah lewat endpoint ini', function () { pm.expect(user.email).to.eql(pm.environment.get('email')); });",
+                  "pm.test('Role tetap CLIENT', function () { pm.expect(user.role).to.eql('CLIENT'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "me"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"Nama Diperbarui\",\n  \"avatar_url\": \"https://cdn.jasana.test/avatar.png\",\n  \"email\": \"diam.diam@jasana.test\",\n  \"role\": \"ADMIN\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "`email` dan `role` sengaja diselipkan dan harus diabaikan. Email punya jalur sendiri (D64)."
+          },
+          "response": []
+        },
+        {
+          "name": "Ganti password, password saat ini salah",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () { pm.response.to.have.status(422); });",
+                  "pm.test('Kode error VALIDATION_ERROR', function () {",
+                  "  pm.expect(pm.response.json().error.code).to.eql('VALIDATION_ERROR');",
+                  "});",
+                  "pm.test('Field yang bermasalah: current_password', function () {",
+                  "  pm.expect(pm.response.json().error.details[0].path).to.eql('current_password');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/me/change-password",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "me",
+                "change-password"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"current_password\": \"salah-total\",\n  \"new_password\": \"password-baru-456\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Dibalas 422, bukan 401, supaya client tidak mengira access token-nya mati."
+          },
+          "response": []
+        },
+        {
+          "name": "Ganti password",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.environment.set('new_password', 'Ganti-' + Date.now());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Seluruh sesi dicabut', function () {",
+                  "  pm.expect(pm.response.json().data.sessions_revoked).to.be.at.least(1);",
+                  "});",
+                  "pm.environment.set('rt_revoked', pm.environment.get('refresh_token'));",
+                  "pm.environment.set('password', pm.environment.get('new_password'));",
+                  "pm.environment.set('refresh_token', '');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/me/change-password",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "me",
+                "change-password"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"current_password\": \"{{password}}\",\n  \"new_password\": \"{{new_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Refresh sesi sebelum ganti password -> 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401', function () { pm.response.to.have.status(401); });",
+                  "pm.test('Kode error UNAUTHORIZED', function () {",
+                  "  pm.expect(pm.response.json().error.code).to.eql('UNAUTHORIZED');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/refresh",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "refresh"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{rt_revoked}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login dengan password baru",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "const result = pm.response.json().data;",
+                  "pm.environment.set('access_token', result.access_token);",
+                  "pm.environment.set('refresh_token', result.refresh_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "07. Penggantian email (D64)",
+      "description": "Empat pengaman D64: wajib password saat ini, alamat lama tetap aktif sampai alamat baru terverifikasi, pemberitahuan ke alamat lama, dan keunikan diperiksa ulang saat konfirmasi.\n\nSetelah \"Ajukan penggantian email\": Buka inbox Ethereal (ethereal.email > Messages), cari email terbaru berjudul \"Konfirmasi alamat email baru Jasana\", salin nilai token dari tautan (bagian setelah ?token=) ke variabel `email_change_token`, lalu Send. Di Ethereal juga ada email \"Permintaan penggantian email akun Jasana\" ke alamat lama.\n\nRate limit 3 per hari per akun, dan percobaan dengan password salah ikut terhitung. Folder ini memakai tepat 3. Restart server kalau perlu mengulang.",
+      "item": [
+        {
+          "name": "Ajukan dengan password salah -> 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () { pm.response.to.have.status(422); });",
+                  "pm.test('Kode error VALIDATION_ERROR', function () {",
+                  "  pm.expect(pm.response.json().error.code).to.eql('VALIDATION_ERROR');",
+                  "});",
+                  "pm.test('Field yang bermasalah: current_password', function () {",
+                  "  pm.expect(pm.response.json().error.details[0].path).to.eql('current_password');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/me/email",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "me",
+                "email"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"current_password\": \"salah-total\",\n  \"new_email\": \"tidak.jadi@jasana.test\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Ajukan penggantian email",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.environment.set('old_email', pm.environment.get('email'));",
+                  "pm.environment.set('new_email', 'baru.' + Date.now() + '@jasana.test');",
+                  "pm.environment.set('email_change_token', '');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Alamat baru menunggu konfirmasi', function () {",
+                  "  pm.expect(pm.response.json().data.pending_email).to.eql(pm.environment.get('new_email'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/me/email",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "me",
+                "email"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"current_password\": \"{{password}}\",\n  \"new_email\": \"{{new_email}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Profil: email lama masih aktif",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "const me = pm.response.json().data;",
+                  "pm.test('email masih alamat lama', function () { pm.expect(me.email).to.eql(pm.environment.get('old_email')); });",
+                  "pm.test('pending_email berisi alamat baru', function () { pm.expect(me.pending_email).to.eql(pm.environment.get('new_email')); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login dengan email lama masih bisa",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{old_email}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login dengan email baru belum bisa",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401', function () { pm.response.to.have.status(401); });",
+                  "pm.test('Kode error UNAUTHORIZED', function () {",
+                  "  pm.expect(pm.response.json().error.code).to.eql('UNAUTHORIZED');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{new_email}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Konfirmasi email baru",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.environment.get('email_change_token')) {",
+                  "  console.warn('[LEWATI] email_change_token belum diisi. Buka inbox Ethereal (ethereal.email > Messages), cari email terbaru berjudul \"Konfirmasi alamat email baru Jasana\", salin nilai token dari tautan (bagian setelah ?token=) ke variabel environment ini, lalu Send.');",
+                  "  if (pm.execution && pm.execution.skipRequest) pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "const user = pm.response.json().data;",
+                  "pm.test('Email berpindah ke alamat baru', function () { pm.expect(user.email).to.eql(pm.environment.get('new_email')); });",
+                  "pm.test('pending_email kosong', function () { pm.expect(user.pending_email).to.eql(null); });",
+                  "pm.test('Alamat baru otomatis terverifikasi', function () { pm.expect(user.email_verified).to.eql(true); });",
+                  "pm.environment.set('email', user.email);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/confirm-email-change",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "confirm-email-change"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{email_change_token}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Ajukan lagi (untuk demo pembatalan)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/me/email",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "me",
+                "email"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"current_password\": \"{{password}}\",\n  \"new_email\": \"batal.{{$timestamp}}@jasana.test\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Batalkan penggantian email",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Permintaan dibatalkan', function () { pm.expect(pm.response.json().data.cancelled).to.eql(true); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/users/me/email-change",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "me",
+                "email-change"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Profil setelah pembatalan",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('pending_email kosong lagi', function () { pm.expect(pm.response.json().data.pending_email).to.eql(null); });",
+                  "pm.test('email tidak berubah', function () { pm.expect(pm.response.json().data.email).to.eql(pm.environment.get('email')); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "08. Alamat",
+      "description": "Alamat pertama otomatis jadi utama, hanya ada satu alamat utama, dan menghapus alamat utama memindahkan tandanya. Koordinat disimpan Decimal(10,8) dan Decimal(11,8).",
+      "item": [
+        {
+          "name": "Daftar alamat (awal)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Masih kosong', function () { pm.expect(pm.response.json().data).to.have.length(0); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/users/me/addresses",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "me",
+                "addresses"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Tambah alamat Rumah",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', function () { pm.response.to.have.status(201); });",
+                  "const address = pm.response.json().data;",
+                  "pm.environment.set('address_id', address.id);",
+                  "pm.test('Alamat pertama otomatis utama', function () { pm.expect(address.is_default).to.eql(true); });",
+                  "pm.test('Koordinat utuh 8 desimal', function () {",
+                  "  pm.expect(address.latitude).to.eql(-8.79831234);",
+                  "  pm.expect(address.longitude).to.eql(115.17123456);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/me/addresses",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "me",
+                "addresses"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"label\": \"Rumah\",\n  \"address_line\": \"Jl. Raya Kampus Unud, Jimbaran\",\n  \"district\": \"Kuta Selatan\",\n  \"city\": \"Badung\",\n  \"province\": \"Bali\",\n  \"postal_code\": \"80361\",\n  \"latitude\": -8.79831234,\n  \"longitude\": 115.17123456\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Tambah alamat Kantor sebagai utama",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', function () { pm.response.to.have.status(201); });",
+                  "const address = pm.response.json().data;",
+                  "pm.environment.set('address_id_2', address.id);",
+                  "pm.test('Jadi alamat utama', function () { pm.expect(address.is_default).to.eql(true); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/me/addresses",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "me",
+                "addresses"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"label\": \"Kantor\",\n  \"address_line\": \"Jl. Gatot Subroto Barat No. 10, Denpasar\",\n  \"latitude\": -8.63456789,\n  \"longitude\": 115.20123456,\n  \"is_default\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Daftar alamat (hanya satu yang utama)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "const list = pm.response.json().data;",
+                  "pm.test('Dua alamat', function () { pm.expect(list).to.have.length(2); });",
+                  "pm.test('Tepat satu alamat utama, yaitu Kantor', function () {",
+                  "  const defaults = list.filter(function (a) { return a.is_default; });",
+                  "  pm.expect(defaults).to.have.length(1);",
+                  "  pm.expect(defaults[0].id).to.eql(pm.environment.get('address_id_2'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/users/me/addresses",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "me",
+                "addresses"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Lepas tanda utama tanpa pengganti -> 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () { pm.response.to.have.status(422); });",
+                  "pm.test('Kode error VALIDATION_ERROR', function () {",
+                  "  pm.expect(pm.response.json().error.code).to.eql('VALIDATION_ERROR');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/me/addresses/{{address_id_2}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "me",
+                "addresses",
+                "{{address_id_2}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"is_default\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Ubah label alamat Rumah",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Label berubah', function () { pm.expect(pm.response.json().data.label).to.eql('Rumah Orang Tua'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/me/addresses/{{address_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "me",
+                "addresses",
+                "{{address_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"label\": \"Rumah Orang Tua\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Hapus alamat utama (Kantor)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/users/me/addresses/{{address_id_2}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "me",
+                "addresses",
+                "{{address_id_2}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Daftar alamat (tanda utama berpindah)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "const list = pm.response.json().data;",
+                  "pm.test('Tersisa satu alamat, dan ia jadi utama', function () {",
+                  "  pm.expect(list).to.have.length(1);",
+                  "  pm.expect(list[0].id).to.eql(pm.environment.get('address_id'));",
+                  "  pm.expect(list[0].is_default).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/users/me/addresses",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "me",
+                "addresses"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Alamat yang tidak ada / milik orang lain -> 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404', function () { pm.response.to.have.status(404); });",
+                  "pm.test('Kode error NOT_FOUND', function () {",
+                  "  pm.expect(pm.response.json().error.code).to.eql('NOT_FOUND');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/me/addresses/{{$guid}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "me",
+                "addresses",
+                "{{$guid}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"label\": \"Punyaku\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Dibalas 404, bukan 403, supaya keberadaan id milik orang lain tidak bocor (PRD 4.2)."
+          },
+          "response": []
+        },
+        {
+          "name": "Koordinat di luar rentang -> 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () { pm.response.to.have.status(422); });",
+                  "pm.test('Kode error VALIDATION_ERROR', function () {",
+                  "  pm.expect(pm.response.json().error.code).to.eql('VALIDATION_ERROR');",
+                  "});",
+                  "pm.test('Field yang bermasalah: latitude', function () {",
+                  "  pm.expect(pm.response.json().error.details[0].path).to.eql('latitude');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/me/addresses",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "me",
+                "addresses"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"address_line\": \"Alamat salah koordinat\",\n  \"latitude\": 91,\n  \"longitude\": 115.2\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "09. Akses tanpa token atau token palsu",
+      "description": "Endpoint yang butuh login menolak permintaan tanpa access token yang sah.",
+      "item": [
+        {
+          "name": "Tanpa token -> 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401', function () { pm.response.to.have.status(401); });",
+                  "pm.test('Kode error UNAUTHORIZED', function () {",
+                  "  pm.expect(pm.response.json().error.code).to.eql('UNAUTHORIZED');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Token palsu -> 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401', function () { pm.response.to.have.status(401); });",
+                  "pm.test('Kode error UNAUTHORIZED', function () {",
+                  "  pm.expect(pm.response.json().error.code).to.eql('UNAUTHORIZED');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "eyJhbGciOiJub25lIn0.eyJ1c2VyX2lkIjoieCIsInJvbGUiOiJBRE1JTiJ9.",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "JWT dengan `alg: none` dan role ADMIN. Algoritma dipin HS256, jadi ditolak."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

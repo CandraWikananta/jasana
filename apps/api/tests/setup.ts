@@ -9,6 +9,41 @@
  * sini tetap menang walaupun ada `.env` di akar repo.
  */
 
+import { existsSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { parse } from 'dotenv';
+
+/**
+ * BASIS DATA UJI INTEGRASI.
+ *
+ * Uji integrasi menghapus seluruh isi tabel akun di antara kasus, jadi
+ * TIDAK BOLEH menyentuh basis data pengembangan. Karena itu URL-nya variabel
+ * tersendiri, `TEST_DATABASE_URL`, bukan `DATABASE_URL`. Kalau kosong, uji
+ * integrasi dilewati (bukan dijalankan ke basis data sembarang).
+ *
+ * Pengaman kedua: nama basis datanya wajib memuat kata `test`. Salah tempel
+ * URL Supabase ke TEST_DATABASE_URL akan menghentikan uji di sini, bukan
+ * mengosongkan tabel users milik pengembangan.
+ */
+const rootEnvPath = resolve(__dirname, '../../../.env');
+if (!process.env.TEST_DATABASE_URL && existsSync(rootEnvPath)) {
+  const fromFile = parse(readFileSync(rootEnvPath)).TEST_DATABASE_URL;
+  if (fromFile) process.env.TEST_DATABASE_URL = fromFile;
+}
+
+const testDatabaseUrl = process.env.TEST_DATABASE_URL?.trim();
+if (testDatabaseUrl) {
+  const databaseName = new URL(testDatabaseUrl).pathname.replace(/^\//, '');
+  if (!/test/i.test(databaseName)) {
+    throw new Error(
+      `TEST_DATABASE_URL menunjuk basis data "${databaseName}". Uji integrasi mengosongkan ` +
+        'tabel, jadi nama basis datanya wajib memuat kata "test".',
+    );
+  }
+  // Menimpa, bukan `??=`: DATABASE_URL dari shell tidak boleh menang di sini.
+  process.env.DATABASE_URL = testDatabaseUrl;
+}
+
 const defaults: Record<string, string> = {
   NODE_ENV: 'test',
   PORT: '4001',

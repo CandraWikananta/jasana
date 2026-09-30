@@ -26,7 +26,10 @@ import {
   errorHandler,
   notFoundHandler,
 } from './middlewares/errorHandler';
+import { limitPerIp, RATE_LIMITS } from './middlewares/rateLimit';
 import { healthRouter } from './modules/health/health.routes';
+import { createAuthRouter } from './modules/auth/auth.routes';
+import { createUsersRouter } from './modules/users/users.routes';
 
 function corsOptions(): CorsOptions {
   return {
@@ -70,7 +73,12 @@ export function createApp(): Express {
   app.use('/', healthRouter);
   app.use(API_PREFIX, healthRouter);
 
-  // Modul bisnis Fase 1 dan seterusnya dipasang di sini, di bawah API_PREFIX.
+  // Pengaman umum 100 per menit per IP (PRD 5.5). Dipasang SETELAH health
+  // check, supaya probe pemantau tidak menghabiskan jatah pengguna sungguhan.
+  app.use(API_PREFIX, limitPerIp(RATE_LIMITS.global));
+
+  app.use(`${API_PREFIX}/auth`, createAuthRouter());
+  app.use(`${API_PREFIX}/users`, createUsersRouter());
 
   app.use(notFoundHandler);
   app.use(errorHandler);

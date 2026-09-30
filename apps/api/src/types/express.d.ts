@@ -5,10 +5,12 @@
  * ikut terpasang di `Express.Request`. Tanpa deklarasi ini, `strict: true`
  * menolak setiap pemakaian keduanya.
  *
- * Fase selanjutnya menambahkan `req.user` dan `req.provider` di sini.
+ * `req.user` diisi requireAuth dari klaim access token. Fase selanjutnya
+ * menambahkan `req.provider` di sini.
  */
 
 import type { Logger } from 'pino';
+import type { UserRole } from '@jasana/database';
 
 declare global {
   namespace Express {
@@ -17,6 +19,16 @@ declare global {
       id: string;
       /** Logger anak yang sudah membawa `request_id`. */
       log: Logger;
+      /**
+       * Pemanggil yang sudah terautentikasi. Peran provider dan pekerja
+       * ditandai lewat id relasinya, bukan lewat `role` (D4, D35).
+       */
+      user?: {
+        id: string;
+        role: UserRole;
+        providerProfileId: string | null;
+        workerId: string | null;
+      };
     }
   }
 }
