@@ -25,7 +25,8 @@
     "db:reset": "npm run reset --workspace @jasana/database",
     "db:studio": "npm run studio --workspace @jasana/database",
     "db:verify": "npm run verify --workspace @jasana/database",
-    "db:check-constraints": "npm run check-constraints --workspace @jasana/database"
+    "db:check-constraints": "npm run check-constraints --workspace @jasana/database",
+    "postman:seed": "node scripts/postman-seed-fase-2.mjs"
   },
   "devDependencies": {
     "typescript": "5.6.3"

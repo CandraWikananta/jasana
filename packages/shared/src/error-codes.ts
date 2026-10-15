@@ -27,6 +27,12 @@ export const BUSINESS_ERROR_STATUS = {
   WORKER_NOT_MAPPED_TO_LISTING: 422,
   CREW_NOT_ALLOWED_FOR_MODE: 422,
   PROVIDER_HAS_NO_ACTIVE_WORKER: 409,
+  // Fase 2, belum tercatat di Lampiran A. Status pengajuan provider tidak
+  // sesuai untuk aksi yang diminta (ajukan ulang, unggah, setujui, ubah tipe).
+  PROVIDER_STATE_CONFLICT: 409,
+  // Fase 2, belum tercatat di Lampiran A. Bentrok keanggotaan pekerja,
+  // terutama eksklusivitas satu keanggotaan ACTIVE (D36).
+  WORKER_MEMBERSHIP_CONFLICT: 409,
   LISTING_HAS_NO_WORKER: 409,
   LISTING_NOT_AVAILABLE: 409,
   ORDER_ALREADY_PAID: 409,

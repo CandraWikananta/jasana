@@ -10,7 +10,7 @@
  */
 
 import type { Logger } from 'pino';
-import type { UserRole } from '@jasana/database';
+import type { ProviderType, UserRole } from '@jasana/database';
 
 declare global {
   namespace Express {
@@ -28,6 +28,21 @@ declare global {
         role: UserRole;
         providerProfileId: string | null;
         workerId: string | null;
+      };
+      /**
+       * Diisi requireProvider dari basis data, bukan dari klaim JWT, supaya
+       * persetujuan admin langsung berlaku tanpa menunggu token diperbarui.
+       */
+      provider?: {
+        id: string;
+        userId: string;
+        providerType: ProviderType;
+      };
+      /** Diisi requireWorker dari basis data, keanggotaan berstatus ACTIVE. */
+      worker?: {
+        id: string;
+        providerProfileId: string;
+        isOwner: boolean;
       };
     }
   }

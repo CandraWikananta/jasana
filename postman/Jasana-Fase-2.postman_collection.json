@@ -1,0 +1,4795 @@
+{
+  "info": {
+    "_postman_id": "a07cf337-07aa-4d60-b2b2-fd4675266dc7",
+    "name": "Jasana Backend - Fase 2 (Provider dan Pekerja)",
+    "description": "Pengujian endpoint Fase 2: pengajuan provider, e-KYC multipart, pemeriksaan admin, perubahan tipe usaha, lamaran pekerja, keanggotaan, dan dua kolom ketersediaan pekerja.\n\n## Persiapan (sekali)\n1. Impor environment **Jasana Lokal** versi terbaru, lalu pilih di pojok kanan atas.\n2. Buat bucket **private** bernama `kyc-documents` di Supabase Storage. Tanpa ini, unggahan yang sah dibalas 502 STORAGE_UPLOAD_FAILED.\n3. Atur *working directory* Postman ke folder `postman/` di repo ini (Settings > General > Working Directory). Berkas contoh unggahan ada di `postman/files/` dan dirujuk sebagai `files/...`.\n\n## Setiap putaran\n1. `npm run postman:seed` di akar repo. Akun demo `@postman.jasana.test` dibuat ulang dari nol: admin, pemohon, dua usaha BUSINESS yang sudah VERIFIED lengkap dengan listing aktif, dan dua calon kru. Semua emailnya sudah terverifikasi.\n2. `npm run dev`.\n3. Jalankan folder berurutan dari 00, atau seluruh collection lewat Collection Runner. Folder saling bergantung, jangan diacak.\n\n## Kenapa ada skrip seed\nTidak ada endpoint untuk menjadikan akun ADMIN (disengaja), dan lamaran pekerja wajib mencentang listing ACTIVE (D52), padahal listing baru bisa dibuat lewat API di Fase 4.\n\n## Request bertanda KRITERIA\n- Folder 01: berkas `.exe` bernama `ktp.jpg` dengan Content-Type image/jpeg ditolak 422 UNSUPPORTED_FILE_TYPE (magic bytes, D80).\n- Folder 02: persetujuan admin membuat wallet dan baris pekerja pemilik (`is_owner`, ACTIVE) dalam satu transaksi (D33).\n- Folder 04: satu orang tidak bisa aktif di dua usaha (D36).\n- Folder 06: pekerja yang sudah RESIGNED boleh bergabung ke usaha lain, jadi eksklusivitasnya bukan `@@unique([userId])`.\n\n## Rate limit\nLogin 10 per 15 menit per IP. Folder 00 memakai 6. Kalau kena 429 saat mengulang, restart `npm run dev`.\n\n## Token\nSetiap aktor punya variabel token sendiri (`admin_token`, `pemilik1_token`, dan seterusnya). Skrip pre-request collection login ulang otomatis kalau token aktor hampir habis.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "00. Persiapan (jalankan npm run postman:seed dulu)",
+      "description": "Login enam akun demo dan mengambil id usaha serta listing hasil seed. Kalau login dibalas 401, jalankan `npm run postman:seed` di akar repo.",
+      "item": [
+        {
+          "name": "Health",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login Admin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 401) console.warn('Akun demo belum ada. Jalankan: npm run postman:seed');",
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.environment.set('admin_token', pm.response.json().data.access_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{admin_email}}\",\n  \"password\": \"{{seed_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login Pemohon provider",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 401) console.warn('Akun demo belum ada. Jalankan: npm run postman:seed');",
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.environment.set('pemohon_token', pm.response.json().data.access_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{pemohon_email}}\",\n  \"password\": \"{{seed_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login Pemilik 1 (Cuci Mobil Bersaudara)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 401) console.warn('Akun demo belum ada. Jalankan: npm run postman:seed');",
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.environment.set('pemilik1_token', pm.response.json().data.access_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{pemilik1_email}}\",\n  \"password\": \"{{seed_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login Pemilik 2 (Kilap Motor Kedua)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 401) console.warn('Akun demo belum ada. Jalankan: npm run postman:seed');",
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.environment.set('pemilik2_token', pm.response.json().data.access_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{pemilik2_email}}\",\n  \"password\": \"{{seed_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login Kru 1",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 401) console.warn('Akun demo belum ada. Jalankan: npm run postman:seed');",
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.environment.set('kru1_token', pm.response.json().data.access_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{kru1_email}}\",\n  \"password\": \"{{seed_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login Kru 2",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 401) console.warn('Akun demo belum ada. Jalankan: npm run postman:seed');",
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.environment.set('kru2_token', pm.response.json().data.access_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{kru2_email}}\",\n  \"password\": \"{{seed_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Profil Pemilik 1 (id usaha dan baris pekerja pemilik)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "const payload = pm.response.json().data;",
+                  "pm.test('Provider BUSINESS terverifikasi', function () {",
+                  "  pm.expect(payload.provider).to.include({ provider_type: 'BUSINESS', verification_status: 'VERIFIED' });",
+                  "});",
+                  "pm.test('Pemilik tercatat sebagai pekerja di usahanya sendiri (D33)', function () {",
+                  "  pm.expect(payload.worker.is_owner).to.eql(true);",
+                  "  pm.expect(payload.worker.provider_profile_id).to.eql(payload.provider.id);",
+                  "});",
+                  "pm.environment.set('usaha1_id', payload.provider.id);",
+                  "pm.environment.set('usaha1_owner_worker_id', payload.worker.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{pemilik1_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Profil publik Cuci Mobil Bersaudara (id listing)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "const payload = pm.response.json().data;",
+                  "pm.test('Usaha BUSINESS menerima lamaran pekerja', function () { pm.expect(payload.accepts_worker_applications).to.eql(true); });",
+                  "pm.test('Punya listing aktif', function () { pm.expect(payload.listings.length).to.be.above(0); });",
+                  "pm.environment.set('usaha1_listing_id', payload.listings[0].id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/providers/{{usaha1_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{usaha1_id}}"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Profil Pemilik 2 (id usaha)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "const payload = pm.response.json().data;",
+                  "pm.environment.set('usaha2_id', payload.provider.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{pemilik2_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Profil publik Kilap Motor Kedua (id listing)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "const payload = pm.response.json().data;",
+                  "pm.environment.set('usaha2_listing_id', payload.listings[0].id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/providers/{{usaha2_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{usaha2_id}}"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Profil Pemohon (belum provider)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "const payload = pm.response.json().data;",
+                  "pm.test('Belum punya profil provider maupun keanggotaan pekerja', function () {",
+                  "  pm.expect(payload.provider).to.eql(null);",
+                  "  pm.expect(payload.worker).to.eql(null);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{pemohon_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "01. Pengajuan provider dan e-KYC",
+      "description": "Pemohon mengajukan diri sebagai provider INDIVIDUAL lalu mengunggah dokumen e-KYC lewat multipart (D80).\n\nUnggahan yang berhasil masuk ke Supabase Storage sungguhan, jadi bucket private `kyc-documents` harus sudah dibuat.",
+      "item": [
+        {
+          "name": "Lihat pengajuan sebelum apply -> 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404', function () { pm.response.to.have.status(404); });",
+                  "pm.test('Kode error NOT_FOUND', function () { pm.expect(pm.response.json().error.code).to.eql('NOT_FOUND'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/providers/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{pemohon_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Unggah sebelum apply -> 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404', function () { pm.response.to.have.status(404); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/providers/me/kyc-documents",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "kyc-documents"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{pemohon_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "document_type",
+                  "value": "KTP",
+                  "type": "text"
+                },
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "files/ktp.jpg",
+                  "contentType": "image/jpeg"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Apply BUSINESS tanpa business_name -> 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () { pm.response.to.have.status(422); });",
+                  "pm.test('Kode error VALIDATION_ERROR', function () { pm.expect(pm.response.json().error.code).to.eql('VALIDATION_ERROR'); });",
+                  "pm.test('Menunjuk field business_name', function () { pm.expect(pm.response.json().error.details[0].path).to.eql('business_name'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/apply",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "apply"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{pemohon_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"provider_type\": \"BUSINESS\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Apply sebagai INDIVIDUAL",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "const payload = pm.response.json().data;",
+                  "pm.test('Status DRAFT, dokumen wajib belum ada', function () {",
+                  "  pm.expect(payload.verification_status).to.eql('DRAFT');",
+                  "  pm.expect(payload.missing_documents).to.eql(['KTP', 'SELFIE_KTP']);",
+                  "});",
+                  "pm.environment.set('pemohon_provider_id', payload.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/apply",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "apply"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{pemohon_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"provider_type\": \"INDIVIDUAL\",\n  \"bio\": \"Cuci sepatu panggilan di Denpasar\",\n  \"base_address\": \"Jl. Gatot Subroto Barat, Denpasar\",\n  \"base_latitude\": -8.6352,\n  \"base_longitude\": 115.1947,\n  \"service_radius_km\": 10\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "`provider_type` dipilih di sini (D46) dan menentukan dokumen yang diminta. INDIVIDUAL cukup KTP dan selfie."
+          },
+          "response": []
+        },
+        {
+          "name": "KRITERIA: unggah .exe bernama ktp.jpg dengan Content-Type image/jpeg -> 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () { pm.response.to.have.status(422); });",
+                  "pm.test('Kode error UNSUPPORTED_FILE_TYPE', function () { pm.expect(pm.response.json().error.code).to.eql('UNSUPPORTED_FILE_TYPE'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/providers/me/kyc-documents",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "kyc-documents"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{pemohon_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "document_type",
+                  "value": "KTP",
+                  "type": "text"
+                },
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "files/ktp-palsu.jpg",
+                  "contentType": "image/jpeg"
+                }
+              ]
+            },
+            "description": "Berkas `ktp-palsu.jpg` berisi header executable Windows (`MZ`), bukan JPEG. Namanya .jpg dan Content-Type-nya image/jpeg, tapi server memeriksa magic bytes (D80, H78), jadi ditolak sebelum menyentuh Storage."
+          },
+          "response": []
+        },
+        {
+          "name": "Unggah NPWP sebagai INDIVIDUAL -> 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () { pm.response.to.have.status(422); });",
+                  "pm.test('Kode error VALIDATION_ERROR', function () { pm.expect(pm.response.json().error.code).to.eql('VALIDATION_ERROR'); });",
+                  "pm.test('Menunjuk field document_type', function () { pm.expect(pm.response.json().error.details[0].path).to.eql('document_type'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/providers/me/kyc-documents",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "kyc-documents"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{pemohon_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "document_type",
+                  "value": "NPWP",
+                  "type": "text"
+                },
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "files/npwp.pdf",
+                  "contentType": "application/pdf"
+                }
+              ]
+            },
+            "description": "PRD 4.4 langkah 5: NPWP dan izin usaha hanya untuk provider BUSINESS. Diperiksa sebelum unggah ke Storage."
+          },
+          "response": []
+        },
+        {
+          "name": "Unggah tanpa berkas -> 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () { pm.response.to.have.status(422); });",
+                  "pm.test('Menunjuk field file', function () { pm.expect(pm.response.json().error.details[0].path).to.eql('file'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/providers/me/kyc-documents",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "kyc-documents"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{pemohon_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "document_type",
+                  "value": "KTP",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Unggah KTP (JPEG)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 502) console.warn('Storage gagal. Pastikan bucket private kyc-documents sudah ada di Supabase.');",
+                  "pm.test('Status 201', function () { pm.response.to.have.status(201); });",
+                  "const payload = pm.response.json().data;",
+                  "pm.test('Masih DRAFT, tinggal selfie', function () {",
+                  "  pm.expect(payload.verification_status).to.eql('DRAFT');",
+                  "  pm.expect(payload.missing_documents).to.eql(['SELFIE_KTP']);",
+                  "});",
+                  "pm.test('file_url tidak dibocorkan ke client', function () { pm.expect(payload.document).to.not.have.property('file_url'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/providers/me/kyc-documents",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "kyc-documents"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{pemohon_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "document_type",
+                  "value": "KTP",
+                  "type": "text"
+                },
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "files/ktp.jpg",
+                  "contentType": "image/jpeg"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Unggah selfie dengan KTP (PNG) -> PENDING",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', function () { pm.response.to.have.status(201); });",
+                  "const payload = pm.response.json().data;",
+                  "pm.test('Dokumen lengkap, status PENDING', function () {",
+                  "  pm.expect(payload.verification_status).to.eql('PENDING');",
+                  "  pm.expect(payload.missing_documents).to.eql([]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/providers/me/kyc-documents",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "kyc-documents"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{pemohon_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "document_type",
+                  "value": "SELFIE_KTP",
+                  "type": "text"
+                },
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "files/selfie-ktp.png",
+                  "contentType": "image/png"
+                }
+              ]
+            },
+            "description": "Begitu dokumen wajib lengkap, status pindah otomatis dari DRAFT ke PENDING dan masuk antrean admin."
+          },
+          "response": []
+        },
+        {
+          "name": "Lihat pengajuan (PENDING)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "const payload = pm.response.json().data;",
+                  "pm.test('PENDING dengan dua dokumen', function () {",
+                  "  pm.expect(payload.verification_status).to.eql('PENDING');",
+                  "  pm.expect(payload.documents.length).to.eql(2);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/providers/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{pemohon_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Ubah profil usaha sebelum VERIFIED -> 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 403', function () { pm.response.to.have.status(403); });",
+                  "pm.test('Kode error FORBIDDEN_ACTOR', function () { pm.expect(pm.response.json().error.code).to.eql('FORBIDDEN_ACTOR'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{pemohon_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bio\": \"Belum boleh\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Apply lagi saat PENDING -> 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 409', function () { pm.response.to.have.status(409); });",
+                  "pm.test('Kode error PROVIDER_STATE_CONFLICT', function () { pm.expect(pm.response.json().error.code).to.eql('PROVIDER_STATE_CONFLICT'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/apply",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "apply"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{pemohon_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"provider_type\": \"BUSINESS\",\n  \"business_name\": \"Ganti Tipe Diam-diam\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "02. Pemeriksaan admin (KRITERIA: wallet dan pekerja pemilik)",
+      "description": "Admin menolak, pemohon mengajukan ulang, lalu admin menyetujui. Persetujuan membuat wallet DAN baris pekerja pemilik dalam satu transaksi.",
+      "item": [
+        {
+          "name": "Bukan admin -> 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 403', function () { pm.response.to.have.status(403); });",
+                  "pm.test('Kode error FORBIDDEN_ACTOR', function () { pm.expect(pm.response.json().error.code).to.eql('FORBIDDEN_ACTOR'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/provider-applications",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "provider-applications"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{pemohon_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Antrean pengajuan PENDING",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.test('Ada meta paginasi', function () { pm.expect(body.meta).to.include.keys('page', 'limit', 'total'); });",
+                  "pm.test('Pengajuan pemohon ada di antrean', function () {",
+                  "  pm.expect(body.data.map(function (p) { return p.id; })).to.include(pm.environment.get('pemohon_provider_id'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/provider-applications?status=PENDING&page=1&limit=20",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "provider-applications"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "PENDING"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Detail pengajuan dengan signed URL",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "const payload = pm.response.json().data;",
+                  "pm.test('Setiap dokumen punya signed_url, tanpa file_url', function () {",
+                  "  payload.documents.forEach(function (doc) {",
+                  "    pm.expect(doc.signed_url).to.be.a('string');",
+                  "    pm.expect(doc).to.not.have.property('file_url');",
+                  "  });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/provider-applications/{{pemohon_provider_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "provider-applications",
+                "{{pemohon_provider_id}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Bucket e-KYC private. Admin membuka berkas lewat `signed_url` yang berlaku 10 menit. Salin salah satu `signed_url` ke browser untuk melihat berkasnya."
+          },
+          "response": []
+        },
+        {
+          "name": "Tolak dengan alasan terlalu pendek -> 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () { pm.response.to.have.status(422); });",
+                  "pm.test('Kode error VALIDATION_ERROR', function () { pm.expect(pm.response.json().error.code).to.eql('VALIDATION_ERROR'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/provider-applications/{{pemohon_provider_id}}/reject",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "provider-applications",
+                "{{pemohon_provider_id}}",
+                "reject"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"x\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Tolak pengajuan",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "const payload = pm.response.json().data;",
+                  "pm.test('REJECTED dengan alasan', function () {",
+                  "  pm.expect(payload.verification_status).to.eql('REJECTED');",
+                  "  pm.expect(payload.rejection_reason).to.eql('Foto KTP kurang jelas, mohon unggah ulang');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/provider-applications/{{pemohon_provider_id}}/reject",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "provider-applications",
+                "{{pemohon_provider_id}}",
+                "reject"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Foto KTP kurang jelas, mohon unggah ulang\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Unggah saat REJECTED -> 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 409', function () { pm.response.to.have.status(409); });",
+                  "pm.test('Kode error PROVIDER_STATE_CONFLICT', function () { pm.expect(pm.response.json().error.code).to.eql('PROVIDER_STATE_CONFLICT'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/providers/me/kyc-documents",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "kyc-documents"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{pemohon_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "document_type",
+                  "value": "KTP",
+                  "type": "text"
+                },
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "files/ktp.jpg",
+                  "contentType": "image/jpeg"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Ajukan ulang",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "const payload = pm.response.json().data;",
+                  "pm.test('Kembali DRAFT, dokumen lama tidak ikut dihitung', function () {",
+                  "  pm.expect(payload.verification_status).to.eql('DRAFT');",
+                  "  pm.expect(payload.rejection_reason).to.eql(null);",
+                  "  pm.expect(payload.missing_documents).to.eql(['KTP', 'SELFIE_KTP']);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/apply",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "apply"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{pemohon_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"provider_type\": \"INDIVIDUAL\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Unggah ulang KTP",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', function () { pm.response.to.have.status(201); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/providers/me/kyc-documents",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "kyc-documents"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{pemohon_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "document_type",
+                  "value": "KTP",
+                  "type": "text"
+                },
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "files/ktp.jpg",
+                  "contentType": "image/jpeg"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Unggah ulang selfie -> PENDING",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', function () { pm.response.to.have.status(201); });",
+                  "pm.test('PENDING lagi', function () { pm.expect(pm.response.json().data.verification_status).to.eql('PENDING'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/providers/me/kyc-documents",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "kyc-documents"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{pemohon_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "document_type",
+                  "value": "SELFIE_KTP",
+                  "type": "text"
+                },
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "files/selfie-ktp.png",
+                  "contentType": "image/png"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "KRITERIA: setujui (wallet + pekerja pemilik dalam satu transaksi)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "const payload = pm.response.json().data;",
+                  "pm.test('Profil VERIFIED', function () { pm.expect(payload.provider.verification_status).to.eql('VERIFIED'); });",
+                  "pm.test('Wallet dibuat dengan saldo nol', function () {",
+                  "  pm.expect(payload.wallet).to.include({ balance_available: 0, balance_pending: 0, currency: 'IDR' });",
+                  "});",
+                  "pm.test('Baris pekerja pemilik dibuat: is_owner, ACTIVE, accepts_assignments (D33)', function () {",
+                  "  pm.expect(payload.owner_worker).to.include({ is_owner: true, membership_status: 'ACTIVE', accepts_assignments: true, is_available: false });",
+                  "});",
+                  "pm.environment.set('pemohon_worker_id', payload.owner_worker.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/provider-applications/{{pemohon_provider_id}}/approve",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "provider-applications",
+                "{{pemohon_provider_id}}",
+                "approve"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Setujui lagi -> 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 409', function () { pm.response.to.have.status(409); });",
+                  "pm.test('Kode error PROVIDER_STATE_CONFLICT', function () { pm.expect(pm.response.json().error.code).to.eql('PROVIDER_STATE_CONFLICT'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/provider-applications/{{pemohon_provider_id}}/approve",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "provider-applications",
+                "{{pemohon_provider_id}}",
+                "approve"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Profil pemohon setelah disetujui",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "const payload = pm.response.json().data;",
+                  "pm.test('Provider VERIFIED sekaligus pekerja pemilik', function () {",
+                  "  pm.expect(payload.provider.verification_status).to.eql('VERIFIED');",
+                  "  pm.expect(payload.worker.is_owner).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{pemohon_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Ubah profil usaha (provider_type di body diabaikan)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "const payload = pm.response.json().data;",
+                  "pm.test('Profil berubah', function () { pm.expect(payload.service_radius_km).to.eql(15); });",
+                  "pm.test('provider_type tetap INDIVIDUAL (D46)', function () { pm.expect(payload.provider_type).to.eql('INDIVIDUAL'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{pemohon_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bio\": \"Cuci sepatu dan tas panggilan\",\n  \"service_radius_km\": 15,\n  \"provider_type\": \"BUSINESS\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Token pemohon masih token lama, tapi requireProvider membaca basis data, jadi langsung lolos. `provider_type` tidak ada di skema PATCH dan dibuang (D46)."
+          },
+          "response": []
+        },
+        {
+          "name": "Profil publik pemohon",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "const payload = pm.response.json().data;",
+                  "pm.test('INDIVIDUAL tidak menerima lamaran pekerja', function () { pm.expect(payload.accepts_worker_applications).to.eql(false); });",
+                  "pm.test('Alamat dan koordinat basis tidak dipublikasikan', function () {",
+                  "  pm.expect(payload).to.not.have.property('base_address');",
+                  "  pm.expect(payload).to.not.have.property('base_latitude');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/providers/{{pemohon_provider_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{pemohon_provider_id}}"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Pemilik INDIVIDUAL mematikan kesediaannya sendiri -> 409 (H27)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 409', function () { pm.response.to.have.status(409); });",
+                  "pm.test('Kode error PROVIDER_HAS_NO_ACTIVE_WORKER', function () { pm.expect(pm.response.json().error.code).to.eql('PROVIDER_HAS_NO_ACTIVE_WORKER'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/me/workers/{{pemohon_worker_id}}/assignments-setting",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "workers",
+                "{{pemohon_worker_id}}",
+                "assignments-setting"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{pemohon_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"accepts_assignments\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Setiap provider wajib punya minimal satu pekerja ACTIVE dengan accepts_assignments = true. Pada usaha INDIVIDUAL itu pemiliknya sendiri."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "03. Perubahan tipe usaha (D47)",
+      "description": "Naik ke BUSINESS lewat pengajuan dan dokumen usaha, verification_status tetap VERIFIED sepanjang proses. Turun ke INDIVIDUAL langsung, asal hanya tersisa satu pekerja aktif.",
+      "item": [
+        {
+          "name": "Unggah NPWP sebelum mengajukan -> 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () { pm.response.to.have.status(422); });",
+                  "pm.test('Kode error VALIDATION_ERROR', function () { pm.expect(pm.response.json().error.code).to.eql('VALIDATION_ERROR'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/providers/me/kyc-documents",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "kyc-documents"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{pemohon_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "document_type",
+                  "value": "NPWP",
+                  "type": "text"
+                },
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "files/npwp.pdf",
+                  "contentType": "application/pdf"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Ajukan naik ke BUSINESS",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "const payload = pm.response.json().data;",
+                  "pm.test('Masih INDIVIDUAL dan tetap VERIFIED, pengajuan ditampung', function () {",
+                  "  pm.expect(payload).to.include({ provider_type: 'INDIVIDUAL', requested_provider_type: 'BUSINESS', verification_status: 'VERIFIED' });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/me/type-upgrade",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "type-upgrade"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{pemohon_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"provider_type\": \"BUSINESS\",\n  \"business_name\": \"Putu Cuci Sepatu\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Ajukan lagi -> 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 409', function () { pm.response.to.have.status(409); });",
+                  "pm.test('Kode error PROVIDER_STATE_CONFLICT', function () { pm.expect(pm.response.json().error.code).to.eql('PROVIDER_STATE_CONFLICT'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/me/type-upgrade",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "type-upgrade"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{pemohon_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"provider_type\": \"BUSINESS\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Admin menyetujui sebelum ada dokumen usaha -> 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 409', function () { pm.response.to.have.status(409); });",
+                  "pm.test('Kode error PROVIDER_STATE_CONFLICT', function () { pm.expect(pm.response.json().error.code).to.eql('PROVIDER_STATE_CONFLICT'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/type-upgrade-requests/{{pemohon_provider_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "type-upgrade-requests",
+                "{{pemohon_provider_id}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"decision\": \"APPROVED\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Unggah KTP setelah VERIFIED -> 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 409', function () { pm.response.to.have.status(409); });",
+                  "pm.test('Kode error PROVIDER_STATE_CONFLICT', function () { pm.expect(pm.response.json().error.code).to.eql('PROVIDER_STATE_CONFLICT'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/providers/me/kyc-documents",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "kyc-documents"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{pemohon_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "document_type",
+                  "value": "KTP",
+                  "type": "text"
+                },
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "files/ktp.jpg",
+                  "contentType": "image/jpeg"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Unggah NPWP (PDF)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', function () { pm.response.to.have.status(201); });",
+                  "pm.test('Tetap VERIFIED', function () { pm.expect(pm.response.json().data.verification_status).to.eql('VERIFIED'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/providers/me/kyc-documents",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "kyc-documents"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{pemohon_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "document_type",
+                  "value": "NPWP",
+                  "type": "text"
+                },
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "files/npwp.pdf",
+                  "contentType": "application/pdf"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Admin: antrean perubahan tipe",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "const item = pm.response.json().data.find(function (p) { return p.id === pm.environment.get('pemohon_provider_id'); });",
+                  "pm.test('Pengajuan ada beserta dokumen usahanya', function () {",
+                  "  pm.expect(item).to.not.eql(undefined);",
+                  "  pm.expect(item.business_documents.length).to.eql(1);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/type-upgrade-requests",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "type-upgrade-requests"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Admin menolak tanpa alasan -> 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () { pm.response.to.have.status(422); });",
+                  "pm.test('Kode error VALIDATION_ERROR', function () { pm.expect(pm.response.json().error.code).to.eql('VALIDATION_ERROR'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/type-upgrade-requests/{{pemohon_provider_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "type-upgrade-requests",
+                "{{pemohon_provider_id}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"decision\": \"REJECTED\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Admin menyetujui",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "const payload = pm.response.json().data;",
+                  "pm.test('Sekarang BUSINESS, pengajuan selesai, tetap VERIFIED', function () {",
+                  "  pm.expect(payload).to.include({ provider_type: 'BUSINESS', requested_provider_type: null, verification_status: 'VERIFIED' });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/type-upgrade-requests/{{pemohon_provider_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "type-upgrade-requests",
+                "{{pemohon_provider_id}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"decision\": \"APPROVED\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Turun lagi ke INDIVIDUAL (langsung, satu pekerja aktif)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Langsung INDIVIDUAL tanpa admin', function () { pm.expect(pm.response.json().data.provider_type).to.eql('INDIVIDUAL'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/me/type-upgrade",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "type-upgrade"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{pemohon_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"provider_type\": \"INDIVIDUAL\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "04. Lamaran pekerja (D34, D36, D37, D52)",
+      "description": "Kru 1 melamar ke dua usaha. Begitu satu usaha menyetujui, lamaran lainnya gugur, dan Kru 1 tidak bisa aktif di dua usaha sekaligus.",
+      "item": [
+        {
+          "name": "Lamar ke usaha INDIVIDUAL -> 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 409', function () { pm.response.to.have.status(409); });",
+                  "pm.test('Kode error PROVIDER_STATE_CONFLICT', function () { pm.expect(pm.response.json().error.code).to.eql('PROVIDER_STATE_CONFLICT'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/{{pemohon_provider_id}}/worker-applications",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{pemohon_provider_id}}",
+                "worker-applications"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{kru1_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"listing_ids\": [\"{{usaha1_listing_id}}\"],\n  \"experience_note\": \"Dua tahun bekerja di tempat cuci kendaraan\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Lamar dengan listing milik usaha lain -> 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () { pm.response.to.have.status(422); });",
+                  "pm.test('Kode error VALIDATION_ERROR', function () { pm.expect(pm.response.json().error.code).to.eql('VALIDATION_ERROR'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/{{usaha1_id}}/worker-applications",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{usaha1_id}}",
+                "worker-applications"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{kru1_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"listing_ids\": [\"{{usaha2_listing_id}}\"],\n  \"experience_note\": \"Dua tahun bekerja di tempat cuci kendaraan\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Lamar tanpa mencentang listing -> 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () { pm.response.to.have.status(422); });",
+                  "pm.test('Kode error VALIDATION_ERROR', function () { pm.expect(pm.response.json().error.code).to.eql('VALIDATION_ERROR'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/{{usaha1_id}}/worker-applications",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{usaha1_id}}",
+                "worker-applications"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{kru1_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"listing_ids\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "D52: pelamar wajib mencentang minimal satu listing aktif."
+          },
+          "response": []
+        },
+        {
+          "name": "Kru 1 melamar ke Cuci Mobil Bersaudara",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', function () { pm.response.to.have.status(201); });",
+                  "const payload = pm.response.json().data;",
+                  "pm.test('PENDING, belum pemilik, belum online', function () {",
+                  "  pm.expect(payload).to.include({ membership_status: 'PENDING', is_owner: false, accepts_assignments: true, is_available: false });",
+                  "});",
+                  "pm.test('Listing yang dicentang tercatat sebagai usulan', function () {",
+                  "  pm.expect(payload.listings.map(function (l) { return l.id; })).to.include(pm.environment.get('usaha1_listing_id'));",
+                  "});",
+                  "pm.environment.set('kru1_lamaran_usaha1_id', payload.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/{{usaha1_id}}/worker-applications",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{usaha1_id}}",
+                "worker-applications"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{kru1_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"listing_ids\": [\"{{usaha1_listing_id}}\"],\n  \"experience_note\": \"Dua tahun bekerja di tempat cuci kendaraan\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Melamar lagi ke usaha yang sama -> 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 409', function () { pm.response.to.have.status(409); });",
+                  "pm.test('Kode error WORKER_MEMBERSHIP_CONFLICT', function () { pm.expect(pm.response.json().error.code).to.eql('WORKER_MEMBERSHIP_CONFLICT'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/{{usaha1_id}}/worker-applications",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{usaha1_id}}",
+                "worker-applications"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{kru1_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"listing_ids\": [\"{{usaha1_listing_id}}\"],\n  \"experience_note\": \"Dua tahun bekerja di tempat cuci kendaraan\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Kru 1 juga melamar ke Kilap Motor Kedua",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', function () { pm.response.to.have.status(201); });",
+                  "pm.environment.set('kru1_lamaran_usaha2_id', pm.response.json().data.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/{{usaha2_id}}/worker-applications",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{usaha2_id}}",
+                "worker-applications"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{kru1_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"listing_ids\": [\"{{usaha2_listing_id}}\"],\n  \"experience_note\": \"Dua tahun bekerja di tempat cuci kendaraan\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "D37: melamar ke beberapa usaha sekaligus boleh."
+          },
+          "response": []
+        },
+        {
+          "name": "Kru 1 belum pekerja aktif -> 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 403', function () { pm.response.to.have.status(403); });",
+                  "pm.test('Kode error FORBIDDEN_ACTOR', function () { pm.expect(pm.response.json().error.code).to.eql('FORBIDDEN_ACTOR'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/workers/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "workers",
+                "me"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{kru1_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Pemilik 1: daftar pelamar",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Lamaran Kru 1 ada', function () {",
+                  "  pm.expect(pm.response.json().data.map(function (w) { return w.id; })).to.include(pm.environment.get('kru1_lamaran_usaha1_id'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/providers/me/workers?membership_status=PENDING",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "workers"
+              ],
+              "query": [
+                {
+                  "key": "membership_status",
+                  "value": "PENDING"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{pemilik1_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Pemilik 2 menyetujui pelamar usaha lain -> 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404', function () { pm.response.to.have.status(404); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/me/workers/{{kru1_lamaran_usaha1_id}}/approve",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "workers",
+                "{{kru1_lamaran_usaha1_id}}",
+                "approve"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{pemilik2_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Pemilik 1 menyetujui Kru 1 dengan pemetaan final",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "const payload = pm.response.json().data;",
+                  "pm.test('Kru 1 ACTIVE', function () { pm.expect(payload.membership_status).to.eql('ACTIVE'); });",
+                  "pm.test('Pemetaan final dari pemilik (D52)', function () {",
+                  "  pm.expect(payload.listings.map(function (l) { return l.id; })).to.eql([pm.environment.get('usaha1_listing_id')]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/me/workers/{{kru1_lamaran_usaha1_id}}/approve",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "workers",
+                "{{kru1_lamaran_usaha1_id}}",
+                "approve"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{pemilik1_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"listing_ids\": [\"{{usaha1_listing_id}}\"]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "`listing_ids` adalah pemetaan final. Pemilik boleh menambah atau mencoret centangan pelamar (D52)."
+          },
+          "response": []
+        },
+        {
+          "name": "Lamaran Kru 1 ke Kilap Motor sudah gugur (D37)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Lamaran ke usaha kedua otomatis REJECTED', function () {",
+                  "  pm.expect(pm.response.json().data.map(function (w) { return w.id; })).to.include(pm.environment.get('kru1_lamaran_usaha2_id'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/providers/me/workers?membership_status=REJECTED",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "workers"
+              ],
+              "query": [
+                {
+                  "key": "membership_status",
+                  "value": "REJECTED"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{pemilik2_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Pemilik 2 menyetujui lamaran yang sudah gugur -> 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 409', function () { pm.response.to.have.status(409); });",
+                  "pm.test('Kode error WORKER_MEMBERSHIP_CONFLICT', function () { pm.expect(pm.response.json().error.code).to.eql('WORKER_MEMBERSHIP_CONFLICT'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/me/workers/{{kru1_lamaran_usaha2_id}}/approve",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "workers",
+                "{{kru1_lamaran_usaha2_id}}",
+                "approve"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{pemilik2_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Kru 1: profil keanggotaan",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "const payload = pm.response.json().data;",
+                  "pm.test('Pekerja aktif di Cuci Mobil Bersaudara', function () {",
+                  "  pm.expect(payload.provider.id).to.eql(pm.environment.get('usaha1_id'));",
+                  "  pm.expect(payload).to.include({ membership_status: 'ACTIVE', is_owner: false, accepts_assignments: true, is_available: false });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/workers/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "workers",
+                "me"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{kru1_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Token Kru 1 diterbitkan sebelum disetujui, tapi requireWorker membaca basis data, jadi langsung lolos."
+          },
+          "response": []
+        },
+        {
+          "name": "KRITERIA: Kru 1 melamar ke usaha lain saat masih aktif -> 409 (D36)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 409', function () { pm.response.to.have.status(409); });",
+                  "pm.test('Kode error WORKER_MEMBERSHIP_CONFLICT', function () { pm.expect(pm.response.json().error.code).to.eql('WORKER_MEMBERSHIP_CONFLICT'); });",
+                  "pm.test('Pesan menjelaskan sebab, bukan sekadar 409', function () {",
+                  "  pm.expect(pm.response.json().error.message).to.include('satu keanggotaan aktif');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/{{usaha2_id}}/worker-applications",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{usaha2_id}}",
+                "worker-applications"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{kru1_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"listing_ids\": [\"{{usaha2_listing_id}}\"],\n  \"experience_note\": \"Dua tahun bekerja di tempat cuci kendaraan\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Kru 1 mengajukan diri jadi provider -> 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 409', function () { pm.response.to.have.status(409); });",
+                  "pm.test('Kode error WORKER_MEMBERSHIP_CONFLICT', function () { pm.expect(pm.response.json().error.code).to.eql('WORKER_MEMBERSHIP_CONFLICT'); });",
+                  "pm.test('Pesan menyuruh mengundurkan diri dulu', function () { pm.expect(pm.response.json().error.message).to.include('mengundurkan diri'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/apply",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "apply"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{kru1_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"provider_type\": \"INDIVIDUAL\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Konsekuensi D33 dan D36: pekerja yang ingin membuka usaha sendiri harus keluar lebih dulu."
+          },
+          "response": []
+        },
+        {
+          "name": "Pemilik 1 melamar ke Kilap Motor -> 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 409', function () { pm.response.to.have.status(409); });",
+                  "pm.test('Kode error WORKER_MEMBERSHIP_CONFLICT', function () { pm.expect(pm.response.json().error.code).to.eql('WORKER_MEMBERSHIP_CONFLICT'); });",
+                  "pm.test('Pemilik usaha tidak bisa jadi pekerja di usaha lain', function () { pm.expect(pm.response.json().error.message).to.include('Pemilik usaha tidak bisa'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/{{usaha2_id}}/worker-applications",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{usaha2_id}}",
+                "worker-applications"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{pemilik1_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"listing_ids\": [\"{{usaha2_listing_id}}\"],\n  \"experience_note\": \"Dua tahun bekerja di tempat cuci kendaraan\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Kru 2 melamar ke Cuci Mobil Bersaudara",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', function () { pm.response.to.have.status(201); });",
+                  "pm.environment.set('kru2_lamaran_id', pm.response.json().data.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/{{usaha1_id}}/worker-applications",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{usaha1_id}}",
+                "worker-applications"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{kru2_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"listing_ids\": [\"{{usaha1_listing_id}}\"],\n  \"experience_note\": \"Dua tahun bekerja di tempat cuci kendaraan\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Pemilik 1 menolak Kru 2",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('REJECTED', function () { pm.expect(pm.response.json().data.membership_status).to.eql('REJECTED'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/me/workers/{{kru2_lamaran_id}}/reject",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "workers",
+                "{{kru2_lamaran_id}}",
+                "reject"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{pemilik1_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Kuota kru bulan ini sudah penuh\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Menolak lamaran yang sudah diputus -> 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 409', function () { pm.response.to.have.status(409); });",
+                  "pm.test('Kode error WORKER_MEMBERSHIP_CONFLICT', function () { pm.expect(pm.response.json().error.code).to.eql('WORKER_MEMBERSHIP_CONFLICT'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/me/workers/{{kru2_lamaran_id}}/reject",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "workers",
+                "{{kru2_lamaran_id}}",
+                "reject"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{pemilik1_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "05. accepts_assignments dan is_available (D39)",
+      "description": "Dua kolom berbeda. accepts_assignments diatur pemilik dan menetap, is_available diatur pekerja dan harian. is_available hanya boleh true kalau accepts_assignments true, dan setiap usaha wajib punya minimal satu pekerja ACTIVE yang bersedia ditugaskan.",
+      "item": [
+        {
+          "name": "Kru 1 menyalakan tanpa koordinat -> 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () { pm.response.to.have.status(422); });",
+                  "pm.test('Menunjuk field latitude', function () { pm.expect(pm.response.json().error.details[0].path).to.eql('latitude'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/workers/me/availability",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "workers",
+                "me",
+                "availability"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{kru1_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"is_available\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Kru 1 menyalakan ketersediaan",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "const payload = pm.response.json().data;",
+                  "pm.test('Online dengan posisi', function () {",
+                  "  pm.expect(payload).to.include({ is_available: true, current_latitude: -8.65, current_longitude: 115.2167 });",
+                  "  pm.expect(payload.location_updated_at).to.not.eql(null);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/workers/me/availability",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "workers",
+                "me",
+                "availability"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{kru1_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"is_available\": true,\n  \"latitude\": -8.65,\n  \"longitude\": 115.2167\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Kru 1 memperbarui lokasi",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Koordinat 8 desimal tidak bergeser', function () {",
+                  "  pm.expect(pm.response.json().data).to.include({ current_latitude: -8.67052341, current_longitude: 115.21234567 });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/workers/me/location",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "workers",
+                "me",
+                "location"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{kru1_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"latitude\": -8.67052341,\n  \"longitude\": 115.21234567\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Pemilik 1 jadi pengelola saja",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Pemilik tidak lagi bersedia ditugaskan', function () { pm.expect(pm.response.json().data.accepts_assignments).to.eql(false); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/me/workers/{{usaha1_owner_worker_id}}/assignments-setting",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "workers",
+                "{{usaha1_owner_worker_id}}",
+                "assignments-setting"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{pemilik1_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"accepts_assignments\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Boleh, karena Kru 1 masih bersedia ditugaskan."
+          },
+          "response": []
+        },
+        {
+          "name": "Mematikan kesediaan Kru 1 juga -> 409 (H27)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 409', function () { pm.response.to.have.status(409); });",
+                  "pm.test('Kode error PROVIDER_HAS_NO_ACTIVE_WORKER', function () { pm.expect(pm.response.json().error.code).to.eql('PROVIDER_HAS_NO_ACTIVE_WORKER'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/me/workers/{{kru1_lamaran_usaha1_id}}/assignments-setting",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "workers",
+                "{{kru1_lamaran_usaha1_id}}",
+                "assignments-setting"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{pemilik1_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"accepts_assignments\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Kru 1 satu-satunya pekerja yang bersedia ditugaskan. Kalau dimatikan, usaha tidak punya siapa pun untuk dikirim."
+          },
+          "response": []
+        },
+        {
+          "name": "Pemilik 1 kembali bersedia ditugaskan",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/me/workers/{{usaha1_owner_worker_id}}/assignments-setting",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "workers",
+                "{{usaha1_owner_worker_id}}",
+                "assignments-setting"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{pemilik1_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"accepts_assignments\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Mematikan kesediaan Kru 1",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "const payload = pm.response.json().data;",
+                  "pm.test('is_available ikut mati (D39)', function () {",
+                  "  pm.expect(payload).to.include({ accepts_assignments: false, is_available: false });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/me/workers/{{kru1_lamaran_usaha1_id}}/assignments-setting",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "workers",
+                "{{kru1_lamaran_usaha1_id}}",
+                "assignments-setting"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{pemilik1_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"accepts_assignments\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Kru 1 menyalakan ketersediaan -> 422 WORKER_NOT_ASSIGNABLE",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () { pm.response.to.have.status(422); });",
+                  "pm.test('Kode error WORKER_NOT_ASSIGNABLE', function () { pm.expect(pm.response.json().error.code).to.eql('WORKER_NOT_ASSIGNABLE'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/workers/me/availability",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "workers",
+                "me",
+                "availability"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{kru1_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"is_available\": true,\n  \"latitude\": -8.65,\n  \"longitude\": 115.2167\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Kesediaan Kru 1 dinyalakan lagi",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/me/workers/{{kru1_lamaran_usaha1_id}}/assignments-setting",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "workers",
+                "{{kru1_lamaran_usaha1_id}}",
+                "assignments-setting"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{pemilik1_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"accepts_assignments\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Pemilik 2 mengatur pekerja usaha lain -> 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404', function () { pm.response.to.have.status(404); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/me/workers/{{kru1_lamaran_usaha1_id}}/assignments-setting",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "workers",
+                "{{kru1_lamaran_usaha1_id}}",
+                "assignments-setting"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{pemilik2_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"accepts_assignments\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "06. Keluar lalu pindah usaha (KRITERIA: bukan @@unique seumur hidup)",
+      "description": "Eksklusivitas hanya berlaku untuk keanggotaan ACTIVE (partial unique index H23). Pekerja yang RESIGNED boleh bergabung ke usaha lain, dan baris lamanya tetap tersimpan.",
+      "item": [
+        {
+          "name": "Pemilik tidak bisa dikeluarkan -> 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 409', function () { pm.response.to.have.status(409); });",
+                  "pm.test('Kode error WORKER_MEMBERSHIP_CONFLICT', function () { pm.expect(pm.response.json().error.code).to.eql('WORKER_MEMBERSHIP_CONFLICT'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/providers/me/workers/{{usaha1_owner_worker_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "workers",
+                "{{usaha1_owner_worker_id}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{pemilik1_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Keluarkan Kru 1 (RESIGNED)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('RESIGNED, bukan dihapus', function () {",
+                  "  pm.expect(pm.response.json().data).to.include({ membership_status: 'RESIGNED', is_available: false });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/providers/me/workers/{{kru1_lamaran_usaha1_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "workers",
+                "{{kru1_lamaran_usaha1_id}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{pemilik1_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Kru 1 kehilangan akses pekerja -> 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 403', function () { pm.response.to.have.status(403); });",
+                  "pm.test('Kode error FORBIDDEN_ACTOR', function () { pm.expect(pm.response.json().error.code).to.eql('FORBIDDEN_ACTOR'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/workers/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "workers",
+                "me"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{kru1_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Token Kru 1 masih berlaku, tapi requireWorker membaca basis data."
+          },
+          "response": []
+        },
+        {
+          "name": "Kru 1 melamar ke Kilap Motor Kedua",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', function () { pm.response.to.have.status(201); });",
+                  "pm.environment.set('kru1_lamaran_ulang_id', pm.response.json().data.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/{{usaha2_id}}/worker-applications",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{usaha2_id}}",
+                "worker-applications"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{kru1_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"listing_ids\": [\"{{usaha2_listing_id}}\"],\n  \"experience_note\": \"Dua tahun bekerja di tempat cuci kendaraan\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Pemilik 2 menyetujui Kru 1",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Kru 1 ACTIVE di usaha kedua', function () { pm.expect(pm.response.json().data.membership_status).to.eql('ACTIVE'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/me/workers/{{kru1_lamaran_ulang_id}}/approve",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "workers",
+                "{{kru1_lamaran_ulang_id}}",
+                "approve"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{pemilik2_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Kalau ProviderWorker memakai @@unique([userId]), baris ini tidak akan pernah bisa dibuat."
+          },
+          "response": []
+        },
+        {
+          "name": "Kru 1 sekarang pekerja Kilap Motor",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Keanggotaan aktif di usaha kedua', function () {",
+                  "  pm.expect(pm.response.json().data.provider.id).to.eql(pm.environment.get('usaha2_id'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/workers/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "workers",
+                "me"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{kru1_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Pemilik 1: riwayat keanggotaan lama tetap ada",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Baris RESIGNED Kru 1 masih tersimpan', function () {",
+                  "  pm.expect(pm.response.json().data.map(function (w) { return w.id; })).to.include(pm.environment.get('kru1_lamaran_usaha1_id'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/providers/me/workers?membership_status=RESIGNED",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "workers"
+              ],
+              "query": [
+                {
+                  "key": "membership_status",
+                  "value": "RESIGNED"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{pemilik1_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "07. Akses dan validasi",
+      "description": "Lapis middleware requireAuth, requireProvider, requireWorker, requireAdmin.",
+      "item": [
+        {
+          "name": "Tanpa token -> 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401', function () { pm.response.to.have.status(401); });",
+                  "pm.test('Kode error UNAUTHORIZED', function () { pm.expect(pm.response.json().error.code).to.eql('UNAUTHORIZED'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/workers/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "workers",
+                "me"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Client biasa ke /admin -> 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 403', function () { pm.response.to.have.status(403); });",
+                  "pm.test('Kode error FORBIDDEN_ACTOR', function () { pm.expect(pm.response.json().error.code).to.eql('FORBIDDEN_ACTOR'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/type-upgrade-requests",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "type-upgrade-requests"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{kru2_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Bukan provider ke /providers/me/workers -> 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 403', function () { pm.response.to.have.status(403); });",
+                  "pm.test('Kode error FORBIDDEN_ACTOR', function () { pm.expect(pm.response.json().error.code).to.eql('FORBIDDEN_ACTOR'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/providers/me/workers",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "workers"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{kru2_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Bukan pekerja ke /workers/me -> 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 403', function () { pm.response.to.have.status(403); });",
+                  "pm.test('Kode error FORBIDDEN_ACTOR', function () { pm.expect(pm.response.json().error.code).to.eql('FORBIDDEN_ACTOR'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/workers/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "workers",
+                "me"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{kru2_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "id provider bukan UUID -> 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () { pm.response.to.have.status(422); });",
+                  "pm.test('Kode error VALIDATION_ERROR', function () { pm.expect(pm.response.json().error.code).to.eql('VALIDATION_ERROR'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/providers/bukan-uuid",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "bukan-uuid"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Provider tidak ada -> 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404', function () { pm.response.to.have.status(404); });",
+                  "pm.test('Kode error NOT_FOUND', function () { pm.expect(pm.response.json().error.code).to.eql('NOT_FOUND'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/providers/{{$guid}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{$guid}}"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "auth": {
+    "type": "noauth"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Login ulang otomatis kalau token aktor untuk request ini hampir habis.",
+          "// Token berlaku 15 menit, sedangkan menguji manual bisa lebih lama.",
+          "// Aktor dikenali dari nama variabel token di tab Authorization, misalnya",
+          "// {{pemilik1_token}} -> login dengan pemilik1_email dan seed_password.",
+          "const auth = pm.request.auth;",
+          "const raw = auth && auth.type === 'bearer' && auth.parameters() ? auth.parameters().get('token') : null;",
+          "const match = typeof raw === 'string' ? raw.match(/^\\{\\{(\\w+)_token\\}\\}$/) : null;",
+          "const isLogin = pm.request.url.toString().indexOf('/auth/login') !== -1;",
+          "",
+          "function expOf(jwt) {",
+          "  try {",
+          "    let part = jwt.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');",
+          "    part += '='.repeat((4 - (part.length % 4)) % 4);",
+          "    return JSON.parse(atob(part)).exp;",
+          "  } catch (e) {",
+          "    return null;",
+          "  }",
+          "}",
+          "",
+          "if (match && !isLogin) {",
+          "  const actor = match[1];",
+          "  const token = pm.environment.get(actor + '_token');",
+          "  const exp = token ? expOf(token) : null;",
+          "  const email = pm.environment.get(actor + '_email');",
+          "  if (email && (!exp || exp * 1000 - Date.now() < 30 * 1000)) {",
+          "    pm.sendRequest({",
+          "      url: pm.environment.get('base_url') + '/auth/login',",
+          "      method: 'POST',",
+          "      header: { 'Content-Type': 'application/json' },",
+          "      body: { mode: 'raw', raw: JSON.stringify({ email: email, password: pm.environment.get('seed_password') }) }",
+          "    }, function (err, res) {",
+          "    if (!err && res.code === 200) {",
+          "        pm.environment.set(actor + '_token', res.json().data.access_token);",
+          "        console.log('Token ' + actor + ' diperbarui otomatis lewat login ulang');",
+          "      } else {",
+          "        console.warn('Login ulang ' + actor + ' gagal. Jalankan npm run postman:seed lalu folder 00.');",
+          "      }",
+          "    });",
+          "  }",
+          "}"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "if (pm.response.code === 429) {",
+          "  console.warn('Kena rate limit (hitungan di memori server). Restart \"npm run dev\" untuk mengosongkannya.');",
+          "}",
+          "pm.test('Respons berbentuk envelope PRD 4.1', function () {",
+          "  const body = pm.response.json();",
+          "  pm.expect(body).to.have.property('success');",
+          "  if (body.success) pm.expect(body).to.have.property('data');",
+          "  else pm.expect(body.error).to.include.keys('code', 'message', 'details');",
+          "});"
+        ]
+      }
+    }
+  ]
+}

@@ -22,13 +22,28 @@ if (!hasTestDatabase) {
 }
 
 /**
- * Mengosongkan tabel Fase 1. `DELETE`, bukan `TRUNCATE ... CASCADE`:
- * TRUNCATE users CASCADE ikut mengosongkan `platform_settings` lewat kolom
- * `updated_by`, padahal tabel itu nanti berisi parameter yang diisi seed.
+ * Mengosongkan tabel Fase 1 dan Fase 2. `DELETE`, bukan `TRUNCATE ...
+ * CASCADE`: TRUNCATE users CASCADE ikut mengosongkan `platform_settings`
+ * lewat kolom `updated_by`, padahal tabel itu nanti berisi parameter yang
+ * diisi seed.
+ *
+ * Urutannya mengikuti foreign key `restrict`: `provider_workers.user_id`
+ * menahan users, dan `listings.subcategory_id` menahan subcategories.
+ * Katalog hanya dihapus yang slug-nya berawalan `uji-`, yaitu yang dibuat
+ * uji, bukan hasil seed.
  */
 export async function resetDatabase(): Promise<void> {
   await prisma.$transaction([
     prisma.notification.deleteMany(),
+    prisma.workerListing.deleteMany(),
+    prisma.providerWorker.deleteMany(),
+    prisma.listing.deleteMany(),
+    prisma.subcategory.deleteMany({ where: { slug: { startsWith: 'uji-' } } }),
+    prisma.category.deleteMany({ where: { slug: { startsWith: 'uji-' } } }),
+    prisma.wallet.deleteMany(),
+    prisma.kycDocument.deleteMany(),
+    prisma.providerProfile.deleteMany(),
+    prisma.platformSetting.deleteMany({ where: { key: { in: ['kyc_document_max_size_mb'] } } }),
     prisma.refreshToken.deleteMany(),
     prisma.verificationToken.deleteMany(),
     prisma.userAddress.deleteMany(),

@@ -30,6 +30,9 @@ import { limitPerIp, RATE_LIMITS } from './middlewares/rateLimit';
 import { healthRouter } from './modules/health/health.routes';
 import { createAuthRouter } from './modules/auth/auth.routes';
 import { createUsersRouter } from './modules/users/users.routes';
+import { createProvidersRouter } from './modules/providers/providers.routes';
+import { createWorkersRouter } from './modules/workers/workers.routes';
+import { createAdminRouter } from './modules/admin/admin.routes';
 
 function corsOptions(): CorsOptions {
   return {
@@ -79,6 +82,9 @@ export function createApp(): Express {
 
   app.use(`${API_PREFIX}/auth`, createAuthRouter());
   app.use(`${API_PREFIX}/users`, createUsersRouter());
+  app.use(`${API_PREFIX}/providers`, createProvidersRouter());
+  app.use(`${API_PREFIX}/workers`, createWorkersRouter());
+  app.use(`${API_PREFIX}/admin`, createAdminRouter());
 
   app.use(notFoundHandler);
   app.use(errorHandler);

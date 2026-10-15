@@ -29,3 +29,21 @@ export const REQUEST_ID_HEADER = 'x-request-id';
  * dengan health check yang salah, karena pemantau akan timeout sendiri.
  */
 export const HEALTH_DB_TIMEOUT_MS = 2_000;
+
+/**
+ * Bucket Supabase Storage untuk dokumen e-KYC (D80).
+ *
+ * WAJIB PRIVATE. Isinya KTP dan selfie, jadi tidak pernah dibaca lewat URL
+ * publik. Admin membukanya lewat signed URL berumur pendek. Bucket dibuat
+ * sekali di dashboard Supabase, aplikasi tidak membuatnya sendiri.
+ */
+export const KYC_BUCKET = 'kyc-documents';
+
+/**
+ * Umur signed URL dokumen e-KYC yang dibuka admin. Cukup untuk sekali
+ * memeriksa, tidak cukup untuk dibagikan lalu dibuka besok.
+ */
+export const KYC_SIGNED_URL_TTL_SECONDS = 10 * 60;
+
+/** Batas waktu satu panggilan ke Supabase Storage sebelum dianggap gagal. */
+export const STORAGE_TIMEOUT_MS = 15_000;

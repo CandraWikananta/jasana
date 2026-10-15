@@ -20,3 +20,18 @@ export function isUniqueViolation(error: unknown, field: string): boolean {
   if (typeof target === 'string') return target.includes(field);
   return false;
 }
+
+/**
+ * Pelanggaran partial unique index eksklusivitas keanggotaan (H23, D36).
+ *
+ * Index itu dibuat lewat migrasi SQL manual, jadi `meta.target` bisa berisi
+ * nama kolom atau nama index, tergantung cara Prisma membaca pesan
+ * PostgreSQL. Keduanya dikenali.
+ */
+export function isActiveMembershipViolation(error: unknown): boolean {
+  return (
+    isUniqueViolation(error, 'user_id') ||
+    isUniqueViolation(error, 'userId') ||
+    isUniqueViolation(error, 'uniq_active_worker_membership')
+  );
+}
