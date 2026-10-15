@@ -6,7 +6,7 @@ Marketplace jasa on-demand berbasis web. Ini kode untuk Tugas Akhir, jadi **doku
 
 | Berkas | Isi |
 |---|---|
-| `docs/Keputusan-Desain-Sistem.md` | Register keputusan D1 sampai D80 beserta alasannya. **Baca ini kalau ragu kenapa sesuatu dirancang begitu** |
+| `docs/Keputusan-Desain-Sistem.md` | Register keputusan D1 sampai D86 (versi 2.8) beserta alasannya. **Baca ini kalau ragu kenapa sesuatu dirancang begitu** |
 | `docs/State-Machine-Order.md` | 15 status, 22 transisi, guard, efek samping, dan kode `ALLOWED_TRANSITIONS` |
 | `docs/PRD-Backend.md` | Kontrak endpoint, NFR, cron, Socket.IO, milestone |
 | `packages/database/prisma/schema.prisma` | 34 model, 35 enum |
@@ -113,6 +113,8 @@ provider_earning    = total_amount - platform_fee
 ```
 
 Kalau client boleh mengirim total, siapa pun bisa memesan jasa premium seharga seribu rupiah lewat Postman.
+
+Pola yang sama berlaku untuk withdrawal (D84): request hanya memuat `amount` dan rekening tujuan. `admin_fee` dibaca server dari `withdrawal_admin_fee`, `net_amount = amount - admin_fee`, dan `amount` di bawah `withdrawal_min_amount` ditolak `422 WITHDRAWAL_BELOW_MINIMUM`.
 
 ### 5. Tiga lapis pemeriksaan di transisi order, bukan dua
 
@@ -304,4 +306,6 @@ Jangan membangun ini walaupun terasa kurang lengkap. Semuanya keputusan sadar ya
 - Pencatatan seluruh kru yang hadir, hanya penanggung jawab dan pendamping (D68)
 - Order multi-kunjungan dan penyerahan hasil digital bertahap (D75)
 - Verifikasi identitas pekerja oleh platform, itu tanggung jawab pemilik usaha (D34)
+- Opsi kustom bebas dan sub-kategori buatan provider. Penambahan taksonomi selalu lewat `taxonomy_requests` ke admin (D74, D81, D82)
+- Pemodelan biaya metode pembayaran payment gateway. Ditanggung platform dari komisi, tidak masuk alur dana (D83)
 - Multi-currency, microservices, message queue

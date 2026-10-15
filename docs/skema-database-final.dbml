@@ -5,8 +5,8 @@ Project jasana {
   yang Terintegrasi dengan Kecerdasan Buatan
   I Nyoman Gede Candra Wikananta - 2305551065
 
-  VERSI 2.7. 34 tabel, 35 enum.
-  Rujukan lengkap: Keputusan-Desain-Sistem.md (D1 sampai D80)
+  VERSI 2.8. 34 tabel, 35 enum. Versi 2.8 tidak mengubah struktur.
+  Rujukan lengkap: Keputusan-Desain-Sistem.md (D1 sampai D86)
 
   Keputusan yang mengunci rancangan ini:
   - Available Now model DIRECT (client pilih listing milik satu penyedia)
@@ -21,7 +21,7 @@ Project jasana {
     Ketersediaan dan lokasi real-time pindah ke pekerja. Kunci in-flight pindah
     dari provider ke pekerja. Freelancer = usaha dengan satu pekerja (provider_type).
   - PEMETAAN (D50-D53): worker_listings menentukan siapa bisa mengerjakan listing apa.
-  - PENERIMAAN ORDER (D54-D57): Available Now diklaim pekerja ATAU pemilik,
+  - PENERIMAAN ORDER (D54-D57, D70): Available Now diklaim pekerja ATAU pemilik,
     siapa cepat dia dapat. Scheduled diterima pemilik sekaligus menugaskan pekerja.
   - EMAIL DAN AKUN (D58-D64, D76): verification_tokens, refresh_tokens,
     verifikasi email wajib, penggantian email lewat pending_email.
@@ -30,7 +30,8 @@ Project jasana {
   - HARGA BERTINGKAT (D72-D73): atribut berperan SPEC atau OPTION.
     base_price jadi listing_base_amount, ditambah options_amount.
   - USULAN TAKSONOMI (D74): provider mengusulkan sub-kategori, atribut, atau
-    option baru lewat taxonomy_requests. Admin yang menyetujui.
+    option baru lewat taxonomy_requests. Admin yang menyetujui. Opsi kustom bebas
+    dan sub-kategori buatan provider ditolak (D81, D82, dikukuhkan Pembimbing 1).
   - CHATBOT TAMU (D77, arahan Pembimbing 1): chat_sessions.user_id jadi nullable,
     tamu boleh bertanya sebelum punya akun, personalisasi dinonaktifkan.
   - KOMUNIKASI (D78-D79): listing_faqs untuk tanya jawab di muka, order_messages
@@ -1082,8 +1083,8 @@ Table wallet_transactions {
 Table withdrawals {
   id                    uuid                  [pk, note: 'Primary key']
   wallet_id             uuid                  [not null, note: 'Dompet asal dana']
-  amount                decimal(14,2)         [not null, note: 'Nominal yang diajukan provider. Saldo didebit saat pengajuan, bukan saat selesai']
-  admin_fee             decimal(12,2)         [not null, default: 0, note: 'Biaya administrasi pencairan. Nilainya belum ditetapkan, masih jadi keputusan terbuka']
+  amount                decimal(14,2)         [not null, note: 'Nominal yang diajukan provider, minimal withdrawal_min_amount (D84). Saldo didebit sebesar ini saat pengajuan, bukan saat selesai']
+  admin_fee             decimal(12,2)         [not null, default: 0, note: 'D84. Biaya administrasi pencairan, flat dari platform_settings.withdrawal_admin_fee (awal Rp6.500), disalin saat pengajuan. Dihitung server, tidak pernah dari request']
   net_amount            decimal(14,2)         [not null, note: 'Yang benar-benar dikirim ke rekening, yaitu amount dikurangi admin_fee']
   bank_code             varchar(20)           [not null, note: 'Kode bank tujuan sesuai daftar Xendit']
   bank_account_number   varchar(40)           [not null, note: 'Nomor rekening tujuan']
@@ -1328,7 +1329,7 @@ Table platform_settings {
     email_retry_max_attempts              = 3     (D58)
     guest_chat_message_limit              = 20    (D77)
     guest_chat_ip_hourly_limit            = 50    (D77)
-    guest_chat_daily_global_limit         = TBD   (D77, ditetapkan saat pengujian)
+    guest_chat_daily_global_limit         = TBD   (D77, D85, ditetapkan pada fase chatbot)
     access_token_ttl_minutes              = 15    (D76)
     refresh_token_ttl_days                = 30    (D76)
     listing_faq_max_items                 = 10    (D78)
@@ -1337,6 +1338,8 @@ Table platform_settings {
     kyc_document_max_size_mb              = 5     (D80)
     dispute_evidence_max_size_mb          = 5     (D80)
     orphan_upload_cleanup_hours           = 24    (D80)
+    withdrawal_min_amount                 = 50000 (D84)
+    withdrawal_admin_fee                  = 6500  (D84)
   '''
 }
 

@@ -2,8 +2,8 @@
 // Platform Marketplace Jasa On-Demand "Jasana"
 // I Nyoman Gede Candra Wikananta - 2305551065
 //
-// VERSI 2.7. 34 model, 35 enum.
-// Rujukan keputusan lengkap: Keputusan-Desain-Sistem.md (D1 sampai D80)
+// VERSI 2.8. 34 model, 35 enum. Versi 2.8 hanya mengubah komentar.
+// Rujukan keputusan lengkap: Keputusan-Desain-Sistem.md (D1 sampai D86)
 //
 // Lokasi yang disarankan pada monorepo:
 //   packages/database/prisma/schema.prisma
@@ -34,11 +34,13 @@
 //            pekerja, bukan akun provider. Lokasi real-time dan kunci
 //            in-flight pindah ke pekerja.
 //   D54-D57  Penerimaan order per mode, pola siapa cepat dia dapat.
+//   D70      Available Now boleh diterima pemilik maupun pekerja.
 //   D58-D64  Notifikasi email, VerificationToken, penggantian alamat email.
 //   D68-D69  Satu penanggung jawab per order, OrderCrew untuk pendamping.
 //   D72-D73  Atribut berperan SPEC atau OPTION, ListingOptionPrice.
 //            basePrice jadi listingBaseAmount + optionsAmount.
 //   D74      TaxonomyRequest, usulan katalog dari penyedia ke admin.
+//            Opsi kustom bebas dan sub-kategori buatan provider ditolak (D81, D82).
 //   D76      RefreshToken dengan rotasi dan deteksi pemakaian ulang.
 //   D77      Chatbot terbuka untuk tamu, ChatSession.userId jadi nullable.
 //   D78-D79  ListingFaq dan OrderMessage. Percakapan PRA-ORDER sengaja TIDAK
@@ -1491,6 +1493,7 @@ model Withdrawal {
   id                 String              @id @default(uuid()) @db.Uuid
   walletId           String              @map("wallet_id") @db.Uuid
   amount             Decimal             @db.Decimal(14, 2)
+  /// D84. Flat dari platform_settings.withdrawal_admin_fee, disalin saat pengajuan.
   adminFee           Decimal             @default(0) @map("admin_fee") @db.Decimal(12, 2)
   netAmount          Decimal             @map("net_amount") @db.Decimal(14, 2)
   bankCode           String              @map("bank_code") @db.VarChar(20)
@@ -1784,31 +1787,35 @@ model Notification {
 /// ulang. Inilah yang memungkinkan menjawab "kenapa radiusnya 100 meter"
 /// dengan data, bukan dengan asumsi.
 ///
-///   platformFeePercentage              = 10
-///   geolocationRadiusMeters            = 100
-///   availableNowResponseMinutes        = 5
-///   scheduledApprovalHours             = 24
-///   settlementHoldingHours             = 24
-///   paymentWindowMinutes               = 10
-///   verificationMaxAttempts            = 5
-///   verificationLockoutMinutes         = 15
-///   availableNowOfferLimit             = 5     (D55)
-///   workerPresenceTimeoutMinutes       = 10    (D57, D65)
-///   workerLocationMoveThresholdMeters  = 200   (D66)
-///   workerLocationMaxIntervalMinutes   = 5     (D66)
-///   scheduleConflictBufferMinutes      = 30    (D41)
-///   emailRetryMaxAttempts              = 3     (D58)
-///   guestChatMessageLimit              = 20    (D77)
-///   guestChatIpHourlyLimit             = 50    (D77)
-///   guestChatDailyGlobalLimit          = TBD   (D77)
-///   accessTokenTtlMinutes              = 15    (D76)
-///   refreshTokenTtlDays                = 30    (D76)
-///   listingFaqMaxItems                 = 10    (D78)
-///   orderMessageMaxLength              = 2000  (D79)
-///   orderMessageRatePerMinute          = 20    (D79)
-///   kycDocumentMaxSizeMb               = 5     (D80)
-///   disputeEvidenceMaxSizeMb           = 5     (D80)
-///   orphanUploadCleanupHours           = 24    (D80)
+/// Key disimpan dalam snake_case, sama dengan yang dibaca kode:
+///
+///   platform_fee_percentage               = 10
+///   geolocation_radius_meters             = 100
+///   available_now_response_minutes        = 5
+///   scheduled_approval_hours              = 24
+///   settlement_holding_hours              = 24
+///   payment_window_minutes                = 10
+///   verification_max_attempts             = 5
+///   verification_lockout_minutes          = 15
+///   available_now_offer_limit             = 5     (D55)
+///   worker_presence_timeout_minutes       = 10    (D57, D65)
+///   worker_location_move_threshold_meters = 200   (D66)
+///   worker_location_max_interval_minutes  = 5     (D66)
+///   schedule_conflict_buffer_minutes      = 30    (D41)
+///   email_retry_max_attempts              = 3     (D58)
+///   guest_chat_message_limit              = 20    (D77)
+///   guest_chat_ip_hourly_limit            = 50    (D77)
+///   guest_chat_daily_global_limit         = TBD   (D77, D85, ditetapkan pada fase chatbot)
+///   access_token_ttl_minutes              = 15    (D76)
+///   refresh_token_ttl_days                = 30    (D76)
+///   listing_faq_max_items                 = 10    (D78)
+///   order_message_max_length              = 2000  (D79)
+///   order_message_rate_per_minute         = 20    (D79)
+///   kyc_document_max_size_mb              = 5     (D80)
+///   dispute_evidence_max_size_mb          = 5     (D80)
+///   orphan_upload_cleanup_hours           = 24    (D80)
+///   withdrawal_min_amount                 = 50000 (D84)
+///   withdrawal_admin_fee                  = 6500  (D84)
 model PlatformSetting {
   key         String   @id @db.VarChar(50)
   value       Json

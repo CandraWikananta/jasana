@@ -4,9 +4,9 @@
 **Nama sistem:** Jasana
 **Penyusun:** I Nyoman Gede Candra Wikananta (2305551065)
 **Bidang Keahlian:** Sistem Informasi, Teknologi Informasi, Universitas Udayana
-**Versi:** 2.7
-**Terakhir diperbarui:** 30 September 2026 (versi 2.7)
-**Tahap saat ini:** Perancangan Desain Sistem (tahap 3.3 pada usulan ide), Fase 0 implementasi sudah berjalan
+**Versi:** 2.8
+**Terakhir diperbarui:** 15 Oktober 2026 (versi 2.8)
+**Tahap saat ini:** Implementasi backend. Fase 0 dan Fase 1 selesai, Fase 2 sedang berjalan
 
 ---
 
@@ -14,8 +14,8 @@
 
 | Kategori | Jumlah keputusan | Terbuka |
 |---|---|---|
-| Administratif dan metodologi (A) | 6 | 0 |
-| Technology stack (S) | 11 | 0 |
+| Administratif dan metodologi (A) | 7 | 0 |
+| Technology stack (S) | 12 | 0 |
 | Arsitektur dan model data (D1 sampai D30) | 30 | 0 |
 | Tenaga kerja (D31 sampai D49) | 19 | 0 |
 | Pemetaan, penerimaan order, dan notifikasi (D50 sampai D64) | 15 | 0 |
@@ -25,6 +25,20 @@
 | Sesi login dan chatbot tamu (D76 sampai D77) | 2 | 0 |
 | Komunikasi pra-order dan dalam order (D78 sampai D79) | 2 | 0 |
 | Pola unggah berkas (D80) | 1 | 0 |
+| Penutupan keputusan terbuka (D81 sampai D86) | 6 | 0 |
+
+**Perubahan pada versi 2.8:**
+
+1. Seluruh keputusan terbuka ditutup. Tidak ada lagi pertanyaan yang menggantung
+2. Dokumen usulan ide tidak direvisi, perubahan sistem dijelaskan di laporan (A7)
+3. Opsi kustom bebas dan sub-kategori buatan provider ditolak, dikukuhkan Pembimbing 1 pada bimbingan 30 September 2026 (D81, D82)
+4. Biaya metode pembayaran payment gateway ditanggung platform dari komisi, ditulis sebagai batasan (D83)
+5. Minimum withdrawal Rp50.000 dan admin fee flat Rp6.500 (D84)
+6. Target pengujian UAT, akurasi chatbot, beban normal, dan stress ditetapkan (D85)
+7. Dasar komisi 10 persen dan holding window 24 jam dicatat (D86)
+8. Perapian: status artefak, langkah berikutnya, rujukan silang yang keliru, dan urutan riwayat revisi
+9. Rumusan D25 diperjelas: dispute boleh dibuka sejak ARRIVED, menyamakan dengan state machine
+10. Seluruh artefak lain disinkronkan ke versi ini (lihat tabel status artefak)
 
 **Perubahan pada versi 2.7:**
 
@@ -68,20 +82,31 @@
 2. Penerimaan order dipisah per mode, dengan pola siapa cepat dia dapat untuk Available Now
 3. Notifikasi email, verifikasi akun, dan penggantian alamat email lewat tabel `verification_tokens`
 
-**Waktu revisi menguntungkan.** Fase 0 (fondasi monorepo, migrasi, health check, error handler, logger, validasi env) sudah selesai, sedangkan Fase 1 belum dimulai. Tidak ada kode logika bisnis yang perlu dibongkar.
+**Catatan waktu revisi.** Revisi besar versi 2.1 sampai 2.7 dilakukan saat Fase 0 (fondasi monorepo, migrasi, health check, error handler, logger, validasi env) baru selesai dan Fase 1 belum dimulai, sehingga tidak ada kode logika bisnis yang perlu dibongkar. Versi 2.8 tidak mengubah skema.
 
 **Dampak kumulatif terhadap skema:** dari 25 tabel dan 26 enum menjadi **34 tabel dan 35 enum**.
 
-**Artefak yang terdampak:**
+**Status artefak per versi 2.8 (seluruhnya sinkron per 15 Oktober 2026):**
 
-| Artefak | Status |
-|---|---|
-| `skema-database.md` (DBML) | Perlu revisi |
-| `schema.prisma` | Perlu revisi |
-| `migration-constraints.sql` | Perlu revisi |
-| `State-Machine-Order.md` | Perlu revisi |
-| `PRD.md` (backend) | Perlu revisi |
-| Usulan ide (Tabel Aktor Sistem) | Perlu keputusan administratif, lihat Bagian 7 |
+| Artefak | Versi | Perubahan karena versi 2.8 |
+|---|---|---|
+| `skema-database-final.dbml` | 2.8 | Dua parameter withdrawal, note `withdrawals.amount` dan `admin_fee`, rujukan D70, D81, dan D82. Struktur tidak berubah |
+| `schema.prisma` | 2.8 | Komentar saja: daftar parameter ditulis dalam snake_case sesuai key yang dibaca kode, dua parameter withdrawal, rujukan D70, D81, D82, dan D84 |
+| `migration-constraints.sql` | 2.6 | Tidak terdampak |
+| `Panduan-Struktur-Database.md` | 2.8 | Parameter withdrawal, lima pertanyaan sidang baru, judul tabel ringkasan perubahan |
+| `State-Machine-Order.md` | 2.6 | Tidak terdampak. Sudah memakai ARRIVED sebagai batas bawah dispute, yang kini jadi rumusan D25 |
+| `PRD-Backend.md` | 2.2 | Bagian 1.3, 1.4, 3.5, kontrak withdrawal, 6.2, 8, 9, 10, kode error `WITHDRAWAL_BELOW_MINIMUM` |
+| `CLAUDE.md` | | Rujukan D1 sampai D86, aturan withdrawal di jebakan nomor 4, dua butir di luar cakupan |
+| Usulan ide (Tabel Aktor Sistem) | | Tidak direvisi (A7) |
+
+---|---|
+| `skema-database-final.dbml` | Sinkron versi 2.7. Perlu tambahan kecil dari D84: dua parameter withdrawal di catatan `platform_settings` dan note kolom `withdrawals.admin_fee` |
+| `schema.prisma` | Sinkron versi 2.7, tidak terdampak versi 2.8 |
+| `migration-constraints.sql` | Sinkron versi 2.7, tidak terdampak versi 2.8 |
+| `Panduan-Struktur-Database.md` | Sinkron versi 2.7 |
+| `State-Machine-Order.md` | Sinkron versi 2.6, tidak terdampak versi 2.8 |
+| `PRD-Backend.md` | Versi 2.1. Perlu sinkron dengan D81 sampai D86: Bagian 1.3 (O6), 6.2, 8, 10, dan daftar parameter |
+| Usulan ide (Tabel Aktor Sistem) | Tidak direvisi (A7) |
 
 ---
 
@@ -95,8 +120,9 @@
 | A2 | Pembimbing 1: Dr. Ir. Ni Kadek Ayu Wirdiani, S.T., M.T., IPU | Pengusul fitur AI service discovery chatbot dan pengusul penambahan tenaga kerja |
 | A3 | Pembimbing 2: Dr. Ir. Anak Agung Kompiang Oka Sudana, S.Kom., M.T., IPM | Ditugaskan di seminar ide |
 | A4 | Metode pengembangan: Waterfall | Sistematis dan berurutan, cocok untuk cakupan yang terdefinisi di awal |
-| A5 | Metode pengujian: Black Box, UAT (skala Likert), Stress Testing | Sesuai tujuan penelitian nomor 6 |
+| A5 | Metode pengujian: Black Box, UAT (skala Likert), Stress Testing | Sesuai tujuan penelitian nomor 6. Target angkanya di D85 |
 | A6 | Rentang waktu: 6 bulan, pengembangan modul per bulan | Sesuai Tabel 3 usulan ide |
+| A7 | **Dokumen usulan ide tidak direvisi.** Perubahan sistem sejak usulan, termasuk aktor yang menjadi empat (client, provider, pekerja, admin), dijelaskan di laporan, terutama Bab III | Usulan ide berfungsi menentukan kelayakan ide sebagai tugas akhir dan sudah disetujui. Apa pun yang berhubungan dengan usulan ide dibiarkan. Menutup keputusan terbuka nomor 1 (versi 2.8) |
 
 ### 2.2 Technology Stack
 
@@ -148,16 +174,16 @@ Tidak memakai Redis. Rate limiting in-memory dan cache sub-kategori dengan TTL 5
 
 | # | Keputusan | Alasan |
 |---|---|---|
-| D23 | **Mode Available Now: DIRECT.** Client memilih listing milik satu penyedia, bukan menyebar permintaan ke banyak penyedia | Konsisten dengan model direct browse-and-book di usulan ide. Tidak perlu tabel `order_offers`. **Catatan versi 2.1:** penawaran internal ke beberapa pekerja dalam satu usaha (D54) tidak melanggar keputusan ini, karena penyedianya sudah dipilih client lebih dulu |
-| D24 | **Holding window 24 jam** antara COMPLETED dan SETTLED, disimpan sebagai `settlement_holding_hours` | Kalau instan, provider bisa withdraw dalam hitungan menit dan platform menanggung refund dari kantong sendiri |
-| D25 | **Window komplain sama dengan holding window.** Dispute hanya boleh dibuka selama order masih COMPLETED, batasnya `settlement_due_at` | Aturan tunggal, satu pengecekan di kode |
+| D23 | **Mode Available Now: DIRECT.** Client memilih listing milik satu penyedia, bukan menyebar permintaan ke banyak penyedia | Konsisten dengan model direct browse-and-book di usulan ide. Tidak perlu tabel `order_offers`. **Catatan versi 2.1:** penawaran internal ke beberapa pekerja dalam satu usaha (D55) tidak melanggar keputusan ini, karena penyedianya sudah dipilih client lebih dulu |
+| D24 | **Holding window 24 jam** antara COMPLETED dan SETTLED, disimpan sebagai `settlement_holding_hours` | Kalau instan, provider bisa withdraw dalam hitungan menit dan platform menanggung refund dari kantong sendiri. Dasar angkanya di D86 |
+| D25 | **Batas akhir komplain sama dengan akhir holding window**, yaitu `settlement_due_at`. **Diperjelas pada versi 2.8:** dispute boleh dibuka sejak order berstatus ARRIVED (transisi T13, T15, T17, dan T19 di `State-Machine-Order.md`), bukan hanya saat COMPLETED | Aturan tunggal untuk batas akhir, satu pengecekan di kode. Batas bawahnya ARRIVED karena sebelum pekerja tiba, masalah masih bisa diselesaikan lewat pembatalan biasa. Rumusan lama "hanya selama COMPLETED" tidak sesuai dengan state machine, DBML, PRD, dan Panduan Struktur Database yang sudah memakai ARRIVED sejak versi 2.x |
 | D26 | **Chatbot wajib login.** `chat_sessions.user_id` NOT NULL. **Direvisi oleh D77:** chatbot terbuka untuk tamu dengan personalisasi dinonaktifkan, atas arahan Pembimbing 1 | Personalisasi menuntut identitas. Rekomendasi berbasis lokasi butuh `user_addresses`, biaya Gemini butuh rate limiting berbasis identitas |
 | D27 | **Empat sumber personalisasi** dirangkum ke `chat_sessions.personalization_snapshot` | Riwayat kategori, alamat default, rata-rata rating yang diberikan, rentang harga order sebelumnya |
-| D28 | **Platform fee = komisi dari provider, 10 persen.** Client membayar harga listing apa adanya | Client tidak melihat biaya tersembunyi |
+| D28 | **Platform fee = komisi dari provider, 10 persen.** Client membayar harga listing apa adanya | Client tidak melihat biaya tersembunyi. Biaya metode pembayaran ditanggung platform dari komisi (D83), dasar angkanya di D86 |
 | D29 | **Platform fee dikembalikan penuh** saat refund akibat kesalahan provider | Paling mudah dipertahankan secara etis di sidang |
 | D30 | **Kode verifikasi dienkripsi AES (reversible)**, bukan di-hash | Client harus bisa melihat kodenya berulang kali. Yang melindungi uang adalah lockout, bukan enkripsinya |
 
-**Rumus nominal order:**
+**Rumus nominal order (versi 1.0, direvisi oleh D73 di Bagian 4B.1):**
 
 ```
 base_price       = harga listing saat dipesan     contoh: 100.000
@@ -275,7 +301,7 @@ Provider INDIVIDUAL tidak pernah melihat satu pun antarmuka di atas.
 
 | # | Keputusan | Alasan |
 |---|---|---|
-| D54 | **Penerima order berbeda per mode.** Available Now diterima **pekerja** yang sedang online, Scheduled diterima **pemilik** provider. **Direvisi oleh D69:** pemilik juga boleh menerima order Available Now, siapa duluan dia yang menentukan | SLA 5 menit tidak masuk akal kalau yang harus merespons adalah orang yang tidak sedang memegang laptop. Pemilik usaha cuci mobil dengan lima kru tidak mungkin memantau dashboard sepanjang hari. Sebaliknya, menerima order Scheduled berarti mengunci slot masa depan dan memilih di antara beberapa pekerja, itu keputusan manajerial. Untuk provider INDIVIDUAL keduanya orang yang sama |
+| D54 | **Penerima order berbeda per mode.** Available Now diterima **pekerja** yang sedang online, Scheduled diterima **pemilik** provider. **Direvisi oleh D70:** pemilik juga boleh menerima order Available Now, siapa duluan dia yang menentukan | SLA 5 menit tidak masuk akal kalau yang harus merespons adalah orang yang tidak sedang memegang laptop. Pemilik usaha cuci mobil dengan lima kru tidak mungkin memantau dashboard sepanjang hari. Sebaliknya, menerima order Scheduled berarti mengunci slot masa depan dan memilih di antara beberapa pekerja, itu keputusan manajerial. Untuk provider INDIVIDUAL keduanya orang yang sama |
 | D55 | **Available Now memakai pola siapa cepat dia dapat.** Order ditawarkan ke maksimal `available_now_offer_limit` pekerja yang memenuhi syarat, diurutkan dari yang terdekat. Yang pertama menerima yang mendapat order | Mengandalkan satu orang merespons dalam 5 menit itu rapuh. Kalau yang terdekat sedang memegang selang air, order hangus padahal ada rekannya yang menganggur. Penawarannya terbatas pada pekerja di satu usaha yang sudah dipilih client, jadi ini bukan broadcast lintas penyedia dan D23 tetap utuh |
 | D56 | **Tidak ada pelemparan berantai.** Kalau semua yang ditawari menolak atau 5 menit lewat, order langsung EXPIRED dan client memilih ulang | Pelemparan berantai adalah model broadcast yang sudah ditolak di D23, dan begitu masuk akan menyeret deadline total versus deadline per pekerja, urutan pelemparan, serta penanganan kalau semua menolak. Masuk saran pengembangan di Bab V |
 | D57 | **Toggle Available Now ada di dashboard pekerja**, dengan syarat `accepts_assignments = true` dan izin geolokasi browser diberikan. **Direvisi oleh D65:** penanda online diambil dari koneksi Socket.IO, bukan dari umur koordinat | Tanpa aturan presence basi, sistem akan menawarkan order ke orang yang sudah menutup tab dan pulang. Predikat ini dipakai di pencocokan dan di rumus D45, ditambah cron kecil yang mematikan toggle supaya tampilan dashboard jujur |
@@ -566,7 +592,7 @@ Rumus komisi D28 dan seluruh mekanisme escrow, refund, serta ledger **tidak beru
 
 | # | Keputusan | Alasan |
 |---|---|---|
-| D74 | **Provider bisa mengusulkan tiga jenis penambahan taksonomi** lewat tabel `taxonomy_requests`: sub-kategori baru, atribut baru pada sub-kategori yang ada, dan option baru pada atribut yang ada. Admin yang menyetujui. Provider **tidak** boleh membuat sendiri tanpa persetujuan | Model terpusat menjaga kosakata tetap seragam, dan itu syarat mutlak filter lintas penyedia yang jadi tujuan penelitian nomor 1. Kalau provider bebas membuat sendiri, dalam sebulan akan ada "SUV", "Suv", dan "Kendaraan Besar" sebagai nilai berbeda, dan filter gagal tanpa terlihat gagal. Tapi tanpa saluran usulan, provider yang jasanya belum ada tidak punya jalan sama sekali. Mekanisme ini menutup kelemahan model terpusat dari tiga arah |
+| D74 | **Provider bisa mengusulkan tiga jenis penambahan taksonomi** lewat tabel `taxonomy_requests`: sub-kategori baru, atribut baru pada sub-kategori yang ada, dan option baru pada atribut yang ada. Admin yang menyetujui. Provider **tidak** boleh membuat sendiri tanpa persetujuan | Model terpusat menjaga kosakata tetap seragam, dan itu syarat mutlak filter lintas penyedia yang jadi tujuan penelitian nomor 1. Kalau provider bebas membuat sendiri, dalam sebulan akan ada "SUV", "Suv", dan "Kendaraan Besar" sebagai nilai berbeda, dan filter gagal tanpa terlihat gagal. Tapi tanpa saluran usulan, provider yang jasanya belum ada tidak punya jalan sama sekali. Mekanisme ini menutup kelemahan model terpusat dari tiga arah. **Dikukuhkan Pembimbing 1 pada bimbingan 30 September 2026 (D81, D82)** |
 
 **Bobot tiap jenis usulan:**
 
@@ -787,6 +813,72 @@ Sebaliknya untuk foto listing jawabannya juga rapi: berkas publik bervolume besa
 **Berkas yatim pada jalur signed URL.** Celah ini ada sejak rancangan awal dan belum pernah ditutup: kalau seseorang meminta signed URL, mengunggah berkasnya, lalu tidak pernah memanggil endpoint yang mencatat metadatanya, berkas itu nyangkut di Storage tanpa baris basis data dan tidak ada yang membersihkan.
 
 Penutupnya cukup satu cron harian yang menghapus berkas di bucket foto listing yang lebih tua dari 24 jam dan tidak punya baris `listing_photos` yang merujuknya. Jalur multipart tidak punya masalah ini, karena unggah dan penulisan baris terjadi dalam satu permintaan.
+
+---
+
+## 4C. Keputusan Versi 2.8 (D81 sampai D86)
+
+Versi ini tidak mengubah skema. Isinya menutup seluruh keputusan terbuka di Bagian 7, sebagian berasal dari bimbingan dengan Pembimbing 1 tanggal 30 September 2026.
+
+### 4C.1 Taksonomi Tetap Terpusat
+
+| # | Keputusan | Alasan |
+|---|---|---|
+| D81 | **Provider tidak boleh membuat opsi kustom bebas** seperti option group di aplikasi pesan antar makanan. Seluruh opsi berasal dari definisi atribut buatan admin, dan kebutuhan opsi baru disalurkan lewat usulan `NEW_ATTRIBUTE_OPTION` (D74). Tabel `listing_custom_options` tidak dibuat. Dikukuhkan Pembimbing 1 pada bimbingan 30 September 2026 | Opsi buatan provider tidak bisa ikut difilter lintas penyedia karena kosakatanya tidak seragam, sedangkan filter lintas penyedia adalah tujuan penelitian nomor 1. Menutup keputusan terbuka 1a |
+| D82 | **Provider tidak boleh membuat sub-kategori sendiri** tanpa persetujuan admin. Jalurnya tetap usulan `NEW_SUBCATEGORY` (D74). Fitur penggabungan sub-kategori tidak diperlukan. Dikukuhkan Pembimbing 1 pada bimbingan 30 September 2026 | Saran kemiripan mengurangi duplikasi tapi tidak menghilangkannya, dan struktur atribut jadi berbeda antar provider untuk jasa yang sama. Menutup keputusan terbuka 1b |
+
+### 4C.2 Biaya Pihak Ketiga dan Withdrawal
+
+| # | Keputusan | Alasan |
+|---|---|---|
+| D83 | **Biaya metode pembayaran dari payment gateway** (Virtual Account, QRIS, e-wallet) **diasumsikan ditanggung platform dari komisi** dan tidak dimodelkan dalam alur dana. Tidak ada perubahan skema, rumus nominal order, maupun logika refund | Ruang lingkup penelitian adalah mekanisme escrow dan integritas dana, bukan kelayakan bisnis platform. Pengujian memang berjalan di Xendit test mode, tapi alasan yang dipakai di laporan adalah ruang lingkup, bukan test mode. Ditulis sebagai batasan (H81) |
+| D84 | **Minimum withdrawal Rp50.000 dan admin fee flat Rp6.500 per pengajuan**, disimpan sebagai `withdrawal_min_amount` dan `withdrawal_admin_fee`. `net_amount = amount - admin_fee`, dihitung di server, dan saldo tetap didebit sebesar `amount` saat pengajuan (D15) | Admin fee mengikuti perkiraan biaya payout Xendit, sehingga platform tidak mengambil untung dari pencairan dan pendapatannya hanya komisi. Nilai flat dipilih daripada rumus persentase karena pencairan bukan fokus penelitian. Minimum Rp50.000 menjaga admin fee paling besar sekitar 13 persen dari nominal. Menutup keputusan terbuka nomor 2 |
+
+**Tarif Xendit yang menjadi acuan** (halaman harga resmi Xendit, dicek 15 Oktober 2026, belum termasuk pajak):
+
+| Layanan | Tarif |
+|---|---|
+| Payout ke rekening bank | 1 persen (minimal Rp2.500) ditambah biaya proses Rp4.000 |
+| Invoice lewat Virtual Account | Rp9.000 ditambah biaya proses Rp4.000 |
+| Invoice lewat QRIS | 0,7 persen ditambah biaya proses Rp4.000 |
+| Invoice lewat e-wallet | 2 sampai 5,5 persen tergantung penyedia, ditambah biaya proses Rp4.000 |
+
+Admin fee Rp6.500 sama persis dengan biaya payout sebenarnya untuk nominal sampai Rp250.000. Di atas itu biaya sebenarnya sedikit lebih besar dan selisihnya ditanggung platform (H82).
+
+**Bahan diskusi Bab IV atau V, bukan untuk diimplementasikan.** Dengan komisi 10 persen, biaya metode pembayaran baru tertutup kalau nilai order minimal sekitar Rp130.000 untuk Virtual Account dan sekitar Rp43.000 untuk QRIS. Beberapa sub-kategori contoh seperti ganti oli, cuci mobil, dan potong rambut punya rentang harga di bawah angka tersebut. Pada platform nyata hal ini biasanya diatasi dengan biaya layanan terpisah yang dibayar client, dan itu bisa masuk saran pengembangan.
+
+### 4C.3 Target Pengujian
+
+| # | Keputusan | Alasan |
+|---|---|---|
+| D85 | **Target pengujian ditetapkan sebelum pengujian dijalankan**, rinciannya di tabel bawah. Menutup keputusan terbuka nomor 3 | Ambang yang ditetapkan sesudah melihat hasil tidak punya arti. Pemisahan beban normal dan stress mengikuti definisi stress testing di Bab II, yaitu beban yang melampaui kondisi normal untuk mengetahui batas kemampuan sistem |
+
+| Pengujian | Target |
+|---|---|
+| UAT, responden | 30 orang: 15 client, 6 provider, 6 pekerja, 3 admin |
+| UAT, kriteria lulus | Persentase kelayakan minimal kategori **Layak (di atas 60 persen)** pada **setiap aspek** (fungsionalitas, kemudahan penggunaan, kepuasan) dan **setiap aktor**, mengacu Tabel 2.11 Bab II. Yang diharapkan kategori Sangat Layak (di atas 80 persen) |
+| Akurasi intent extraction | Minimal 80 persen pada 30 sampai 50 skenario percakapan berlabel (H15) |
+| Beban normal, kriteria lulus | 50 virtual user, latensi persentil ke-95 sesuai PRD Bagian 6.1, error rate di bawah 1 persen. Webhook 20 request per detik tanpa duplikasi ledger, dan 10 klaim Available Now paralel menghasilkan tepat 1 pemenang (PRD Bagian 6.2) |
+| Stress, tanpa kriteria lulus | Beban dinaikkan bertahap ke 100, 150, dan 250 virtual user. Yang dicatat adalah titik saat latensi persentil ke-95 melewati target atau error rate melewati 1 persen, sebagai batas kemampuan sistem |
+| `guest_chat_daily_global_limit` | Ditetapkan pada fase chatbot, menyesuaikan kuota API key Gemini yang dipakai |
+
+Kriteria UAT dipasang per aspek dan per aktor, bukan hanya rata-rata keseluruhan, karena rata-rata bisa menutupi satu aspek atau satu aktor yang hasilnya buruk.
+
+### 4C.4 Dasar Angka Bisnis
+
+| # | Keputusan | Alasan |
+|---|---|---|
+| D86 | **Komisi 10 persen (D28) dan holding window 24 jam (D24) dipertahankan.** Keduanya tetap parameter (`platform_fee_percentage`, `settlement_holding_hours`) sehingga bisa diubah tanpa menyentuh kode. Menutup keputusan terbuka nomor 4 | Dasar masing-masing di bawah |
+
+**Dasar komisi 10 persen.** Pembanding terdekat di Indonesia adalah batas potongan aplikasi ojek online: maksimal 20 persen menurut KP Menteri Perhubungan Nomor 1001 Tahun 2022, lalu diturunkan menjadi maksimal 8 persen sejak 1 Juli 2026 berdasarkan Perpres Nomor 27 Tahun 2026. Aturan tersebut khusus angkutan penumpang roda dua, sehingga tidak berlaku untuk marketplace jasa. Komisi 10 persen berada di separuh batas lama, dan kalau penguji menyinggung batas 8 persen, jawabannya adalah perbedaan jenis layanan tersebut.
+
+**Dasar holding window 24 jam:**
+
+1. Seluruh jasa dikerjakan di lokasi client (D75) dan hasilnya langsung terlihat. Saat client menyerahkan kode verifikasi, itu sudah bentuk persetujuan atas pekerjaan
+2. Marketplace jasa digital menahan dana jauh lebih lama karena kualitas hasil digital butuh waktu untuk dinilai, sedangkan jasa fisik tidak. Kalau Fiverr dipakai sebagai pembanding, ketentuan terbarunya dicek dulu sebelum dikutip di laporan
+3. Pekerja lapangan butuh dana yang cepat cair, sementara 24 jam cukup untuk menyadari masalah yang muncul belakangan, misalnya AC yang bocor lagi pada malam harinya
+
+Sumber: halaman harga Xendit (xendit.co/en/pricing) dan Bisnis.com, 1 Juli 2026, "Grab, Gojek & Maxim Berlakukan Potongan Ojol 8% Mulai Hari Ini 1 Juli".
 
 ---
 
@@ -1102,11 +1194,10 @@ Enum taxonomy_request_status  { PENDING  APPROVED  REJECTED  MERGED }
 | `provider_profiles` | Buang `current_latitude`, `current_longitude`, `location_updated_at`. Tambah `provider_type` dan `requested_provider_type` (nullable). `service_radius_km` tetap |
 | `orders` | Tambah `assigned_worker_id` (nullable saat PENDING_ACCEPTANCE, wajib mulai ACCEPTED), `snapshot_assignee_name`, dan `accepted_by` (siapa yang menekan tombol terima, bisa berbeda dari penanggung jawab, D70). **`base_price` diganti nama jadi `listing_base_amount`**, tambah `options_amount` (default 0) dan `snapshot_selected_options` JSONB berisi key, label, nilai, dan delta saat pemesanan (D73) |
 | `order_checkins` | Tambah `worker_id` not null |
-| `listings` | Buang `is_available_now`. `supports_available_now` tetap |
+| `listings` | Buang `is_available_now`. `supports_available_now` tetap. Tambah `attributes_need_update` (boolean), penanda listing lama yang belum memenuhi atribut wajib yang baru ditambahkan admin (D67) |
 | `notifications` | Tambah `channel`, `email_status`, `email_error` |
 | `chat_sessions` | `user_id` jadi **nullable**. Tambah `guest_token` (unique), `expires_at`, dan `claimed_at` (penanda sesi tamu yang diklaim setelah mendaftar). `personalization_snapshot` tetap null untuk tamu (D77) |
 | `subcategory_attributes` | Tambah `is_active` untuk penghapusan yang bersifat soft (D67), plus `attribute_role` dan `pricing_mode` (D72). Nilai di dalam `options` juga ditandai aktif atau tidak, bukan dibuang |
-| `listings` | Tambah `attributes_need_update` (boolean), penanda listing lama yang belum memenuhi atribut wajib yang baru ditambahkan admin (D67) |
 
 ### 6.4 Constraint yang Berubah
 
@@ -1186,6 +1277,8 @@ Kueri verifikasi V5 disesuaikan: pengelompokannya jadi `assigned_worker_id`, buk
 | `kyc_document_max_size_mb` | 5 | Batas ukuran satu dokumen e-KYC (D80) |
 | `dispute_evidence_max_size_mb` | 5 | Batas ukuran satu bukti dispute (D80) |
 | `orphan_upload_cleanup_hours` | 24 | Umur berkas tanpa baris basis data sebelum dibersihkan cron (D80) |
+| `withdrawal_min_amount` | 50000 | Nominal minimum satu pengajuan withdrawal dalam rupiah (D84) |
+| `withdrawal_admin_fee` | 6500 | Admin fee flat per pengajuan withdrawal dalam rupiah (D84) |
 
 ### 6.6 Endpoint Baru
 
@@ -1260,16 +1353,20 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 
 ## 7. Keputusan Terbuka
 
-| # | Pertanyaan | Dampak |
-|---|---|---|
-| 1 | **Revisi dokumen usulan ide.** Tabel Aktor Sistem sekarang empat aktor (client, provider, pekerja, admin), padahal dokumen sudah ditandatangani dengan tiga | Administratif, tanyakan ke Pembimbing 1 pada bimbingan berikutnya |
-| 1a | **Opsi kustom bebas oleh provider.** Provider saat ini hanya bisa memakai atribut yang didefinisikan admin. Ada opsi memberi kebebasan membuat option group sendiri seperti aplikasi pesan antar makanan, tapi opsi buatan provider tidak bisa ikut difilter lintas penyedia karena kosakatanya tidak seragam, sedangkan filter lintas penyedia adalah tujuan penelitian nomor 1 | **Ditunda, akan ditanyakan ke Pembimbing 1.** Kalau diambil: satu tabel `listing_custom_options`, plus halaman agregasi admin dan penanganan tabrakan dengan atribut resmi |
-| 1b | **Bolehkah provider membuat sub-kategori sendiri tanpa persetujuan admin**, dengan saran kemiripan sebagai pencegah duplikasi | **Ditunda, akan ditanyakan ke Pembimbing 1.** Analisis sementara: saran kemiripan mengurangi duplikasi tapi tidak menghilangkannya, dan yang lebih berat, struktur atribut jadi berbeda antar provider untuk jasa yang sama. Kalau diambil, perlu fitur penggabungan sub-kategori |
-| 2 | Nominal minimum withdrawal dan admin fee | Kolom `admin_fee` sudah ada, nilainya belum ditetapkan |
-| 3 | Target angka UAT, akurasi chatbot, dan jumlah concurrent user | Bab IV butuh ambang yang disepakati sebelum pengujian, bukan sesudah |
-| 4 | Dasar penetapan komisi 10 persen dan holding window 24 jam | Angka bisnis. Siapkan pembanding platform sejenis |
+**Tidak ada keputusan terbuka per versi 2.8.** Seluruh pertanyaan sebelumnya sudah ditutup:
 
-**Sudah ditutup:** batas bayar mode Scheduled (oleh D43), verifikasi email wajib atau tidak (oleh D62), dan refresh token (oleh D76).
+| # | Pertanyaan | Ditutup oleh |
+|---|---|---|
+| 1 | Revisi dokumen usulan ide (Tabel Aktor Sistem) | A7, tidak direvisi |
+| 1a | Opsi kustom bebas oleh provider | D81, ditolak (Pembimbing 1, 30 September 2026) |
+| 1b | Provider membuat sub-kategori sendiri tanpa persetujuan admin | D82, ditolak (Pembimbing 1, 30 September 2026) |
+| 2 | Nominal minimum withdrawal dan admin fee | D84 |
+| 3 | Target angka UAT, akurasi chatbot, dan jumlah concurrent user | D85 |
+| 4 | Dasar penetapan komisi 10 persen dan holding window 24 jam | D86 |
+
+**Ditutup pada versi sebelumnya:** batas bayar mode Scheduled (oleh D43), verifikasi email wajib atau tidak (oleh D62), dan refresh token (oleh D76).
+
+**Nilai yang menyusul, bukan keputusan terbuka:** `guest_chat_daily_global_limit`, ditetapkan pada fase chatbot (D85).
 
 ---
 
@@ -1341,6 +1438,7 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 - [ ] **H78** Validasi **magic bytes** pada unggahan multipart **(baru, D80)**, bukan `Content-Type` dari client dan bukan ekstensi nama berkas. Wajib punya test yang mengunggah berkas non-gambar bernama `.jpg` dan memastikan ditolak
 - [ ] **H79** Urutan unggah multipart: validasi, kirim ke Storage, baru tulis baris basis data **(baru, D80)**. Kalau Storage gagal, jangan tinggalkan baris setengah jadi
 - [ ] **H80** Cron pembersih berkas yatim di bucket foto listing **(baru, D80)**, berkas lebih tua dari `orphan_upload_cleanup_hours` yang tidak punya baris `listing_photos`
+- [ ] **H83** Validasi pengajuan withdrawal **(baru, D84)**: `amount` minimal `withdrawal_min_amount`, `admin_fee` diambil dari `withdrawal_admin_fee` saat pengajuan, dan `net_amount` dihitung di server. Request tidak pernah memuat nominal fee
 
 ### 8.5 Persiapan Data Pengujian
 
@@ -1348,6 +1446,7 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 - [ ] **H68** Ukur konversi sesi chat tamu jadi pendaftaran akun lewat `chat_sessions.claimed_at` **(baru, D77)**. Metrik ini menjawab pertanyaan kegunaan chatbot dengan angka
 - [ ] **H16** Siapkan data simulasi, termasuk beberapa usaha BUSINESS dengan jumlah pekerja berbeda dan pemetaan listing yang tumpang tindih, supaya skenario order paralel dan perebutan bisa diuji
 - [ ] **H20** Jalankan kueri verifikasi V1 sampai V5 setelah seeding dan setelah pengujian
+- [ ] **H84** Susun kuesioner UAT per aktor dan skenario uji masing-masing, lalu rencanakan rekrutmen 30 responden sesuai komposisi D85 **(baru)**
 
 ### 8.6 Yang Harus Ditulis di Laporan sebagai Batasan
 
@@ -1372,6 +1471,8 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 - [ ] **H59** Deteksi kesamaan antara usulan provider dan taksonomi yang sudah ada dilakukan manual oleh admin, dibantu daftar yang ditampilkan dan saran kemiripan **(baru, D74)**. Sistem tidak melakukan pencocokan otomatis karena kesamaan makna tidak dapat disimpulkan dari kesamaan teks
 - [ ] **H60** Satu order sama dengan satu kedatangan **(baru, D75)**. Jasa yang butuh beberapa kunjungan, seperti trial makeup sebelum hari pernikahan, dipesan sebagai beberapa order. Order multi-kunjungan masuk saran pengembangan
 - [ ] **H61** Sistem memvalidasi selesainya pekerjaan di lokasi, bukan penyerahan hasil **(baru, D75)**. Untuk jasa yang hasilnya diserahkan belakangan, seperti foto prewedding, `waktu_pengerjaan_hari` hanya informasional dan tidak menahan escrow. Penyerahan hasil bertahap masuk saran pengembangan
+- [ ] **H81** Biaya metode pembayaran dari payment gateway ditanggung platform dari komisi dan tidak dihitung dalam alur dana **(baru, D83)**. Analisis kelayakan bisnis berada di luar ruang lingkup penelitian. Biaya layanan terpisah untuk client masuk saran pengembangan
+- [ ] **H82** Admin fee withdrawal berupa nilai flat yang mengikuti perkiraan biaya payout Xendit **(baru, D84)**. Untuk nominal di atas Rp250.000 biaya sebenarnya sedikit lebih besar dan selisihnya ditanggung platform
 
 ---
 
@@ -1379,10 +1480,10 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 
 | # | Artefak | Status | Catatan |
 |---|---|---|---|
-| 1 | Skema basis data (DBML) | **Perlu revisi** | Sembilan tabel baru, sembilan enum baru, perubahan sembilan tabel lama |
-| 2 | `schema.prisma` | **Perlu revisi** | Mengikuti artefak 1 |
-| 3 | State machine order | **Perlu revisi** | Langkah penugasan, reassign, dan klaim Available Now |
-| 4 | Kontrak REST API (PRD) | **Perlu revisi** | Dua puluh dua endpoint baru, akses W, Bagian 3 dan 4 |
+| 1 | Skema basis data (DBML) | Selesai, versi 2.8 | 34 tabel, 35 enum |
+| 2 | `schema.prisma` dan `migration-constraints.sql` | Selesai, versi 2.8 dan 2.6 | |
+| 3 | State machine order | Selesai, versi 2.6 | Tidak terdampak versi 2.8 |
+| 4 | Kontrak REST API (PRD) | Selesai, versi 2.2 | |
 | 5 | Diagram UML | Belum | Aktor jadi empat |
 | 6 | Diagram Konteks dan DFD | Belum | Aktor jadi empat, tambah entitas eksternal layanan email |
 | 7 | Conversation flow dan system prompt chatbot | Belum | |
@@ -1407,16 +1508,11 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 
 ## 11. Langkah Berikutnya
 
-1. Revisi DBML: sembilan tabel baru, sembilan enum baru, ubah sembilan tabel lama
-2. Regenerasi `schema.prisma` mengikuti DBML
-3. Revisi `migration-constraints.sql`: ganti H4, tambah H23, H24, H32, H33, H44, H53, H54, H62, H63, H69, sesuaikan V5
-4. Revisi `State-Machine-Order.md`: penugasan di transisi accept, transisi reassign, klaim Available Now
-5. Revisi PRD backend Bagian 3, 4, 5, dan Milestone 1
-6. Tambahkan `platform_settings` baru beserta nilai awalnya
-7. Bawa ke bimbingan berikutnya, sekalian tanyakan keputusan terbuka nomor 1
-8. Susun data simulasi untuk dua belas sub-kategori yang definisinya sudah selesai (Lampiran B), termasuk skenario perebutan Available Now dan pendamping pada dokumentasi acara
-9. Riset ringan rentang harga pasaran untuk dua belas sub-kategori tersebut, catat sumbernya
-10. Paralel sejak sekarang: kumpulkan H15, sedikit demi sedikit setiap minggu
+1. Verifikasi Fase 2 (jalankan seluruh test, lalu commit), kemudian centang hutang teknis yang sudah tertutup oleh Fase 1 dan Fase 2
+2. Lanjut Fase 3 sesuai PRD Bagian 9
+3. Susun data simulasi untuk dua belas sub-kategori di Lampiran B, termasuk skenario perebutan Available Now dan pendamping pada dokumentasi acara
+4. Riset ringan rentang harga pasaran untuk dua belas sub-kategori tersebut, catat sumbernya
+5. Paralel sejak sekarang: kumpulkan H15 sedikit demi sedikit setiap minggu, dan mulai siapkan instrumen UAT (H84)
 
 ---
 
@@ -1428,11 +1524,12 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 | 2.0 | 19 September 2026 | Penambahan entitas tenaga kerja dari masukan Pembimbing 1 tanggal 18 September 2026. D31 sampai D49, alur sistem end-to-end, dampak skema, H23 sampai H31 |
 | 2.1 | 19 September 2026 | Pemetaan pekerja ke listing (D50 sampai D53), penerimaan order per mode dan pola siapa cepat dia dapat (D54 sampai D57), notifikasi email dan verifikasi akun (D58 sampai D62), tabel token dan penggantian email (D63 dan D64). S12, lima enum baru, tiga tabel baru, empat parameter sistem, H32 sampai H43. Keputusan terbuka soal verifikasi email ditutup |
 | 2.2 | 24 September 2026 | Presence dari koneksi Socket.IO dan pembaruan lokasi berbasis perpindahan (D65, D66, merevisi D57). Aturan perubahan definisi atribut dinamis (D67). Satu penanggung jawab per order dan tabel `order_crew` untuk pendamping, khusus Scheduled (D68, D69). Available Now boleh diterima pemilik maupun pekerja (D70, merevisi D54). Cakupan contoh jasa empat kategori dan dua belas sub-kategori (D71). Satu tabel baru, dua parameter sistem, H44 sampai H52 |
-| 2.7 | 30 September 2026 | Pola unggah berkas dipisah per sifat (D80): e-KYC dan bukti dispute lewat multipart dengan validasi magic bytes, foto listing tetap signed URL. Celah berkas yatim ditutup lewat cron. Tiga parameter sistem, H78 sampai H80 |
-| 2.6 | 30 September 2026 | FAQ per listing (D78) dan pesan dalam order (D79). Percakapan pra-order ditolak dengan alasan yang dicatat. Dua tabel baru tanpa enum baru, tiga parameter sistem, H69 sampai H77 |
-| 2.5 | 29 September 2026 | Refresh token dengan rotasi dan deteksi pemakaian ulang (D76), menutup keputusan terbuka nomor 3. Chatbot terbuka untuk tamu dengan personalisasi dinonaktifkan (D77, merevisi D26, arahan Pembimbing 1). Satu tabel baru, lima parameter sistem, H62 sampai H68 |
-| 2.4 | 29 September 2026 | Tiga batas cakupan order (D75): seluruh jasa on-site, satu order satu kedatangan, penyerahan hasil digital di luar escrow. H60 dan H61. Definisi atribut dua belas sub-kategori selesai seluruhnya di Lampiran B |
 | 2.3 | 24 September 2026 | Atribut berbayar dengan peran SPEC dan OPTION (D72). Penamaan nominal `listing_base_amount` dan `options_amount`, harga dihitung server (D73). Usulan taksonomi provider tiga jenis lewat `taxonomy_requests` (D74). Dua tabel baru, empat enum baru, H53 sampai H59. Definisi atribut Otomotif di Lampiran B. Dua pertanyaan ditunda ke Pembimbing 1 |
+| 2.4 | 29 September 2026 | Tiga batas cakupan order (D75): seluruh jasa on-site, satu order satu kedatangan, penyerahan hasil digital di luar escrow. H60 dan H61. Definisi atribut dua belas sub-kategori selesai seluruhnya di Lampiran B |
+| 2.5 | 29 September 2026 | Refresh token dengan rotasi dan deteksi pemakaian ulang (D76), menutup keputusan terbuka nomor 3. Chatbot terbuka untuk tamu dengan personalisasi dinonaktifkan (D77, merevisi D26, arahan Pembimbing 1). Satu tabel baru, lima parameter sistem, H62 sampai H68 |
+| 2.6 | 30 September 2026 | FAQ per listing (D78) dan pesan dalam order (D79). Percakapan pra-order ditolak dengan alasan yang dicatat. Dua tabel baru tanpa enum baru, tiga parameter sistem, H69 sampai H77 |
+| 2.7 | 30 September 2026 | Pola unggah berkas dipisah per sifat (D80): e-KYC dan bukti dispute lewat multipart dengan validasi magic bytes, foto listing tetap signed URL. Celah berkas yatim ditutup lewat cron. Tiga parameter sistem, H78 sampai H80 |
+| 2.8 | 15 Oktober 2026 | Seluruh keputusan terbuka ditutup. Usulan ide tidak direvisi (A7). Opsi kustom bebas dan sub-kategori buatan provider ditolak, dikukuhkan Pembimbing 1 pada bimbingan 30 September 2026 (D81, D82). Biaya payment gateway ditanggung platform (D83), withdrawal minimum Rp50.000 dengan admin fee Rp6.500 (D84), target pengujian (D85), dasar komisi dan holding window (D86). Dua parameter sistem, H81 sampai H84. Rumusan D25 diperjelas: dispute sejak ARRIVED. Perapian status artefak, rujukan silang, dan urutan riwayat revisi. Seluruh artefak lain disinkronkan. Tanpa perubahan skema |
 
 ---
 
@@ -1507,7 +1604,7 @@ Mode: kedua. Rentang harga acuan: 40.000 sampai 120.000
 
 Dua atribut saja, dan itu disengaja. Gunanya menjawab pertanyaan yang hampir pasti muncul: apakah Hybrid Approach memaksa semua penyedia mengisi banyak kolom? Jawabannya tidak, dan sub-kategori ini buktinya. Jasa sederhana tetap sederhana, definisi atributnya yang menyesuaikan.
 
-`oli_disediakan` sebagai BOOLEAN berbayar melengkapi cakupan `pricing_mode` di kategori ini. PER_UNIT belum terpakai di Otomotif, rencananya muncul di Servis AC (jumlah unit) dan Foto Produk (jumlah item).
+`oli_disediakan` sebagai BOOLEAN berbayar melengkapi cakupan `pricing_mode` di kategori ini. PER_UNIT tidak dipakai di Otomotif, dan muncul di kategori lain seperti Servis AC (jumlah unit) dan Foto Produk (jumlah item).
 
 ### B.4 Foto Produk
 

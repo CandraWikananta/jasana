@@ -4,18 +4,18 @@
 
 | | |
 |---|---|
-| Versi | 2.1 |
+| Versi | 2.2 |
 | Penyusun | I Nyoman Gede Candra Wikananta (2305551065) |
 | Program Studi | Teknologi Informasi, Universitas Udayana |
 | Bidang Keahlian | Sistem Informasi |
 | Pembimbing 1 | Dr. Ir. Ni Kadek Ayu Wirdiani, S.T., M.T., IPU |
 | Pembimbing 2 | Dr. Ir. Anak Agung Kompiang Oka Sudana, S.Kom., M.T., IPM |
-| Tanggal | 30 September 2026 |
+| Tanggal | 15 Oktober 2026 |
 | Cakupan dokumen | **Backend saja** (Express.js REST API, basis data, integrasi eksternal, cron). Frontend dan UI/UX di luar cakupan dokumen ini |
 
-**Dokumen rujukan:** `Keputusan-Desain-Sistem.md` (register keputusan D1 sampai D80), `State-Machine-Order.md` (artefak desain 3), `skema-database-final.dbml` (34 tabel, 35 enum), `schema.prisma`, `migration-constraints.sql`, `Panduan-Struktur-Database.md`.
+**Dokumen rujukan:** `Keputusan-Desain-Sistem.md` (register keputusan D1 sampai D86, versi 2.8), `State-Machine-Order.md` (artefak desain 3), `skema-database-final.dbml` (34 tabel, 35 enum), `schema.prisma`, `migration-constraints.sql`, `Panduan-Struktur-Database.md`.
 
-**Catatan versi.** Dokumen ini menggantikan PRD versi 1.x sepenuhnya, bukan merevisinya. Implementasi dimulai ulang dari nol, jadi seluruh milestone di Bagian 9 berstatus belum dikerjakan. Perubahan terbesar sejak versi 1.x adalah masuknya entitas tenaga kerja (D31 sampai D53) atas arahan Pembimbing 1, yang memindahkan pelaksanaan order dari akun provider ke pekerja.
+**Catatan versi.** Dokumen ini menggantikan PRD versi 1.x sepenuhnya, bukan merevisinya. Implementasi dimulai ulang dari nol mengikuti milestone di Bagian 9. Perubahan terbesar sejak versi 1.x adalah masuknya entitas tenaga kerja (D31 sampai D53) atas arahan Pembimbing 1, yang memindahkan pelaksanaan order dari akun provider ke pekerja.
 
 ---
 
@@ -76,8 +76,9 @@ Backend berdiri sebagai REST API tunggal (Express.js) yang dikonsumsi satu aplik
 | O4 | Check-in di luar radius ditolak, kode salah 5 kali memicu lockout | Black Box dengan koordinat dan kode yang disiapkan |
 | O5 | Kueri verifikasi V5 mengembalikan 0 baris | Dijalankan setelah skenario order paralel |
 | O5 | Dua klaim bersamaan menghasilkan tepat 1 pemenang | Integration test dua request paralel |
-| O6 | Akurasi intent extraction >= 80% (usulan) | 30 sampai 50 skenario percakapan berlabel |
-| O7 | Target pada Bagian 6 terpenuhi | Stress testing dengan k6 |
+| O6 | Akurasi intent extraction >= 80% (D85) | 30 sampai 50 skenario percakapan berlabel |
+| O7 | Target beban normal pada Bagian 6 terpenuhi, batas kemampuan sistem tercatat lewat stress testing (D85) | k6 |
+| UAT | Persentase kelayakan minimal kategori Layak (di atas 60 persen) pada setiap aspek dan setiap aktor (D85) | Kuesioner Likert, 30 responden |
 
 ### 1.4 Non-Goals
 
@@ -93,6 +94,8 @@ Yang secara sadar **tidak** dibangun di backend:
 - Pencatatan seluruh kru yang hadir di lokasi. Sistem mencatat satu penanggung jawab, pendamping hanya diblokir ketersediaannya (D68, D69)
 - Order multi-kunjungan dan penyerahan hasil digital bertahap (D75)
 - Dompet dan penggajian pekerja. Uang berhenti di usaha (D48)
+- Opsi kustom bebas dan sub-kategori buatan provider tanpa persetujuan admin. Penambahan taksonomi selalu lewat usulan ke admin (D74, D81, D82)
+- Pemodelan biaya metode pembayaran dari payment gateway dan analisis kelayakan bisnis. Biaya itu diasumsikan ditanggung platform dari komisi (D83)
 - Multi-currency
 - Microservices, message queue, dan multi-region deployment
 
@@ -484,7 +487,7 @@ Disimpan sebagai key-value JSONB supaya bisa diubah saat eksperimen tanpa deploy
 | `geolocation_radius_meters` | 100 | Radius toleransi validasi kedatangan |
 | `available_now_response_minutes` | 5 | SLA respons mode Available Now |
 | `scheduled_approval_hours` | 24 | SLA respons mode Scheduled |
-| `settlement_holding_hours` | 24 | Holding window escrow dan batas buka dispute |
+| `settlement_holding_hours` | 24 | Holding window escrow dan batas akhir membuka dispute |
 | `payment_window_minutes` | 10 | Batas waktu bayar setelah order diterima |
 | `verification_max_attempts` | 5 | Batas percobaan kode verifikasi |
 | `verification_lockout_minutes` | 15 | Durasi lockout setelah batas terlampaui |
@@ -496,7 +499,7 @@ Disimpan sebagai key-value JSONB supaya bisa diubah saat eksperimen tanpa deploy
 | `email_retry_max_attempts` | 3 | Percobaan ulang pengiriman email gagal |
 | `guest_chat_message_limit` | 20 | Batas pesan per sesi chatbot tamu |
 | `guest_chat_ip_hourly_limit` | 50 | Batas pesan chatbot per alamat IP per jam |
-| `guest_chat_daily_global_limit` | ditetapkan saat pengujian | Rem darurat seluruh chatbot tamu |
+| `guest_chat_daily_global_limit` | ditetapkan pada fase chatbot (D85) | Rem darurat seluruh chatbot tamu, menyesuaikan kuota API key Gemini |
 | `access_token_ttl_minutes` | 15 | Masa berlaku access token |
 | `refresh_token_ttl_days` | 30 | Masa berlaku refresh token |
 | `listing_faq_max_items` | 10 | Batas butir FAQ per listing |
@@ -505,6 +508,8 @@ Disimpan sebagai key-value JSONB supaya bisa diubah saat eksperimen tanpa deploy
 | `kyc_document_max_size_mb` | 5 | Batas ukuran satu dokumen e-KYC |
 | `dispute_evidence_max_size_mb` | 5 | Batas ukuran satu bukti dispute |
 | `orphan_upload_cleanup_hours` | 24 | Umur berkas tanpa baris basis data sebelum dibersihkan cron |
+| `withdrawal_min_amount` | 50000 | Nominal minimum satu pengajuan withdrawal (D84) |
+| `withdrawal_admin_fee` | 6500 | Admin fee flat per pengajuan withdrawal, perkiraan biaya payout Xendit (D84) |
 
 ### 3.6 State Machine Order
 
@@ -1031,13 +1036,16 @@ Efek samping: kirim lewat Socket.IO ke room `order:<order_id>`, lalu notifikasi 
 #### POST /providers/me/withdrawals
 
 ```
-1. Validasi saldo available cukup           -> 422 INSUFFICIENT_BALANCE
-2. TRANSAKSI: buat baris withdrawals status REQUESTED,
+1. amount >= withdrawal_min_amount          -> 422 WITHDRAWAL_BELOW_MINIMUM
+2. Validasi saldo available cukup           -> 422 INSUFFICIENT_BALANCE
+3. admin_fee  = withdrawal_admin_fee        (dibaca server, bukan dari request)
+   net_amount = amount - admin_fee
+4. TRANSAKSI: buat baris withdrawals status REQUESTED,
    tulis ledger WITHDRAWAL (available -= amount)
-3. Commit, lalu tampilkan di antrean admin
+5. Commit, lalu tampilkan di antrean admin
 ```
 
-Saldo didebit saat **pengajuan**, bukan saat selesai, supaya penyedia tidak bisa mengajukan berkali-kali melebihi saldonya.
+Saldo didebit saat **pengajuan**, bukan saat selesai, supaya penyedia tidak bisa mengajukan berkali-kali melebihi saldonya. Yang didebit `amount` penuh, sedangkan yang dikirim ke rekening `net_amount`. Request hanya memuat `amount` dan rekening tujuan, tidak pernah memuat nominal fee (D84, H83). Rincian admin fee dan `net_amount` ditampilkan ke penyedia sebelum konfirmasi.
 
 ---
 
@@ -1171,9 +1179,11 @@ Seluruhnya divalidasi dengan Zod saat boot. Aplikasi **gagal start** kalau ada y
 
 | Skenario | Target |
 |---|---|
-| Pencarian listing | 50 concurrent user, error rate < 1% |
+| Pencarian listing | 50 concurrent user, latensi persentil ke-95 sesuai Bagian 6.1, error rate < 1% |
 | Webhook pembayaran | 20 request per detik, tanpa duplikasi ledger |
 | Klaim Available Now bersamaan | 10 klaim paralel untuk satu order, tepat 1 berhasil |
+
+Tabel di atas adalah **beban normal dengan kriteria lulus** (D85). Stress testing dijalankan terpisah: beban dinaikkan bertahap ke 100, 150, dan 250 virtual user **tanpa kriteria lulus**, dan yang dicatat adalah titik saat latensi persentil ke-95 melewati target atau error rate melewati 1 persen sebagai batas kemampuan sistem. Pemisahan ini mengikuti definisi stress testing di Bab II, yaitu beban yang melampaui kondisi normal.
 
 ### 6.3 Ketersediaan dan Keandalan
 
@@ -1278,8 +1288,9 @@ Socket.IO hanya mengirim pemberitahuan. **Seluruh perubahan state tetap lewat RE
 | Unit | Haversine, kalkulasi nominal order dan delta opsi, validator atribut dinamis, `ALLOWED_TRANSITIONS`, pemeriksaan bentrok jadwal | Vitest |
 | Integrasi | Endpoint terhadap basis data uji, termasuk transaksi, constraint, dan klaim paralel | Vitest + Supertest |
 | Black Box | 127 test case pada 15 modul fungsional (`PPL_A_2305551065_UAS.docx`), ditambah sekitar 85 test case state machine | Manual dan terdokumentasi |
-| UAT | Responden menjalankan skenario end-to-end sebagai empat aktor, mengisi kuesioner Likert | Kuesioner |
-| Stress | Pencarian listing, webhook pembayaran, klaim Available Now | k6 |
+| UAT | 30 responden (15 client, 6 provider, 6 pekerja, 3 admin) menjalankan skenario end-to-end sesuai aktornya, mengisi kuesioner Likert. Lulus kalau minimal kategori Layak pada setiap aspek dan setiap aktor (D85) | Kuesioner |
+| Beban normal dan stress | Pencarian listing, webhook pembayaran, klaim Available Now. Beban normal dengan kriteria lulus, stress bertahap tanpa kriteria lulus (Bagian 6.2) | k6 |
+| Akurasi intent extraction | 30 sampai 50 skenario percakapan berlabel, target minimal 80 persen (D85) | Skrip evaluasi |
 
 ### 8.1 Pemetaan test case state machine
 
@@ -1336,7 +1347,7 @@ Data seed harus menyertakan kombinasi yang memungkinkan skenario di atas dijalan
 
 ## 9. Milestone Implementasi
 
-Seluruh fase berstatus **belum dikerjakan**. Urutan mengikuti dependency tree, bukan urutan tabel jadwal pada usulan ide.
+Status per 15 Oktober 2026: **Fase 0 dan Fase 1 selesai, Fase 2 sedang berjalan**, sisanya belum dikerjakan. Urutan mengikuti dependency tree, bukan urutan tabel jadwal pada usulan ide.
 
 | Fase | Keluaran backend | Kriteria selesai |
 |---|---|---|
@@ -1348,7 +1359,7 @@ Seluruh fase berstatus **belum dikerjakan**. Urutan mengikuti dependency tree, b
 | **5. Pencarian** | Filter kategori, harga, atribut, lokasi (bounding box lalu Haversine), dan `available_now` turunan | Query plan memakai index, bukan sequential scan. `idx_worker_geo` terpakai |
 | **6. Order** | `transitionOrder()`, tiga lapis pemeriksaan, seluruh endpoint transisi, penugasan, kru, klaim atomik, cron SLA, Socket.IO | 22 transisi lulus uji positif dan negatif. Dua klaim paralel menghasilkan tepat satu pemenang |
 | **7. Pembayaran** | Invoice Xendit, webhook idempotent dua transaksi, ledger escrow, cron settlement | Webhook duplikat menghasilkan satu `ESCROW_HOLD`. V1 tetap 0 baris |
-| **8. Uang lanjutan** | Withdrawal, payout, refund, dispute beserta bukti dan riwayat pesan | Rekonsiliasi ledger tetap 0 baris setelah seluruh skenario |
+| **8. Uang lanjutan** | Withdrawal dengan minimum dan admin fee (D84), payout, refund, dispute beserta bukti dan riwayat pesan | Rekonsiliasi ledger tetap 0 baris setelah seluruh skenario |
 | **9. Chatbot** | Sesi tamu dan terdaftar, klaim sesi, personalisasi, structured output Gemini, rate limiting tiga lapis | Intent terekam beserta confidence dan latensi. Batas tamu terbukti menahan pemakaian berlebih |
 | **10. Pelengkap** | Review, pesan dalam order, notifikasi email, laporan admin, `platform_settings` | Laporan cocok dengan data transaksi. Pesan hanya bisa dikirim peserta order |
 
@@ -1360,14 +1371,16 @@ Seluruh fase berstatus **belum dikerjakan**. Urutan mengikuti dependency tree, b
 
 ## 10. Pertanyaan Terbuka
 
-| # | Pertanyaan | Dampak kalau tidak diputuskan |
+**Tidak ada pertanyaan terbuka per versi 2.2.** Seluruhnya ditutup di register keputusan versi 2.8:
+
+| # | Pertanyaan | Ditutup oleh |
 |---|---|---|
-| 1 | **Revisi dokumen usulan ide.** Tabel Aktor Sistem sekarang empat aktor, padahal dokumen sudah ditandatangani dengan tiga | Administratif. Perlu ditanyakan ke Pembimbing 1 apakah dokumen direvisi atau cukup dijelaskan di Bab III |
-| 1a | **Opsi kustom bebas oleh provider**, seperti option group di aplikasi pesan antar makanan | Ditunda, akan ditanyakan ke Pembimbing 1. Opsi buatan provider tidak bisa ikut difilter lintas penyedia, sedangkan filter lintas penyedia adalah tujuan penelitian nomor 1 |
-| 1b | **Bolehkah provider membuat sub-kategori sendiri** tanpa persetujuan admin | Ditunda, akan ditanyakan ke Pembimbing 1. Saran kemiripan mengurangi duplikasi tapi tidak menghilangkannya, dan struktur atribut jadi berbeda antar provider untuk jasa yang sama |
-| 2 | Nominal minimum withdrawal dan admin fee | Kolom `admin_fee` sudah ada, nilainya belum ditetapkan |
-| 3 | Target angka UAT, akurasi chatbot, dan jumlah concurrent user | Bab IV butuh ambang yang disepakati sebelum pengujian, bukan sesudah |
-| 4 | Dasar penetapan komisi 10 persen dan holding window 24 jam | Angka bisnis, wajar di pasaran, tetapi penguji biasanya menanyakan dasarnya. Siapkan pembanding platform sejenis |
+| 1 | Revisi dokumen usulan ide (Tabel Aktor Sistem) | A7, tidak direvisi. Perubahan dijelaskan di laporan |
+| 1a | Opsi kustom bebas oleh provider | D81, ditolak. Dikukuhkan Pembimbing 1 pada bimbingan 30 September 2026 |
+| 1b | Provider membuat sub-kategori sendiri tanpa persetujuan admin | D82, ditolak. Dikukuhkan Pembimbing 1 pada bimbingan 30 September 2026 |
+| 2 | Nominal minimum withdrawal dan admin fee | D84: minimum Rp50.000, admin fee flat Rp6.500 |
+| 3 | Target angka UAT, akurasi chatbot, dan jumlah concurrent user | D85 |
+| 4 | Dasar penetapan komisi 10 persen dan holding window 24 jam | D86 |
 
 **Sudah ditutup sejak versi 1.x:** definisi in-flight (D40), batas bayar mode Scheduled (D43), verifikasi email wajib atau tidak (D62), dan refresh token (D76).
 
@@ -1411,6 +1424,7 @@ Seluruh fase berstatus **belum dikerjakan**. Urutan mengikuti dependency tree, b
 | `VERIFICATION_CODE_EXPIRED` | 422 | Kode kedaluwarsa |
 | `VERIFICATION_LOCKED` | 429 | Terkunci setelah percobaan melebihi batas |
 | `INSUFFICIENT_BALANCE` | 422 | Saldo available tidak cukup |
+| `WITHDRAWAL_BELOW_MINIMUM` | 422 | Nominal withdrawal di bawah `withdrawal_min_amount` (D84) |
 | `TOKEN_INVALID` | 422 | Token verifikasi tidak dikenali |
 | `TOKEN_EXPIRED` | 422 | Token verifikasi kedaluwarsa |
 | `TOKEN_ALREADY_USED` | 422 | Token verifikasi sudah dipakai |
@@ -1443,5 +1457,6 @@ Tidak menyangkut aturan bisnis, dibentuk oleh middleware bersama pada Fase 0.
 | 1.0 | 18 September 2026 | Versi awal. Disusun dari register keputusan D1 sampai D30, state machine order, dan skema basis data 25 tabel |
 | 1.1 | 18 September 2026 | Definisi in-flight (H4) difinalkan menjadi predikat gabungan status dan mode |
 | 1.2 | 18 September 2026 | Lampiran kode error lapisan infrastruktur ditambahkan |
-| 2.1 | 30 September 2026 | Pola unggah berkas dipisah per sifat (D80). Dokumen e-KYC dan bukti dispute jadi multipart lewat API dengan validasi magic bytes, foto listing tetap signed URL. Kontrak dua endpoint unggah ditambahkan di Bagian 4.4, cron pembersih berkas yatim, tiga parameter sistem, aturan mengikat nomor 13 |
 | **2.0** | **30 September 2026** | **Tulis ulang penuh.** Menyesuaikan D31 sampai D79: tenaga kerja sebagai entitas dengan akun sendiri, pemetaan pekerja ke listing, penerimaan order per mode dengan klaim atomik, kru order, atribut berbayar dan penamaan nominal baru, usulan taksonomi, notifikasi email dan verifikasi akun, refresh token, chatbot tamu, FAQ listing, serta pesan dalam order. Skema jadi 34 tabel dan 35 enum. Tujuan bertambah jadi tujuh dengan masuknya O5 penugasan tenaga kerja. Seluruh milestone direset ke belum dikerjakan |
+| 2.1 | 30 September 2026 | Pola unggah berkas dipisah per sifat (D80). Dokumen e-KYC dan bukti dispute jadi multipart lewat API dengan validasi magic bytes, foto listing tetap signed URL. Kontrak dua endpoint unggah ditambahkan di Bagian 4.4, cron pembersih berkas yatim, tiga parameter sistem, aturan mengikat nomor 13 |
+| 2.2 | 15 Oktober 2026 | Sinkron dengan register keputusan versi 2.8 (D81 sampai D86). Pertanyaan terbuka di Bagian 10 seluruhnya ditutup. Target UAT, akurasi, beban normal, dan stress di Bagian 1.3, 6.2, dan 8. Kontrak withdrawal dengan minimum dan admin fee, dua parameter sistem, kode error `WITHDRAWAL_BELOW_MINIMUM`. Dua non-goal baru. Status milestone diperbarui |
