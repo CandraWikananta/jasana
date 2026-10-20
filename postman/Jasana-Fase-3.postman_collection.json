@@ -1,0 +1,3004 @@
+{
+  "info": {
+    "_postman_id": "b3f1c2d4-5e6f-4a7b-8c9d-0e1f2a3b4c5d",
+    "name": "Jasana Backend - Fase 3 (Katalog)",
+    "description": "Pengujian endpoint Fase 3: katalog publik, CRUD admin kategori, sub-kategori, dan atribut dinamis (D72), aturan perubahan definisi (D67), serta usulan taksonomi (D74, H56, H57).\n\n## Setiap putaran\n1. `npm run postman:seed:fase-3` di akar repo. Katalog Lampiran B dipastikan ada, akun demo Fase 3 dibuat ulang (admin, dua provider VERIFIED, satu provider PENDING, satu client), dan katalog `postman-f3-` buatan putaran sebelumnya dihapus. Akun Fase 2 tidak disentuh.\n2. `npm run dev`.\n3. Jalankan folder berurutan dari 00. Folder saling bergantung.\n\n## Request bertanda KRITERIA\n- Folder 02: sub-kategori baru beserta atribut berbayar (FLAT_PER_OPTION dan PER_UNIT) ditambah lewat API dan langsung terbaca publik, tanpa migrasi (PRD Bagian 9).\n- Folder 05: usulan keempat ditolak 429 TAXONOMY_REQUEST_LIMIT, dihitung lintas jenis (H57).\n\n## Yang tidak bisa didemokan lewat Postman\nPenandaan `attributes_need_update` (D67 poin 2) butuh listing, dan endpoint listing baru ada di Fase 4. Buktinya ada di `apps/api/tests/catalog.test.ts`.\n\n## Rate limit\nLogin 10 per 15 menit per IP. Folder 00 memakai 5. Kalau kena 429 saat mengulang, restart `npm run dev`.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "00. Persiapan (jalankan npm run postman:seed:fase-3 dulu)",
+      "item": [
+        {
+          "name": "Health",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login Admin Katalog",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code === 401) console.warn('Akun demo belum ada. Jalankan: npm run postman:seed:fase-3');",
+                  "pm.environment.set('kadmin_token', pm.response.json().data.access_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{kadmin_email}}\",\n  \"password\": \"{{seed_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login Provider 1 (Kilau Sofa Bersih)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code === 401) console.warn('Akun demo belum ada. Jalankan: npm run postman:seed:fase-3');",
+                  "pm.environment.set('kprov1_token', pm.response.json().data.access_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{kprov1_email}}\",\n  \"password\": \"{{seed_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login Provider 2 (Bengkel Dua Roda)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code === 401) console.warn('Akun demo belum ada. Jalankan: npm run postman:seed:fase-3');",
+                  "pm.environment.set('kprov2_token', pm.response.json().data.access_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{kprov2_email}}\",\n  \"password\": \"{{seed_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login Provider PENDING",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code === 401) console.warn('Akun demo belum ada. Jalankan: npm run postman:seed:fase-3');",
+                  "pm.environment.set('kpending_token', pm.response.json().data.access_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{kpending_email}}\",\n  \"password\": \"{{seed_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login Client biasa",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code === 401) console.warn('Akun demo belum ada. Jalankan: npm run postman:seed:fase-3');",
+                  "pm.environment.set('kklien_token', pm.response.json().data.access_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{kklien_email}}\",\n  \"password\": \"{{seed_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "01. Katalog publik (Lampiran B)",
+      "item": [
+        {
+          "name": "Daftar kategori, tanpa token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "const rows = pm.response.json().data;",
+                  "const slugs = rows.map(function (c) { return c.slug; });",
+                  "pm.test('Empat kategori Lampiran B ada', function () { pm.expect(slugs).to.include.members(['otomotif', 'fotografi', 'kecantikan', 'perbaikan']); });",
+                  "pm.environment.set('otomotif_id', rows.find(function (c) { return c.slug === 'otomotif'; }).id);",
+                  "pm.environment.set('perbaikan_id', rows.find(function (c) { return c.slug === 'perbaikan'; }).id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/categories",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "categories"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Sub-kategori Otomotif",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "const rows = pm.response.json().data;",
+                  "pm.test('Tiga sub-kategori', function () { pm.expect(rows.map(function (s) { return s.slug; })).to.eql(['cuci-mobil-panggilan', 'servis-motor-panggilan', 'ganti-oli-panggilan']); });",
+                  "pm.environment.set('cuci_mobil_id', rows[0].id);",
+                  "pm.environment.set('ganti_oli_id', rows[2].id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/categories/{{otomotif_id}}/subcategories",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "categories",
+                "{{otomotif_id}}",
+                "subcategories"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Atribut Cuci Mobil: OPTION berbayar dan SPEC",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "const rows = pm.response.json().data;",
+                  "const jenis = rows.find(function (a) { return a.attribute_key === 'jenis_kendaraan'; });",
+                  "pm.test('jenis_kendaraan OPTION FLAT_PER_OPTION, sumber_air SPEC NONE (D72)', function () {",
+                  "  pm.expect(jenis).to.include({ attribute_role: 'OPTION', pricing_mode: 'FLAT_PER_OPTION', data_type: 'SELECT' });",
+                  "  pm.expect(rows.find(function (a) { return a.attribute_key === 'sumber_air'; })).to.include({ attribute_role: 'SPEC', pricing_mode: 'NONE' });",
+                  "});",
+                  "pm.environment.set('jenis_kendaraan_attr_id', jenis.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/subcategories/{{cuci_mobil_id}}/attributes",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "subcategories",
+                "{{cuci_mobil_id}}",
+                "attributes"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Atribut Ganti Oli: hanya dua (B.3)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Dua atribut', function () { pm.expect(pm.response.json().data).to.have.length(2); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/subcategories/{{ganti_oli_id}}/attributes",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "subcategories",
+                "{{ganti_oli_id}}",
+                "attributes"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "id bukan UUID -> 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () { pm.response.to.have.status(422); });",
+                  "pm.test('Kode error VALIDATION_ERROR', function () { pm.expect(pm.response.json().error.code).to.eql('VALIDATION_ERROR'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/subcategories/bukan-uuid/attributes",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "subcategories",
+                "bukan-uuid",
+                "attributes"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Sub-kategori tidak ada -> 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404', function () { pm.response.to.have.status(404); });",
+                  "pm.test('Kode error NOT_FOUND', function () { pm.expect(pm.response.json().error.code).to.eql('NOT_FOUND'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/subcategories/00000000-0000-4000-8000-000000000000/attributes",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "subcategories",
+                "00000000-0000-4000-8000-000000000000",
+                "attributes"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "02. KRITERIA: sub-kategori baru dan atribut berbayar tanpa migrasi",
+      "item": [
+        {
+          "name": "Client biasa ke admin katalog -> 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 403', function () { pm.response.to.have.status(403); });",
+                  "pm.test('Kode error FORBIDDEN_ACTOR', function () { pm.expect(pm.response.json().error.code).to.eql('FORBIDDEN_ACTOR'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/categories",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "categories"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{kklien_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Tidak Boleh\",\n  \"slug\": \"postman-f3-tidak-boleh\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Buat kategori",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', function () { pm.response.to.have.status(201); });",
+                  "pm.environment.set('f3_kategori_id', pm.response.json().data.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/categories",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "categories"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{kadmin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Kebersihan Rumah (Demo F3)\",\n  \"slug\": \"postman-f3-kebersihan\",\n  \"icon_name\": \"spray-can\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Slug kembar -> 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () { pm.response.to.have.status(422); });",
+                  "pm.test('Galat pada slug', function () { pm.expect(pm.response.json().error.details.map(function (d) { return d.path; })).to.include('slug'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/categories",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "categories"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{kadmin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Kategori Lain (Demo F3)\",\n  \"slug\": \"postman-f3-kebersihan\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Buat sub-kategori",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', function () { pm.response.to.have.status(201); });",
+                  "pm.environment.set('f3_sub_id', pm.response.json().data.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/subcategories",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "subcategories"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{kadmin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"category_id\": \"{{f3_kategori_id}}\",\n  \"name\": \"Cuci Karpet Panggilan (Demo F3)\",\n  \"slug\": \"postman-f3-cuci-karpet\",\n  \"suggested_price_min\": 75000,\n  \"suggested_price_max\": 400000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Atribut OPTION SELECT FLAT_PER_OPTION (berbayar)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', function () { pm.response.to.have.status(201); });",
+                  "pm.environment.set('f3_attr_jenis_id', pm.response.json().data.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/subcategories/{{f3_sub_id}}/attributes",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "subcategories",
+                "{{f3_sub_id}}",
+                "attributes"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{kadmin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"attribute_key\": \"jenis_karpet\",\n  \"label\": \"Jenis karpet\",\n  \"data_type\": \"SELECT\",\n  \"attribute_role\": \"OPTION\",\n  \"pricing_mode\": \"FLAT_PER_OPTION\",\n  \"options\": [\n    {\n      \"value\": \"Karpet Bulu\"\n    },\n    {\n      \"value\": \"Karpet Permadani\"\n    },\n    {\n      \"value\": \"Karpet Masjid\"\n    }\n  ],\n  \"is_required\": true,\n  \"is_filterable\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Atribut OPTION NUMBER PER_UNIT (berbayar per meter)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', function () { pm.response.to.have.status(201); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/subcategories/{{f3_sub_id}}/attributes",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "subcategories",
+                "{{f3_sub_id}}",
+                "attributes"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{kadmin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"attribute_key\": \"luas_meter\",\n  \"label\": \"Luas karpet\",\n  \"data_type\": \"NUMBER\",\n  \"attribute_role\": \"OPTION\",\n  \"pricing_mode\": \"PER_UNIT\",\n  \"unit\": \"m2\",\n  \"is_required\": true,\n  \"validation_rule\": {\n    \"min\": 1,\n    \"max\": 100\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Atribut SPEC durasi_estimasi",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', function () { pm.response.to.have.status(201); });",
+                  "pm.test('SPEC default NONE', function () { pm.expect(pm.response.json().data).to.include({ attribute_role: 'SPEC', pricing_mode: 'NONE' }); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/subcategories/{{f3_sub_id}}/attributes",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "subcategories",
+                "{{f3_sub_id}}",
+                "attributes"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{kadmin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"attribute_key\": \"durasi_estimasi\",\n  \"label\": \"Estimasi pengerjaan\",\n  \"data_type\": \"NUMBER\",\n  \"unit\": \"menit\",\n  \"is_required\": true,\n  \"validation_rule\": {\n    \"min\": 30,\n    \"max\": 240\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "KRITERIA: publik langsung melihat sub-kategori dan atributnya",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "const rows = pm.response.json().data;",
+                  "pm.test('Tiga atribut, dua di antaranya berbayar', function () {",
+                  "  pm.expect(rows).to.have.length(3);",
+                  "  pm.expect(rows.filter(function (a) { return a.attribute_role === 'OPTION'; })).to.have.length(2);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/subcategories/{{f3_sub_id}}/attributes",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "subcategories",
+                "{{f3_sub_id}}",
+                "attributes"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "03. Kombinasi D72 yang ditolak",
+      "item": [
+        {
+          "name": "SPEC dengan FLAT_PER_OPTION -> 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () { pm.response.to.have.status(422); });",
+                  "pm.test('Galat pada pricing_mode', function () { pm.expect(pm.response.json().error.details.map(function (d) { return d.path; })).to.include('pricing_mode'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/subcategories/{{f3_sub_id}}/attributes",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "subcategories",
+                "{{f3_sub_id}}",
+                "attributes"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{kadmin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"attribute_key\": \"bahan\",\n  \"label\": \"Bahan\",\n  \"data_type\": \"SELECT\",\n  \"attribute_role\": \"SPEC\",\n  \"pricing_mode\": \"FLAT_PER_OPTION\",\n  \"options\": [\n    {\n      \"value\": \"Wol\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "OPTION NUMBER dengan FLAT_PER_OPTION -> 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () { pm.response.to.have.status(422); });",
+                  "pm.test('Galat pada pricing_mode', function () { pm.expect(pm.response.json().error.details.map(function (d) { return d.path; })).to.include('pricing_mode'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/subcategories/{{f3_sub_id}}/attributes",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "subcategories",
+                "{{f3_sub_id}}",
+                "attributes"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{kadmin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"attribute_key\": \"jumlah_ruang\",\n  \"label\": \"Jumlah ruang\",\n  \"data_type\": \"NUMBER\",\n  \"attribute_role\": \"OPTION\",\n  \"pricing_mode\": \"FLAT_PER_OPTION\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "OPTION TEXT -> 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () { pm.response.to.have.status(422); });",
+                  "pm.test('Galat pada pricing_mode', function () { pm.expect(pm.response.json().error.details.map(function (d) { return d.path; })).to.include('pricing_mode'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/subcategories/{{f3_sub_id}}/attributes",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "subcategories",
+                "{{f3_sub_id}}",
+                "attributes"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{kadmin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"attribute_key\": \"catatan\",\n  \"label\": \"Catatan\",\n  \"data_type\": \"TEXT\",\n  \"attribute_role\": \"OPTION\",\n  \"pricing_mode\": \"FLAT_PER_OPTION\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "attribute_key bukan snake_case -> 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () { pm.response.to.have.status(422); });",
+                  "pm.test('Galat pada attribute_key', function () { pm.expect(pm.response.json().error.details.map(function (d) { return d.path; })).to.include('attribute_key'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/subcategories/{{f3_sub_id}}/attributes",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "subcategories",
+                "{{f3_sub_id}}",
+                "attributes"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{kadmin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"attribute_key\": \"JenisNoda\",\n  \"label\": \"Jenis noda\",\n  \"data_type\": \"BOOLEAN\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "attribute_key kembar -> 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () { pm.response.to.have.status(422); });",
+                  "pm.test('Galat pada attribute_key', function () { pm.expect(pm.response.json().error.details.map(function (d) { return d.path; })).to.include('attribute_key'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/subcategories/{{f3_sub_id}}/attributes",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "subcategories",
+                "{{f3_sub_id}}",
+                "attributes"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{kadmin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"attribute_key\": \"durasi_estimasi\",\n  \"label\": \"Durasi lagi\",\n  \"data_type\": \"NUMBER\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "SELECT tanpa options -> 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () { pm.response.to.have.status(422); });",
+                  "pm.test('Galat pada options', function () { pm.expect(pm.response.json().error.details.map(function (d) { return d.path; })).to.include('options'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/subcategories/{{f3_sub_id}}/attributes",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "subcategories",
+                "{{f3_sub_id}}",
+                "attributes"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{kadmin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"attribute_key\": \"warna\",\n  \"label\": \"Warna\",\n  \"data_type\": \"SELECT\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "04. Perubahan definisi (D67)",
+      "item": [
+        {
+          "name": "PATCH attribute_key, data_type, pricing_mode diabaikan",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Hanya label yang berubah', function () {",
+                  "  pm.expect(pm.response.json().data).to.include({ label: 'Jenis karpet yang dicuci', attribute_key: 'jenis_karpet', data_type: 'SELECT', pricing_mode: 'FLAT_PER_OPTION' });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/subcategories/{{f3_sub_id}}/attributes/{{f3_attr_jenis_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "subcategories",
+                "{{f3_sub_id}}",
+                "attributes",
+                "{{f3_attr_jenis_id}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{kadmin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"label\": \"Jenis karpet yang dicuci\",\n  \"attribute_key\": \"tipe_karpet\",\n  \"data_type\": \"MULTISELECT\",\n  \"pricing_mode\": \"NONE\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Menghapus option -> 422 (harus dinonaktifkan)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () { pm.response.to.have.status(422); });",
+                  "pm.test('Galat pada options', function () { pm.expect(pm.response.json().error.details.map(function (d) { return d.path; })).to.include('options'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/subcategories/{{f3_sub_id}}/attributes/{{f3_attr_jenis_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "subcategories",
+                "{{f3_sub_id}}",
+                "attributes",
+                "{{f3_attr_jenis_id}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{kadmin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"options\": [\n    {\n      \"value\": \"Karpet Bulu\"\n    },\n    {\n      \"value\": \"Karpet Permadani\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Menonaktifkan option",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Value tetap tersimpan', function () { pm.expect(pm.response.json().data.options).to.have.length(3); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/subcategories/{{f3_sub_id}}/attributes/{{f3_attr_jenis_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "subcategories",
+                "{{f3_sub_id}}",
+                "attributes",
+                "{{f3_attr_jenis_id}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{kadmin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"options\": [\n    {\n      \"value\": \"Karpet Bulu\"\n    },\n    {\n      \"value\": \"Karpet Permadani\"\n    },\n    {\n      \"value\": \"Karpet Masjid\",\n      \"is_active\": false\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Publik tidak lagi melihat option nonaktif",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "const jenis = pm.response.json().data.find(function (a) { return a.attribute_key === 'jenis_karpet'; });",
+                  "pm.test('Dua option aktif', function () { pm.expect(jenis.options.map(function (o) { return o.value; })).to.eql(['Karpet Bulu', 'Karpet Permadani']); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/subcategories/{{f3_sub_id}}/attributes",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "subcategories",
+                "{{f3_sub_id}}",
+                "attributes"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Tambah atribut sementara",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', function () { pm.response.to.have.status(201); });",
+                  "pm.environment.set('f3_attr_sementara_id', pm.response.json().data.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/subcategories/{{f3_sub_id}}/attributes",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "subcategories",
+                "{{f3_sub_id}}",
+                "attributes"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{kadmin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"attribute_key\": \"layanan_ekspres\",\n  \"label\": \"Layanan ekspres\",\n  \"data_type\": \"BOOLEAN\",\n  \"attribute_role\": \"OPTION\",\n  \"pricing_mode\": \"FLAT_PER_OPTION\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "DELETE atribut (soft)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('is_active false, baris tetap ada', function () { pm.expect(pm.response.json().data.is_active).to.eql(false); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/subcategories/{{f3_sub_id}}/attributes/{{f3_attr_sementara_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "subcategories",
+                "{{f3_sub_id}}",
+                "attributes",
+                "{{f3_attr_sementara_id}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{kadmin_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Publik kembali melihat tiga atribut",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Tiga atribut', function () { pm.expect(pm.response.json().data).to.have.length(3); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/subcategories/{{f3_sub_id}}/attributes",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "subcategories",
+                "{{f3_sub_id}}",
+                "attributes"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "05. Usulan taksonomi (H56, H57)",
+      "item": [
+        {
+          "name": "Provider PENDING -> 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 403', function () { pm.response.to.have.status(403); });",
+                  "pm.test('Kode error FORBIDDEN_ACTOR', function () { pm.expect(pm.response.json().error.code).to.eql('FORBIDDEN_ACTOR'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/taxonomy-requests",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "taxonomy-requests"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{kpending_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"request_type\": \"NEW_ATTRIBUTE\",\n  \"subcategory_id\": \"{{f3_sub_id}}\",\n  \"proposed_name\": \"Bau\",\n  \"reason\": \"Sering ditanya\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Client biasa -> 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 403', function () { pm.response.to.have.status(403); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/taxonomy-requests",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "taxonomy-requests"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{kklien_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"request_type\": \"NEW_ATTRIBUTE\",\n  \"subcategory_id\": \"{{f3_sub_id}}\",\n  \"proposed_name\": \"Bau\",\n  \"reason\": \"Sering ditanya\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "H56: NEW_ATTRIBUTE tanpa subcategory_id -> 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () { pm.response.to.have.status(422); });",
+                  "pm.test('Galat pada subcategory_id', function () { pm.expect(pm.response.json().error.details.map(function (d) { return d.path; })).to.include('subcategory_id'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/taxonomy-requests",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "taxonomy-requests"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{kprov1_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"request_type\": \"NEW_ATTRIBUTE\",\n  \"proposed_name\": \"Jenis noda\",\n  \"reason\": \"Harga beda per noda\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "H56: NEW_ATTRIBUTE_OPTION tanpa attribute_key -> 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () { pm.response.to.have.status(422); });",
+                  "pm.test('Galat pada attribute_key', function () { pm.expect(pm.response.json().error.details.map(function (d) { return d.path; })).to.include('attribute_key'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/taxonomy-requests",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "taxonomy-requests"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{kprov1_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"request_type\": \"NEW_ATTRIBUTE_OPTION\",\n  \"subcategory_id\": \"{{f3_sub_id}}\",\n  \"proposed_name\": \"Karpet Plastik\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "H56: NEW_SUBCATEGORY tanpa work_description -> 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () { pm.response.to.have.status(422); });",
+                  "pm.test('Galat pada work_description', function () { pm.expect(pm.response.json().error.details.map(function (d) { return d.path; })).to.include('work_description'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/taxonomy-requests",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "taxonomy-requests"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{kprov1_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"request_type\": \"NEW_SUBCATEGORY\",\n  \"category_id\": \"{{f3_kategori_id}}\",\n  \"proposed_name\": \"Cuci Sofa Panggilan\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Usulan 1: NEW_SUBCATEGORY",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', function () { pm.response.to.have.status(201); });",
+                  "pm.environment.set('usulan_sub_id', pm.response.json().data.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/taxonomy-requests",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "taxonomy-requests"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{kprov1_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"request_type\": \"NEW_SUBCATEGORY\",\n  \"category_id\": \"{{f3_kategori_id}}\",\n  \"proposed_name\": \"Cuci Sofa Panggilan\",\n  \"work_description\": \"Membersihkan sofa kain dan kulit di rumah client\",\n  \"price_factors\": \"Jumlah dudukan dan bahan sofa\",\n  \"common_questions\": \"Berapa lama kering, apakah bawa alat sendiri\",\n  \"duration_min_minutes\": 60,\n  \"duration_max_minutes\": 180,\n  \"booking_mode_suggestion\": \"BOTH\",\n  \"market_price_min\": 100000,\n  \"market_price_max\": 350000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Usulan 2: NEW_ATTRIBUTE",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', function () { pm.response.to.have.status(201); });",
+                  "pm.environment.set('usulan_attr_id', pm.response.json().data.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/taxonomy-requests",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "taxonomy-requests"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{kprov1_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"request_type\": \"NEW_ATTRIBUTE\",\n  \"subcategory_id\": \"{{f3_sub_id}}\",\n  \"proposed_name\": \"Penghilang noda membandel\",\n  \"reason\": \"Banyak client minta, dan bahannya menambah biaya\",\n  \"proposed_role\": \"OPTION\",\n  \"proposed_data_type\": \"BOOLEAN\",\n  \"affects_price\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Usulan 3: NEW_ATTRIBUTE_OPTION",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', function () { pm.response.to.have.status(201); });",
+                  "pm.environment.set('usulan_opsi_id', pm.response.json().data.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/taxonomy-requests",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "taxonomy-requests"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{kprov1_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"request_type\": \"NEW_ATTRIBUTE_OPTION\",\n  \"subcategory_id\": \"{{f3_sub_id}}\",\n  \"attribute_key\": \"jenis_karpet\",\n  \"proposed_name\": \"Karpet Plastik\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "KRITERIA H57: usulan keempat -> 429",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 429', function () { pm.response.to.have.status(429); });",
+                  "pm.test('Kode error TAXONOMY_REQUEST_LIMIT', function () { pm.expect(pm.response.json().error.code).to.eql('TAXONOMY_REQUEST_LIMIT'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/taxonomy-requests",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "taxonomy-requests"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{kprov1_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"request_type\": \"NEW_ATTRIBUTE_OPTION\",\n  \"subcategory_id\": \"{{f3_sub_id}}\",\n  \"attribute_key\": \"jenis_karpet\",\n  \"proposed_name\": \"Karpet Vinyl\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Usulan milik sendiri",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Tiga usulan PENDING', function () { pm.expect(pm.response.json().meta.total).to.eql(3); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/taxonomy-requests/mine",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "taxonomy-requests",
+                "mine"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{kprov1_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Batas per provider: Provider 2 tetap boleh mengusulkan",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', function () { pm.response.to.have.status(201); });",
+                  "pm.environment.set('usulan_merged_id', pm.response.json().data.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/taxonomy-requests",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "taxonomy-requests"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{kprov2_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"request_type\": \"NEW_ATTRIBUTE\",\n  \"subcategory_id\": \"{{cuci_mobil_id}}\",\n  \"proposed_name\": \"Tipe mobil\",\n  \"reason\": \"Harga cuci beda untuk mobil besar\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "06. Keputusan admin",
+      "item": [
+        {
+          "name": "Antrean PENDING, terkelompok per sub-kategori",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Empat usulan menunggu', function () { pm.expect(pm.response.json().meta.total).to.be.at.least(4); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/taxonomy-requests?status=PENDING",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "taxonomy-requests"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "PENDING"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{kadmin_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Provider ke antrean admin -> 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 403', function () { pm.response.to.have.status(403); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/taxonomy-requests",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "taxonomy-requests"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{kprov1_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "REJECTED tanpa admin_note -> 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () { pm.response.to.have.status(422); });",
+                  "pm.test('Galat pada admin_note', function () { pm.expect(pm.response.json().error.details.map(function (d) { return d.path; })).to.include('admin_note'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/taxonomy-requests/{{usulan_opsi_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "taxonomy-requests",
+                "{{usulan_opsi_id}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{kadmin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"decision\": \"REJECTED\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Setujui NEW_ATTRIBUTE_OPTION",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('resulting_id menunjuk atribut jenis_karpet', function () { pm.expect(pm.response.json().data.resulting_id).to.eql(pm.environment.get('f3_attr_jenis_id')); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/taxonomy-requests/{{usulan_opsi_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "taxonomy-requests",
+                "{{usulan_opsi_id}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{kadmin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"decision\": \"APPROVED\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Setujui NEW_ATTRIBUTE dengan is_required true (tetap opsional, D74)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/taxonomy-requests/{{usulan_attr_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "taxonomy-requests",
+                "{{usulan_attr_id}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{kadmin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"decision\": \"APPROVED\",\n  \"admin_note\": \"Diterima sebagai opsi berbayar\",\n  \"definition\": {\n    \"attribute_key\": \"penghilang_noda\",\n    \"label\": \"Penghilang noda membandel\",\n    \"data_type\": \"BOOLEAN\",\n    \"attribute_role\": \"OPTION\",\n    \"pricing_mode\": \"FLAT_PER_OPTION\",\n    \"is_required\": true\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Publik: option baru tampil, atribut baru opsional",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "const rows = pm.response.json().data;",
+                  "const jenis = rows.find(function (a) { return a.attribute_key === 'jenis_karpet'; });",
+                  "const noda = rows.find(function (a) { return a.attribute_key === 'penghilang_noda'; });",
+                  "pm.test('Karpet Plastik masuk options', function () { pm.expect(jenis.options.map(function (o) { return o.value; })).to.include('Karpet Plastik'); });",
+                  "pm.test('penghilang_noda is_required false', function () { pm.expect(noda.is_required).to.eql(false); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/subcategories/{{f3_sub_id}}/attributes",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "subcategories",
+                "{{f3_sub_id}}",
+                "attributes"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Setujui NEW_SUBCATEGORY (lahir nonaktif)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.environment.set('usulan_sub_hasil_id', pm.response.json().data.resulting_id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/taxonomy-requests/{{usulan_sub_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "taxonomy-requests",
+                "{{usulan_sub_id}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{kadmin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"decision\": \"APPROVED\",\n  \"definition\": {\n    \"slug\": \"postman-f3-cuci-sofa\",\n    \"suggested_price_min\": 100000,\n    \"suggested_price_max\": 350000\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Sub-kategori hasil usulan belum tampil publik",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Belum ada', function () { pm.expect(pm.response.json().data.map(function (s) { return s.id; })).to.not.include(pm.environment.get('usulan_sub_hasil_id')); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/categories/{{f3_kategori_id}}/subcategories",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "categories",
+                "{{f3_kategori_id}}",
+                "subcategories"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Admin melengkapi atribut sub-kategori baru",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', function () { pm.response.to.have.status(201); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/subcategories/{{usulan_sub_hasil_id}}/attributes",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "subcategories",
+                "{{usulan_sub_hasil_id}}",
+                "attributes"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{kadmin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"attribute_key\": \"jumlah_dudukan\",\n  \"label\": \"Jumlah dudukan\",\n  \"data_type\": \"NUMBER\",\n  \"attribute_role\": \"OPTION\",\n  \"pricing_mode\": \"PER_UNIT\",\n  \"is_required\": true,\n  \"validation_rule\": {\n    \"min\": 1,\n    \"max\": 12\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Admin mengaktifkan sub-kategori",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/subcategories/{{usulan_sub_hasil_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "subcategories",
+                "{{usulan_sub_hasil_id}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{kadmin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"is_active\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Sekarang tampil publik",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Tampil', function () { pm.expect(pm.response.json().data.map(function (s) { return s.id; })).to.include(pm.environment.get('usulan_sub_hasil_id')); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/categories/{{f3_kategori_id}}/subcategories",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "categories",
+                "{{f3_kategori_id}}",
+                "subcategories"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Memutus usulan yang sudah diputus -> 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 409', function () { pm.response.to.have.status(409); });",
+                  "pm.test('Kode error TAXONOMY_REQUEST_STATE_CONFLICT', function () { pm.expect(pm.response.json().error.code).to.eql('TAXONOMY_REQUEST_STATE_CONFLICT'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/taxonomy-requests/{{usulan_sub_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "taxonomy-requests",
+                "{{usulan_sub_id}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{kadmin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"decision\": \"REJECTED\",\n  \"admin_note\": \"Coba lagi\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "MERGED tanpa resulting_id -> 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () { pm.response.to.have.status(422); });",
+                  "pm.test('Galat pada resulting_id', function () { pm.expect(pm.response.json().error.details.map(function (d) { return d.path; })).to.include('resulting_id'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/taxonomy-requests/{{usulan_merged_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "taxonomy-requests",
+                "{{usulan_merged_id}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{kadmin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"decision\": \"MERGED\",\n  \"admin_note\": \"Sudah ada sebagai jenis_kendaraan\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "MERGED ke atribut jenis_kendaraan yang sudah ada",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Status MERGED', function () { pm.expect(pm.response.json().data.status).to.eql('MERGED'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/taxonomy-requests/{{usulan_merged_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "taxonomy-requests",
+                "{{usulan_merged_id}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{kadmin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"decision\": \"MERGED\",\n  \"admin_note\": \"Sudah ada sebagai Jenis kendaraan\",\n  \"resulting_id\": \"{{jenis_kendaraan_attr_id}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Provider 1 boleh mengusulkan lagi setelah usulannya diputus",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', function () { pm.response.to.have.status(201); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/taxonomy-requests",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "taxonomy-requests"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{kprov1_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"request_type\": \"NEW_ATTRIBUTE_OPTION\",\n  \"subcategory_id\": \"{{f3_sub_id}}\",\n  \"attribute_key\": \"jenis_karpet\",\n  \"proposed_name\": \"Karpet Vinyl\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "auth": {
+    "type": "noauth"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Login ulang otomatis kalau token aktor untuk request ini hampir habis.",
+          "// Token berlaku 15 menit, sedangkan menguji manual bisa lebih lama.",
+          "// Aktor dikenali dari nama variabel token di tab Authorization, misalnya",
+          "// {{pemilik1_token}} -> login dengan pemilik1_email dan seed_password.",
+          "const auth = pm.request.auth;",
+          "const raw = auth && auth.type === 'bearer' && auth.parameters() ? auth.parameters().get('token') : null;",
+          "const match = typeof raw === 'string' ? raw.match(/^\\{\\{(\\w+)_token\\}\\}$/) : null;",
+          "const isLogin = pm.request.url.toString().indexOf('/auth/login') !== -1;",
+          "",
+          "function expOf(jwt) {",
+          "  try {",
+          "    let part = jwt.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');",
+          "    part += '='.repeat((4 - (part.length % 4)) % 4);",
+          "    return JSON.parse(atob(part)).exp;",
+          "  } catch (e) {",
+          "    return null;",
+          "  }",
+          "}",
+          "",
+          "if (match && !isLogin) {",
+          "  const actor = match[1];",
+          "  const token = pm.environment.get(actor + '_token');",
+          "  const exp = token ? expOf(token) : null;",
+          "  const email = pm.environment.get(actor + '_email');",
+          "  if (email && (!exp || exp * 1000 - Date.now() < 30 * 1000)) {",
+          "    pm.sendRequest({",
+          "      url: pm.environment.get('base_url') + '/auth/login',",
+          "      method: 'POST',",
+          "      header: { 'Content-Type': 'application/json' },",
+          "      body: { mode: 'raw', raw: JSON.stringify({ email: email, password: pm.environment.get('seed_password') }) }",
+          "    }, function (err, res) {",
+          "    if (!err && res.code === 200) {",
+          "        pm.environment.set(actor + '_token', res.json().data.access_token);",
+          "        console.log('Token ' + actor + ' diperbarui otomatis lewat login ulang');",
+          "      } else {",
+          "        console.warn('Login ulang ' + actor + ' gagal. Jalankan npm run postman:seed:fase-3 lalu folder 00.');",
+          "      }",
+          "    });",
+          "  }",
+          "}"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "if (pm.response.code === 429) {",
+          "  console.warn('Kena rate limit (hitungan di memori server). Restart \"npm run dev\" untuk mengosongkannya.');",
+          "}",
+          "pm.test('Respons berbentuk envelope PRD 4.1', function () {",
+          "  const body = pm.response.json();",
+          "  pm.expect(body).to.have.property('success');",
+          "  if (body.success) pm.expect(body).to.have.property('data');",
+          "  else pm.expect(body.error).to.include.keys('code', 'message', 'details');",
+          "});"
+        ]
+      }
+    }
+  ]
+}

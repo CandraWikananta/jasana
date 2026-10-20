@@ -26,7 +26,9 @@
     "db:studio": "npm run studio --workspace @jasana/database",
     "db:verify": "npm run verify --workspace @jasana/database",
     "db:check-constraints": "npm run check-constraints --workspace @jasana/database",
-    "postman:seed": "node scripts/postman-seed-fase-2.mjs"
+    "db:seed:catalog": "node scripts/seed-catalog.mjs",
+    "postman:seed": "node scripts/postman-seed-fase-2.mjs",
+    "postman:seed:fase-3": "node scripts/postman-seed-fase-3.mjs"
   },
   "devDependencies": {
     "typescript": "5.6.3"

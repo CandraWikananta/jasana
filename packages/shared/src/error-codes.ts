@@ -52,6 +52,9 @@ export const BUSINESS_ERROR_STATUS = {
   TOKEN_EXPIRED: 422,
   TOKEN_ALREADY_USED: 422,
   TAXONOMY_REQUEST_LIMIT: 429,
+  // Fase 3, belum tercatat di Lampiran A. Usulan taksonomi yang sudah
+  // diputus tidak bisa diputus lagi.
+  TAXONOMY_REQUEST_STATE_CONFLICT: 409,
   GUEST_CHAT_LIMIT_REACHED: 429,
   RATE_LIMIT_EXCEEDED: 429,
   GEMINI_UNAVAILABLE: 502,

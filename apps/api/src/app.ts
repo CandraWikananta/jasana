@@ -33,6 +33,8 @@ import { createUsersRouter } from './modules/users/users.routes';
 import { createProvidersRouter } from './modules/providers/providers.routes';
 import { createWorkersRouter } from './modules/workers/workers.routes';
 import { createAdminRouter } from './modules/admin/admin.routes';
+import { createCatalogRouter } from './modules/catalog/catalog.routes';
+import { createTaxonomyRouter } from './modules/taxonomy/taxonomy.routes';
 
 function corsOptions(): CorsOptions {
   return {
@@ -85,6 +87,9 @@ export function createApp(): Express {
   app.use(`${API_PREFIX}/providers`, createProvidersRouter());
   app.use(`${API_PREFIX}/workers`, createWorkersRouter());
   app.use(`${API_PREFIX}/admin`, createAdminRouter());
+  app.use(`${API_PREFIX}/taxonomy-requests`, createTaxonomyRouter());
+  // /categories dan /subcategories, publik.
+  app.use(API_PREFIX, createCatalogRouter());
 
   app.use(notFoundHandler);
   app.use(errorHandler);
