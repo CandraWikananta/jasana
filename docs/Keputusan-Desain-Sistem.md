@@ -4,9 +4,9 @@
 **Nama sistem:** Jasana
 **Penyusun:** I Nyoman Gede Candra Wikananta (2305551065)
 **Bidang Keahlian:** Sistem Informasi, Teknologi Informasi, Universitas Udayana
-**Versi:** 2.9
-**Terakhir diperbarui:** 21 Oktober 2026 (versi 2.9)
-**Tahap saat ini:** Implementasi backend. Fase 0 sampai Fase 3 selesai, berikutnya Fase 4
+**Versi:** 2.10
+**Terakhir diperbarui:** 22 Oktober 2026 (versi 2.10)
+**Tahap saat ini:** Implementasi backend. Fase 0 sampai Fase 4 selesai, berikutnya Fase 5
 
 ---
 
@@ -27,7 +27,14 @@
 | Pola unggah berkas (D80) | 1 | 0 |
 | Penutupan keputusan terbuka (D81 sampai D86) | 6 | 0 |
 | Katalog lanjutan dan sumber durasi (D87 sampai D90) | 4 | 0 |
+| Listing dan pemetaan (D91 sampai D97) | 7 | 0 |
 | Keputusan terbuka tanpa nomor D (Bagian 7) | | 1 |
+
+**Perubahan pada versi 2.10:**
+
+1. Tujuh usulan dari implementasi Fase 4 dicatat sebagai D91 sampai D97: endpoint baca listing milik provider, syarat menayangkan listing, pemetaan sisi listing yang tidak menyentuh pelamar, perubahan status lewat PATCH, minimal satu mode pemesanan, detail publik hanya untuk provider VERIFIED, dan listing bertanda yang tetap boleh diturunkan
+2. Konfigurasi bucket `listing-photos` dicatat
+3. Tiga catatan untuk fase berikutnya: hapus listing saat order berjalan (Fase 6), nilai 0 pada parameter angka (Fase 6 dan 8), dan foto terhapus yang masih bisa diakses sampai cron berjalan (H88 sampai H90)
 
 **Perubahan pada versi 2.9:**
 
@@ -96,10 +103,18 @@
 
 **Dampak kumulatif terhadap skema:** dari 25 tabel dan 26 enum menjadi **34 tabel dan 35 enum**.
 
-**Status artefak per versi 2.9 (seluruhnya sinkron per 21 Oktober 2026):**
+**Status artefak per versi 2.10 (per 22 Oktober 2026):**
 
-| Artefak | Versi | Perubahan karena versi 2.9 |
+| Artefak | Versi | Keterangan |
 |---|---|---|
+| `PRD-Backend.md` | 2.4 | Dua endpoint baca listing provider (D91), status milestone |
+| `CLAUDE.md` | | Rujukan D1 sampai D97 |
+| `skema-database-final.dbml`, `schema.prisma`, `Panduan-Struktur-Database.md` | 2.9 | Tidak terdampak, versi 2.10 tidak mengubah skema |
+| `migration-constraints.sql`, `State-Machine-Order.md` | 2.6 | Tidak terdampak |
+| Kode Fase 0 sampai 4 | | Seluruh D91 sampai D97 sudah diterapkan dan teruji di Fase 4 (310 test, collection Postman 60 dari 60) |
+| Usulan ide (Tabel Aktor Sistem) | | Tidak direvisi (A7) |
+
+---|---|---|
 | `skema-database-final.dbml` | 2.9 | Note kolom durasi di `listings`, `subcategories`, dan `taxonomy_requests` (D90). Struktur tidak berubah |
 | `schema.prisma` | 2.9 | Komentar saja (D90) |
 | `migration-constraints.sql` | 2.6 | Tidak terdampak |
@@ -920,6 +935,24 @@ D87 sampai D89 muncul saat implementasi Fase 3 dan sudah diterapkan di kode. D90
 
 ---
 
+## 4E. Keputusan Versi 2.10 (D91 sampai D97)
+
+Seluruhnya muncul saat implementasi Fase 4, sudah diterapkan di kode, dan teruji. Tidak ada perubahan skema.
+
+| # | Keputusan | Alasan |
+|---|---|---|
+| D91 | **`GET /providers/me/listings` dan `GET /providers/me/listings/:id`** untuk provider membaca listing miliknya sendiri, termasuk DRAFT dan INACTIVE, tanpa yang sudah dihapus. Detailnya memuat status, `attributes_need_update`, pekerja terpetakan, dan seluruh baris harga opsi | PRD versi 2.3 hanya punya endpoint buat, ubah, dan hapus. Endpoint publik hanya menampilkan listing ACTIVE, sehingga listing DRAFT, yang justru ditahan D53 sampai ada pekerja terpetakan, tidak bisa dibaca ulang oleh pemiliknya |
+| D92 | **Syarat menayangkan listing (ke ACTIVE)**: punya minimal satu pekerja terpetakan berkeanggotaan ACTIVE (D53), sub-kategorinya aktif, atribut SPEC lolos validasi, dan setiap atribut OPTION wajib yang aktif punya minimal satu opsi `is_offered`. Pemeriksaan kelengkapan memakai satu fungsi yang sama dengan PUT harga opsi | Diturunkan dari D53, D67, dan H48. Listing yang tayang dengan OPTION wajib tanpa opsi tidak bisa dipesan sama sekali |
+| D93 | **PUT pemetaan dari sisi listing hanya mengganti pemetaan pekerja ACTIVE.** Centangan pelamar PENDING tidak tersentuh | Menurut D52, centangan pelamar adalah usulan yang menunggu disahkan pemilik. Menimpanya dari sisi listing akan menghapus usulan itu tanpa sepengetahuan pelamar |
+| D94 | **Status listing diubah lewat field `status` di PATCH**, hanya ACTIVE atau INACTIVE. SUSPENDED hanya bisa diberikan admin | Satu jalur ubah listing, dan provider tidak bisa mencabut penangguhan dari admin |
+| D95 | **Listing wajib mendukung minimal satu mode pemesanan.** `supports_scheduled` atau `supports_available_now` harus true, saat dibuat maupun diubah | Tanpa ini, listing bisa tayang tapi tidak bisa dipesan lewat mode apa pun |
+| D96 | **Detail publik listing mensyaratkan provider berstatus VERIFIED**, selain listing ACTIVE dan belum dihapus | Listing milik usaha yang ditangguhkan tidak boleh tetap terlihat dan dipesan |
+| D97 | **Listing bertanda `attributes_need_update` tetap boleh diturunkan ke INACTIVE** lewat PATCH yang hanya berisi `status`, tanpa melengkapi atribut. Penandanya tetap menyala, dan menayangkan ulang tetap wajib lengkap. Menyempurnakan H48 | Tujuan H48 adalah mencegah listing yang tidak lengkap tetap dipakai. Kalau provider tidak bisa menurunkannya, listing itu malah tetap tayang dan tetap bisa dipesan, kebalikan dari tujuannya |
+
+**Konfigurasi bucket `listing-photos` (D80).** Publik, tipe berkas hanya `image/jpeg`, `image/png`, dan `image/webp`, batas 5 MB. SVG sengaja tidak diizinkan, karena berkas SVG di bucket publik bisa membawa script yang berjalan di browser orang yang membukanya. `file_url` foto hanya diterima dari folder milik pemanggil sendiri, `listing-photos/<user_id>/`. Cron pembersih berkas yatim (H80) sudah diuji ke Storage sungguhan: dari dua berkas uji, hanya yang tidak dirujuk yang terhapus.
+
+---
+
 ## 5. Alur Sistem End-to-End
 
 ### 5.1 Onboarding
@@ -1482,6 +1515,8 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 - [ ] **H78** Validasi **magic bytes** pada unggahan multipart **(baru, D80)**, bukan `Content-Type` dari client dan bukan ekstensi nama berkas. Wajib punya test yang mengunggah berkas non-gambar bernama `.jpg` dan memastikan ditolak
 - [ ] **H79** Urutan unggah multipart: validasi, kirim ke Storage, baru tulis baris basis data **(baru, D80)**. Kalau Storage gagal, jangan tinggalkan baris setengah jadi
 - [ ] **H80** Cron pembersih berkas yatim di bucket foto listing **(baru, D80)**, berkas lebih tua dari `orphan_upload_cleanup_hours` yang tidak punya baris `listing_photos`
+- [ ] **H88** Perilaku hapus listing (soft delete) saat masih ada order yang belum selesai **diputuskan di Fase 6**, karena order baru ada di fase itu. Saat ini hapus listing tidak memeriksa order
+- [ ] **H89** `getNumberSetting` menganggap nilai 0 tidak sah dan memakai default. Sesuaikan sebelum `schedule_conflict_buffer_minutes` (Fase 6) atau `withdrawal_admin_fee` (Fase 8) boleh bernilai 0
 - [ ] **H85** Validasi `listings.estimated_duration_minutes` wajib terisi dan berada di rentang 15 sampai 720 menit saat listing dibuat atau diubah, dan `orders.snapshot_duration_minutes` selalu disalin dari kolom ini, bukan dari `listings.attributes` **(baru, D90)**
 - [ ] **H83** Validasi pengajuan withdrawal **(baru, D84)**: `amount` minimal `withdrawal_min_amount`, `admin_fee` diambil dari `withdrawal_admin_fee` saat pengajuan, dan `net_amount` dihitung di server. Request tidak pernah memuat nominal fee
 
@@ -1518,6 +1553,7 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 - [ ] **H61** Sistem memvalidasi selesainya pekerjaan di lokasi, bukan penyerahan hasil **(baru, D75)**. Untuk jasa yang hasilnya diserahkan belakangan, seperti foto prewedding, `waktu_pengerjaan_hari` hanya informasional dan tidak menahan escrow. Penyerahan hasil bertahap masuk saran pengembangan
 - [ ] **H81** Biaya metode pembayaran dari payment gateway ditanggung platform dari komisi dan tidak dihitung dalam alur dana **(baru, D83)**. Analisis kelayakan bisnis berada di luar ruang lingkup penelitian. Biaya layanan terpisah untuk client masuk saran pengembangan
 - [ ] **H86** Regex pada `validation_rule` ditulis admin dan tidak dijaga dari pola yang sangat lambat dievaluasi (ReDoS) **(baru)**. Admin dianggap pihak tepercaya, dan dua belas sub-kategori contoh tidak memakai atribut TEXT
+- [ ] **H90** Foto listing yang dihapus hanya menghapus barisnya. Berkasnya masih bisa diakses lewat URL publik sampai cron pembersih harian berjalan **(baru)**
 - [ ] **H87** Batas durasi listing berlaku umum 15 sampai 720 menit, tidak per sub-kategori **(baru, D90)**
 - [ ] **H82** Admin fee withdrawal berupa nilai flat yang mengikuti perkiraan biaya payout Xendit **(baru, D84)**. Untuk nominal di atas Rp250.000 biaya sebenarnya sedikit lebih besar dan selisihnya ditanggung platform
 
@@ -1555,11 +1591,12 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 
 ## 11. Langkah Berikutnya
 
-1. Fase 4 (listing dan pemetaan), diawali penerapan D90 di kode Fase 3
-2. Putuskan keputusan terbuka nomor 5 sebelum Fase 6
-3. Susun data simulasi untuk dua belas sub-kategori di Lampiran B, termasuk skenario perebutan Available Now dan pendamping pada dokumentasi acara
-4. Riset ringan rentang harga pasaran untuk dua belas sub-kategori tersebut, catat sumbernya
-5. Paralel sejak sekarang: kumpulkan H15 sedikit demi sedikit setiap minggu, dan siapkan instrumen UAT (H84)
+1. Putuskan arti filter lokasi pencarian sebelum Fase 5
+2. Fase 5 (pencarian)
+3. Putuskan keputusan terbuka nomor 5 dan H88 sebelum Fase 6
+4. Susun data simulasi untuk dua belas sub-kategori di Lampiran B, termasuk skenario perebutan Available Now dan pendamping pada dokumentasi acara
+5. Riset ringan rentang harga pasaran untuk dua belas sub-kategori tersebut, catat sumbernya
+6. Paralel sejak sekarang: kumpulkan H15 sedikit demi sedikit setiap minggu, dan siapkan instrumen UAT (H84)
 
 ---
 
@@ -1578,6 +1615,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 | 2.7 | 30 September 2026 | Pola unggah berkas dipisah per sifat (D80): e-KYC dan bukti dispute lewat multipart dengan validasi magic bytes, foto listing tetap signed URL. Celah berkas yatim ditutup lewat cron. Tiga parameter sistem, H78 sampai H80 |
 | 2.8 | 15 Oktober 2026 | Seluruh keputusan terbuka ditutup. Usulan ide tidak direvisi (A7). Opsi kustom bebas dan sub-kategori buatan provider ditolak, dikukuhkan Pembimbing 1 pada bimbingan 30 September 2026 (D81, D82). Biaya payment gateway ditanggung platform (D83), withdrawal minimum Rp50.000 dengan admin fee Rp6.500 (D84), target pengujian (D85), dasar komisi dan holding window (D86). Dua parameter sistem, H81 sampai H84. Rumusan D25 diperjelas: dispute sejak ARRIVED. Perapian status artefak, rujukan silang, dan urutan riwayat revisi. Seluruh artefak lain disinkronkan. Tanpa perubahan skema |
 | 2.9 | 21 Oktober 2026 | Tiga usulan dari implementasi Fase 3: tipe atribut dikunci (D87), sub-kategori hasil usulan lahir nonaktif (D88), PER_UNIT bilangan bulat (D89). Sumber durasi listing disatukan ke kolom (D90), atribut `durasi_estimasi` dihapus dari Lampiran B, rekap B.13 menjadi 2 sampai 6 atribut. Option B.3 dilengkapi. Satu keputusan terbuka baru soal durasi yang ditentukan opsi. H85 sampai H87. Tanpa perubahan skema |
+| 2.10 | 22 Oktober 2026 | Tujuh usulan dari implementasi Fase 4 (D91 sampai D97). Konfigurasi bucket `listing-photos`. H88 sampai H90. Tanpa perubahan skema |
 
 ---
 

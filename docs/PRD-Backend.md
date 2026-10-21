@@ -4,16 +4,16 @@
 
 | | |
 |---|---|
-| Versi | 2.3 |
+| Versi | 2.4 |
 | Penyusun | I Nyoman Gede Candra Wikananta (2305551065) |
 | Program Studi | Teknologi Informasi, Universitas Udayana |
 | Bidang Keahlian | Sistem Informasi |
 | Pembimbing 1 | Dr. Ir. Ni Kadek Ayu Wirdiani, S.T., M.T., IPU |
 | Pembimbing 2 | Dr. Ir. Anak Agung Kompiang Oka Sudana, S.Kom., M.T., IPM |
-| Tanggal | 21 Oktober 2026 |
+| Tanggal | 22 Oktober 2026 |
 | Cakupan dokumen | **Backend saja** (Express.js REST API, basis data, integrasi eksternal, cron). Frontend dan UI/UX di luar cakupan dokumen ini |
 
-**Dokumen rujukan:** `Keputusan-Desain-Sistem.md` (register keputusan D1 sampai D90, versi 2.9), `State-Machine-Order.md` (artefak desain 3), `skema-database-final.dbml` (34 tabel, 35 enum), `schema.prisma`, `migration-constraints.sql`, `Panduan-Struktur-Database.md`.
+**Dokumen rujukan:** `Keputusan-Desain-Sistem.md` (register keputusan D1 sampai D97, versi 2.10), `State-Machine-Order.md` (artefak desain 3), `skema-database-final.dbml` (34 tabel, 35 enum), `schema.prisma`, `migration-constraints.sql`, `Panduan-Struktur-Database.md`.
 
 **Catatan versi.** Dokumen ini menggantikan PRD versi 1.x sepenuhnya, bukan merevisinya. Implementasi dimulai ulang dari nol mengikuti milestone di Bagian 9. Perubahan terbesar sejak versi 1.x adalah masuknya entitas tenaga kerja (D31 sampai D53) atas arahan Pembimbing 1, yang memindahkan pelaksanaan order dari akun provider ke pekerja.
 
@@ -715,6 +715,8 @@ Kolom akses: **P** publik, **C** client (user login), **PR** provider terverifik
 | GET | `/listings` | P | Pencarian dan filter |
 | GET | `/listings/:id` | P | Detail listing, penyedia, foto, FAQ, opsi berbayar, review |
 | POST | `/providers/me/listings` | PR | Buat listing |
+| GET | `/providers/me/listings` | PR | Listing milik sendiri, termasuk DRAFT dan INACTIVE, tanpa yang terhapus (D91) |
+| GET | `/providers/me/listings/:id` | PR | Detail listing milik sendiri beserta status, pekerja terpetakan, dan seluruh harga opsi (D91) |
 | PATCH | `/providers/me/listings/:id` | PR | Ubah listing |
 | DELETE | `/providers/me/listings/:id` | PR | Soft delete |
 | PUT | `/providers/me/listings/:id/option-prices` | PR | Atur opsi yang dilayani beserta deltanya |
@@ -1348,7 +1350,7 @@ Data seed harus menyertakan kombinasi yang memungkinkan skenario di atas dijalan
 
 ## 9. Milestone Implementasi
 
-Status per 21 Oktober 2026: **Fase 0 sampai Fase 3 selesai**, sisanya belum dikerjakan. Urutan mengikuti dependency tree, bukan urutan tabel jadwal pada usulan ide.
+Status per 22 Oktober 2026: **Fase 0 sampai Fase 4 selesai**, sisanya belum dikerjakan. Urutan mengikuti dependency tree, bukan urutan tabel jadwal pada usulan ide.
 
 | Fase | Keluaran backend | Kriteria selesai |
 |---|---|---|
@@ -1465,3 +1467,4 @@ Tidak menyangkut aturan bisnis, dibentuk oleh middleware bersama pada Fase 0.
 | 2.1 | 30 September 2026 | Pola unggah berkas dipisah per sifat (D80). Dokumen e-KYC dan bukti dispute jadi multipart lewat API dengan validasi magic bytes, foto listing tetap signed URL. Kontrak dua endpoint unggah ditambahkan di Bagian 4.4, cron pembersih berkas yatim, tiga parameter sistem, aturan mengikat nomor 13 |
 | 2.2 | 15 Oktober 2026 | Sinkron dengan register keputusan versi 2.8 (D81 sampai D86). Pertanyaan terbuka di Bagian 10 seluruhnya ditutup. Target UAT, akurasi, beban normal, dan stress di Bagian 1.3, 6.2, dan 8. Kontrak withdrawal dengan minimum dan admin fee, dua parameter sistem, kode error `WITHDRAWAL_BELOW_MINIMUM`. Dua non-goal baru. Status milestone diperbarui |
 | 2.3 | 21 Oktober 2026 | Sinkron dengan register keputusan versi 2.9. Sumber snapshot durasi dari kolom listing (D90), rentang atribut 2 sampai 6, kode error `TAXONOMY_REQUEST_STATE_CONFLICT`, satu pertanyaan terbuka soal durasi yang ditentukan opsi, status milestone Fase 0 sampai 3 selesai |
+| 2.4 | 22 Oktober 2026 | Sinkron dengan register keputusan versi 2.10. Dua endpoint baca listing provider (D91), status milestone Fase 0 sampai 4 selesai |
