@@ -4,8 +4,8 @@
 **Nama sistem:** Jasana
 **Penyusun:** I Nyoman Gede Candra Wikananta (2305551065)
 **Bidang Keahlian:** Sistem Informasi, Teknologi Informasi, Universitas Udayana
-**Versi:** 2.10
-**Terakhir diperbarui:** 22 Oktober 2026 (versi 2.10)
+**Versi:** 2.11
+**Terakhir diperbarui:** 22 Oktober 2026 (versi 2.11)
 **Tahap saat ini:** Implementasi backend. Fase 0 sampai Fase 4 selesai, berikutnya Fase 5
 
 ---
@@ -28,7 +28,14 @@
 | Penutupan keputusan terbuka (D81 sampai D86) | 6 | 0 |
 | Katalog lanjutan dan sumber durasi (D87 sampai D90) | 4 | 0 |
 | Listing dan pemetaan (D91 sampai D97) | 7 | 0 |
+| Pencarian: lokasi dan status online (D98 sampai D99) | 2 | 0 |
 | Keputusan terbuka tanpa nomor D (Bagian 7) | | 1 |
+
+**Perubahan pada versi 2.11:**
+
+1. Arti filter lokasi pencarian ditetapkan: jarak diukur dari lokasi tetap usaha, atau dari pekerja online terdekat untuk Available Now, dan client wajib berada di dalam `service_radius_km` (D98)
+2. Status online pekerja dibaca dari memori proses API, bukan Redis. Redis tetap tidak dipakai (D99)
+3. Dua persiapan stress testing dicatat: rate limiter dan pekerja online simulasi (H91, H92)
 
 **Perubahan pada versi 2.10:**
 
@@ -103,12 +110,12 @@
 
 **Dampak kumulatif terhadap skema:** dari 25 tabel dan 26 enum menjadi **34 tabel dan 35 enum**.
 
-**Status artefak per versi 2.10 (per 22 Oktober 2026):**
+**Status artefak per versi 2.11 (per 22 Oktober 2026):**
 
 | Artefak | Versi | Keterangan |
 |---|---|---|
-| `PRD-Backend.md` | 2.4 | Dua endpoint baca listing provider (D91), status milestone |
-| `CLAUDE.md` | | Rujukan D1 sampai D97 |
+| `PRD-Backend.md` | 2.5 | Dua endpoint baca listing provider (D91), arti filter lokasi dan `available_now` di pencarian (D98, D99), status milestone |
+| `CLAUDE.md` | | Rujukan D1 sampai D99 |
 | `skema-database-final.dbml`, `schema.prisma`, `Panduan-Struktur-Database.md` | 2.9 | Tidak terdampak, versi 2.10 tidak mengubah skema |
 | `migration-constraints.sql`, `State-Machine-Order.md` | 2.6 | Tidak terdampak |
 | Kode Fase 0 sampai 4 | | Seluruh D91 sampai D97 sudah diterapkan dan teruji di Fase 4 (310 test, collection Postman 60 dari 60) |
@@ -953,6 +960,17 @@ Seluruhnya muncul saat implementasi Fase 4, sudah diterapkan di kode, dan teruji
 
 ---
 
+## 4F. Keputusan Versi 2.11 (D98 sampai D99)
+
+Diputuskan sebelum Fase 5 karena PRD hanya menulis parameter `lat`, `lng`, dan `radius_km` tanpa menjelaskan jaraknya diukur dari mana. Tidak ada perubahan skema dari keputusan ini.
+
+| # | Keputusan | Alasan |
+|---|---|---|
+| D98 | **Arti filter lokasi pencarian.** Titik `lat`, `lng` adalah lokasi client, yaitu tempat jasa dikerjakan. Listing muncul kalau lokasi client berada **di dalam `service_radius_km` usahanya**. Jarak diukur dari **lokasi tetap usaha** (`base_latitude`, `base_longitude`) untuk pencarian biasa, dan dari **pekerja online terdekat** yang terpetakan ke listing itu kalau `available_now=true`. `radius_km` dari client adalah penyaring tambahan yang opsional, dan `sort=distance` memakai jarak yang sama. Bounding box tetap dijalankan sebelum Haversine (D6) | Seluruh jasa dikerjakan di lokasi client (D75), jadi yang menentukan adalah apakah usaha itu mau datang ke client, bukan seberapa dekat client ke usaha. Untuk Available Now yang berangkat adalah pekerja online, sehingga posisinya yang relevan, dan karena itu `idx_worker_geo` menjadi kriteria selesai Fase 5 |
+| D99 | **Status online pekerja dibaca dari memori proses API, tanpa Redis.** API dan Socket.IO berjalan di satu proses, sehingga daftar ID pekerja yang terhubung disisipkan ke query sebagai `id = ANY(...)`. Di Fase 5 pelacak itu belum ada, jadi filter `available_now` sementara memakai `is_available` saja dan ditandai `shortcut:` di kode. Di Fase 6 filter ditambah daftar pekerja online. Cron presence tetap ada supaya tampilan dashboard pekerja jujur | Redis baru dibutuhkan kalau API berjalan di beberapa server sekaligus. Menambahkannya berarti infrastruktur baru untuk dev dan test, menulis ulang rate limiter Fase 1, dan perubahan dokumen, tanpa manfaat di skala penelitian. Batasan satu instance sudah tertulis di Bagian 2.2, dan hasil stress test dibaca sebagai kapasitas satu instance. Beberapa instance dengan Redis masuk saran pengembangan |
+
+---
+
 ## 5. Alur Sistem End-to-End
 
 ### 5.1 Onboarding
@@ -1526,6 +1544,8 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 - [ ] **H68** Ukur konversi sesi chat tamu jadi pendaftaran akun lewat `chat_sessions.claimed_at` **(baru, D77)**. Metrik ini menjawab pertanyaan kegunaan chatbot dengan angka
 - [ ] **H16** Siapkan data simulasi, termasuk beberapa usaha BUSINESS dengan jumlah pekerja berbeda dan pemetaan listing yang tumpang tindih, supaya skenario order paralel dan perebutan bisa diuji
 - [ ] **H20** Jalankan kueri verifikasi V1 sampai V5 setelah seeding dan setelah pengujian
+- [ ] **H91** Rate limiter dihitung per alamat IP, sedangkan k6 menembak seluruh request dari satu IP. Sediakan pengaturan khusus lingkungan pengujian beban, misalnya batas yang dinaikkan lewat env, supaya yang terukur adalah API dan bukan rate limiter-nya. Pengaturan itu ditulis di laporan **(baru)**
+- [ ] **H92** Sediakan cara menandai pekerja hasil seed sebagai online, hanya aktif di lingkungan pengujian, supaya skenario pencarian `available_now` di stress test tidak selalu kosong. Dibangun di Fase 6 bersama pelacak status online (D99). Sebaiknya k6 juga tidak dijalankan di mesin yang sama dengan API, dan kalau terpaksa, kondisinya ditulis di laporan **(baru)**
 - [ ] **H84** Susun kuesioner UAT per aktor dan skenario uji masing-masing, lalu rencanakan rekrutmen 30 responden sesuai komposisi D85 **(baru)**
 
 ### 8.6 Yang Harus Ditulis di Laporan sebagai Batasan
@@ -1591,12 +1611,11 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 
 ## 11. Langkah Berikutnya
 
-1. Putuskan arti filter lokasi pencarian sebelum Fase 5
-2. Fase 5 (pencarian)
-3. Putuskan keputusan terbuka nomor 5 dan H88 sebelum Fase 6
-4. Susun data simulasi untuk dua belas sub-kategori di Lampiran B, termasuk skenario perebutan Available Now dan pendamping pada dokumentasi acara
-5. Riset ringan rentang harga pasaran untuk dua belas sub-kategori tersebut, catat sumbernya
-6. Paralel sejak sekarang: kumpulkan H15 sedikit demi sedikit setiap minggu, dan siapkan instrumen UAT (H84)
+1. Fase 5 (pencarian)
+2. Putuskan keputusan terbuka nomor 5 dan H88 sebelum Fase 6
+3. Susun data simulasi untuk dua belas sub-kategori di Lampiran B, termasuk skenario perebutan Available Now dan pendamping pada dokumentasi acara
+4. Riset ringan rentang harga pasaran untuk dua belas sub-kategori tersebut, catat sumbernya
+5. Paralel sejak sekarang: kumpulkan H15 sedikit demi sedikit setiap minggu, dan siapkan instrumen UAT (H84)
 
 ---
 
@@ -1616,6 +1635,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 | 2.8 | 15 Oktober 2026 | Seluruh keputusan terbuka ditutup. Usulan ide tidak direvisi (A7). Opsi kustom bebas dan sub-kategori buatan provider ditolak, dikukuhkan Pembimbing 1 pada bimbingan 30 September 2026 (D81, D82). Biaya payment gateway ditanggung platform (D83), withdrawal minimum Rp50.000 dengan admin fee Rp6.500 (D84), target pengujian (D85), dasar komisi dan holding window (D86). Dua parameter sistem, H81 sampai H84. Rumusan D25 diperjelas: dispute sejak ARRIVED. Perapian status artefak, rujukan silang, dan urutan riwayat revisi. Seluruh artefak lain disinkronkan. Tanpa perubahan skema |
 | 2.9 | 21 Oktober 2026 | Tiga usulan dari implementasi Fase 3: tipe atribut dikunci (D87), sub-kategori hasil usulan lahir nonaktif (D88), PER_UNIT bilangan bulat (D89). Sumber durasi listing disatukan ke kolom (D90), atribut `durasi_estimasi` dihapus dari Lampiran B, rekap B.13 menjadi 2 sampai 6 atribut. Option B.3 dilengkapi. Satu keputusan terbuka baru soal durasi yang ditentukan opsi. H85 sampai H87. Tanpa perubahan skema |
 | 2.10 | 22 Oktober 2026 | Tujuh usulan dari implementasi Fase 4 (D91 sampai D97). Konfigurasi bucket `listing-photos`. H88 sampai H90. Tanpa perubahan skema |
+| 2.11 | 22 Oktober 2026 | Arti filter lokasi pencarian (D98) dan status online pekerja dari memori tanpa Redis (D99). H91 dan H92 untuk persiapan stress testing. Tanpa perubahan skema |
 
 ---
 

@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| Versi | 2.4 |
+| Versi | 2.5 |
 | Penyusun | I Nyoman Gede Candra Wikananta (2305551065) |
 | Program Studi | Teknologi Informasi, Universitas Udayana |
 | Bidang Keahlian | Sistem Informasi |
@@ -13,7 +13,7 @@
 | Tanggal | 22 Oktober 2026 |
 | Cakupan dokumen | **Backend saja** (Express.js REST API, basis data, integrasi eksternal, cron). Frontend dan UI/UX di luar cakupan dokumen ini |
 
-**Dokumen rujukan:** `Keputusan-Desain-Sistem.md` (register keputusan D1 sampai D97, versi 2.10), `State-Machine-Order.md` (artefak desain 3), `skema-database-final.dbml` (34 tabel, 35 enum), `schema.prisma`, `migration-constraints.sql`, `Panduan-Struktur-Database.md`.
+**Dokumen rujukan:** `Keputusan-Desain-Sistem.md` (register keputusan D1 sampai D99, versi 2.11), `State-Machine-Order.md` (artefak desain 3), `skema-database-final.dbml` (34 tabel, 35 enum), `schema.prisma`, `migration-constraints.sql`, `Panduan-Struktur-Database.md`.
 
 **Catatan versi.** Dokumen ini menggantikan PRD versi 1.x sepenuhnya, bukan merevisinya. Implementasi dimulai ulang dari nol mengikuti milestone di Bagian 9. Perubahan terbesar sejak versi 1.x adalah masuknya entitas tenaga kerja (D31 sampai D53) atas arahan Pembimbing 1, yang memindahkan pelaksanaan order dari akun provider ke pekerja.
 
@@ -731,7 +731,7 @@ Query parameter `GET /listings`:
 |---|---|---|
 | `q` | string | Kata kunci pada judul dan deskripsi |
 | `category_id`, `subcategory_id` | uuid | Filter kategori |
-| `lat`, `lng`, `radius_km` | number | Filter lokasi. Wajib bertiga jika salah satu diisi |
+| `lat`, `lng`, `radius_km` | number | Filter lokasi. `lat` dan `lng` wajib berpasangan, `radius_km` opsional dan hanya sah kalau ada lokasi (D98) |
 | `available_now` | boolean | Hanya listing yang punya pekerja idle. **Join ke `worker_listings` dan `provider_workers`**, bukan membaca kolom |
 | `booking_mode` | enum | `SCHEDULED` atau `AVAILABLE_NOW` |
 | `price_min`, `price_max` | integer | Rentang harga dasar listing |
@@ -739,6 +739,10 @@ Query parameter `GET /listings`:
 | `sort` | enum | `distance`, `price_asc`, `price_desc`, `rating`, `popular` |
 
 **Aturan implementasi filter lokasi (wajib):** jalankan bounding box terlebih dahulu di klausa WHERE, baru hitung Haversine presisi pada baris yang lolos. Kalau Haversine dihitung langsung untuk semua baris, index tidak terpakai dan hasil stress testing akan buruk.
+
+**Arti filter lokasi (D98).** `lat`, `lng` adalah lokasi client. Listing muncul kalau lokasi client berada di dalam `service_radius_km` usahanya. Jarak diukur dari lokasi tetap usaha (`base_latitude`, `base_longitude`), atau dari pekerja online terdekat yang terpetakan ke listing itu kalau `available_now=true`. `radius_km` adalah penyaring tambahan yang opsional, dan `sort=distance` memakai jarak yang sama.
+
+**Status online pada `available_now` (D99).** Daftar pekerja yang terhubung lewat Socket.IO dibaca dari memori proses API dan disisipkan ke query sebagai `id = ANY(...)`. Sampai pelacaknya dibangun di Fase 6, filter memakai `is_available` saja.
 
 **Catatan harga pada hasil pencarian.** Karena opsi berbayar, harga di kartu hasil ditampilkan sebagai "mulai dari", yaitu `listings.price` tanpa delta.
 
@@ -1468,3 +1472,4 @@ Tidak menyangkut aturan bisnis, dibentuk oleh middleware bersama pada Fase 0.
 | 2.2 | 15 Oktober 2026 | Sinkron dengan register keputusan versi 2.8 (D81 sampai D86). Pertanyaan terbuka di Bagian 10 seluruhnya ditutup. Target UAT, akurasi, beban normal, dan stress di Bagian 1.3, 6.2, dan 8. Kontrak withdrawal dengan minimum dan admin fee, dua parameter sistem, kode error `WITHDRAWAL_BELOW_MINIMUM`. Dua non-goal baru. Status milestone diperbarui |
 | 2.3 | 21 Oktober 2026 | Sinkron dengan register keputusan versi 2.9. Sumber snapshot durasi dari kolom listing (D90), rentang atribut 2 sampai 6, kode error `TAXONOMY_REQUEST_STATE_CONFLICT`, satu pertanyaan terbuka soal durasi yang ditentukan opsi, status milestone Fase 0 sampai 3 selesai |
 | 2.4 | 22 Oktober 2026 | Sinkron dengan register keputusan versi 2.10. Dua endpoint baca listing provider (D91), status milestone Fase 0 sampai 4 selesai |
+| 2.5 | 22 Oktober 2026 | Arti filter lokasi pencarian (D98) dan status online `available_now` dari memori proses (D99) |
