@@ -1,0 +1,3140 @@
+{
+  "info": {
+    "_postman_id": "c4a2d3e5-6f70-4b8c-9d0e-1f2a3b4c5d6e",
+    "name": "Jasana Backend - Fase 4 (Listing dan pemetaan)",
+    "description": "Pengujian endpoint Fase 4: CRUD listing, harga opsi (D72), foto lewat signed URL (D80), FAQ (D78, H73), dan pemetaan pekerja ke listing dari dua arah (D50 sampai D53).\n\n## Setiap putaran\n1. `npm run postman:seed:fase-4` di akar repo. Katalog Lampiran B dipastikan ada, akun demo Fase 4 dibuat ulang (admin, provider INDIVIDUAL, provider BUSINESS dengan satu pekerja ACTIVE dan satu pelamar PENDING, client), dan katalog `postman-f4-` buatan putaran sebelumnya dihapus. Akun Fase 2 dan 3 tidak disentuh.\n2. `npm run dev`.\n3. Jalankan folder berurutan dari 00. Folder saling bergantung.\n\n## Request bertanda KRITERIA\nFolder 02: listing tanpa pekerja terpetakan ditolak 409 `LISTING_HAS_NO_WORKER` dan tetap DRAFT, lalu tayang setelah dipetakan. Pekerja terakhir listing tayang tidak bisa dicabut dari dua arah. Setelah folder ini, `npm run db:verify` harus memberi V7 nol baris.\n\n## Prasyarat folder 05\nBucket publik `listing-photos` di Supabase Storage. Tanpa itu signed URL dibalas 502.\n\n## Yang tidak bisa didemokan lewat Postman\nBalapan dua pencabutan pekerja terakhir dan cron berkas yatim (H80). Buktinya ada di `apps/api/tests/listings.test.ts`.\n\n## Rate limit\nLogin 10 per 15 menit per IP. Folder 00 memakai 5. Kalau kena 429 saat mengulang, restart `npm run dev`.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "00. Persiapan (jalankan npm run postman:seed:fase-4 dulu)",
+      "item": [
+        {
+          "name": "Health",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login Admin Listing",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code === 401) console.warn('Akun demo belum ada. Jalankan: npm run postman:seed:fase-4');",
+                  "pm.environment.set('ladmin_token', pm.response.json().data.access_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{ladmin_email}}\",\n  \"password\": \"{{seed_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login Provider INDIVIDUAL (Cuci Kilat Made)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code === 401) console.warn('Akun demo belum ada. Jalankan: npm run postman:seed:fase-4');",
+                  "pm.environment.set('lindiv_token', pm.response.json().data.access_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{lindiv_email}}\",\n  \"password\": \"{{seed_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login Provider BUSINESS (Bengkel Bersama)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code === 401) console.warn('Akun demo belum ada. Jalankan: npm run postman:seed:fase-4');",
+                  "pm.environment.set('lbiz_token', pm.response.json().data.access_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{lbiz_email}}\",\n  \"password\": \"{{seed_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login Pekerja ACTIVE Bengkel Bersama",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code === 401) console.warn('Akun demo belum ada. Jalankan: npm run postman:seed:fase-4');",
+                  "pm.environment.set('lpekerja_token', pm.response.json().data.access_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{lpekerja_email}}\",\n  \"password\": \"{{seed_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login Client biasa",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code === 401) console.warn('Akun demo belum ada. Jalankan: npm run postman:seed:fase-4');",
+                  "pm.environment.set('lklien_token', pm.response.json().data.access_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{lklien_email}}\",\n  \"password\": \"{{seed_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Kategori publik",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.environment.set('otomotif_id', pm.response.json().data.find(function (c) { return c.slug === 'otomotif'; }).id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/categories",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "categories"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Sub-kategori Otomotif",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.environment.set('cuci_mobil_id', pm.response.json().data.find(function (s) { return s.slug === 'cuci-mobil-panggilan'; }).id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/categories/{{otomotif_id}}/subcategories",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "categories",
+                "{{otomotif_id}}",
+                "subcategories"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Atribut Cuci Mobil: tanpa durasi_estimasi (D90)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "const keys = pm.response.json().data.map(function (a) { return a.attribute_key; });",
+                  "pm.test('Durasi bukan atribut (D90)', function () { pm.expect(keys).to.not.include('durasi_estimasi'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/subcategories/{{cuci_mobil_id}}/attributes",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "subcategories",
+                "{{cuci_mobil_id}}",
+                "attributes"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Pekerja Bengkel Bersama",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "const rows = pm.response.json().data;",
+                  "pm.environment.set('l4_owner_worker_id', rows.find(function (w) { return w.is_owner; }).id);",
+                  "pm.environment.set('l4_pekerja_worker_id', rows.find(function (w) { return !w.is_owner && w.membership_status === 'ACTIVE'; }).id);",
+                  "pm.environment.set('l4_pelamar_worker_id', rows.find(function (w) { return w.membership_status === 'PENDING'; }).id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/providers/me/workers",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "workers"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{lbiz_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "01. Membuat listing (D72, D90)",
+      "item": [
+        {
+          "name": "Client biasa -> 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 403', function () { pm.response.to.have.status(403); });",
+                  "pm.test('Kode FORBIDDEN_ACTOR', function () { pm.expect(pm.response.json().error.code).to.eql('FORBIDDEN_ACTOR'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/me/listings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "listings"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{lklien_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subcategory_id\": \"{{cuci_mobil_id}}\",\n  \"title\": \"Cuci Mobil Panggilan Kilat\",\n  \"description\": \"Cuci eksterior dan interior di lokasi Anda.\",\n  \"price\": 60000,\n  \"estimated_duration_minutes\": 90,\n  \"attributes\": {\n    \"sumber_air\": \"Dibawa penyedia\"\n  },\n  \"supports_scheduled\": true,\n  \"supports_available_now\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "H85: durasi 14 menit -> 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () { pm.response.to.have.status(422); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/me/listings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "listings"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{lindiv_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subcategory_id\": \"{{cuci_mobil_id}}\",\n  \"title\": \"Cuci Mobil Panggilan Kilat\",\n  \"description\": \"Cuci eksterior dan interior di lokasi Anda.\",\n  \"price\": 60000,\n  \"estimated_duration_minutes\": 14,\n  \"attributes\": {\n    \"sumber_air\": \"Dibawa penyedia\"\n  },\n  \"supports_scheduled\": true,\n  \"supports_available_now\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "H85: durasi 721 menit -> 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () { pm.response.to.have.status(422); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/me/listings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "listings"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{lindiv_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subcategory_id\": \"{{cuci_mobil_id}}\",\n  \"title\": \"Cuci Mobil Panggilan Kilat\",\n  \"description\": \"Cuci eksterior dan interior di lokasi Anda.\",\n  \"price\": 60000,\n  \"estimated_duration_minutes\": 721,\n  \"attributes\": {\n    \"sumber_air\": \"Dibawa penyedia\"\n  },\n  \"supports_scheduled\": true,\n  \"supports_available_now\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "H85: durasi kosong -> 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () { pm.response.to.have.status(422); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/me/listings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "listings"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{lindiv_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subcategory_id\": \"{{cuci_mobil_id}}\",\n  \"title\": \"Cuci Mobil Panggilan Kilat\",\n  \"description\": \"Cuci eksterior dan interior di lokasi Anda.\",\n  \"price\": 60000,\n  \"attributes\": {\n    \"sumber_air\": \"Dibawa penyedia\"\n  },\n  \"supports_scheduled\": true,\n  \"supports_available_now\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "D72: nilai OPTION di attributes -> 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () { pm.response.to.have.status(422); });",
+                  "pm.test('Kode ATTRIBUTE_VALIDATION_FAILED', function () { pm.expect(pm.response.json().error.code).to.eql('ATTRIBUTE_VALIDATION_FAILED'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/me/listings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "listings"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{lindiv_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subcategory_id\": \"{{cuci_mobil_id}}\",\n  \"title\": \"Cuci Mobil Panggilan Kilat\",\n  \"description\": \"Cuci eksterior dan interior di lokasi Anda.\",\n  \"price\": 60000,\n  \"estimated_duration_minutes\": 90,\n  \"attributes\": {\n    \"sumber_air\": \"Dibawa penyedia\",\n    \"jenis_kendaraan\": \"SUV\"\n  },\n  \"supports_scheduled\": true,\n  \"supports_available_now\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "SPEC wajib kosong -> 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () { pm.response.to.have.status(422); });",
+                  "pm.test('Kode ATTRIBUTE_VALIDATION_FAILED', function () { pm.expect(pm.response.json().error.code).to.eql('ATTRIBUTE_VALIDATION_FAILED'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/me/listings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "listings"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{lindiv_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subcategory_id\": \"{{cuci_mobil_id}}\",\n  \"title\": \"Cuci Mobil Panggilan Kilat\",\n  \"description\": \"Cuci eksterior dan interior di lokasi Anda.\",\n  \"price\": 60000,\n  \"estimated_duration_minutes\": 90,\n  \"attributes\": {},\n  \"supports_scheduled\": true,\n  \"supports_available_now\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Tanpa mode pemesanan -> 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () { pm.response.to.have.status(422); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/me/listings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "listings"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{lindiv_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subcategory_id\": \"{{cuci_mobil_id}}\",\n  \"title\": \"Cuci Mobil Panggilan Kilat\",\n  \"description\": \"Cuci eksterior dan interior di lokasi Anda.\",\n  \"price\": 60000,\n  \"estimated_duration_minutes\": 90,\n  \"attributes\": {\n    \"sumber_air\": \"Dibawa penyedia\"\n  },\n  \"supports_scheduled\": false,\n  \"supports_available_now\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "INDIVIDUAL: lahir DRAFT, langsung terpetakan ke pemilik (D53)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', function () { pm.response.to.have.status(201); });",
+                  "const listing = pm.response.json().data;",
+                  "pm.test('DRAFT', function () { pm.expect(listing.status).to.eql('DRAFT'); });",
+                  "pm.test('Pemilik terpetakan otomatis', function () { pm.expect(listing.workers).to.have.length(1); });",
+                  "pm.environment.set('l4_indiv_listing_id', listing.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/me/listings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "listings"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{lindiv_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subcategory_id\": \"{{cuci_mobil_id}}\",\n  \"title\": \"Cuci Mobil Panggilan Kilat\",\n  \"description\": \"Cuci eksterior dan interior di lokasi Anda.\",\n  \"price\": 60000,\n  \"estimated_duration_minutes\": 90,\n  \"attributes\": {\n    \"sumber_air\": \"Dibawa penyedia\"\n  },\n  \"supports_scheduled\": true,\n  \"supports_available_now\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "BUSINESS: lahir DRAFT tanpa pemetaan",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', function () { pm.response.to.have.status(201); });",
+                  "const listing = pm.response.json().data;",
+                  "pm.test('Belum ada pekerja', function () { pm.expect(listing.workers).to.eql([]); });",
+                  "pm.environment.set('l4_biz_listing_id', listing.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/me/listings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "listings"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{lbiz_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subcategory_id\": \"{{cuci_mobil_id}}\",\n  \"title\": \"Cuci Mobil Bengkel Bersama\",\n  \"description\": \"Cuci eksterior dan interior di lokasi Anda.\",\n  \"price\": 70000,\n  \"estimated_duration_minutes\": 120,\n  \"attributes\": {\n    \"sumber_air\": \"Dibawa penyedia\"\n  },\n  \"supports_scheduled\": true,\n  \"supports_available_now\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Daftar listing milik sendiri, termasuk DRAFT",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Memuat listing BUSINESS', function () { pm.expect(pm.response.json().data.map(function (l) { return l.id; })).to.include(pm.environment.get('l4_biz_listing_id')); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/providers/me/listings?status=DRAFT",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "listings"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "DRAFT"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{lbiz_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "02. KRITERIA: listing tanpa pekerja terpetakan tertahan di DRAFT (D53, V7)",
+      "description": "Bukti basis datanya: `npm run db:verify` setelah folder ini, V7 harus nol baris.",
+      "item": [
+        {
+          "name": "KRITERIA: aktivasi tanpa pekerja -> 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 409', function () { pm.response.to.have.status(409); });",
+                  "pm.test('Kode LISTING_HAS_NO_WORKER', function () { pm.expect(pm.response.json().error.code).to.eql('LISTING_HAS_NO_WORKER'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/me/listings/{{l4_biz_listing_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "listings",
+                "{{l4_biz_listing_id}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{lbiz_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"ACTIVE\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Memetakan pelamar PENDING -> 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () { pm.response.to.have.status(422); });",
+                  "pm.test('Kode WORKER_NOT_ASSIGNABLE', function () { pm.expect(pm.response.json().error.code).to.eql('WORKER_NOT_ASSIGNABLE'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/me/listings/{{l4_biz_listing_id}}/workers",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "listings",
+                "{{l4_biz_listing_id}}",
+                "workers"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{lbiz_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"worker_ids\": [\n    \"{{l4_pelamar_worker_id}}\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Pemetaan dari sisi listing: pemilik",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Satu pekerja', function () { pm.expect(pm.response.json().data.workers).to.have.length(1); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/me/listings/{{l4_biz_listing_id}}/workers",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "listings",
+                "{{l4_biz_listing_id}}",
+                "workers"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{lbiz_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"worker_ids\": [\n    \"{{l4_owner_worker_id}}\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Pemetaan dari sisi pekerja: pekerja ke listing yang sama",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Listing tercatat di pekerja', function () { pm.expect(pm.response.json().data.listings.map(function (l) { return l.id; })).to.include(pm.environment.get('l4_biz_listing_id')); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/me/workers/{{l4_pekerja_worker_id}}/listings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "workers",
+                "{{l4_pekerja_worker_id}}",
+                "listings"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{lbiz_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"listing_ids\": [\n    \"{{l4_biz_listing_id}}\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Aktivasi tanpa opsi wajib jenis_kendaraan -> 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () { pm.response.to.have.status(422); });",
+                  "pm.test('Kode ATTRIBUTE_VALIDATION_FAILED', function () { pm.expect(pm.response.json().error.code).to.eql('ATTRIBUTE_VALIDATION_FAILED'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/me/listings/{{l4_biz_listing_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "listings",
+                "{{l4_biz_listing_id}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{lbiz_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"ACTIVE\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Atur harga opsi yang dilayani",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Lima opsi dilayani', function () { pm.expect(pm.response.json().data.option_prices).to.have.length(5); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/me/listings/{{l4_biz_listing_id}}/option-prices",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "listings",
+                "{{l4_biz_listing_id}}",
+                "option-prices"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{lbiz_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"options\": [\n    {\n      \"attribute_key\": \"jenis_kendaraan\",\n      \"option_value\": \"Sedan\",\n      \"price_delta\": 0\n    },\n    {\n      \"attribute_key\": \"jenis_kendaraan\",\n      \"option_value\": \"MPV\",\n      \"price_delta\": 15000\n    },\n    {\n      \"attribute_key\": \"layanan_tambahan\",\n      \"option_value\": \"Poles Body\",\n      \"price_delta\": 50000\n    },\n    {\n      \"attribute_key\": \"layanan_tambahan\",\n      \"option_value\": \"Vacuum Interior\",\n      \"price_delta\": 25000\n    },\n    {\n      \"attribute_key\": \"jenis_kendaraan\",\n      \"option_value\": \"SUV\",\n      \"price_delta\": 20000\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "KRITERIA: aktivasi dengan pekerja dan opsi lengkap -> ACTIVE",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('ACTIVE', function () { pm.expect(pm.response.json().data.status).to.eql('ACTIVE'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/me/listings/{{l4_biz_listing_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "listings",
+                "{{l4_biz_listing_id}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{lbiz_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"ACTIVE\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Mencabut seluruh pekerja listing tayang -> 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 409', function () { pm.response.to.have.status(409); });",
+                  "pm.test('Kode LISTING_HAS_NO_WORKER', function () { pm.expect(pm.response.json().error.code).to.eql('LISTING_HAS_NO_WORKER'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/me/listings/{{l4_biz_listing_id}}/workers",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "listings",
+                "{{l4_biz_listing_id}}",
+                "workers"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{lbiz_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"worker_ids\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Melepas pekerja dari sisi pekerja (pemilik masih terpetakan)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/me/workers/{{l4_pekerja_worker_id}}/listings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "workers",
+                "{{l4_pekerja_worker_id}}",
+                "listings"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{lbiz_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"listing_ids\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Melepas pekerja terakhir dari sisi pekerja -> 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 409', function () { pm.response.to.have.status(409); });",
+                  "pm.test('Kode LISTING_HAS_NO_WORKER', function () { pm.expect(pm.response.json().error.code).to.eql('LISTING_HAS_NO_WORKER'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/me/workers/{{l4_owner_worker_id}}/listings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "workers",
+                "{{l4_owner_worker_id}}",
+                "listings"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{lbiz_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"listing_ids\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Detail milik sendiri: tetap ACTIVE dengan satu pekerja",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "const listing = pm.response.json().data;",
+                  "pm.test('ACTIVE, satu pekerja', function () { pm.expect(listing.status).to.eql('ACTIVE'); pm.expect(listing.workers).to.have.length(1); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/providers/me/listings/{{l4_biz_listing_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "listings",
+                "{{l4_biz_listing_id}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{lbiz_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "03. Harga opsi (D72)",
+      "item": [
+        {
+          "name": "Delta negatif -> 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () { pm.response.to.have.status(422); });",
+                  "pm.test('Kode VALIDATION_ERROR', function () { pm.expect(pm.response.json().error.code).to.eql('VALIDATION_ERROR'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/me/listings/{{l4_biz_listing_id}}/option-prices",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "listings",
+                "{{l4_biz_listing_id}}",
+                "option-prices"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{lbiz_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"options\": [\n    {\n      \"attribute_key\": \"jenis_kendaraan\",\n      \"option_value\": \"Sedan\",\n      \"price_delta\": -5000\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Option di luar definisi -> 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () { pm.response.to.have.status(422); });",
+                  "pm.test('Kode ATTRIBUTE_VALIDATION_FAILED', function () { pm.expect(pm.response.json().error.code).to.eql('ATTRIBUTE_VALIDATION_FAILED'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/me/listings/{{l4_biz_listing_id}}/option-prices",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "listings",
+                "{{l4_biz_listing_id}}",
+                "option-prices"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{lbiz_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"options\": [\n    {\n      \"attribute_key\": \"jenis_kendaraan\",\n      \"option_value\": \"Sedan\",\n      \"price_delta\": 0\n    },\n    {\n      \"attribute_key\": \"jenis_kendaraan\",\n      \"option_value\": \"MPV\",\n      \"price_delta\": 15000\n    },\n    {\n      \"attribute_key\": \"layanan_tambahan\",\n      \"option_value\": \"Poles Body\",\n      \"price_delta\": 50000\n    },\n    {\n      \"attribute_key\": \"layanan_tambahan\",\n      \"option_value\": \"Vacuum Interior\",\n      \"price_delta\": 25000\n    },\n    {\n      \"attribute_key\": \"jenis_kendaraan\",\n      \"option_value\": \"Truk\",\n      \"price_delta\": 10000\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Nilai SPEC sebagai opsi berbayar -> 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () { pm.response.to.have.status(422); });",
+                  "pm.test('Kode ATTRIBUTE_VALIDATION_FAILED', function () { pm.expect(pm.response.json().error.code).to.eql('ATTRIBUTE_VALIDATION_FAILED'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/me/listings/{{l4_biz_listing_id}}/option-prices",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "listings",
+                "{{l4_biz_listing_id}}",
+                "option-prices"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{lbiz_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"options\": [\n    {\n      \"attribute_key\": \"jenis_kendaraan\",\n      \"option_value\": \"Sedan\",\n      \"price_delta\": 0\n    },\n    {\n      \"attribute_key\": \"jenis_kendaraan\",\n      \"option_value\": \"MPV\",\n      \"price_delta\": 15000\n    },\n    {\n      \"attribute_key\": \"layanan_tambahan\",\n      \"option_value\": \"Poles Body\",\n      \"price_delta\": 50000\n    },\n    {\n      \"attribute_key\": \"layanan_tambahan\",\n      \"option_value\": \"Vacuum Interior\",\n      \"price_delta\": 25000\n    },\n    {\n      \"attribute_key\": \"sumber_air\",\n      \"option_value\": \"Dibawa penyedia\",\n      \"price_delta\": 10000\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "OPTION wajib tanpa satu pun opsi -> 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () { pm.response.to.have.status(422); });",
+                  "pm.test('Kode ATTRIBUTE_VALIDATION_FAILED', function () { pm.expect(pm.response.json().error.code).to.eql('ATTRIBUTE_VALIDATION_FAILED'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/me/listings/{{l4_biz_listing_id}}/option-prices",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "listings",
+                "{{l4_biz_listing_id}}",
+                "option-prices"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{lbiz_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"options\": [\n    {\n      \"attribute_key\": \"layanan_tambahan\",\n      \"option_value\": \"Poles Body\",\n      \"price_delta\": 50000\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "SUV tidak dicentang lagi: is_offered = false, tidak dihapus",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "const suv = pm.response.json().data.option_prices.find(function (o) { return o.option_value === 'SUV'; });",
+                  "pm.test('SUV masih ada, tidak dilayani, delta lama tersimpan', function () { pm.expect(suv.is_offered).to.eql(false); pm.expect(suv.price_delta).to.eql(20000); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/me/listings/{{l4_biz_listing_id}}/option-prices",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "listings",
+                "{{l4_biz_listing_id}}",
+                "option-prices"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{lbiz_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"options\": [\n    {\n      \"attribute_key\": \"jenis_kendaraan\",\n      \"option_value\": \"Sedan\",\n      \"price_delta\": 0\n    },\n    {\n      \"attribute_key\": \"jenis_kendaraan\",\n      \"option_value\": \"MPV\",\n      \"price_delta\": 15000\n    },\n    {\n      \"attribute_key\": \"layanan_tambahan\",\n      \"option_value\": \"Poles Body\",\n      \"price_delta\": 50000\n    },\n    {\n      \"attribute_key\": \"layanan_tambahan\",\n      \"option_value\": \"Vacuum Interior\",\n      \"price_delta\": 25000\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Publik hanya melihat opsi yang dilayani",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "const listing = pm.response.json().data;",
+                  "pm.test('Tanpa SUV', function () { pm.expect(listing.option_prices.map(function (o) { return o.option_value; })).to.not.include('SUV'); });",
+                  "pm.test('Tanpa status dan pemetaan', function () { pm.expect(listing).to.not.have.property('status'); pm.expect(listing).to.not.have.property('workers'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/listings/{{l4_biz_listing_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "listings",
+                "{{l4_biz_listing_id}}"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "04. FAQ (D78, H73)",
+      "item": [
+        {
+          "name": "11 butir -> 422 (listing_faq_max_items = 10)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () { pm.response.to.have.status(422); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/me/listings/{{l4_biz_listing_id}}/faqs",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "listings",
+                "{{l4_biz_listing_id}}",
+                "faqs"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{lbiz_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"faqs\": [\n    {\n      \"question\": \"Pertanyaan 1?\",\n      \"answer\": \"Jawaban 1.\"\n    },\n    {\n      \"question\": \"Pertanyaan 2?\",\n      \"answer\": \"Jawaban 2.\"\n    },\n    {\n      \"question\": \"Pertanyaan 3?\",\n      \"answer\": \"Jawaban 3.\"\n    },\n    {\n      \"question\": \"Pertanyaan 4?\",\n      \"answer\": \"Jawaban 4.\"\n    },\n    {\n      \"question\": \"Pertanyaan 5?\",\n      \"answer\": \"Jawaban 5.\"\n    },\n    {\n      \"question\": \"Pertanyaan 6?\",\n      \"answer\": \"Jawaban 6.\"\n    },\n    {\n      \"question\": \"Pertanyaan 7?\",\n      \"answer\": \"Jawaban 7.\"\n    },\n    {\n      \"question\": \"Pertanyaan 8?\",\n      \"answer\": \"Jawaban 8.\"\n    },\n    {\n      \"question\": \"Pertanyaan 9?\",\n      \"answer\": \"Jawaban 9.\"\n    },\n    {\n      \"question\": \"Pertanyaan 10?\",\n      \"answer\": \"Jawaban 10.\"\n    },\n    {\n      \"question\": \"Pertanyaan 11?\",\n      \"answer\": \"Jawaban 11.\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Tulis tiga butir",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Tiga FAQ', function () { pm.expect(pm.response.json().data.faqs).to.have.length(3); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/me/listings/{{l4_biz_listing_id}}/faqs",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "listings",
+                "{{l4_biz_listing_id}}",
+                "faqs"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{lbiz_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"faqs\": [\n    {\n      \"question\": \"Pertanyaan 1?\",\n      \"answer\": \"Jawaban 1.\"\n    },\n    {\n      \"question\": \"Pertanyaan 2?\",\n      \"answer\": \"Jawaban 2.\"\n    },\n    {\n      \"question\": \"Pertanyaan 3?\",\n      \"answer\": \"Jawaban 3.\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Tulis ulang satu butir: yang lama dinonaktifkan",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Satu FAQ aktif', function () { pm.expect(pm.response.json().data.faqs).to.have.length(1); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/me/listings/{{l4_biz_listing_id}}/faqs",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "listings",
+                "{{l4_biz_listing_id}}",
+                "faqs"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{lbiz_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"faqs\": [\n    {\n      \"question\": \"Apakah air disediakan?\",\n      \"answer\": \"Ya, kami membawa air dan sabun sendiri.\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "FAQ publik",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Satu butir', function () { pm.expect(pm.response.json().data).to.have.length(1); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/listings/{{l4_biz_listing_id}}/faqs",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "listings",
+                "{{l4_biz_listing_id}}",
+                "faqs"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "05. Foto lewat signed URL (D80)",
+      "description": "Butuh bucket publik `listing-photos` di Supabase Storage. Berkasnya tidak benar-benar diunggah: pencatatan foto hanya memeriksa bentuk URL, dan berkas yang tidak pernah diunggah tidak meninggalkan apa pun di Storage.",
+      "item": [
+        {
+          "name": "Signed URL tanpa token -> 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401', function () { pm.response.to.have.status(401); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/uploads/signed-url",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "uploads",
+                "signed-url"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Signed URL di folder pemanggil",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 502) console.warn('Bucket listing-photos belum ada di Supabase Storage. Buat bucket publik itu di dashboard.');",
+                  "pm.test('Status 201', function () { pm.response.to.have.status(201); });",
+                  "pm.environment.set('l4_file_url', pm.response.json().data.file_url);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/uploads/signed-url",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "uploads",
+                "signed-url"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{lbiz_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "file_url dari luar bucket -> 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () { pm.response.to.have.status(422); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/me/listings/{{l4_biz_listing_id}}/photos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "listings",
+                "{{l4_biz_listing_id}}",
+                "photos"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{lbiz_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"file_url\": \"https://contoh.com/foto.jpg\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Catat foto dari signed URL",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', function () { pm.response.to.have.status(201); });",
+                  "const photos = pm.response.json().data.photos;",
+                  "pm.test('Foto pertama jadi utama', function () { pm.expect(photos[0].is_primary).to.eql(true); });",
+                  "pm.environment.set('l4_photo_id', photos[0].id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/me/listings/{{l4_biz_listing_id}}/photos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "listings",
+                "{{l4_biz_listing_id}}",
+                "photos"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{lbiz_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"file_url\": \"{{l4_file_url}}\",\n  \"caption\": \"Hasil cuci\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Hapus foto",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Foto hilang', function () { pm.expect(pm.response.json().data.photos).to.eql([]); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/providers/me/listings/{{l4_biz_listing_id}}/photos/{{l4_photo_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "listings",
+                "{{l4_biz_listing_id}}",
+                "photos",
+                "{{l4_photo_id}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{lbiz_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "06. Perubahan definisi (D67, H48)",
+      "item": [
+        {
+          "name": "Admin buat kategori demo",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', function () { pm.response.to.have.status(201); });",
+                  "pm.environment.set('f4_kategori_id', pm.response.json().data.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/categories",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "categories"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ladmin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Kebersihan (Demo F4)\",\n  \"slug\": \"postman-f4-kebersihan\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Admin buat sub-kategori demo",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', function () { pm.response.to.have.status(201); });",
+                  "pm.environment.set('f4_sub_id', pm.response.json().data.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/subcategories",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "subcategories"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ladmin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"category_id\": \"{{f4_kategori_id}}\",\n  \"name\": \"Cuci Sofa (Demo F4)\",\n  \"slug\": \"postman-f4-cuci-sofa\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Provider buat listing di sub-kategori demo",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', function () { pm.response.to.have.status(201); });",
+                  "pm.environment.set('l4_h48_listing_id', pm.response.json().data.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/me/listings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "listings"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{lindiv_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subcategory_id\": \"{{f4_sub_id}}\",\n  \"title\": \"Cuci Sofa Kilat\",\n  \"description\": \"Cuci eksterior dan interior di lokasi Anda.\",\n  \"price\": 60000,\n  \"estimated_duration_minutes\": 90,\n  \"attributes\": {},\n  \"supports_scheduled\": true,\n  \"supports_available_now\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Admin menambah atribut wajib baru",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', function () { pm.response.to.have.status(201); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/subcategories/{{f4_sub_id}}/attributes",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "subcategories",
+                "{{f4_sub_id}}",
+                "attributes"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ladmin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"attribute_key\": \"jumlah_dudukan\",\n  \"label\": \"Jumlah dudukan\",\n  \"data_type\": \"NUMBER\",\n  \"is_required\": true,\n  \"validation_rule\": {\n    \"min\": 1,\n    \"max\": 12\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Listing lama ditandai attributes_need_update",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Ditandai', function () { pm.expect(pm.response.json().data.attributes_need_update).to.eql(true); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/providers/me/listings/{{l4_h48_listing_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "listings",
+                "{{l4_h48_listing_id}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{lindiv_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "H48: menyimpan tanpa melengkapi -> 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () { pm.response.to.have.status(422); });",
+                  "pm.test('Kode ATTRIBUTE_VALIDATION_FAILED', function () { pm.expect(pm.response.json().error.code).to.eql('ATTRIBUTE_VALIDATION_FAILED'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/me/listings/{{l4_h48_listing_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "listings",
+                "{{l4_h48_listing_id}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{lindiv_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Cuci Sofa Super Kilat\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "H48: melengkapi atribut wajib, penanda padam",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Penanda padam', function () { pm.expect(pm.response.json().data.attributes_need_update).to.eql(false); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/me/listings/{{l4_h48_listing_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "listings",
+                "{{l4_h48_listing_id}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{lindiv_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Cuci Sofa Super Kilat\",\n  \"attributes\": {\n    \"jumlah_dudukan\": 3\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "07. Publik, akses, dan hapus (D22)",
+      "item": [
+        {
+          "name": "Listing DRAFT tidak tampil publik -> 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404', function () { pm.response.to.have.status(404); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/listings/{{l4_indiv_listing_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "listings",
+                "{{l4_indiv_listing_id}}"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Provider lain mengubah listing -> 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404', function () { pm.response.to.have.status(404); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/me/listings/{{l4_biz_listing_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "listings",
+                "{{l4_biz_listing_id}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{lindiv_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Direbut\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "subcategory_id tidak bisa diubah -> 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () { pm.response.to.have.status(422); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/me/listings/{{l4_indiv_listing_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "listings",
+                "{{l4_indiv_listing_id}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{lindiv_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subcategory_id\": \"{{cuci_mobil_id}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Mematikan seluruh mode -> 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () { pm.response.to.have.status(422); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/me/listings/{{l4_indiv_listing_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "listings",
+                "{{l4_indiv_listing_id}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{lindiv_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"supports_scheduled\": false,\n  \"supports_available_now\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Soft delete listing",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('deleted_at terisi', function () { pm.expect(pm.response.json().data.deleted_at).to.be.a('string'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/providers/me/listings/{{l4_indiv_listing_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "listings",
+                "{{l4_indiv_listing_id}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{lindiv_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Hapus lagi -> 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404', function () { pm.response.to.have.status(404); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/providers/me/listings/{{l4_indiv_listing_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "listings",
+                "{{l4_indiv_listing_id}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{lindiv_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Daftar milik sendiri tanpa yang terhapus",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Listing terhapus tidak ada', function () { pm.expect(pm.response.json().data.map(function (l) { return l.id; })).to.not.include(pm.environment.get('l4_indiv_listing_id')); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/providers/me/listings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "listings"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{lindiv_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "auth": {
+    "type": "noauth"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Login ulang otomatis kalau token aktor untuk request ini hampir habis.",
+          "// Token berlaku 15 menit, sedangkan menguji manual bisa lebih lama.",
+          "// Aktor dikenali dari nama variabel token di tab Authorization, misalnya",
+          "// {{pemilik1_token}} -> login dengan pemilik1_email dan seed_password.",
+          "const auth = pm.request.auth;",
+          "const raw = auth && auth.type === 'bearer' && auth.parameters() ? auth.parameters().get('token') : null;",
+          "const match = typeof raw === 'string' ? raw.match(/^\\{\\{(\\w+)_token\\}\\}$/) : null;",
+          "const isLogin = pm.request.url.toString().indexOf('/auth/login') !== -1;",
+          "",
+          "function expOf(jwt) {",
+          "  try {",
+          "    let part = jwt.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');",
+          "    part += '='.repeat((4 - (part.length % 4)) % 4);",
+          "    return JSON.parse(atob(part)).exp;",
+          "  } catch (e) {",
+          "    return null;",
+          "  }",
+          "}",
+          "",
+          "if (match && !isLogin) {",
+          "  const actor = match[1];",
+          "  const token = pm.environment.get(actor + '_token');",
+          "  const exp = token ? expOf(token) : null;",
+          "  const email = pm.environment.get(actor + '_email');",
+          "  if (email && (!exp || exp * 1000 - Date.now() < 30 * 1000)) {",
+          "    pm.sendRequest({",
+          "      url: pm.environment.get('base_url') + '/auth/login',",
+          "      method: 'POST',",
+          "      header: { 'Content-Type': 'application/json' },",
+          "      body: { mode: 'raw', raw: JSON.stringify({ email: email, password: pm.environment.get('seed_password') }) }",
+          "    }, function (err, res) {",
+          "    if (!err && res.code === 200) {",
+          "        pm.environment.set(actor + '_token', res.json().data.access_token);",
+          "        console.log('Token ' + actor + ' diperbarui otomatis lewat login ulang');",
+          "      } else {",
+          "        console.warn('Login ulang ' + actor + ' gagal. Jalankan npm run postman:seed:fase-4 lalu folder 00.');",
+          "      }",
+          "    });",
+          "  }",
+          "}"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "if (pm.response.code === 429) {",
+          "  console.warn('Kena rate limit (hitungan di memori server). Restart \"npm run dev\" untuk mengosongkannya.');",
+          "}",
+          "pm.test('Respons berbentuk envelope PRD 4.1', function () {",
+          "  const body = pm.response.json();",
+          "  pm.expect(body).to.have.property('success');",
+          "  if (body.success) pm.expect(body).to.have.property('data');",
+          "  else pm.expect(body.error).to.include.keys('code', 'message', 'details');",
+          "});"
+        ]
+      }
+    }
+  ]
+}

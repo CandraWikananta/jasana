@@ -25,6 +25,7 @@ import {
   listWorkersQuerySchema,
   rejectWorkerSchema,
   workerApplicationSchema,
+  workerListingsSchema,
   workerParamsSchema,
 } from '../workers/workers.schema';
 import * as controller from './providers.controller';
@@ -109,6 +110,14 @@ export function createProvidersRouter(): Router {
     requireProvider,
     validate({ params: workerParamsSchema, body: assignmentsSettingSchema }),
     controller.setAssignmentsSetting,
+  );
+  // Pemetaan dari sisi pekerja (D50). Sisi listing ada di modul listings.
+  router.put(
+    '/me/workers/:id/listings',
+    requireAuth,
+    requireProvider,
+    validate({ params: workerParamsSchema, body: workerListingsSchema }),
+    controller.setWorkerListings,
   );
 
   router.post(

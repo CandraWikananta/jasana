@@ -833,7 +833,7 @@
           "response": []
         },
         {
-          "name": "Atribut SPEC durasi_estimasi",
+          "name": "Atribut SPEC garansi_hari",
           "event": [
             {
               "listen": "test",
@@ -878,7 +878,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"attribute_key\": \"durasi_estimasi\",\n  \"label\": \"Estimasi pengerjaan\",\n  \"data_type\": \"NUMBER\",\n  \"unit\": \"menit\",\n  \"is_required\": true,\n  \"validation_rule\": {\n    \"min\": 30,\n    \"max\": 240\n  }\n}",
+              "raw": "{\n  \"attribute_key\": \"garansi_hari\",\n  \"label\": \"Garansi\",\n  \"data_type\": \"NUMBER\",\n  \"unit\": \"hari\",\n  \"is_required\": true,\n  \"validation_rule\": {\n    \"min\": 30,\n    \"max\": 240\n  }\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1201,7 +1201,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"attribute_key\": \"durasi_estimasi\",\n  \"label\": \"Durasi lagi\",\n  \"data_type\": \"NUMBER\"\n}",
+              "raw": "{\n  \"attribute_key\": \"garansi_hari\",\n  \"label\": \"Garansi lagi\",\n  \"data_type\": \"NUMBER\"\n}",
               "options": {
                 "raw": {
                   "language": "json"

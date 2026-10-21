@@ -76,10 +76,10 @@ describe.skipIf(!hasTestDatabase)('katalog', () => {
   };
 
   const specNumber = (overrides: Record<string, unknown> = {}) => ({
-    attribute_key: 'durasi_estimasi',
-    label: 'Estimasi pengerjaan',
+    attribute_key: 'luas_area',
+    label: 'Luas area',
     data_type: 'NUMBER',
-    unit: 'menit',
+    unit: 'm2',
     validation_rule: { min: 30, max: 180 },
     ...overrides,
   });
@@ -117,7 +117,7 @@ describe.skipIf(!hasTestDatabase)('katalog', () => {
     expect(byKey.jumlah_unit).toMatchObject({ attribute_role: 'OPTION', pricing_mode: 'PER_UNIT' });
 
     // Definisi yang dibaca publik langsung bisa dipakai memvalidasi listing (Fase 4).
-    expect(validateSpecAttributes(attrs.body.data, { durasi_estimasi: 90 })).toEqual([]);
+    expect(validateSpecAttributes(attrs.body.data, { luas_area: 90 })).toEqual([]);
     expect(validateSpecAttributes(attrs.body.data, {})).toHaveLength(1);
 
     const migrationsAfter = await prisma.$queryRaw<{ n: bigint }[]>`SELECT COUNT(*) AS n FROM _prisma_migrations`;
@@ -224,7 +224,7 @@ describe.skipIf(!hasTestDatabase)('katalog', () => {
 
     it('atribut wajib menandai listing yang belum punya nilainya saja', async () => {
       const lacking = await listing({});
-      const filled = await listing({ durasi_estimasi: 60 });
+      const filled = await listing({ luas_area: 60 });
       const deleted = await listing({}, { deletedAt: new Date() });
 
       const res = await adminCall('post', `/subcategories/${subcategoryId}/attributes`).send(
@@ -316,13 +316,14 @@ describe.skipIf(!hasTestDatabase)('katalog', () => {
     expect((await publicGet('/subcategories/bukan-uuid/attributes')).status).toBe(422);
   });
 
-  it('seed Lampiran B idempotent: dijalankan dua kali, jumlahnya tetap 4, 12, 56', async () => {
+  it('seed Lampiran B idempotent: dijalankan dua kali, jumlahnya tetap 4, 12, 45 atribut aktif', async () => {
     const slugs = ['otomotif', 'fotografi', 'kecantikan', 'perbaikan'];
     const count = async () => ({
       categories: await prisma.category.count({ where: { slug: { in: slugs } } }),
       subcategories: await prisma.subcategory.count({ where: { category: { slug: { in: slugs } } } }),
       attributes: await prisma.subcategoryAttribute.count({
-        where: { subcategory: { category: { slug: { in: slugs } } } },
+        // isActive: baris durasi_estimasi lama dinonaktifkan, bukan dihapus (D90).
+        where: { isActive: true, subcategory: { category: { slug: { in: slugs } } } },
       }),
     });
 
@@ -330,7 +331,7 @@ describe.skipIf(!hasTestDatabase)('katalog', () => {
     const first = await count();
     await prisma.$transaction((tx) => seedCatalog(tx), { timeout: 60_000 });
     expect(await count()).toEqual(first);
-    expect(first).toEqual({ categories: 4, subcategories: 12, attributes: 56 });
+    expect(first).toEqual({ categories: 4, subcategories: 12, attributes: 45 });
 
     const servisAc = await prisma.subcategory.findFirstOrThrow({ where: { slug: 'servis-ac' } });
     const attrs = await publicGet(`/subcategories/${servisAc.id}/attributes`);
@@ -340,7 +341,6 @@ describe.skipIf(!hasTestDatabase)('katalog', () => {
       'kapasitas_pk',
       'tambahan',
       'merek_dilayani',
-      'durasi_estimasi',
     ]);
   });
 });

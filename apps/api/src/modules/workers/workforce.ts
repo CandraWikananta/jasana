@@ -176,3 +176,46 @@ export async function assertListingsOwnedBy(
     );
   }
 }
+
+/**
+ * D53 / V7. Listing yang tayang tidak boleh kehilangan pekerja terakhirnya,
+ * karena itu berarti menayangkan jasa yang tidak ada orangnya. Dipanggil
+ * sebelum pekerja dikeluarkan atau pemetaannya dicabut, kecuali untuk
+ * listing di `keepListingIds` yang pemetaannya tetap. Kunci provider harus
+ * sudah diambil, supaya dua pencabutan bersamaan tidak sama-sama melihat
+ * "masih ada satu lagi".
+ */
+export async function assertNoStrandedListings(
+  tx: Tx,
+  providerProfileId: string,
+  workerId: string,
+  keepListingIds: string[] = [],
+): Promise<void> {
+  const stranded = await tx.listing.findMany({
+    where: {
+      providerProfileId,
+      id: { notIn: keepListingIds },
+      status: 'ACTIVE',
+      deletedAt: null,
+      workers: { some: { workerId } },
+      NOT: {
+        workers: {
+          some: { workerId: { not: workerId }, worker: { membershipStatus: 'ACTIVE' } },
+        },
+      },
+    },
+    select: { id: true, title: true },
+  });
+  if (stranded.length > 0) {
+    throw new AppError(
+      'LISTING_HAS_NO_WORKER',
+      'Pekerja ini satu-satunya yang terpetakan ke listing yang sedang tayang. Petakan pekerja lain lebih dulu.',
+      {
+        details: stranded.map((listing) => ({
+          path: 'listing_id',
+          message: `${listing.id} (${listing.title})`,
+        })),
+      },
+    );
+  }
+}

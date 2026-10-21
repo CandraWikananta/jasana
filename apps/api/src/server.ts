@@ -9,6 +9,7 @@
 import { env } from './config/env';
 import { createApp } from './app';
 import { logger } from './lib/logger';
+import { startJobs } from './jobs';
 import { disconnectDatabase } from '@jasana/database';
 
 const app = createApp();
@@ -19,6 +20,8 @@ const server = app.listen(env.PORT, () => {
     'Jasana API berjalan',
   );
 });
+
+startJobs();
 
 /**
  * Penutupan tertib.

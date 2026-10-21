@@ -43,7 +43,9 @@ export async function resetDatabase(): Promise<void> {
     prisma.wallet.deleteMany(),
     prisma.kycDocument.deleteMany(),
     prisma.providerProfile.deleteMany(),
-    prisma.platformSetting.deleteMany({ where: { key: { in: ['kyc_document_max_size_mb'] } } }),
+    prisma.platformSetting.deleteMany({
+      where: { key: { in: ['kyc_document_max_size_mb', 'listing_faq_max_items', 'orphan_upload_cleanup_hours'] } },
+    }),
     prisma.refreshToken.deleteMany(),
     prisma.verificationToken.deleteMany(),
     prisma.userAddress.deleteMany(),

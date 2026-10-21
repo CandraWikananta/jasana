@@ -39,6 +39,11 @@ export const approveWorkerSchema = z.object({
   listing_ids: listingIds.optional(),
 });
 
+/** PUT /providers/me/workers/:id/listings. Boleh kosong (pendamping saja, D69). */
+export const workerListingsSchema = z.object({
+  listing_ids: listingIds,
+});
+
 export const rejectWorkerSchema = z.object({
   reason: z.string().trim().min(1).max(500).optional(),
 });

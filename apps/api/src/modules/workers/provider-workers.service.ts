@@ -18,6 +18,8 @@ import type { ProviderContext } from '../access/access.service';
 import { toWorkerDto, WORKER_SELECT, type WorkerDto } from './workers.mapper';
 import {
   assertAnotherAssignableWorker,
+  assertListingsOwnedBy,
+  assertNoStrandedListings,
   lockProviderProfile,
   OPEN_ORDER_STATUSES,
 } from './workforce';
@@ -77,34 +79,7 @@ export async function removeWorker(provider: ProviderContext, workerId: string):
       );
     }
 
-    // D53: listing yang tayang tidak boleh kehilangan pekerja terakhirnya,
-    // karena itu berarti menayangkan jasa yang tidak ada orangnya (V7).
-    const stranded = await tx.listing.findMany({
-      where: {
-        providerProfileId: provider.id,
-        status: 'ACTIVE',
-        deletedAt: null,
-        workers: { some: { workerId } },
-        NOT: {
-          workers: {
-            some: { workerId: { not: workerId }, worker: { membershipStatus: 'ACTIVE' } },
-          },
-        },
-      },
-      select: { id: true, title: true },
-    });
-    if (stranded.length > 0) {
-      throw new AppError(
-        'LISTING_HAS_NO_WORKER',
-        'Pekerja ini satu-satunya yang terpetakan ke listing yang sedang tayang. Petakan pekerja lain lebih dulu.',
-        {
-          details: stranded.map((listing) => ({
-            path: 'listing_id',
-            message: `${listing.id} (${listing.title})`,
-          })),
-        },
-      );
-    }
+    await assertNoStrandedListings(tx, provider.id, workerId);
 
     await tx.providerWorker.update({
       where: { id: workerId },
@@ -150,6 +125,45 @@ export async function setAcceptsAssignments(
         ? { acceptsAssignments: true }
         : // is_available tanpa accepts_assignments tidak bermakna (D39).
           { acceptsAssignments: false, isAvailable: false },
+    });
+
+    return tx.providerWorker.findUniqueOrThrow({ where: { id: workerId }, select: WORKER_SELECT });
+  });
+
+  return toWorkerDto(row);
+}
+
+/**
+ * PUT /providers/me/workers/:id/listings. Mengganti seluruh pemetaan satu
+ * pekerja aktif (D50, D52). Listing boleh DRAFT, karena pemetaan justru
+ * syarat DRAFT bisa diaktifkan (D53). Listing tayang yang pekerja terakhirnya
+ * dicabut ditolak (V7), di bawah kunci provider yang sama dengan
+ * `removeWorker` dan aktivasi listing.
+ */
+export async function setWorkerListings(
+  provider: ProviderContext,
+  workerId: string,
+  listingIds: string[],
+): Promise<WorkerDto> {
+  const row = await prisma.$transaction(async (tx) => {
+    await lockProviderProfile(tx, provider.id);
+
+    const worker = await tx.providerWorker.findFirst({
+      where: { id: workerId, providerProfileId: provider.id },
+      select: { membershipStatus: true },
+    });
+    if (!worker) throw Errors.notFound('Pekerja tidak ditemukan');
+    if (worker.membershipStatus !== 'ACTIVE') {
+      throw new AppError('WORKER_MEMBERSHIP_CONFLICT', 'Hanya pekerja aktif yang bisa diatur');
+    }
+
+    await assertListingsOwnedBy(tx, provider.id, listingIds, false);
+    await assertNoStrandedListings(tx, provider.id, workerId, listingIds);
+
+    await tx.workerListing.deleteMany({ where: { workerId, listingId: { notIn: listingIds } } });
+    await tx.workerListing.createMany({
+      data: listingIds.map((listingId) => ({ workerId, listingId })),
+      skipDuplicates: true,
     });
 
     return tx.providerWorker.findUniqueOrThrow({ where: { id: workerId }, select: WORKER_SELECT });

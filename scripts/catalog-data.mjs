@@ -13,8 +13,10 @@
  * Penyimpangan dari Lampiran B, dilaporkan di laporan Fase 3:
  *   - B.3 `jenis_kendaraan` tidak mencantumkan daftar option. Diisi
  *     Mobil dan Motor (keputusan sesi Fase 3)
- *   - B.6 `durasi_estimasi` tidak punya validation_rule, dibiarkan kosong
- *   - B.3 tidak punya `durasi_estimasi`, sesuai tabelnya dan B.13
+ *
+ * Durasi BUKAN atribut (D90). Sumbernya satu, kolom
+ * `listings.estimated_duration_minutes`, jadi `durasi_estimasi` tidak ada
+ * di sini.
  */
 
 const opts = (...values) => values.map((value) => ({ value, is_active: true }));
@@ -45,12 +47,6 @@ const option = (key, label, dataType, isRequired, isFilterable, extra = {}) => (
 
 const rule = (min, max) => ({ min, max });
 
-const durasi = (label, min, max) =>
-  spec('durasi_estimasi', label, 'NUMBER', true, false, {
-    unit: 'menit',
-    ...(min === undefined ? {} : { validation_rule: rule(min, max) }),
-  });
-
 export const CATALOG = [
   {
     name: 'Otomotif',
@@ -72,7 +68,6 @@ export const CATALOG = [
           spec('sumber_air', 'Sumber air', 'SELECT', true, true, {
             options: opts('Dibawa penyedia', 'Disediakan client'),
           }),
-          durasi('Estimasi pengerjaan', 30, 180),
         ],
       },
       {
@@ -91,7 +86,6 @@ export const CATALOG = [
           spec('sparepart', 'Penyediaan sparepart', 'SELECT', true, true, {
             options: opts('Disediakan penyedia', 'Disediakan client', 'Keduanya bisa'),
           }),
-          durasi('Estimasi pengerjaan', 30, 240),
         ],
       },
       {
@@ -129,7 +123,6 @@ export const CATALOG = [
           option('tambahan', 'Layanan tambahan', 'MULTISELECT', false, true, {
             options: opts('Edit Retouch Lanjutan', 'Video Pendek', 'Foto 360 Derajat'),
           }),
-          durasi('Estimasi pengerjaan', 60, 480),
         ],
       },
       {
@@ -158,7 +151,6 @@ export const CATALOG = [
             unit: 'hari',
             validation_rule: rule(3, 60),
           }),
-          durasi('Estimasi di lokasi', 120, 600),
         ],
       },
       {
@@ -184,7 +176,6 @@ export const CATALOG = [
             unit: 'hari',
             validation_rule: rule(1, 45),
           }),
-          durasi('Estimasi di lokasi'),
         ],
       },
     ],
@@ -212,7 +203,6 @@ export const CATALOG = [
           spec('kelas_produk', 'Kelas produk kosmetik', 'SELECT', true, true, {
             options: opts('Reguler', 'Premium', 'Hypoallergenic'),
           }),
-          durasi('Estimasi pengerjaan', 45, 300),
         ],
       },
       {
@@ -240,7 +230,6 @@ export const CATALOG = [
           spec('gaya_riasan', 'Gaya riasan yang dikuasai', 'MULTISELECT', true, true, {
             options: opts('Modern', 'Tradisional', 'Natural', 'Bold'),
           }),
-          durasi('Estimasi pengerjaan', 90, 480),
         ],
       },
       {
@@ -256,7 +245,6 @@ export const CATALOG = [
           option('jumlah_orang', 'Jumlah orang', 'NUMBER', true, false, {
             validation_rule: rule(1, 10),
           }),
-          durasi('Estimasi pengerjaan', 20, 180),
         ],
       },
     ],
@@ -287,7 +275,6 @@ export const CATALOG = [
           spec('merek_dilayani', 'Merek yang dilayani', 'MULTISELECT', true, true, {
             options: opts('Daikin', 'Panasonic', 'LG', 'Sharp', 'Samsung', 'Gree', 'Polytron'),
           }),
-          durasi('Estimasi pengerjaan', 30, 480),
         ],
       },
       {
@@ -314,7 +301,6 @@ export const CATALOG = [
             options: opts('Disediakan penyedia', 'Disediakan client', 'Keduanya bisa'),
           }),
           spec('layanan_darurat', 'Melayani panggilan darurat', 'BOOLEAN', true, true),
-          durasi('Estimasi pengerjaan', 30, 360),
         ],
       },
       {
@@ -337,7 +323,6 @@ export const CATALOG = [
             unit: 'hari',
             validation_rule: rule(0, 90),
           }),
-          durasi('Estimasi pengerjaan', 45, 240),
         ],
       },
     ],

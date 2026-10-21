@@ -47,3 +47,17 @@ export const KYC_SIGNED_URL_TTL_SECONDS = 10 * 60;
 
 /** Batas waktu satu panggilan ke Supabase Storage sebelum dianggap gagal. */
 export const STORAGE_TIMEOUT_MS = 15_000;
+
+/**
+ * Bucket Supabase Storage untuk foto listing (D80).
+ *
+ * PUBLIK, dan diunggah langsung oleh frontend lewat signed URL, jadi API
+ * tidak pernah menerima byte-nya. Karena itu batas tipe dan ukuran berkas
+ * dipasang di pengaturan bucket di dashboard Supabase (allowed MIME types
+ * image/jpeg, image/png, image/webp dan file size limit), sama seperti
+ * KYC_BUCKET yang dibuat sekali di dashboard.
+ *
+ * Path objek: `<user_id>/<uuid>`. Folder per user yang membuat
+ * `POST /providers/me/listings/:id/photos` bisa menolak berkas milik orang lain.
+ */
+export const LISTING_PHOTO_BUCKET = 'listing-photos';

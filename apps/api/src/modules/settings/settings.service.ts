@@ -17,6 +17,8 @@ import { logger } from '../../lib/logger';
 export const NUMERIC_SETTING_DEFAULTS = {
   kyc_document_max_size_mb: 5,
   dispute_evidence_max_size_mb: 5,
+  listing_faq_max_items: 10,
+  orphan_upload_cleanup_hours: 24,
 } as const;
 
 export type NumericSettingKey = keyof typeof NUMERIC_SETTING_DEFAULTS;

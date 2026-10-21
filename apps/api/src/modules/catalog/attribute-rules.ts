@@ -221,3 +221,26 @@ export function validateSpecAttributes(
 
   return errors;
 }
+
+/**
+ * Kelengkapan listing terhadap definisi yang berlaku SEKARANG: SPEC lolos
+ * `validateSpecAttributes`, dan setiap atribut OPTION wajib yang aktif
+ * punya minimal satu opsi yang dilayani (`offeredKeys`). "Punya nilai" untuk
+ * OPTION sama artinya dengan penandaan D67 poin 2 di katalog.
+ *
+ * Dipakai saat listing diaktifkan dan untuk memadamkan
+ * `attributes_need_update` (H48).
+ */
+export function listingCompletenessErrors(
+  defs: AttributeDefinition[],
+  attributes: Record<string, unknown>,
+  offeredKeys: Set<string>,
+): ErrorDetail[] {
+  const errors = validateSpecAttributes(defs, attributes);
+  for (const def of defs) {
+    if (def.attribute_role === 'OPTION' && def.is_required && def.is_active !== false && !offeredKeys.has(def.attribute_key)) {
+      errors.push({ path: `option_prices.${def.attribute_key}`, message: `${def.attribute_key} wajib punya minimal satu opsi yang dilayani` });
+    }
+  }
+  return errors;
+}

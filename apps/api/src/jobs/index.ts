@@ -1,0 +1,31 @@
+/**
+ * Pendaftaran cron (PRD 7.1). Hanya dipanggil dari `server.ts`, tidak dari
+ * `app.ts`, supaya uji yang memakai `createApp()` tidak ikut menjalankannya.
+ *
+ * Job yang gagal dicatat lalu dibiarkan, tidak menghentikan proses: jadwal
+ * berikutnya akan mencoba lagi.
+ */
+
+import { schedule } from 'node-cron';
+import { logger } from '../lib/logger';
+import { cleanOrphanListingPhotos } from './orphan-listing-photos';
+
+function register(name: string, expression: string, job: () => Promise<unknown>): void {
+  schedule(
+    expression,
+    async () => {
+      try {
+        await job();
+      } catch (error) {
+        logger.error({ err: error, job: name }, 'Cron gagal');
+      }
+    },
+    { name, noOverlap: true },
+  );
+}
+
+export function startJobs(): void {
+  // Tiap 1 hari (H80).
+  register('orphan-listing-photos', '0 3 * * *', cleanOrphanListingPhotos);
+  logger.info('Cron terdaftar');
+}

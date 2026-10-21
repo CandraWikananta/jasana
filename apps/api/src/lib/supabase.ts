@@ -110,4 +110,56 @@ export const storage = {
     // Storage mengembalikan path relatif terhadap /storage/v1.
     return `${baseUrl()}${payload.signedURL.startsWith('/') ? '' : '/'}${payload.signedURL}`;
   },
+
+  /**
+   * Signed URL untuk UNGGAH langsung dari frontend (PUT ke URL ini). Masa
+   * berlakunya ditetapkan Supabase, bukan oleh pemanggil.
+   */
+  async createSignedUploadUrl(bucket: string, path: string): Promise<string> {
+    const response = await call(
+      `${baseUrl()}/object/upload/sign/${objectPath(bucket, path)}`,
+      { method: 'POST', headers: headers() },
+      'Membuat signed upload URL',
+    );
+    const payload = (await response.json().catch(() => null)) as { url?: unknown } | null;
+    if (!payload || typeof payload.url !== 'string') {
+      throw new StorageError('Balasan signed upload URL dari Storage tidak dikenali');
+    }
+    return `${baseUrl()}${payload.url.startsWith('/') ? '' : '/'}${payload.url}`;
+  },
+
+  /**
+   * Isi satu "folder", TIDAK rekursif. Subfolder muncul sebagai entri dengan
+   * `id` null. Dipaginasi sampai habis.
+   */
+  async list(bucket: string, prefix: string): Promise<StorageObject[]> {
+    const pageSize = 1000;
+    const objects: StorageObject[] = [];
+    for (let offset = 0; ; offset += pageSize) {
+      const response = await call(
+        `${baseUrl()}/object/list/${encodeURIComponent(bucket)}`,
+        {
+          method: 'POST',
+          headers: headers({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ prefix, limit: pageSize, offset, sortBy: { column: 'name', order: 'asc' } }),
+        },
+        'Membaca daftar berkas',
+      );
+      const page = (await response.json()) as StorageObject[];
+      objects.push(...page);
+      if (page.length < pageSize) return objects;
+    }
+  },
+
+  /** URL publik objek di bucket publik. Tidak memanggil jaringan. */
+  publicUrl(bucket: string, path: string): string {
+    return `${baseUrl()}/object/public/${objectPath(bucket, path)}`;
+  },
 };
+
+export interface StorageObject {
+  name: string;
+  /** null untuk subfolder. */
+  id: string | null;
+  created_at: string | null;
+}

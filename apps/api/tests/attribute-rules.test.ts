@@ -12,6 +12,7 @@ import type { AttributeDataType, AttributeRole, PricingMode } from '@jasana/data
 import {
   checkAttributeDefinition,
   isAllowedPricingCombination,
+  listingCompletenessErrors,
   validateAttributeValue,
   validateSpecAttributes,
   type AttributeDefinition,
@@ -201,7 +202,7 @@ describe('validateSpecAttributes: kontrak listings.attributes (PRD 3.2)', () => 
       is_required: true,
     }),
     def({
-      attribute_key: 'durasi_estimasi',
+      attribute_key: 'luas_area',
       data_type: 'NUMBER',
       attribute_role: 'SPEC',
       pricing_mode: 'NONE',
@@ -228,14 +229,14 @@ describe('validateSpecAttributes: kontrak listings.attributes (PRD 3.2)', () => 
   ];
 
   it('record lengkap diterima, atribut opsional boleh kosong', () => {
-    expect(validateSpecAttributes(defs, { sumber_air: 'Dibawa penyedia', durasi_estimasi: 60 })).toEqual([]);
+    expect(validateSpecAttributes(defs, { sumber_air: 'Dibawa penyedia', luas_area: 60 })).toEqual([]);
   });
 
   it('atribut wajib yang kosong ditolak', () => {
     expect(paths(validateSpecAttributes(defs, { sumber_air: 'Dibawa penyedia' }))).toEqual([
-      'attributes.durasi_estimasi',
+      'attributes.luas_area',
     ]);
-    expect(paths(validateSpecAttributes(defs, { sumber_air: null, durasi_estimasi: 60 }))).toEqual([
+    expect(paths(validateSpecAttributes(defs, { sumber_air: null, luas_area: 60 }))).toEqual([
       'attributes.sumber_air',
     ]);
   });
@@ -243,7 +244,7 @@ describe('validateSpecAttributes: kontrak listings.attributes (PRD 3.2)', () => 
   it('key tak dikenal dan key OPTION ditolak', () => {
     const errors = validateSpecAttributes(defs, {
       sumber_air: 'Dibawa penyedia',
-      durasi_estimasi: 60,
+      luas_area: 60,
       jenis_kendaraan: 'SUV',
       warna_mobil: 'Merah',
     });
@@ -251,16 +252,37 @@ describe('validateSpecAttributes: kontrak listings.attributes (PRD 3.2)', () => 
   });
 
   it('atribut nonaktif tidak lagi diwajibkan, dan nilainya tidak bisa ditulis ulang', () => {
-    expect(paths(validateSpecAttributes(defs, { sumber_air: 'Dibawa penyedia', durasi_estimasi: 60 }))).toEqual([]);
+    expect(paths(validateSpecAttributes(defs, { sumber_air: 'Dibawa penyedia', luas_area: 60 }))).toEqual([]);
     expect(
-      paths(validateSpecAttributes(defs, { sumber_air: 'Dibawa penyedia', durasi_estimasi: 60, atribut_lama: 'x' })),
+      paths(validateSpecAttributes(defs, { sumber_air: 'Dibawa penyedia', luas_area: 60, atribut_lama: 'x' })),
     ).toEqual(['attributes.atribut_lama']);
   });
 
   it('nilai di luar definisi ditolak dengan path atributnya', () => {
-    expect(paths(validateSpecAttributes(defs, { sumber_air: 'Sumur', durasi_estimasi: 500 })).sort()).toEqual([
-      'attributes.durasi_estimasi',
+    expect(paths(validateSpecAttributes(defs, { sumber_air: 'Sumur', luas_area: 500 })).sort()).toEqual([
+      'attributes.luas_area',
       'attributes.sumber_air',
+    ]);
+  });
+});
+
+describe('listingCompletenessErrors: syarat tayang dan H48', () => {
+  const defs = [
+    def({ is_required: true }),
+    def({ attribute_key: 'layanan_malam', data_type: 'BOOLEAN', options: null }),
+    def({ attribute_key: 'paket_lama', is_required: true, is_active: false }),
+    def({ attribute_key: 'sumber_air', attribute_role: 'SPEC', pricing_mode: 'NONE', options: opts('Dibawa penyedia'), is_required: true }),
+  ];
+  const spec = { sumber_air: 'Dibawa penyedia' };
+
+  it('lengkap kalau SPEC sah dan setiap OPTION wajib aktif punya opsi dilayani', () => {
+    expect(listingCompletenessErrors(defs, spec, new Set(['jenis_kendaraan']))).toEqual([]);
+  });
+
+  it('OPTION wajib tanpa opsi dilayani dan SPEC wajib kosong dilaporkan; OPTION opsional dan nonaktif tidak', () => {
+    expect(paths(listingCompletenessErrors(defs, {}, new Set(['layanan_malam'])))).toEqual([
+      'attributes.sumber_air',
+      'option_prices.jenis_kendaraan',
     ]);
   });
 });
@@ -290,17 +312,17 @@ describe('Lampiran B: katalog contoh (D71)', () => {
     const counts = Object.fromEntries(subcategories.map((sub) => [sub.slug, sub.attributes.length]));
     expect(counts).toEqual({
       'ganti-oli-panggilan': 2,
-      'potong-rambut-panggilan': 3,
-      'cuci-mobil-panggilan': 4,
-      'servis-motor-panggilan': 4,
-      'foto-produk': 4,
-      'makeup-artist-acara': 5,
-      'makeup-pengantin': 5,
-      'tukang-listrik': 5,
-      'servis-mesin-cuci': 5,
-      'dokumentasi-acara': 6,
-      'servis-ac': 6,
-      'foto-prewedding': 7,
+      'potong-rambut-panggilan': 2,
+      'cuci-mobil-panggilan': 3,
+      'servis-motor-panggilan': 3,
+      'foto-produk': 3,
+      'makeup-artist-acara': 4,
+      'makeup-pengantin': 4,
+      'tukang-listrik': 4,
+      'servis-mesin-cuci': 4,
+      'dokumentasi-acara': 5,
+      'servis-ac': 5,
+      'foto-prewedding': 6,
     });
   });
 

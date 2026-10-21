@@ -35,6 +35,11 @@ import { createWorkersRouter } from './modules/workers/workers.routes';
 import { createAdminRouter } from './modules/admin/admin.routes';
 import { createCatalogRouter } from './modules/catalog/catalog.routes';
 import { createTaxonomyRouter } from './modules/taxonomy/taxonomy.routes';
+import {
+  createProviderListingsRouter,
+  createPublicListingsRouter,
+  createUploadsRouter,
+} from './modules/listings/listings.routes';
 
 function corsOptions(): CorsOptions {
   return {
@@ -84,7 +89,11 @@ export function createApp(): Express {
 
   app.use(`${API_PREFIX}/auth`, createAuthRouter());
   app.use(`${API_PREFIX}/users`, createUsersRouter());
+  // Sebelum /providers, supaya /providers/me/listings tidak jatuh ke router itu.
+  app.use(`${API_PREFIX}/providers/me/listings`, createProviderListingsRouter());
   app.use(`${API_PREFIX}/providers`, createProvidersRouter());
+  app.use(`${API_PREFIX}/listings`, createPublicListingsRouter());
+  app.use(`${API_PREFIX}/uploads`, createUploadsRouter());
   app.use(`${API_PREFIX}/workers`, createWorkersRouter());
   app.use(`${API_PREFIX}/admin`, createAdminRouter());
   app.use(`${API_PREFIX}/taxonomy-requests`, createTaxonomyRouter());

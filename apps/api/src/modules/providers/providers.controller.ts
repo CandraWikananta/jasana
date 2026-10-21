@@ -93,3 +93,10 @@ export const setAssignmentsSetting = asyncHandler(async (req, res) => {
     ),
   );
 });
+
+export const setWorkerListings = asyncHandler(async (req, res) => {
+  sendOk(
+    res,
+    await providerWorkersService.setWorkerListings(currentProvider(req), paramId(req), req.body.listing_ids),
+  );
+});
