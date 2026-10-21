@@ -5,8 +5,8 @@ Project jasana {
   yang Terintegrasi dengan Kecerdasan Buatan
   I Nyoman Gede Candra Wikananta - 2305551065
 
-  VERSI 2.8. 34 tabel, 35 enum. Versi 2.8 tidak mengubah struktur.
-  Rujukan lengkap: Keputusan-Desain-Sistem.md (D1 sampai D86)
+  VERSI 2.9. 34 tabel, 35 enum. Versi 2.8 dan 2.9 tidak mengubah struktur.
+  Rujukan lengkap: Keputusan-Desain-Sistem.md (D1 sampai D90)
 
   Keputusan yang mengunci rancangan ini:
   - Available Now model DIRECT (client pilih listing milik satu penyedia)
@@ -544,7 +544,7 @@ Table subcategories {
   description                 text           [note: 'Penjelasan jasa']
   suggested_price_min         decimal(12,2)  [note: 'panduan harga bagi provider, peringatan lunak bukan batas keras']
   suggested_price_max         decimal(12,2)  [note: 'Batas atas panduan harga. Bersama min, dipakai memberi peringatan lunak saat provider mengisi harga']
-  estimated_duration_minutes  int            [note: 'Estimasi durasi standar jasa ini, jadi nilai awal saat provider membuat listing']
+  estimated_duration_minutes  int            [note: 'D90. Nilai awal kolom durasi di form listing. Bukan batas, provider boleh mengubahnya']
   display_order               int            [not null, default: 0, note: 'Urutan tampil dalam kategorinya']
   is_active                   boolean        [not null, default: true, note: 'Menyembunyikan sub-kategori tanpa merusak listing lama']
   created_at                  timestamptz    [not null, default: `now()`, note: 'Waktu dibuat']
@@ -603,7 +603,7 @@ Table listings {
   description                 text             [note: 'Penjelasan jasa dari provider']
   price                       decimal(12,2)    [not null, note: 'harga dasar sebelum delta opsi']
   price_unit                  price_unit_type  [not null, default: 'PER_JOB', note: 'Satuan harga, menentukan cara harga dibacakan ke client']
-  estimated_duration_minutes  int              [note: 'Estimasi durasi versi provider. Di-snapshot ke order dan dipakai pemeriksaan bentrok jadwal']
+  estimated_duration_minutes  int              [note: 'D90. SATU-SATUNYA sumber durasi, wajib diisi 15 sampai 720 menit. Di-snapshot ke order dan dipakai pemeriksaan bentrok jadwal. Durasi tidak disimpan sebagai atribut']
   attributes                  jsonb            [not null, note: 'HANYA nilai atribut SPEC. Index GIN ditambahkan manual di migrasi SQL']
   attributes_need_update      boolean          [not null, default: false, note: 'D67. Listing lama yang belum memenuhi atribut wajib yang baru ditambahkan admin']
   supports_scheduled          boolean          [not null, default: true, note: 'Boleh dipesan terjadwal']
@@ -719,7 +719,7 @@ Table taxonomy_requests {
   work_description         text                     [note: 'NEW_SUBCATEGORY: jelaskan singkat pekerjaannya']
   price_factors            text                     [note: 'NEW_SUBCATEGORY: apa yang membuat harganya berbeda. Bahan admin menentukan atribut OPTION']
   common_questions         text                     [note: 'NEW_SUBCATEGORY: hal yang biasanya ditanyakan client. Bahan admin menentukan atribut SPEC']
-  duration_min_minutes     int                      [note: 'Jawaban berapa lama biasanya dikerjakan, batas bawah. Bahan admin menyusun validation_rule durasi']
+  duration_min_minutes     int                      [note: 'Jawaban berapa lama biasanya dikerjakan, batas bawah. Bahan admin mengisi subcategories.estimated_duration_minutes (D90)']
   duration_max_minutes     int                      [note: 'Batas atas durasi menurut provider']
   booking_mode_suggestion  varchar(20)              [note: 'Menurut provider jasa ini cocok dipesan mendadak, dijadwalkan, atau keduanya. Bahan admin menentukan supports_available_now']
   market_price_min         decimal(12,2)            [note: 'Kisaran harga pasaran menurut provider, bahan admin mengisi suggested_price_min']

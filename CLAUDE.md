@@ -6,7 +6,7 @@ Marketplace jasa on-demand berbasis web. Ini kode untuk Tugas Akhir, jadi **doku
 
 | Berkas | Isi |
 |---|---|
-| `docs/Keputusan-Desain-Sistem.md` | Register keputusan D1 sampai D86 (versi 2.8) beserta alasannya. **Baca ini kalau ragu kenapa sesuatu dirancang begitu** |
+| `docs/Keputusan-Desain-Sistem.md` | Register keputusan D1 sampai D90 (versi 2.9) beserta alasannya. **Baca ini kalau ragu kenapa sesuatu dirancang begitu** |
 | `docs/State-Machine-Order.md` | 15 status, 22 transisi, guard, efek samping, dan kode `ALLOWED_TRANSITIONS` |
 | `docs/PRD-Backend.md` | Kontrak endpoint, NFR, cron, Socket.IO, milestone |
 | `packages/database/prisma/schema.prisma` | 34 model, 35 enum |
@@ -221,6 +221,7 @@ Jalur signed URL punya celah **berkas yatim**: kalau frontend mengunggah lalu ti
 | `chat` untuk pesan dalam order | `order_messages`, "pesan dalam order" | `chat_sessions` dan `chat_messages` milik chatbot AI |
 | `base_price` | `listing_base_amount` | Isinya tidak lagi harga dasar sejak ada opsi berbayar |
 | `price` untuk nominal order | `amount` | `price` untuk daftar harga, `amount` untuk yang melekat pada order |
+| Atribut `durasi_estimasi` | Kolom `listings.estimated_duration_minutes` | Durasi hanya punya satu sumber (D90). Jangan membaca durasi dari `listings.attributes` |
 | Role `PROVIDER` atau `WORKER` | Cek relasi | Keduanya bukan nilai enum `role` |
 
 ---

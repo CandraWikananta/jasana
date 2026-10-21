@@ -2,8 +2,8 @@
 // Platform Marketplace Jasa On-Demand "Jasana"
 // I Nyoman Gede Candra Wikananta - 2305551065
 //
-// VERSI 2.8. 34 model, 35 enum. Versi 2.8 hanya mengubah komentar.
-// Rujukan keputusan lengkap: Keputusan-Desain-Sistem.md (D1 sampai D86)
+// VERSI 2.9. 34 model, 35 enum. Versi 2.8 dan 2.9 hanya mengubah komentar.
+// Rujukan keputusan lengkap: Keputusan-Desain-Sistem.md (D1 sampai D90)
 //
 // Lokasi yang disarankan pada monorepo:
 //   packages/database/prisma/schema.prisma
@@ -858,6 +858,7 @@ model Listing {
   /// Harga dasar SEBELUM delta opsi (D73).
   price                    Decimal       @db.Decimal(12, 2)
   priceUnit                PriceUnitType @default(PER_JOB) @map("price_unit")
+  /// D90. Satu-satunya sumber durasi, wajib 15 sampai 720 menit (divalidasi service).
   estimatedDurationMinutes Int?          @map("estimated_duration_minutes")
   /// HANYA nilai atribut SPEC. Nilai atribut OPTION ada di ListingOptionPrice.
   /// Index GIN di bawah; kalau versi Prisma tidak mendukungnya, tambahkan

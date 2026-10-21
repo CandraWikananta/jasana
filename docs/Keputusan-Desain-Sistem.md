@@ -4,9 +4,9 @@
 **Nama sistem:** Jasana
 **Penyusun:** I Nyoman Gede Candra Wikananta (2305551065)
 **Bidang Keahlian:** Sistem Informasi, Teknologi Informasi, Universitas Udayana
-**Versi:** 2.8
-**Terakhir diperbarui:** 15 Oktober 2026 (versi 2.8)
-**Tahap saat ini:** Implementasi backend. Fase 0 dan Fase 1 selesai, Fase 2 sedang berjalan
+**Versi:** 2.9
+**Terakhir diperbarui:** 21 Oktober 2026 (versi 2.9)
+**Tahap saat ini:** Implementasi backend. Fase 0 sampai Fase 3 selesai, berikutnya Fase 4
 
 ---
 
@@ -26,6 +26,16 @@
 | Komunikasi pra-order dan dalam order (D78 sampai D79) | 2 | 0 |
 | Pola unggah berkas (D80) | 1 | 0 |
 | Penutupan keputusan terbuka (D81 sampai D86) | 6 | 0 |
+| Katalog lanjutan dan sumber durasi (D87 sampai D90) | 4 | 0 |
+| Keputusan terbuka tanpa nomor D (Bagian 7) | | 1 |
+
+**Perubahan pada versi 2.9:**
+
+1. Tiga usulan dari implementasi Fase 3 dicatat: tipe atribut dikunci setelah dibuat (D87), sub-kategori hasil usulan lahir nonaktif (D88), dan nilai PER_UNIT wajib bilangan bulat (D89)
+2. Sumber durasi listing disatukan ke kolom `listings.estimated_duration_minutes`, dan atribut `durasi_estimasi` dihapus dari Lampiran B (D90). Rentang atribut di B.13 menjadi 2 sampai 6
+3. Lampiran B.3 dilengkapi daftar option `jenis_kendaraan`
+4. Satu keputusan terbuka baru: durasi untuk jasa yang lamanya ditentukan opsi pilihan client
+5. Hutang teknis H85 sampai H87
 
 **Perubahan pada versi 2.8:**
 
@@ -86,10 +96,21 @@
 
 **Dampak kumulatif terhadap skema:** dari 25 tabel dan 26 enum menjadi **34 tabel dan 35 enum**.
 
-**Status artefak per versi 2.8 (seluruhnya sinkron per 15 Oktober 2026):**
+**Status artefak per versi 2.9 (seluruhnya sinkron per 21 Oktober 2026):**
 
-| Artefak | Versi | Perubahan karena versi 2.8 |
+| Artefak | Versi | Perubahan karena versi 2.9 |
 |---|---|---|
+| `skema-database-final.dbml` | 2.9 | Note kolom durasi di `listings`, `subcategories`, dan `taxonomy_requests` (D90). Struktur tidak berubah |
+| `schema.prisma` | 2.9 | Komentar saja (D90) |
+| `migration-constraints.sql` | 2.6 | Tidak terdampak |
+| `Panduan-Struktur-Database.md` | 2.9 | Contoh atribut tanpa `durasi_estimasi`, kolom durasi di tabel `listings` |
+| `State-Machine-Order.md` | 2.6 | Tidak terdampak, rumus bentrok jadwal tetap memakai `snapshot_duration_minutes` |
+| `PRD-Backend.md` | 2.3 | O1 dan data simulasi 2 sampai 6 atribut, sumber snapshot durasi, kode error `TAXONOMY_REQUEST_STATE_CONFLICT`, status milestone |
+| `CLAUDE.md` | | Rujukan D1 sampai D90, penamaan durasi di jebakan nomor 13 |
+| Kode Fase 3 (`scripts/catalog-data.mjs` dan test rekap B.13) | | **Perlu diubah di awal Fase 4**: buang 11 atribut `durasi_estimasi` dari seed, sesuaikan hitungan rekap, dan nonaktifkan atribut itu di basis data pengembangan (D90) |
+| Usulan ide (Tabel Aktor Sistem) | | Tidak direvisi (A7) |
+
+---|---|---|
 | `skema-database-final.dbml` | 2.8 | Dua parameter withdrawal, note `withdrawals.amount` dan `admin_fee`, rujukan D70, D81, dan D82. Struktur tidak berubah |
 | `schema.prisma` | 2.8 | Komentar saja: daftar parameter ditulis dalam snake_case sesuai key yang dibaca kode, dua parameter withdrawal, rujukan D70, D81, D82, dan D84 |
 | `migration-constraints.sql` | 2.6 | Tidak terdampak |
@@ -546,7 +567,7 @@ Langkah 6 wajib satu transaksi. Kalau terpisah dan proses mati di tengah, bisa t
 
 | Klaim | Dibuktikan oleh |
 |---|---|
-| Hybrid Approach menampung bentuk berbeda (D2) | Ganti oli (2 atribut) versus foto prewedding (7 atribut, tipe campur) |
+| Hybrid Approach menampung bentuk berbeda (D2) | Ganti oli (2 atribut) versus foto prewedding (6 atribut, tipe campur) |
 | Dual-mode bermakna | Tukang listrik dan servis AC (darurat) versus foto wedding dan makeup pengantin (wajib dijadwal) |
 | Model tenaga kerja (D31 sampai D70) | Dokumentasi acara sebagai BUSINESS dengan 3 fotografer, makeup artist sebagai INDIVIDUAL, bengkel sebagai BUSINESS dengan pemetaan tumpang tindih |
 | Geolokasi dan check-in (D5) | Seluruh sub-kategori, karena semuanya mendatangi lokasi client |
@@ -634,7 +655,7 @@ Pertanyaan di langkah 1 sengaja tidak memakai istilah sub-kategori, atribut, mau
 | Jelaskan singkat pekerjaannya | Konteks |
 | Apa yang membuat harganya berbeda antar pesanan? | Menentukan atribut OPTION |
 | Hal apa yang biasanya ditanyakan client sebelum memesan? | Menentukan atribut SPEC |
-| Berapa lama biasanya dikerjakan? | `durasi_estimasi` dan `validation_rule` |
+| Berapa lama biasanya dikerjakan? | Nilai awal `subcategories.estimated_duration_minutes` (D90) |
 | Cocok dipesan mendadak, dijadwalkan, atau keduanya? | `supports_available_now` |
 | Kisaran harga di pasaran | `suggested_price_min/max` |
 
@@ -879,6 +900,23 @@ Kriteria UAT dipasang per aspek dan per aktor, bukan hanya rata-rata keseluruhan
 3. Pekerja lapangan butuh dana yang cepat cair, sementara 24 jam cukup untuk menyadari masalah yang muncul belakangan, misalnya AC yang bocor lagi pada malam harinya
 
 Sumber: halaman harga Xendit (xendit.co/en/pricing) dan Bisnis.com, 1 Juli 2026, "Grab, Gojek & Maxim Berlakukan Potongan Ojol 8% Mulai Hari Ini 1 Juli".
+
+---
+
+## 4D. Keputusan Versi 2.9 (D87 sampai D90)
+
+D87 sampai D89 muncul saat implementasi Fase 3 dan sudah diterapkan di kode. D90 diputuskan sebelum Fase 4. Versi ini tidak mengubah skema.
+
+| # | Keputusan | Alasan |
+|---|---|---|
+| D87 | **`data_type`, `attribute_role`, dan `pricing_mode` tidak bisa diubah setelah atribut dibuat**, sama seperti `attribute_key`. PATCH atribut hanya menerima `label`, `options`, `unit`, `is_required`, `is_filterable`, `is_active`, `validation_rule`, dan `display_order`. Untuk mengganti tipe, admin menonaktifkan atribut lama lalu membuat yang baru | Ketiganya menentukan di mana dan bagaimana nilai lama disimpan. NUMBER yang diubah jadi SELECT membuat nilai lama tidak bermakna, SPEC yang diubah jadi OPTION memindahkan tempat penyimpanan dari `listings.attributes` ke `listing_option_prices`, dan `pricing_mode` yang diubah membuat harga listing yang sudah tayang dihitung dengan cara lain tanpa sepengetahuan provider. Alasan yang sama dengan D67 poin 3 |
+| D88 | **Sub-kategori hasil persetujuan usulan `NEW_SUBCATEGORY` dibuat dengan `is_active = false`.** Admin melengkapi atributnya lewat CRUD, lalu mengaktifkannya. `resulting_id` tetap terisi saat persetujuan | Merancang seluruh atribut sekaligus di dalam satu permintaan persetujuan tidak praktis (D74 menyebut beban admin untuk jenis ini berat). Tanpa aturan ini, sub-kategori kosong tanpa atribut langsung tampil di katalog publik |
+| D89 | **Nilai atribut OPTION bertipe NUMBER dengan `pricing_mode = PER_UNIT` wajib bilangan bulat.** NUMBER berperan SPEC tetap boleh pecahan | Seluruh atribut PER_UNIT di Lampiran B adalah hitungan (unit AC, item, orang, lokasi, titik), dan nilainya dikalikan ke harga. 2,5 unit AC tidak punya arti di lapangan |
+| D90 | **Durasi listing hanya punya satu sumber, yaitu kolom `listings.estimated_duration_minutes`.** Wajib diisi provider, 15 sampai 720 menit, divalidasi saat listing ditulis. Saat order dibuat, nilainya disalin ke `orders.snapshot_duration_minutes` (D10) yang dipakai pemeriksaan bentrok jadwal (D41). Atribut `durasi_estimasi` dihapus dari Lampiran B. `subcategories.estimated_duration_minutes` menjadi nilai awal di form listing | Rancangan sebelumnya punya dua sumber: atribut `durasi_estimasi` di JSONB (Lampiran B) dan kolom di `listings` (DBML). Dua sumber pasti berbeda isi, persis masalah yang dihindari D45, dan ganti oli malah tidak punya atribut durasi sama sekali. Kolom bertipe integer juga lebih tepat untuk pemeriksaan rentang waktu daripada nilai di dalam JSONB |
+
+**Konsekuensi D90 yang disadari.** Batas durasi khusus per sub-kategori (misalnya cuci mobil 30 sampai 180 menit) diganti satu batas umum 15 sampai 720 menit. Batas itu bukan klaim penelitian. Rentang jumlah atribut di B.13 berubah dari 2 sampai 7 menjadi 2 sampai 6, dan klaim tujuan penelitian nomor 1 tidak terpengaruh karena yang dibuktikan adalah bentuk atribut yang berbeda tanpa perubahan skema, bukan jumlah tertentu.
+
+**Penerapan D90 di kode Fase 3.** Seed katalog sudah membuat 11 atribut `durasi_estimasi` di basis data pengembangan. Atribut itu **dinonaktifkan** (`is_active = false`, D67 poin 3), bukan dihapus, dan data seed serta test rekap B.13 disesuaikan. Dikerjakan di awal Fase 4.
 
 ---
 
@@ -1353,7 +1391,13 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 
 ## 7. Keputusan Terbuka
 
-**Tidak ada keputusan terbuka per versi 2.8.** Seluruh pertanyaan sebelumnya sudah ditutup:
+**Satu keputusan terbuka per versi 2.9:**
+
+| # | Pertanyaan | Dampak |
+|---|---|---|
+| 5 | **Durasi untuk jasa yang lamanya ditentukan opsi pilihan client.** `paket_durasi` di B.5 (4 jam atau 8 jam) dan `durasi_liputan` di B.6 (2 jam sampai Dua Hari) menentukan lama pekerjaan, sedangkan durasi yang dipakai mengunci jadwal adalah satu angka per listing (D90). Opsi "Dua Hari" juga melewati batas 720 menit dan berbenturan dengan satu order satu kedatangan (D75) | Harus diputuskan **sebelum Fase 6**. Kalau dibiarkan, jadwal pekerja bisa terkunci terlalu pendek untuk paket 8 jam, atau terlalu panjang untuk paket 2 jam |
+
+**Ditutup pada versi 2.8:**
 
 | # | Pertanyaan | Ditutup oleh |
 |---|---|---|
@@ -1438,6 +1482,7 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 - [ ] **H78** Validasi **magic bytes** pada unggahan multipart **(baru, D80)**, bukan `Content-Type` dari client dan bukan ekstensi nama berkas. Wajib punya test yang mengunggah berkas non-gambar bernama `.jpg` dan memastikan ditolak
 - [ ] **H79** Urutan unggah multipart: validasi, kirim ke Storage, baru tulis baris basis data **(baru, D80)**. Kalau Storage gagal, jangan tinggalkan baris setengah jadi
 - [ ] **H80** Cron pembersih berkas yatim di bucket foto listing **(baru, D80)**, berkas lebih tua dari `orphan_upload_cleanup_hours` yang tidak punya baris `listing_photos`
+- [ ] **H85** Validasi `listings.estimated_duration_minutes` wajib terisi dan berada di rentang 15 sampai 720 menit saat listing dibuat atau diubah, dan `orders.snapshot_duration_minutes` selalu disalin dari kolom ini, bukan dari `listings.attributes` **(baru, D90)**
 - [ ] **H83** Validasi pengajuan withdrawal **(baru, D84)**: `amount` minimal `withdrawal_min_amount`, `admin_fee` diambil dari `withdrawal_admin_fee` saat pengajuan, dan `net_amount` dihitung di server. Request tidak pernah memuat nominal fee
 
 ### 8.5 Persiapan Data Pengujian
@@ -1472,6 +1517,8 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 - [ ] **H60** Satu order sama dengan satu kedatangan **(baru, D75)**. Jasa yang butuh beberapa kunjungan, seperti trial makeup sebelum hari pernikahan, dipesan sebagai beberapa order. Order multi-kunjungan masuk saran pengembangan
 - [ ] **H61** Sistem memvalidasi selesainya pekerjaan di lokasi, bukan penyerahan hasil **(baru, D75)**. Untuk jasa yang hasilnya diserahkan belakangan, seperti foto prewedding, `waktu_pengerjaan_hari` hanya informasional dan tidak menahan escrow. Penyerahan hasil bertahap masuk saran pengembangan
 - [ ] **H81** Biaya metode pembayaran dari payment gateway ditanggung platform dari komisi dan tidak dihitung dalam alur dana **(baru, D83)**. Analisis kelayakan bisnis berada di luar ruang lingkup penelitian. Biaya layanan terpisah untuk client masuk saran pengembangan
+- [ ] **H86** Regex pada `validation_rule` ditulis admin dan tidak dijaga dari pola yang sangat lambat dievaluasi (ReDoS) **(baru)**. Admin dianggap pihak tepercaya, dan dua belas sub-kategori contoh tidak memakai atribut TEXT
+- [ ] **H87** Batas durasi listing berlaku umum 15 sampai 720 menit, tidak per sub-kategori **(baru, D90)**
 - [ ] **H82** Admin fee withdrawal berupa nilai flat yang mengikuti perkiraan biaya payout Xendit **(baru, D84)**. Untuk nominal di atas Rp250.000 biaya sebenarnya sedikit lebih besar dan selisihnya ditanggung platform
 
 ---
@@ -1480,10 +1527,10 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 
 | # | Artefak | Status | Catatan |
 |---|---|---|---|
-| 1 | Skema basis data (DBML) | Selesai, versi 2.8 | 34 tabel, 35 enum |
-| 2 | `schema.prisma` dan `migration-constraints.sql` | Selesai, versi 2.8 dan 2.6 | |
+| 1 | Skema basis data (DBML) | Selesai, versi 2.9 | 34 tabel, 35 enum |
+| 2 | `schema.prisma` dan `migration-constraints.sql` | Selesai, versi 2.9 dan 2.6 | |
 | 3 | State machine order | Selesai, versi 2.6 | Tidak terdampak versi 2.8 |
-| 4 | Kontrak REST API (PRD) | Selesai, versi 2.2 | |
+| 4 | Kontrak REST API (PRD) | Selesai, versi 2.3 | |
 | 5 | Diagram UML | Belum | Aktor jadi empat |
 | 6 | Diagram Konteks dan DFD | Belum | Aktor jadi empat, tambah entitas eksternal layanan email |
 | 7 | Conversation flow dan system prompt chatbot | Belum | |
@@ -1508,11 +1555,11 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 
 ## 11. Langkah Berikutnya
 
-1. Verifikasi Fase 2 (jalankan seluruh test, lalu commit), kemudian centang hutang teknis yang sudah tertutup oleh Fase 1 dan Fase 2
-2. Lanjut Fase 3 sesuai PRD Bagian 9
+1. Fase 4 (listing dan pemetaan), diawali penerapan D90 di kode Fase 3
+2. Putuskan keputusan terbuka nomor 5 sebelum Fase 6
 3. Susun data simulasi untuk dua belas sub-kategori di Lampiran B, termasuk skenario perebutan Available Now dan pendamping pada dokumentasi acara
 4. Riset ringan rentang harga pasaran untuk dua belas sub-kategori tersebut, catat sumbernya
-5. Paralel sejak sekarang: kumpulkan H15 sedikit demi sedikit setiap minggu, dan mulai siapkan instrumen UAT (H84)
+5. Paralel sejak sekarang: kumpulkan H15 sedikit demi sedikit setiap minggu, dan siapkan instrumen UAT (H84)
 
 ---
 
@@ -1530,6 +1577,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 | 2.6 | 30 September 2026 | FAQ per listing (D78) dan pesan dalam order (D79). Percakapan pra-order ditolak dengan alasan yang dicatat. Dua tabel baru tanpa enum baru, tiga parameter sistem, H69 sampai H77 |
 | 2.7 | 30 September 2026 | Pola unggah berkas dipisah per sifat (D80): e-KYC dan bukti dispute lewat multipart dengan validasi magic bytes, foto listing tetap signed URL. Celah berkas yatim ditutup lewat cron. Tiga parameter sistem, H78 sampai H80 |
 | 2.8 | 15 Oktober 2026 | Seluruh keputusan terbuka ditutup. Usulan ide tidak direvisi (A7). Opsi kustom bebas dan sub-kategori buatan provider ditolak, dikukuhkan Pembimbing 1 pada bimbingan 30 September 2026 (D81, D82). Biaya payment gateway ditanggung platform (D83), withdrawal minimum Rp50.000 dengan admin fee Rp6.500 (D84), target pengujian (D85), dasar komisi dan holding window (D86). Dua parameter sistem, H81 sampai H84. Rumusan D25 diperjelas: dispute sejak ARRIVED. Perapian status artefak, rujukan silang, dan urutan riwayat revisi. Seluruh artefak lain disinkronkan. Tanpa perubahan skema |
+| 2.9 | 21 Oktober 2026 | Tiga usulan dari implementasi Fase 3: tipe atribut dikunci (D87), sub-kategori hasil usulan lahir nonaktif (D88), PER_UNIT bilangan bulat (D89). Sumber durasi listing disatukan ke kolom (D90), atribut `durasi_estimasi` dihapus dari Lampiran B, rekap B.13 menjadi 2 sampai 6 atribut. Option B.3 dilengkapi. Satu keputusan terbuka baru soal durasi yang ditentukan opsi. H85 sampai H87. Tanpa perubahan skema |
 
 ---
 
@@ -1540,7 +1588,7 @@ Status: **selesai seluruhnya**, dua belas sub-kategori di empat kategori.
 Pola yang dipakai di seluruh sub-kategori:
 
 - Setiap sub-kategori punya minimal satu atribut OPTION, kalau tidak fitur harga bertingkat jadi mubazir
-- `durasi_estimasi` selalu SPEC, wajib, dan tidak difilter, karena mengisi `snapshot_duration_minutes` yang dipakai pemeriksaan bentrok jadwal (D41)
+- Durasi **bukan** atribut. Durasi diisi lewat kolom `listings.estimated_duration_minutes` yang disalin ke `snapshot_duration_minutes` untuk pemeriksaan bentrok jadwal (D90, D41)
 - Atribut yang tidak memengaruhi harga tapi menentukan ekspektasi client tetap dimasukkan sebagai SPEC
 - Jumlah atribut sengaja tidak seragam antar sub-kategori, karena keseragaman justru melemahkan klaim tujuan penelitian nomor 1
 
@@ -1553,7 +1601,6 @@ Mode: kedua. Rentang harga acuan: 50.000 sampai 150.000
 | `jenis_kendaraan` | Jenis kendaraan | SELECT | OPTION | FLAT_PER_OPTION | ya | ya |
 | `layanan_tambahan` | Layanan tambahan | MULTISELECT | OPTION | FLAT_PER_OPTION | tidak | ya |
 | `sumber_air` | Sumber air | SELECT | SPEC | NONE | ya | ya |
-| `durasi_estimasi` | Estimasi pengerjaan | NUMBER (menit) | SPEC | NONE | ya | tidak |
 
 ```
 jenis_kendaraan   Sedan, SUV, MPV, Hatchback, Pickup, Van
@@ -1565,7 +1612,6 @@ layanan_tambahan  Poles Body, Vacuum Interior, Semir Ban,
                   contoh delta: +25.000 sampai +50.000 per item
 
 sumber_air        Dibawa penyedia, Disediakan client
-durasi_estimasi   validation_rule { min: 30, max: 180 }
 ```
 
 `sumber_air` adalah contoh atribut SPEC yang gunanya menyelaraskan ekspektasi, bukan menghitung harga. Sering jadi sumber kekecewaan client kalau tidak disebut di awal.
@@ -1579,7 +1625,6 @@ Mode: kedua, condong Available Now. Rentang harga acuan: 50.000 sampai 200.000
 | `jenis_servis` | Jenis servis | SELECT | OPTION | FLAT_PER_OPTION | ya | ya |
 | `tipe_motor` | Tipe motor yang dilayani | MULTISELECT | SPEC | NONE | ya | ya |
 | `sparepart` | Penyediaan sparepart | SELECT | SPEC | NONE | ya | ya |
-| `durasi_estimasi` | Estimasi pengerjaan | NUMBER (menit) | SPEC | NONE | ya | tidak |
 
 ```
 jenis_servis     Servis Ringan, Servis Besar, Ganti Oli,
@@ -1588,7 +1633,6 @@ jenis_servis     Servis Ringan, Servis Besar, Ganti Oli,
 
 tipe_motor       Bebek, Matic, Sport, Motor Besar
 sparepart        Disediakan penyedia, Disediakan client, Keduanya bisa
-durasi_estimasi  validation_rule { min: 30, max: 240 }
 ```
 
 Sub-kategori ini adalah **contoh utama untuk mempertahankan klaim Hybrid Approach di sidang.** Bandingkan `tipe_motor` (MULTISELECT, SPEC, tidak memengaruhi harga) dengan `jenis_kendaraan` di B.1 (SELECT, OPTION, memengaruhi harga). Dua atribut yang namanya mirip di kategori yang sama, tapi peran dan perilakunya berbeda. Skema kolom konvensional tidak bisa menampung perbedaan semacam ini tanpa menambah tabel per jasa.
@@ -1601,6 +1645,12 @@ Mode: kedua. Rentang harga acuan: 40.000 sampai 120.000
 |---|---|---|---|---|---|---|
 | `jenis_kendaraan` | Jenis kendaraan | SELECT | SPEC | NONE | ya | ya |
 | `oli_disediakan` | Oli disediakan penyedia | BOOLEAN | OPTION | FLAT_PER_OPTION | tidak | ya |
+
+```
+jenis_kendaraan  Mobil, Motor
+```
+
+`jenis_kendaraan` sengaja SELECT, bukan MULTISELECT. Harga dasar ganti oli mobil dan motor jauh berbeda, jadi satu listing melayani satu jenis kendaraan, dan penyedia yang melayani keduanya membuat dua listing. Daftar yang lebih rinci bisa ditambah lewat usulan `NEW_ATTRIBUTE_OPTION`.
 
 Dua atribut saja, dan itu disengaja. Gunanya menjawab pertanyaan yang hampir pasti muncul: apakah Hybrid Approach memaksa semua penyedia mengisi banyak kolom? Jawabannya tidak, dan sub-kategori ini buktinya. Jasa sederhana tetap sederhana, definisi atributnya yang menyesuaikan.
 
@@ -1615,7 +1665,6 @@ Mode: Scheduled. Rentang harga acuan: 150.000 sampai 750.000
 | `jumlah_item` | Jumlah item difoto | NUMBER | OPTION | **PER_UNIT** | ya | tidak |
 | `gaya_foto` | Gaya pemotretan | SELECT | OPTION | FLAT_PER_OPTION | ya | ya |
 | `tambahan` | Layanan tambahan | MULTISELECT | OPTION | FLAT_PER_OPTION | tidak | ya |
-| `durasi_estimasi` | Estimasi pengerjaan | NUMBER (menit) | SPEC | NONE | ya | tidak |
 
 ```
 jumlah_item      validation_rule { min: 1, max: 50 }
@@ -1628,7 +1677,6 @@ gaya_foto        Katalog Latar Putih, Flat Lay, Lifestyle, Detail Makro
 tambahan         Edit Retouch Lanjutan, Video Pendek, Foto 360 Derajat
                  contoh delta: +100.000 sampai +250.000
 
-durasi_estimasi  validation_rule { min: 60, max: 480 }
 ```
 
 `jumlah_item` adalah contoh PER_UNIT yang paling alami. Harga listing jadi biaya dasar pemotretan, lalu tiap item menambah, sehingga provider tidak perlu membuat listing terpisah untuk tiap jumlah.
@@ -1647,7 +1695,6 @@ Mode: Scheduled. Rentang harga acuan: 1.500.000 sampai 7.000.000
 | `jumlah_foto_edit` | Jumlah foto diedit | NUMBER | SPEC | NONE | ya | ya |
 | `gaya_fotografi` | Gaya fotografi | MULTISELECT | SPEC | NONE | ya | ya |
 | `waktu_pengerjaan_hari` | Hasil jadi dalam | NUMBER (hari) | SPEC | NONE | ya | ya |
-| `durasi_estimasi` | Estimasi di lokasi | NUMBER (menit) | SPEC | NONE | ya | tidak |
 
 ```
 paket_durasi           Setengah Hari (4 jam), Sehari Penuh (8 jam)
@@ -1664,10 +1711,9 @@ tambahan               Sewa Gaun, Makeup Artist, Drone, Album Cetak,
 jumlah_foto_edit       validation_rule { min: 10, max: 300 }
 gaya_fotografi         Klasik, Candid, Editorial, Sinematik, Tradisional
 waktu_pengerjaan_hari  validation_rule { min: 3, max: 60 }
-durasi_estimasi        validation_rule { min: 120, max: 600 }
 ```
 
-Sub-kategori beratribut paling banyak di seluruh dua belas, disengaja sebagai kontras terhadap ganti oli yang hanya dua. Tujuh atribut dengan lima tipe data berbeda dalam satu sub-kategori, tanpa satu pun kolom tambahan di skema.
+Sub-kategori beratribut paling banyak di seluruh dua belas, disengaja sebagai kontras terhadap ganti oli yang hanya dua. Enam atribut dengan tiga tipe data dan dua `pricing_mode` dalam satu sub-kategori, tanpa satu pun kolom tambahan di skema.
 
 `waktu_pengerjaan_hari` hanya informasional dan tidak menahan escrow, sesuai batas ketiga D75.
 
@@ -1682,7 +1728,6 @@ Mode: Scheduled. Rentang harga acuan: 1.000.000 sampai 5.000.000
 | `tambahan` | Layanan tambahan | MULTISELECT | OPTION | FLAT_PER_OPTION | tidak | ya |
 | `jenis_dokumentasi` | Jenis dokumentasi | MULTISELECT | SPEC | NONE | ya | ya |
 | `waktu_pengerjaan_hari` | Hasil jadi dalam | NUMBER (hari) | SPEC | NONE | ya | ya |
-| `durasi_estimasi` | Estimasi di lokasi | NUMBER (menit) | SPEC | NONE | ya | tidak |
 
 ```
 jenis_acara            Ulang Tahun, Seminar, Wisuda, Gathering Perusahaan,
@@ -1711,7 +1756,6 @@ Mode: Scheduled. Rentang harga acuan: 150.000 sampai 750.000. Contoh penyedia IN
 | `jenis_acara` | Jenis acara | SELECT | OPTION | FLAT_PER_OPTION | ya | ya |
 | `tambahan` | Layanan tambahan | MULTISELECT | OPTION | FLAT_PER_OPTION | tidak | ya |
 | `kelas_produk` | Kelas produk kosmetik | SELECT | SPEC | NONE | ya | ya |
-| `durasi_estimasi` | Estimasi pengerjaan | NUMBER (menit) | SPEC | NONE | ya | tidak |
 
 ```
 jumlah_orang     validation_rule { min: 1, max: 15 }
@@ -1726,7 +1770,6 @@ tambahan         Penataan Rambut, Sanggul, Bulu Mata,
                  contoh delta: +50.000 sampai +150.000
 
 kelas_produk     Reguler, Premium, Hypoallergenic
-durasi_estimasi  validation_rule { min: 45, max: 300 }
 ```
 
 `kelas_produk` sengaja SPEC, bukan OPTION. Seorang perias punya satu set produk dan memakainya untuk semua client, jadi ini informasi tentang dirinya, bukan pilihan yang client ganti per pesanan.
@@ -1741,7 +1784,6 @@ Mode: Scheduled. Rentang harga acuan: 1.500.000 sampai 10.000.000
 | `jumlah_pendamping` | Jumlah pendamping dirias | NUMBER | OPTION | **PER_UNIT** | tidak | tidak |
 | `tambahan` | Layanan tambahan | MULTISELECT | OPTION | FLAT_PER_OPTION | tidak | ya |
 | `gaya_riasan` | Gaya riasan yang dikuasai | MULTISELECT | SPEC | NONE | ya | ya |
-| `durasi_estimasi` | Estimasi pengerjaan | NUMBER (menit) | SPEC | NONE | ya | tidak |
 
 ```
 paket              Akad Saja, Resepsi Saja, Akad dan Resepsi
@@ -1756,7 +1798,6 @@ tambahan           Sewa Gaun, Sanggul Tradisional, Penataan Rambut
                    contoh delta: +300.000 sampai +1.500.000
 
 gaya_riasan        Modern, Tradisional, Natural, Bold
-durasi_estimasi    validation_rule { min: 90, max: 480 }
 ```
 
 Trial makeup **tidak** dijadikan opsi berbayar di sini, melainkan listing terpisah, sesuai batas kedua D75.
@@ -1769,7 +1810,6 @@ Mode: kedua. Rentang harga acuan: 50.000 sampai 200.000
 |---|---|---|---|---|---|---|
 | `jenis_layanan` | Jenis layanan | SELECT | OPTION | FLAT_PER_OPTION | ya | ya |
 | `jumlah_orang` | Jumlah orang | NUMBER | OPTION | **PER_UNIT** | ya | tidak |
-| `durasi_estimasi` | Estimasi pengerjaan | NUMBER (menit) | SPEC | NONE | ya | tidak |
 
 ```
 jenis_layanan    Potong Dewasa, Potong Anak, Potong dan Keramas,
@@ -1779,7 +1819,6 @@ jenis_layanan    Potong Dewasa, Potong Anak, Potong dan Keramas,
 
 jumlah_orang     validation_rule { min: 1, max: 10 }
                  contoh delta: 60.000 per orang
-durasi_estimasi  validation_rule { min: 20, max: 180 }
 ```
 
 Kombinasi SELECT berbayar dengan PER_UNIT membuat satu listing melayani satu orang maupun satu keluarga tanpa listing terpisah.
@@ -1795,7 +1834,6 @@ Mode: kedua. Rentang harga acuan: 75.000 sampai 600.000
 | `kapasitas_pk` | Kapasitas PK | SELECT | OPTION | FLAT_PER_OPTION | ya | ya |
 | `tambahan` | Layanan tambahan | MULTISELECT | OPTION | FLAT_PER_OPTION | tidak | ya |
 | `merek_dilayani` | Merek yang dilayani | MULTISELECT | SPEC | NONE | ya | ya |
-| `durasi_estimasi` | Estimasi pengerjaan | NUMBER (menit) | SPEC | NONE | ya | tidak |
 
 ```
 jenis_pekerjaan  Cuci AC, Isi Freon, Bongkar Pasang, Perbaikan,
@@ -1811,7 +1849,6 @@ kapasitas_pk     0.5 PK, 1 PK, 1.5 PK, 2 PK, Di atas 2 PK
 
 tambahan         Cuci Outdoor Unit, Pembersihan Pipa, Vakum Sistem
 merek_dilayani   Daikin, Panasonic, LG, Sharp, Samsung, Gree, Polytron
-durasi_estimasi  validation_rule { min: 30, max: 480 }
 ```
 
 Sub-kategori paling padat secara perhitungan harga: PER_UNIT ditambah dua SELECT berbayar dalam satu order. **Pakai kasus ini sebagai contoh utama di test perhitungan server (H55)**, misalnya tiga unit AC 2 PK untuk isi freon.
@@ -1826,7 +1863,6 @@ Mode: kedua, condong Available Now. Rentang harga acuan: 75.000 sampai 500.000
 | `jumlah_titik` | Jumlah titik | NUMBER | OPTION | **PER_UNIT** | tidak | tidak |
 | `material` | Penyediaan material | SELECT | SPEC | NONE | ya | ya |
 | `layanan_darurat` | Melayani panggilan darurat | BOOLEAN | SPEC | NONE | ya | ya |
-| `durasi_estimasi` | Estimasi pengerjaan | NUMBER (menit) | SPEC | NONE | ya | tidak |
 
 ```
 jenis_pekerjaan  Perbaikan Korsleting, Pasang Stop Kontak, Pasang Lampu,
@@ -1837,7 +1873,6 @@ jenis_pekerjaan  Perbaikan Korsleting, Pasang Stop Kontak, Pasang Lampu,
 jumlah_titik     validation_rule { min: 1, max: 30 }
                  contoh delta: 50.000 per titik
 material         Disediakan penyedia, Disediakan client, Keduanya bisa
-durasi_estimasi  validation_rule { min: 30, max: 360 }
 ```
 
 `layanan_darurat` sebagai BOOLEAN yang difilter penting untuk demo Available Now. Client yang lampunya mati malam hari memfilter ini dan langsung melihat siapa yang melayani, sehingga mode Available Now terbukti punya alasan ada.
@@ -1852,7 +1887,6 @@ Mode: Scheduled. Rentang harga acuan: 100.000 sampai 500.000
 | `tipe_mesin` | Tipe mesin cuci | SELECT | OPTION | FLAT_PER_OPTION | ya | ya |
 | `merek_dilayani` | Merek yang dilayani | MULTISELECT | SPEC | NONE | ya | ya |
 | `garansi_hari` | Garansi pengerjaan | NUMBER (hari) | SPEC | NONE | tidak | ya |
-| `durasi_estimasi` | Estimasi pengerjaan | NUMBER (menit) | SPEC | NONE | ya | tidak |
 
 ```
 jenis_pekerjaan  Pengecekan, Servis Ringan, Ganti Sparepart,
@@ -1868,7 +1902,6 @@ tipe_mesin       Bukaan Atas 1 Tabung, Bukaan Atas 2 Tabung,
 merek_dilayani   Sharp, LG, Samsung, Polytron, Electrolux,
                  Panasonic, Aqua
 garansi_hari     validation_rule { min: 0, max: 90 }
-durasi_estimasi  validation_rule { min: 45, max: 240 }
 ```
 
 `garansi_hari` satu-satunya atribut opsional bertipe SPEC di seluruh dua belas, disengaja sebagai contoh atribut yang jadi pembeda kompetitif: penyedia yang memberi garansi menonjol di hasil filter, yang tidak memberi tetap bisa mendaftar.
@@ -1878,19 +1911,21 @@ durasi_estimasi  validation_rule { min: 45, max: 240 }
 | Sub-kategori | Jumlah atribut | Tipe data terpakai | pricing_mode |
 |---|---|---|---|
 | Ganti oli | 2 | SELECT, BOOLEAN | FLAT |
-| Potong rambut | 3 | SELECT, NUMBER | FLAT, PER_UNIT |
-| Cuci mobil | 4 | SELECT, MULTISELECT, NUMBER | FLAT |
-| Servis motor | 4 | SELECT, MULTISELECT, NUMBER | FLAT |
-| Foto produk | 4 | SELECT, MULTISELECT, NUMBER | FLAT, PER_UNIT |
-| Makeup artist acara | 5 | SELECT, MULTISELECT, NUMBER | FLAT, PER_UNIT |
-| Makeup pengantin | 5 | SELECT, MULTISELECT, NUMBER | FLAT, PER_UNIT |
-| Tukang listrik | 5 | SELECT, NUMBER, BOOLEAN | FLAT, PER_UNIT |
-| Servis mesin cuci | 5 | SELECT, MULTISELECT, NUMBER | FLAT |
-| Dokumentasi acara | 6 | SELECT, MULTISELECT, NUMBER | FLAT |
-| Servis AC | 6 | SELECT, MULTISELECT, NUMBER | FLAT, PER_UNIT |
-| Foto prewedding | 7 | SELECT, MULTISELECT, NUMBER | FLAT, PER_UNIT |
+| Potong rambut | 2 | SELECT, NUMBER | FLAT, PER_UNIT |
+| Cuci mobil | 3 | SELECT, MULTISELECT | FLAT |
+| Servis motor | 3 | SELECT, MULTISELECT | FLAT |
+| Foto produk | 3 | SELECT, MULTISELECT, NUMBER | FLAT, PER_UNIT |
+| Makeup artist acara | 4 | SELECT, MULTISELECT, NUMBER | FLAT, PER_UNIT |
+| Makeup pengantin | 4 | SELECT, MULTISELECT, NUMBER | FLAT, PER_UNIT |
+| Tukang listrik | 4 | SELECT, NUMBER, BOOLEAN | FLAT, PER_UNIT |
+| Servis mesin cuci | 4 | SELECT, MULTISELECT, NUMBER | FLAT |
+| Dokumentasi acara | 5 | SELECT, MULTISELECT, NUMBER | FLAT |
+| Servis AC | 5 | SELECT, MULTISELECT, NUMBER | FLAT, PER_UNIT |
+| Foto prewedding | 6 | SELECT, MULTISELECT, NUMBER | FLAT, PER_UNIT |
 
-Rentang 2 sampai 7 atribut dalam struktur yang sama persis, tanpa satu pun kolom tambahan di skema. Ini angka yang ditunjukkan di Bab IV sebagai bukti tujuan penelitian nomor 1.
+Total 45 atribut. Jumlah per sub-kategori sudah tanpa `durasi_estimasi` (D90).
+
+Rentang 2 sampai 6 atribut dalam struktur yang sama persis, tanpa satu pun kolom tambahan di skema. Ini angka yang ditunjukkan di Bab IV sebagai bukti tujuan penelitian nomor 1.
 
 **Tiga pasangan kontras yang siap dipakai kalau penguji bertanya:**
 
@@ -1898,6 +1933,6 @@ Rentang 2 sampai 7 atribut dalam struktur yang sama persis, tanpa satu pun kolom
 |---|---|
 | `jenis_kendaraan` (cuci mobil, OPTION berbayar) versus `tipe_motor` (servis motor, SPEC) | Atribut bernama mirip di kategori yang sama bisa punya peran dan perilaku berbeda |
 | `jenis_acara` (makeup artist, OPTION) versus `gaya_riasan` (makeup pengantin, SPEC) | Pola yang sama berulang di kategori lain, jadi bukan kebetulan |
-| Ganti oli 2 atribut versus foto prewedding 7 atribut | Hybrid Approach tidak memaksa penyedia sederhana mengisi banyak kolom |
+| Ganti oli 2 atribut versus foto prewedding 6 atribut | Hybrid Approach tidak memaksa penyedia sederhana mengisi banyak kolom |
 
 **Catatan tipe data yang tidak terpakai.** TEXT dan DATE tidak muncul di dua belas sub-kategori ini. DATE tertutup oleh `scheduled_at` yang sudah jadi kolom tersendiri, dan TEXT dihindari karena tidak bisa difilter serta hampir selalu sebenarnya milik deskripsi listing. Kalau ditanya, jawabannya: definisi tipe disediakan lengkap supaya admin bisa menambah jasa baru yang membutuhkannya, dan dua belas sub-kategori contoh belum tentu memakai seluruhnya. Sistemnya memang dirancang lebih luas dari datanya.

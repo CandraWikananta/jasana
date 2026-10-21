@@ -4,16 +4,16 @@
 
 | | |
 |---|---|
-| Versi | 2.2 |
+| Versi | 2.3 |
 | Penyusun | I Nyoman Gede Candra Wikananta (2305551065) |
 | Program Studi | Teknologi Informasi, Universitas Udayana |
 | Bidang Keahlian | Sistem Informasi |
 | Pembimbing 1 | Dr. Ir. Ni Kadek Ayu Wirdiani, S.T., M.T., IPU |
 | Pembimbing 2 | Dr. Ir. Anak Agung Kompiang Oka Sudana, S.Kom., M.T., IPM |
-| Tanggal | 15 Oktober 2026 |
+| Tanggal | 21 Oktober 2026 |
 | Cakupan dokumen | **Backend saja** (Express.js REST API, basis data, integrasi eksternal, cron). Frontend dan UI/UX di luar cakupan dokumen ini |
 
-**Dokumen rujukan:** `Keputusan-Desain-Sistem.md` (register keputusan D1 sampai D86, versi 2.8), `State-Machine-Order.md` (artefak desain 3), `skema-database-final.dbml` (34 tabel, 35 enum), `schema.prisma`, `migration-constraints.sql`, `Panduan-Struktur-Database.md`.
+**Dokumen rujukan:** `Keputusan-Desain-Sistem.md` (register keputusan D1 sampai D90, versi 2.9), `State-Machine-Order.md` (artefak desain 3), `skema-database-final.dbml` (34 tabel, 35 enum), `schema.prisma`, `migration-constraints.sql`, `Panduan-Struktur-Database.md`.
 
 **Catatan versi.** Dokumen ini menggantikan PRD versi 1.x sepenuhnya, bukan merevisinya. Implementasi dimulai ulang dari nol mengikuti milestone di Bagian 9. Perubahan terbesar sejak versi 1.x adalah masuknya entitas tenaga kerja (D31 sampai D53) atas arahan Pembimbing 1, yang memindahkan pelaksanaan order dari akun provider ke pekerja.
 
@@ -68,7 +68,7 @@ Backend berdiri sebagai REST API tunggal (Express.js) yang dikonsumsi satu aplik
 | Tujuan | Metrik | Cara verifikasi |
 |---|---|---|
 | O1 | 0 perubahan skema saat menambah sub-kategori, atribut, dan opsi berbayar baru | Skenario admin menambah sub-kategori lengkap dengan atribut OPTION berbayar, lalu provider membuat listing dan client memesan dengan opsi itu |
-| O1 | Rentang 2 sampai 7 atribut pada 12 sub-kategori contoh, tanpa kolom tambahan | Tabel rekap Lampiran B `Keputusan-Desain-Sistem.md` |
+| O1 | Rentang 2 sampai 6 atribut pada 12 sub-kategori contoh, tanpa kolom tambahan | Tabel rekap Lampiran B `Keputusan-Desain-Sistem.md` |
 | O2 | 100% transisi ilegal ditolak | Sekitar 85 test case state machine |
 | O3 | Kueri rekonsiliasi V1 mengembalikan 0 baris | Dijalankan setelah seeding dan setelah seluruh pengujian |
 | O3 | Webhook duplikat menghasilkan tepat 1 `ESCROW_HOLD` | Kirim payload `invoice.paid` yang sama dua kali |
@@ -870,6 +870,7 @@ Alur server:
      platform_fee        = total_amount * platform_fee_percentage
      provider_earning    = total_amount - platform_fee
 4. Snapshot judul, atribut SPEC, opsi terpilih beserta deltanya, dan durasi
+   (snapshot_duration_minutes disalin dari listings.estimated_duration_minutes, D90)
 5. Set response_deadline_at sesuai mode
 6. Mode AVAILABLE_NOW: susun daftar penerima tawaran, maksimal
    available_now_offer_limit pekerja terdekat yang memenuhi syarat,
@@ -1339,7 +1340,7 @@ Data seed harus menyertakan kombinasi yang memungkinkan skenario di atas dijalan
 - Minimal satu provider `INDIVIDUAL` (pemilik sekaligus pekerja tunggal)
 - Minimal satu provider `BUSINESS` dengan **tiga pekerja** dan pemetaan listing yang tumpang tindih, untuk menguji order paralel dan perebutan
 - Satu order dokumentasi acara dengan pendamping, untuk menunjukkan aturan kru
-- Listing dengan 2 atribut dan listing dengan 7 atribut, untuk menunjukkan rentang Hybrid Approach
+- Listing dengan 2 atribut dan listing dengan 6 atribut, untuk menunjukkan rentang Hybrid Approach
 - Listing servis AC dengan `PER_UNIT` plus dua `SELECT` berbayar, sebagai kasus utama test perhitungan harga
 - Koordinat client dan pekerja yang menghasilkan check-in lolos maupun gagal
 
@@ -1347,7 +1348,7 @@ Data seed harus menyertakan kombinasi yang memungkinkan skenario di atas dijalan
 
 ## 9. Milestone Implementasi
 
-Status per 15 Oktober 2026: **Fase 0 dan Fase 1 selesai, Fase 2 sedang berjalan**, sisanya belum dikerjakan. Urutan mengikuti dependency tree, bukan urutan tabel jadwal pada usulan ide.
+Status per 21 Oktober 2026: **Fase 0 sampai Fase 3 selesai**, sisanya belum dikerjakan. Urutan mengikuti dependency tree, bukan urutan tabel jadwal pada usulan ide.
 
 | Fase | Keluaran backend | Kriteria selesai |
 |---|---|---|
@@ -1371,7 +1372,9 @@ Status per 15 Oktober 2026: **Fase 0 dan Fase 1 selesai, Fase 2 sedang berjalan*
 
 ## 10. Pertanyaan Terbuka
 
-**Tidak ada pertanyaan terbuka per versi 2.2.** Seluruhnya ditutup di register keputusan versi 2.8:
+**Satu pertanyaan terbuka per versi 2.3**, yaitu nomor 5 di Bagian 7 register keputusan versi 2.9: durasi untuk jasa yang lamanya ditentukan opsi pilihan client (`paket_durasi`, `durasi_liputan`). Harus diputuskan sebelum Fase 6.
+
+Yang sudah ditutup di register keputusan versi 2.8:
 
 | # | Pertanyaan | Ditutup oleh |
 |---|---|---|
@@ -1429,6 +1432,7 @@ Status per 15 Oktober 2026: **Fase 0 dan Fase 1 selesai, Fase 2 sedang berjalan*
 | `TOKEN_EXPIRED` | 422 | Token verifikasi kedaluwarsa |
 | `TOKEN_ALREADY_USED` | 422 | Token verifikasi sudah dipakai |
 | `TAXONOMY_REQUEST_LIMIT` | 429 | Melewati batas usulan aktif per provider |
+| `TAXONOMY_REQUEST_STATE_CONFLICT` | 409 | Usulan yang sudah diputus diputus lagi |
 | `GUEST_CHAT_LIMIT_REACHED` | 429 | Sesi chatbot tamu melewati batas pesan |
 | `RATE_LIMIT_EXCEEDED` | 429 | Melewati batas permintaan |
 | `GEMINI_UNAVAILABLE` | 502 | Gemini API gagal merespons |
@@ -1460,3 +1464,4 @@ Tidak menyangkut aturan bisnis, dibentuk oleh middleware bersama pada Fase 0.
 | **2.0** | **30 September 2026** | **Tulis ulang penuh.** Menyesuaikan D31 sampai D79: tenaga kerja sebagai entitas dengan akun sendiri, pemetaan pekerja ke listing, penerimaan order per mode dengan klaim atomik, kru order, atribut berbayar dan penamaan nominal baru, usulan taksonomi, notifikasi email dan verifikasi akun, refresh token, chatbot tamu, FAQ listing, serta pesan dalam order. Skema jadi 34 tabel dan 35 enum. Tujuan bertambah jadi tujuh dengan masuknya O5 penugasan tenaga kerja. Seluruh milestone direset ke belum dikerjakan |
 | 2.1 | 30 September 2026 | Pola unggah berkas dipisah per sifat (D80). Dokumen e-KYC dan bukti dispute jadi multipart lewat API dengan validasi magic bytes, foto listing tetap signed URL. Kontrak dua endpoint unggah ditambahkan di Bagian 4.4, cron pembersih berkas yatim, tiga parameter sistem, aturan mengikat nomor 13 |
 | 2.2 | 15 Oktober 2026 | Sinkron dengan register keputusan versi 2.8 (D81 sampai D86). Pertanyaan terbuka di Bagian 10 seluruhnya ditutup. Target UAT, akurasi, beban normal, dan stress di Bagian 1.3, 6.2, dan 8. Kontrak withdrawal dengan minimum dan admin fee, dua parameter sistem, kode error `WITHDRAWAL_BELOW_MINIMUM`. Dua non-goal baru. Status milestone diperbarui |
+| 2.3 | 21 Oktober 2026 | Sinkron dengan register keputusan versi 2.9. Sumber snapshot durasi dari kolom listing (D90), rentang atribut 2 sampai 6, kode error `TAXONOMY_REQUEST_STATE_CONFLICT`, satu pertanyaan terbuka soal durasi yang ditentukan opsi, status milestone Fase 0 sampai 3 selesai |
