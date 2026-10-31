@@ -9,7 +9,7 @@
 
 import { z } from 'zod';
 import { paginationQuery } from '../../lib/pagination';
-import { priceRangeMessage, priceRangeOk, subcategoryFields } from '../catalog/catalog.schema';
+import { durationMinutes, priceRangeMessage, priceRangeOk, subcategoryFields } from '../catalog/catalog.schema';
 
 const id = (name: string) =>
   z.string({ required_error: `${name} wajib diisi` }).uuid(`${name} tidak sah`);
@@ -126,9 +126,13 @@ export const approveSubcategorySchema = z
   })
   .refine(priceRangeOk, priceRangeMessage);
 
-/** `definition` APPROVED untuk NEW_ATTRIBUTE_OPTION. Default `proposed_name`. */
+/**
+ * `definition` APPROVED untuk NEW_ATTRIBUTE_OPTION. Default `proposed_name`.
+ * `duration_minutes` wajib kalau atributnya berdurasi (D100), diperiksa service.
+ */
 export const approveOptionSchema = z.object({
   option_value: z.string().trim().min(1).max(100).optional(),
+  duration_minutes: durationMinutes.optional(),
 });
 
 export type SubmitRequestBody = z.infer<typeof submitRequestSchema>;

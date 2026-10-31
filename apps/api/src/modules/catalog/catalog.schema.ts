@@ -99,11 +99,15 @@ export const updateSubcategorySchema = z
 // Atribut
 // ---------------------------------------------------------------------------
 
+/** D100: durasi nilai opsi, batas yang sama dengan durasi listing (D90). Dipakai juga persetujuan option. */
+export const durationMinutes = z.number().int('duration_minutes harus bilangan bulat').min(15).max(720);
+
 const options = z
   .array(
     z.object({
       value: z.string().trim().min(1).max(100),
       is_active: z.boolean().default(true),
+      duration_minutes: durationMinutes.nullable().optional(),
     }),
   )
   .max(100)

@@ -16,10 +16,14 @@
  *
  * Durasi BUKAN atribut (D90). Sumbernya satu, kolom
  * `listings.estimated_duration_minutes`, jadi `durasi_estimasi` tidak ada
- * di sini.
+ * di sini. Pengecualiannya D100: nilai opsi B.5 dan B.6 membawa
+ * `duration_minutes`, dan "Dua Hari" di B.6 dihapus.
  */
 
 const opts = (...values) => values.map((value) => ({ value, is_active: true }));
+
+/** D100: pasangan [value, duration_minutes]. */
+const timed = (...pairs) => pairs.map(([value, minutes]) => ({ value, is_active: true, duration_minutes: minutes }));
 
 /** SPEC selalu NONE (D72). */
 const spec = (key, label, dataType, isRequired, isFilterable, extra = {}) => ({
@@ -133,7 +137,7 @@ export const CATALOG = [
         suggested_price_max: 7000000,
         attributes: [
           option('paket_durasi', 'Durasi pemotretan', 'SELECT', true, true, {
-            options: opts('Setengah Hari (4 jam)', 'Sehari Penuh (8 jam)'),
+            options: timed(['Setengah Hari (4 jam)', 240], ['Sehari Penuh (8 jam)', 480]),
           }),
           option('jumlah_lokasi', 'Jumlah lokasi', 'NUMBER', true, false, {
             validation_rule: rule(1, 4),
@@ -164,7 +168,7 @@ export const CATALOG = [
             options: opts('Ulang Tahun', 'Seminar', 'Wisuda', 'Gathering Perusahaan', 'Pernikahan', 'Upacara Keagamaan'),
           }),
           option('durasi_liputan', 'Durasi liputan', 'SELECT', true, true, {
-            options: opts('2 Jam', '4 Jam', '8 Jam', 'Dua Hari'),
+            options: timed(['2 Jam', 120], ['4 Jam', 240], ['8 Jam', 480]),
           }),
           option('tambahan', 'Layanan tambahan', 'MULTISELECT', false, true, {
             options: opts('Cetak Instan di Lokasi', 'Live Streaming', 'Drone', 'Same Day Edit', 'Photobooth'),

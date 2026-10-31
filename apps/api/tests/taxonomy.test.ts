@@ -235,6 +235,25 @@ describe.skipIf(!hasTestDatabase)('usulan taksonomi', () => {
       expect(detailPaths(missing)).toContain('definition.attribute_key');
     });
 
+    it('D100: NEW_ATTRIBUTE berdurasi ditolak dengan pesan jalur PATCH, walau admin mengirim is_required: true', async () => {
+      const id = await submitted(newAttribute());
+      const res = await decide(id, {
+        decision: 'APPROVED',
+        definition: {
+          attribute_key: 'durasi_cuci',
+          label: 'Durasi cuci',
+          data_type: 'SELECT',
+          attribute_role: 'OPTION',
+          pricing_mode: 'FLAT_PER_OPTION',
+          options: [{ value: 'Cepat', duration_minutes: 30 }, { value: 'Lengkap', duration_minutes: 90 }],
+          is_required: true,
+        },
+      });
+      expect(res.status).toBe(422);
+      expect(res.body.error.details).toEqual([{ path: 'definition.options', message: expect.stringContaining('PATCH') }]);
+      expect((await prisma.taxonomyRequest.findUniqueOrThrow({ where: { id } })).status).toBe('PENDING');
+    });
+
     it('NEW_ATTRIBUTE_OPTION disetujui menambah option dan mengisi resulting_id', async () => {
       const id = await submitted(newOption('Minibus'));
       const res = await decide(id, { decision: 'APPROVED' });
@@ -246,6 +265,37 @@ describe.skipIf(!hasTestDatabase)('usulan taksonomi', () => {
         { value: 'Sedan', is_active: true },
         { value: 'Minibus', is_active: true },
       ]);
+    });
+
+    it('D100: option baru di atribut berdurasi wajib diberi durasi oleh admin', async () => {
+      await prisma.subcategoryAttribute.updateMany({
+        where: { subcategoryId, attributeKey: 'jenis_kendaraan' },
+        data: { isRequired: true, options: [{ value: 'Sedan', is_active: true, duration_minutes: 60 }] },
+      });
+      const id = await submitted(newOption('Minibus'));
+
+      const missing = await decide(id, { decision: 'APPROVED' });
+      expect(missing.status).toBe(422);
+      expect(detailPaths(missing)).toEqual(['duration_minutes']);
+      const outOfRange = await decide(id, { decision: 'APPROVED', definition: { duration_minutes: 721 } });
+      expect(detailPaths(outOfRange)).toEqual(['definition.duration_minutes']);
+      expect((await prisma.taxonomyRequest.findUniqueOrThrow({ where: { id } })).status).toBe('PENDING');
+
+      const res = await decide(id, { decision: 'APPROVED', definition: { duration_minutes: 90 } });
+      expect(res.status, JSON.stringify(res.body)).toBe(200);
+      const attribute = await prisma.subcategoryAttribute.findUniqueOrThrow({ where: { id: res.body.data.resulting_id } });
+      expect(attribute.options).toEqual([
+        { value: 'Sedan', is_active: true, duration_minutes: 60 },
+        { value: 'Minibus', is_active: true, duration_minutes: 90 },
+      ]);
+    });
+
+    it('D100: durasi untuk atribut tanpa durasi ditolak, usulan tetap PENDING', async () => {
+      const id = await submitted(newOption('Minibus'));
+      const res = await decide(id, { decision: 'APPROVED', definition: { duration_minutes: 90 } });
+      expect(res.status).toBe(422);
+      expect(detailPaths(res)).toEqual(['duration_minutes']);
+      expect((await prisma.taxonomyRequest.findUniqueOrThrow({ where: { id } })).status).toBe('PENDING');
     });
 
     // -----------------------------------------------------------------------

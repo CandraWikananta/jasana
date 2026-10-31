@@ -206,6 +206,133 @@ describe.skipIf(!hasTestDatabase)('katalog', () => {
   });
 
   // -------------------------------------------------------------------------
+  describe('D100: durasi pada nilai opsi', () => {
+    let subcategoryId: string;
+    beforeEach(async () => {
+      subcategoryId = await newSubcategory(await newCategory());
+    });
+    const create = (body: Record<string, unknown>) =>
+      adminCall('post', `/subcategories/${subcategoryId}/attributes`).send(body);
+    const patch = (id: string, body: Record<string, unknown>) =>
+      adminCall('patch', `/subcategories/${subcategoryId}/attributes/${id}`).send(body);
+    const paths = (res: request.Response) => res.body.error.details.map((d: { path: string }) => d.path);
+
+    const durasi = (key = 'durasi_liputan', overrides: Record<string, unknown> = {}) => ({
+      ...selectOption,
+      attribute_key: key,
+      label: 'Durasi liputan',
+      options: [
+        { value: '2 Jam', duration_minutes: 120 },
+        { value: '4 Jam', duration_minutes: 240 },
+      ],
+      ...overrides,
+    });
+
+    it('duration_minutes tampil di respons admin dan publik, null untuk atribut tanpa durasi', async () => {
+      const created = await create(durasi());
+      expect(created.status, JSON.stringify(created.body)).toBe(201);
+      expect(created.body.data.options).toEqual([
+        { value: '2 Jam', is_active: true, duration_minutes: 120 },
+        { value: '4 Jam', is_active: true, duration_minutes: 240 },
+      ]);
+      expect((await create(selectOption)).status).toBe(201);
+
+      const attrs = await publicGet(`/subcategories/${subcategoryId}/attributes`);
+      const byKey = Object.fromEntries(attrs.body.data.map((a: { attribute_key: string }) => [a.attribute_key, a]));
+      expect(byKey.durasi_liputan.options[1]).toEqual({ value: '4 Jam', is_active: true, duration_minutes: 240 });
+      expect(byKey.jenis_kendaraan.options[0]).toEqual({ value: 'Sedan', is_active: true, duration_minutes: null });
+    });
+
+    it.each([
+      ['di bawah 15', 14],
+      ['di atas 720', 721],
+      ['bukan bilangan bulat', 90.5],
+    ])('durasi %s ditolak 422', async (_name, minutes) => {
+      const res = await create(durasi('durasi_liputan', { options: [{ value: '2 Jam', duration_minutes: minutes }] }));
+      expect(res.status).toBe(422);
+      expect(paths(res)).toEqual(['options.0.duration_minutes']);
+    });
+
+    it('aturan (1): MULTISELECT, SPEC, dan atribut opsional tidak boleh berdurasi', async () => {
+      expect(paths(await create(durasi('a', { data_type: 'MULTISELECT' })))).toEqual(['options']);
+      expect(paths(await create(durasi('b', { attribute_role: 'SPEC', pricing_mode: 'NONE' })))).toEqual(['options']);
+      expect(paths(await create(durasi('c', { is_required: false })))).toEqual(['is_required']);
+    });
+
+    it('aturan (1): is_required tidak bisa dicabut selama ada durasi', async () => {
+      const id = (await create(durasi())).body.data.id;
+      const res = await patch(id, { is_required: false });
+      expect(res.status).toBe(422);
+      expect(paths(res)).toEqual(['is_required']);
+      // Setelah durasinya dibuang, boleh.
+      const cleared = await patch(id, { options: [{ value: '2 Jam' }, { value: '4 Jam' }], is_required: false });
+      expect(cleared.status, JSON.stringify(cleared.body)).toBe(200);
+    });
+
+    it('aturan (2): maksimal satu atribut berdurasi aktif, lewat POST maupun PATCH (D103)', async () => {
+      const first = (await create(durasi())).body.data.id;
+      const second = await create(durasi('paket_durasi'));
+      expect(second.status).toBe(422);
+      expect(second.body.error.details[0].message).toContain('durasi_liputan');
+
+      const plain = (await create(durasi('paket_durasi', { options: [{ value: 'A' }, { value: 'B' }] }))).body.data.id;
+      const timed = { options: [{ value: 'A', duration_minutes: 60 }, { value: 'B', duration_minutes: 90 }] };
+      expect((await patch(plain, timed)).status).toBe(422);
+
+      // D103: yang nonaktif tidak dihitung, jalur D87 (nonaktifkan lalu ganti) tetap terbuka.
+      expect((await patch(first, { is_active: false })).status).toBe(200);
+      expect((await patch(plain, timed)).status).toBe(200);
+      const reactivated = await patch(first, { is_active: true });
+      expect(reactivated.status).toBe(422);
+      expect(reactivated.body.error.details[0].message).toContain('paket_durasi');
+    });
+
+    // Dua request API biasa terlalu cepat untuk bertabrakan, jadi "admin lain"
+    // disimulasikan transaksi yang memegang kunci sub-kategori lebih dulu, lalu
+    // membuat atribut berdurasi setelah jeda. Tanpa kunci di assertSingleTimed,
+    // POST membaca nol atribut berdurasi lain dan ikut lolos.
+    it('aturan (2): dua atribut berdurasi dibuat bersamaan, tepat satu yang lolos', async () => {
+      let holding!: () => void;
+      const locked = new Promise<void>((resolve) => (holding = resolve));
+      const anotherAdmin = prisma.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT id FROM subcategories WHERE id = ${subcategoryId}::uuid FOR UPDATE`;
+        holding();
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        await tx.subcategoryAttribute.create({
+          data: {
+            subcategoryId,
+            attributeKey: 'durasi_liputan',
+            label: 'Durasi liputan',
+            dataType: 'SELECT',
+            attributeRole: 'OPTION',
+            pricingMode: 'FLAT_PER_OPTION',
+            isRequired: true,
+            options: [{ value: '2 Jam', is_active: true, duration_minutes: 120 }],
+          },
+        });
+      });
+      await locked;
+      const [res] = await Promise.all([create(durasi('paket_durasi')), anotherAdmin]);
+      expect(res.status, JSON.stringify(res.body)).toBe(422);
+      expect(res.body.error.details[0].message).toContain('durasi_liputan');
+    });
+
+    it('aturan (3): all-or-none di opsi aktif, mengaktifkan ulang opsi tanpa durasi ditolak (D103)', async () => {
+      const partial = await create(durasi('durasi_liputan', { options: [{ value: '2 Jam', duration_minutes: 120 }, { value: '4 Jam' }] }));
+      expect(paths(partial)).toEqual(['options']);
+
+      const id = (
+        await create(durasi('durasi_liputan', {
+          options: [{ value: '2 Jam', duration_minutes: 120 }, { value: 'Dua Hari', is_active: false }],
+        }))
+      ).body.data.id;
+      const res = await patch(id, { options: [{ value: '2 Jam', duration_minutes: 120 }, { value: 'Dua Hari' }] });
+      expect(res.status).toBe(422);
+      expect(res.body.error.details[0].message).toContain('Dua Hari');
+    });
+  });
+
+  // -------------------------------------------------------------------------
   describe('D67: atribut wajib baru menandai listing lama, tanpa backfill', () => {
     let subcategoryId: string;
     let providerId: string;
@@ -341,6 +468,16 @@ describe.skipIf(!hasTestDatabase)('katalog', () => {
       'kapasitas_pk',
       'tambahan',
       'merek_dilayani',
+    ]);
+
+    // D100: durasi B.6 sampai ke respons publik, "Dua Hari" tidak ada.
+    const liputan = await prisma.subcategory.findFirstOrThrow({ where: { slug: 'dokumentasi-acara' } });
+    const b6 = await publicGet(`/subcategories/${liputan.id}/attributes`);
+    const durasi = b6.body.data.find((a: { attribute_key: string }) => a.attribute_key === 'durasi_liputan');
+    expect(durasi.options.map((o: { value: string; duration_minutes: number }) => [o.value, o.duration_minutes])).toEqual([
+      ['2 Jam', 120],
+      ['4 Jam', 240],
+      ['8 Jam', 480],
     ]);
   });
 });

@@ -114,6 +114,51 @@ describe('checkAttributeDefinition', () => {
   });
 });
 
+describe('D100: durasi pada nilai opsi', () => {
+  const durasi = (overrides: Partial<AttributeDefinition> = {}) =>
+    def({
+      attribute_key: 'durasi_liputan',
+      is_required: true,
+      options: [
+        { value: '2 Jam', is_active: true, duration_minutes: 120 },
+        { value: '4 Jam', is_active: true, duration_minutes: 240 },
+      ],
+      ...overrides,
+    });
+
+  it('SELECT OPTION wajib dengan durasi di seluruh opsi aktif sah', () => {
+    expect(checkAttributeDefinition(durasi())).toEqual([]);
+  });
+
+  it('aturan (1): hanya SELECT berperan OPTION', () => {
+    expect(paths(checkAttributeDefinition(durasi({ data_type: 'MULTISELECT' })))).toEqual(['options']);
+    expect(paths(checkAttributeDefinition(durasi({ attribute_role: 'SPEC', pricing_mode: 'NONE' })))).toEqual([
+      'options',
+    ]);
+  });
+
+  it('aturan (1): atribut berdurasi tidak boleh opsional', () => {
+    expect(paths(checkAttributeDefinition(durasi({ is_required: false })))).toEqual(['is_required']);
+    expect(paths(checkAttributeDefinition(durasi({ is_required: undefined })))).toEqual(['is_required']);
+  });
+
+  it('aturan (3): satu opsi aktif tanpa durasi membuat seluruhnya ditolak, null sama dengan kosong', () => {
+    const partial = durasi({ options: [{ value: '2 Jam', is_active: true, duration_minutes: 120 }, { value: '4 Jam', is_active: true }] });
+    expect(checkAttributeDefinition(partial)[0]).toMatchObject({ path: 'options', message: expect.stringContaining('4 Jam') });
+    const nulled = durasi({ options: [{ value: '2 Jam', is_active: true, duration_minutes: 120 }, { value: '4 Jam', is_active: true, duration_minutes: null }] });
+    expect(paths(checkAttributeDefinition(nulled))).toEqual(['options']);
+  });
+
+  it('D103: opsi nonaktif boleh tanpa durasi, seperti "Dua Hari"', () => {
+    const options = [...durasi().options!, { value: 'Dua Hari', is_active: false }];
+    expect(checkAttributeDefinition(durasi({ options }))).toEqual([]);
+  });
+
+  it('atribut tanpa durasi sama sekali tetap sah walau opsional', () => {
+    expect(checkAttributeDefinition(def({ is_required: false }))).toEqual([]);
+  });
+});
+
 describe('validateAttributeValue', () => {
   it('SELECT hanya menerima option aktif', () => {
     const select = def({ options: [...opts('Sedan'), { value: 'Van', is_active: false }] });
@@ -334,5 +379,27 @@ describe('Lampiran B: katalog contoh (D71)', () => {
       expect(sub.attributes.some((attribute) => attribute.attribute_role === 'OPTION'), sub.slug).toBe(true);
       expect(sub.suggested_price_min).toBeLessThan(sub.suggested_price_max);
     }
+  });
+
+  it('D100: hanya B.5 dan B.6 yang berdurasi, sesuai Lampiran B, tanpa "Dua Hari"', () => {
+    const timed = subcategories.flatMap((sub) =>
+      sub.attributes
+        .filter((attribute) => attribute.options?.some((option) => option.duration_minutes != null))
+        .map((attribute) => [
+          `${sub.slug}.${attribute.attribute_key}`,
+          attribute.options!.map((option) => [option.value, option.duration_minutes]),
+        ]),
+    );
+    expect(Object.fromEntries(timed)).toEqual({
+      'foto-prewedding.paket_durasi': [
+        ['Setengah Hari (4 jam)', 240],
+        ['Sehari Penuh (8 jam)', 480],
+      ],
+      'dokumentasi-acara.durasi_liputan': [
+        ['2 Jam', 120],
+        ['4 Jam', 240],
+        ['8 Jam', 480],
+      ],
+    });
   });
 });

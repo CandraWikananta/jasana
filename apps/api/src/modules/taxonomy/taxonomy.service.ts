@@ -27,6 +27,7 @@ import {
   createSubcategoryTx,
   translateCatalogError,
 } from '../catalog/catalog.service';
+import { isTimed } from '../catalog/attribute-rules';
 import { createAttributeSchema } from '../catalog/catalog.schema';
 import { dispatchEmails, recordEmail, type OutgoingEmail } from '../notifications/email-outbox';
 import { lockProviderProfile } from '../workers/workforce';
@@ -278,6 +279,13 @@ async function approve(tx: Tx, request: PendingRequest, definition: unknown): Pr
 
   if (request.requestType === 'NEW_ATTRIBUTE') {
     const def = parseDefinition(createAttributeSchema, definition);
+    // Atribut hasil usulan selalu opsional, padahal atribut berdurasi wajib diisi (D100 aturan 1).
+    if (isTimed({ options: def.options })) {
+      invalid(
+        'definition.options',
+        'Atribut hasil usulan selalu opsional, jadi belum bisa berdurasi. Setujui tanpa duration_minutes, lalu tambahkan durasi dan is_required lewat PATCH atribut (D100)',
+      );
+    }
     const created = await createAttributeTx(tx, request.subcategoryId, { ...def, is_required: false });
     return { resultingId: created.id, subcategoryId: request.subcategoryId };
   }
@@ -288,7 +296,7 @@ async function approve(tx: Tx, request: PendingRequest, definition: unknown): Pr
     select: { id: true },
   });
   if (!attribute) return invalid('attribute_key', 'Atribut usulan sudah tidak ada');
-  await appendAttributeOptionTx(tx, attribute.id, def.option_value ?? request.proposedName);
+  await appendAttributeOptionTx(tx, attribute.id, def.option_value ?? request.proposedName, def.duration_minutes);
   return { resultingId: attribute.id, subcategoryId: request.subcategoryId };
 }
 

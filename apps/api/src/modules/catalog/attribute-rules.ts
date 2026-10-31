@@ -21,6 +21,8 @@ export const ATTRIBUTE_KEY_PATTERN = /^[a-z][a-z0-9_]*$/;
 export interface AttributeOption {
   value: string;
   is_active: boolean;
+  /** D100: lama pekerjaan kalau opsi ini dipilih, menggantikan durasi listing. */
+  duration_minutes?: number | null;
 }
 
 /** Isi kolom JSONB `validation_rule`. min/max untuk nilai NUMBER dan panjang TEXT. */
@@ -65,6 +67,10 @@ export function isAllowedPricingCombination(
 const hasOptions = (dataType: AttributeDataType) =>
   dataType === 'SELECT' || dataType === 'MULTISELECT';
 
+/** D100: atribut berdurasi, yaitu minimal satu nilai opsinya membawa `duration_minutes`. */
+export const isTimed = (def: Pick<AttributeDefinition, 'options'>): boolean =>
+  (def.options ?? []).some((option) => option.duration_minutes != null);
+
 /** Seluruh pelanggaran definisi, kosong kalau sah. */
 export function checkAttributeDefinition(def: AttributeDefinition): ErrorDetail[] {
   const errors: ErrorDetail[] = [];
@@ -96,6 +102,20 @@ export function checkAttributeDefinition(def: AttributeDefinition): ErrorDetail[
     }
   } else if (options && options.length > 0) {
     fail('options', `options hanya untuk SELECT dan MULTISELECT, bukan ${def.data_type}`);
+  }
+
+  if (isTimed(def)) {
+    if (def.data_type !== 'SELECT' || def.attribute_role !== 'OPTION') {
+      fail('options', 'duration_minutes hanya untuk atribut SELECT berperan OPTION (D100)');
+    }
+    if (!def.is_required) {
+      fail('is_required', 'Atribut berdurasi wajib diisi, is_required tidak boleh false selama ada duration_minutes (D100)');
+    }
+    // D103: hanya opsi aktif. Opsi nonaktif seperti "Dua Hari" boleh tanpa durasi.
+    const missing = (options ?? []).filter((option) => option.is_active && option.duration_minutes == null);
+    if (missing.length > 0) {
+      fail('options', `Seluruh opsi aktif wajib punya duration_minutes: ${missing.map((o) => o.value).join(', ')}`);
+    }
   }
 
   const rule = def.validation_rule ?? null;

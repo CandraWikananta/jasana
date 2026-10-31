@@ -26,6 +26,7 @@ import { isUniqueViolation } from '../../lib/prisma-errors';
 import {
   checkAttributeDefinition,
   isEmptyValue,
+  isTimed,
   type AttributeDefinition,
 } from './attribute-rules';
 import {
@@ -251,6 +252,30 @@ function assertDefinition(def: AttributeDefinition): void {
   if (errors.length > 0) throw Errors.validation(errors, 'Definisi atribut tidak sah');
 }
 
+/**
+ * D100 aturan (2): maksimal satu atribut berdurasi AKTIF per sub-kategori
+ * (D103). Sub-kategori dikunci supaya dua tulisan bersamaan tidak sama-sama
+ * melihat nol atribut berdurasi lain.
+ */
+async function assertSingleTimed(
+  tx: Tx,
+  subcategoryId: string,
+  attributeId: string | null,
+  def: AttributeDefinition,
+): Promise<void> {
+  if (!isTimed(def) || def.is_active === false) return;
+  await tx.$queryRaw`SELECT id FROM subcategories WHERE id = ${subcategoryId}::uuid FOR UPDATE`;
+  const others = await tx.subcategoryAttribute.findMany({
+    where: { subcategoryId, isActive: true, ...(attributeId ? { id: { not: attributeId } } : {}) },
+  });
+  const timed = others.find((row) => isTimed(toDefinition(row)));
+  if (timed) {
+    throw Errors.validation([
+      { path: 'options', message: `Sub-kategori ini sudah punya atribut berdurasi aktif: ${timed.attributeKey} (D100)` },
+    ]);
+  }
+}
+
 /** Dipakai juga persetujuan usulan NEW_ATTRIBUTE, di transaksi pemanggil. */
 export async function createAttributeTx(
   tx: Tx,
@@ -260,11 +285,9 @@ export async function createAttributeTx(
   const subcategory = await tx.subcategory.findUnique({ where: { id: subcategoryId }, select: { id: true } });
   if (!subcategory) throw Errors.notFound('Sub-kategori tidak ditemukan');
 
-  assertDefinition({
-    ...body,
-    options: body.options ?? null,
-    validation_rule: body.validation_rule ?? null,
-  });
+  const def = { ...body, options: body.options ?? null, validation_rule: body.validation_rule ?? null };
+  assertDefinition(def);
+  await assertSingleTimed(tx, subcategoryId, null, def);
 
   const row = await tx.subcategoryAttribute.create({
     data: {
@@ -341,6 +364,7 @@ export function updateAttribute(
       ]);
     }
     assertDefinition(after);
+    await assertSingleTimed(tx, subcategoryId, attributeId, after);
 
     const row = await tx.subcategoryAttribute.update({
       where: { id: attributeId },
@@ -371,11 +395,13 @@ export function deleteAttribute(subcategoryId: string, attributeId: string): Pro
  * Persetujuan usulan NEW_ATTRIBUTE_OPTION. Hanya SELECT dan MULTISELECT
  * yang punya option. Value yang sudah ada, aktif maupun tidak, ditolak:
  * yang nonaktif diaktifkan ulang lewat PATCH atribut, bukan ditambah kembar.
+ * Atribut berdurasi wajib diberi durasi oleh admin, yang lain tidak boleh (D100 poin 4).
  */
 export async function appendAttributeOptionTx(
   tx: Tx,
   attributeId: string,
   value: string,
+  durationMinutes?: number | null,
 ): Promise<AttributeDto> {
   await lockAttribute(tx, attributeId);
   const current = await tx.subcategoryAttribute.findUniqueOrThrow({ where: { id: attributeId } });
@@ -389,10 +415,18 @@ export async function appendAttributeOptionTx(
   if (options.some((option) => option.value === value)) {
     fail({ path: 'option_value', message: `Option ${value} sudah ada di atribut ini` });
   }
+  const timed = isTimed({ options });
+  if (timed && durationMinutes == null) {
+    fail({ path: 'duration_minutes', message: 'Atribut ini berdurasi, duration_minutes wajib diisi admin (D100)' });
+  }
+  if (!timed && durationMinutes != null) {
+    fail({ path: 'duration_minutes', message: 'Atribut ini tidak berdurasi, duration_minutes tidak boleh diisi' });
+  }
 
+  const added = timed ? { value, is_active: true, duration_minutes: durationMinutes } : { value, is_active: true };
   const row = await tx.subcategoryAttribute.update({
     where: { id: attributeId },
-    data: { options: [...options, { value, is_active: true }] as unknown as Prisma.InputJsonValue },
+    data: { options: [...options, added] as unknown as Prisma.InputJsonValue },
   });
   return toAttributeDto(row);
 }

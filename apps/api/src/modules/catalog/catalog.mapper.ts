@@ -88,14 +88,15 @@ export function toDefinition(row: SubcategoryAttribute): Required<AttributeDefin
  */
 export function toAttributeDto(row: SubcategoryAttribute, publicView = false): AttributeDto {
   const definition = toDefinition(row);
+  // D100: `duration_minutes` selalu ada di respons, null kalau opsinya tidak berdurasi.
+  const options =
+    definition.options?.map((option) => ({ ...option, duration_minutes: option.duration_minutes ?? null })) ?? null;
   return {
     id: row.id,
     subcategory_id: row.subcategoryId,
     label: row.label,
     ...definition,
-    options: publicView
-      ? (definition.options?.filter((option) => option.is_active) ?? null)
-      : definition.options,
+    options: publicView ? (options?.filter((option) => option.is_active) ?? null) : options,
     unit: row.unit,
     is_filterable: row.isFilterable,
     display_order: row.displayOrder,
