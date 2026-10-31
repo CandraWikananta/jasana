@@ -4,16 +4,16 @@
 
 | | |
 |---|---|
-| Versi | 2.5 |
+| Versi | 2.6 |
 | Penyusun | I Nyoman Gede Candra Wikananta (2305551065) |
 | Program Studi | Teknologi Informasi, Universitas Udayana |
 | Bidang Keahlian | Sistem Informasi |
 | Pembimbing 1 | Dr. Ir. Ni Kadek Ayu Wirdiani, S.T., M.T., IPU |
 | Pembimbing 2 | Dr. Ir. Anak Agung Kompiang Oka Sudana, S.Kom., M.T., IPM |
-| Tanggal | 22 Oktober 2026 |
+| Tanggal | 31 Oktober 2026 |
 | Cakupan dokumen | **Backend saja** (Express.js REST API, basis data, integrasi eksternal, cron). Frontend dan UI/UX di luar cakupan dokumen ini |
 
-**Dokumen rujukan:** `Keputusan-Desain-Sistem.md` (register keputusan D1 sampai D99, versi 2.11), `State-Machine-Order.md` (artefak desain 3), `skema-database-final.dbml` (34 tabel, 35 enum), `schema.prisma`, `migration-constraints.sql`, `Panduan-Struktur-Database.md`.
+**Dokumen rujukan:** `Keputusan-Desain-Sistem.md` (register keputusan D1 sampai D100, versi 2.12), `State-Machine-Order.md` (artefak desain 3), `skema-database-final.dbml` (34 tabel, 35 enum), `schema.prisma`, `migration-constraints.sql`, `Panduan-Struktur-Database.md`.
 
 **Catatan versi.** Dokumen ini menggantikan PRD versi 1.x sepenuhnya, bukan merevisinya. Implementasi dimulai ulang dari nol mengikuti milestone di Bagian 9. Perubahan terbesar sejak versi 1.x adalah masuknya entitas tenaga kerja (D31 sampai D53) atas arahan Pembimbing 1, yang memindahkan pelaksanaan order dari akun provider ke pekerja.
 
@@ -876,7 +876,9 @@ Alur server:
      platform_fee        = total_amount * platform_fee_percentage
      provider_earning    = total_amount - platform_fee
 4. Snapshot judul, atribut SPEC, opsi terpilih beserta deltanya, dan durasi
-   (snapshot_duration_minutes disalin dari listings.estimated_duration_minutes, D90)
+   (snapshot_duration_minutes = duration_minutes opsi terpilih kalau atribut
+    OPTION-nya berdurasi, D100; selain itu disalin dari
+    listings.estimated_duration_minutes, D90)
 5. Set response_deadline_at sesuai mode
 6. Mode AVAILABLE_NOW: susun daftar penerima tawaran, maksimal
    available_now_offer_limit pekerja terdekat yang memenuhi syarat,
@@ -1354,7 +1356,7 @@ Data seed harus menyertakan kombinasi yang memungkinkan skenario di atas dijalan
 
 ## 9. Milestone Implementasi
 
-Status per 22 Oktober 2026: **Fase 0 sampai Fase 4 selesai**, sisanya belum dikerjakan. Urutan mengikuti dependency tree, bukan urutan tabel jadwal pada usulan ide.
+Status per 31 Oktober 2026: **Fase 0 sampai Fase 5 selesai**, sisanya belum dikerjakan. Urutan mengikuti dependency tree, bukan urutan tabel jadwal pada usulan ide.
 
 | Fase | Keluaran backend | Kriteria selesai |
 |---|---|---|
@@ -1378,7 +1380,7 @@ Status per 22 Oktober 2026: **Fase 0 sampai Fase 4 selesai**, sisanya belum dike
 
 ## 10. Pertanyaan Terbuka
 
-**Satu pertanyaan terbuka per versi 2.3**, yaitu nomor 5 di Bagian 7 register keputusan versi 2.9: durasi untuk jasa yang lamanya ditentukan opsi pilihan client (`paket_durasi`, `durasi_liputan`). Harus diputuskan sebelum Fase 6.
+**Tidak ada pertanyaan terbuka per versi 2.6.** Nomor 5 (durasi untuk jasa yang lamanya ditentukan opsi pilihan client) ditutup oleh D100 di register keputusan versi 2.12: durasi melekat pada nilai opsi, dan opsi "Dua Hari" dihapus.
 
 Yang sudah ditutup di register keputusan versi 2.8:
 
@@ -1473,3 +1475,4 @@ Tidak menyangkut aturan bisnis, dibentuk oleh middleware bersama pada Fase 0.
 | 2.3 | 21 Oktober 2026 | Sinkron dengan register keputusan versi 2.9. Sumber snapshot durasi dari kolom listing (D90), rentang atribut 2 sampai 6, kode error `TAXONOMY_REQUEST_STATE_CONFLICT`, satu pertanyaan terbuka soal durasi yang ditentukan opsi, status milestone Fase 0 sampai 3 selesai |
 | 2.4 | 22 Oktober 2026 | Sinkron dengan register keputusan versi 2.10. Dua endpoint baca listing provider (D91), status milestone Fase 0 sampai 4 selesai |
 | 2.5 | 22 Oktober 2026 | Arti filter lokasi pencarian (D98) dan status online `available_now` dari memori proses (D99) |
+| 2.6 | 31 Oktober 2026 | Sinkron dengan register keputusan versi 2.12. Snapshot durasi dari nilai opsi (D100), pertanyaan terbuka nomor 5 ditutup, status milestone Fase 0 sampai 5 selesai |

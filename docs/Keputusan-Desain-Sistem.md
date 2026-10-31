@@ -4,9 +4,9 @@
 **Nama sistem:** Jasana
 **Penyusun:** I Nyoman Gede Candra Wikananta (2305551065)
 **Bidang Keahlian:** Sistem Informasi, Teknologi Informasi, Universitas Udayana
-**Versi:** 2.11
-**Terakhir diperbarui:** 22 Oktober 2026 (versi 2.11)
-**Tahap saat ini:** Implementasi backend. Fase 0 sampai Fase 4 selesai, berikutnya Fase 5
+**Versi:** 2.12
+**Terakhir diperbarui:** 31 Oktober 2026 (versi 2.12)
+**Tahap saat ini:** Implementasi backend. Fase 0 sampai Fase 5 selesai, berikutnya Fase 6
 
 ---
 
@@ -29,7 +29,15 @@
 | Katalog lanjutan dan sumber durasi (D87 sampai D90) | 4 | 0 |
 | Listing dan pemetaan (D91 sampai D97) | 7 | 0 |
 | Pencarian: lokasi dan status online (D98 sampai D99) | 2 | 0 |
-| Keputusan terbuka tanpa nomor D (Bagian 7) | | 1 |
+| Durasi dari nilai opsi (D100) | 1 | 0 |
+| Keputusan terbuka tanpa nomor D (Bagian 7) | | 0 |
+
+**Perubahan pada versi 2.12:**
+
+1. Durasi bisa melekat pada nilai opsi, dan durasi opsi yang dipilih client menjadi `snapshot_duration_minutes` saat order dibuat (D100). Menutup keputusan terbuka nomor 5
+2. Opsi "Dua Hari" di B.6 dihapus, liputan dua hari dipesan sebagai dua order (D75)
+3. Hutang teknis H93
+4. Tidak ada lagi keputusan terbuka. Tanpa perubahan skema
 
 **Perubahan pada versi 2.11:**
 
@@ -109,6 +117,17 @@
 **Catatan waktu revisi.** Revisi besar versi 2.1 sampai 2.7 dilakukan saat Fase 0 (fondasi monorepo, migrasi, health check, error handler, logger, validasi env) baru selesai dan Fase 1 belum dimulai, sehingga tidak ada kode logika bisnis yang perlu dibongkar. Versi 2.8 tidak mengubah skema.
 
 **Dampak kumulatif terhadap skema:** dari 25 tabel dan 26 enum menjadi **34 tabel dan 35 enum**.
+
+**Status artefak per versi 2.12 (per 31 Oktober 2026):**
+
+| Artefak | Versi | Keterangan |
+|---|---|---|
+| `PRD-Backend.md` | 2.6 | Sumber snapshot durasi di langkah pembuatan order (D100), Bagian 10 tanpa pertanyaan terbuka, status milestone Fase 0 sampai 5 selesai |
+| `CLAUDE.md` | | Rujukan D1 sampai D100, jebakan nomor 13 menyebut durasi opsi |
+| `skema-database-final.dbml`, `schema.prisma`, `Panduan-Struktur-Database.md` | 2.9 | Struktur tidak terdampak. Yang berubah hanya bentuk isi JSONB `options` |
+| `migration-constraints.sql`, `State-Machine-Order.md` | 2.6 | Tidak terdampak, rumus bentrok jadwal tetap memakai `snapshot_duration_minutes` |
+| Kode Fase 0 sampai 5 | | Fase 5 selesai (commit `a3c6cc5`). **Perlu diubah di awal Fase 6**: validasi `options` dan seed katalog untuk D100, nonaktifkan opsi "Dua Hari" di basis data pengembangan |
+| Usulan ide (Tabel Aktor Sistem) | | Tidak direvisi (A7) |
 
 **Status artefak per versi 2.11 (per 22 Oktober 2026):**
 
@@ -969,6 +988,18 @@ Diputuskan sebelum Fase 5 karena PRD hanya menulis parameter `lat`, `lng`, dan `
 | D98 | **Arti filter lokasi pencarian.** Titik `lat`, `lng` adalah lokasi client, yaitu tempat jasa dikerjakan. Listing muncul kalau lokasi client berada **di dalam `service_radius_km` usahanya**. Jarak diukur dari **lokasi tetap usaha** (`base_latitude`, `base_longitude`) untuk pencarian biasa, dan dari **pekerja online terdekat** yang terpetakan ke listing itu kalau `available_now=true`. `radius_km` dari client adalah penyaring tambahan yang opsional, dan `sort=distance` memakai jarak yang sama. Bounding box tetap dijalankan sebelum Haversine (D6) | Seluruh jasa dikerjakan di lokasi client (D75), jadi yang menentukan adalah apakah usaha itu mau datang ke client, bukan seberapa dekat client ke usaha. Untuk Available Now yang berangkat adalah pekerja online, sehingga posisinya yang relevan, dan karena itu `idx_worker_geo` menjadi kriteria selesai Fase 5 |
 | D99 | **Status online pekerja dibaca dari memori proses API, tanpa Redis.** API dan Socket.IO berjalan di satu proses, sehingga daftar ID pekerja yang terhubung disisipkan ke query sebagai `id = ANY(...)`. Di Fase 5 pelacak itu belum ada, jadi filter `available_now` sementara memakai `is_available` saja dan ditandai `shortcut:` di kode. Di Fase 6 filter ditambah daftar pekerja online. Cron presence tetap ada supaya tampilan dashboard pekerja jujur | Redis baru dibutuhkan kalau API berjalan di beberapa server sekaligus. Menambahkannya berarti infrastruktur baru untuk dev dan test, menulis ulang rate limiter Fase 1, dan perubahan dokumen, tanpa manfaat di skala penelitian. Batasan satu instance sudah tertulis di Bagian 2.2, dan hasil stress test dibaca sebagai kapasitas satu instance. Beberapa instance dengan Redis masuk saran pengembangan |
 
+## 4G. Keputusan Versi 2.12 (D100)
+
+Diputuskan sebelum Fase 6 dan menutup keputusan terbuka nomor 5. Tidak ada perubahan skema, karena `subcategory_attributes.options` sudah berupa JSONB.
+
+| # | Keputusan | Alasan |
+|---|---|---|
+| D100 | **Durasi bisa melekat pada nilai opsi.** Setiap nilai di `subcategory_attributes.options` boleh membawa `duration_minutes`, misalnya `{ "value": "4 Jam", "is_active": true, "duration_minutes": 240 }`. Saat order dibuat, `snapshot_duration_minutes` diambil dari durasi opsi yang dipilih client. Kalau sub-kategorinya tidak punya atribut berdurasi yang aktif, durasi tetap dari `listings.estimated_duration_minutes` (D90). Aturannya: (1) hanya atribut SELECT, berperan OPTION, dan wajib diisi yang boleh membawa durasi, dan status wajibnya tidak boleh dicabut selama durasi itu ada; (2) maksimal satu atribut berdurasi per sub-kategori; (3) kalau satu nilai opsi punya `duration_minutes`, seluruh nilai opsi atribut itu wajib punya, berupa bilangan bulat 15 sampai 720; (4) durasi ditetapkan admin di taksonomi, bukan provider per listing, dan nilai opsi baru lewat `NEW_ATTRIBUTE_OPTION` (D74) diberi durasinya oleh admin saat menyetujui; (5) mengubah durasi sebuah opsi hanya berlaku untuk order berikutnya, karena order lama memakai snapshot. Opsi "Dua Hari" di B.6 dihapus | Label opsinya sendiri sudah menyebut durasi, sehingga durasi adalah bagian dari definisi opsi, bukan nilai yang perlu diisi ulang tiap provider. Dua provider yang menawarkan "4 Jam" pasti maksudnya sama, jadi menaruhnya di taksonomi menutup kemungkinan durasi bertentangan dengan label. Delta durasi per listing ditolak karena butuh migration dan justru membuka inkonsistensi itu. Memecah paket menjadi listing terpisah ditolak karena menghilangkan atribut OPTION dari B.5 dan B.6 dan melemahkan tujuan penelitian nomor 1. "Dua Hari" melewati batas 720 menit dan melanggar satu order satu kedatangan (D75), sehingga liputan dua hari dipesan sebagai dua order |
+
+**Konsekuensi yang disadari.** D90 tidak dibongkar. Kolom durasi listing tetap wajib dan tetap satu-satunya sumber durasi untuk sepuluh sub-kategori lainnya. Untuk B.5 dan B.6 nilainya hanya cadangan, dipakai kalau atribut durasinya dinonaktifkan. Durasi juga tetap bukan atribut: yang ditambahkan adalah properti pada nilai opsi, dan kode tetap tidak membaca durasi dari `listings.attributes`.
+
+**Penerapan.** Di awal Fase 6, kode Fase 3 diubah: validasi `options` di skema dan service katalog menerima `duration_minutes` dengan aturan (1) sampai (3), seed B.5 diberi 240 dan 480 menit, seed B.6 diberi 120, 240, dan 480 menit, dan opsi "Dua Hari" yang sudah ada di basis data pengembangan dinonaktifkan (`is_active = false`, D67), bukan dihapus. Pengisian `snapshot_duration_minutes` dibangun di Fase 6 bersama pembuatan order (H93).
+
 ---
 
 ## 5. Alur Sistem End-to-End
@@ -1442,7 +1473,15 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 
 ## 7. Keputusan Terbuka
 
-**Satu keputusan terbuka per versi 2.9:**
+**Tidak ada keputusan terbuka per versi 2.12.**
+
+**Ditutup pada versi 2.12:**
+
+| # | Pertanyaan | Ditutup oleh |
+|---|---|---|
+| 5 | Durasi untuk jasa yang lamanya ditentukan opsi pilihan client | D100, durasi melekat pada nilai opsi dan "Dua Hari" dihapus |
+
+**Rumusan awal nomor 5 (versi 2.9), disimpan sebagai jejak:**
 
 | # | Pertanyaan | Dampak |
 |---|---|---|
@@ -1537,6 +1576,7 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 - [ ] **H89** `getNumberSetting` menganggap nilai 0 tidak sah dan memakai default. Sesuaikan sebelum `schedule_conflict_buffer_minutes` (Fase 6) atau `withdrawal_admin_fee` (Fase 8) boleh bernilai 0
 - [ ] **H85** Validasi `listings.estimated_duration_minutes` wajib terisi dan berada di rentang 15 sampai 720 menit saat listing dibuat atau diubah, dan `orders.snapshot_duration_minutes` selalu disalin dari kolom ini, bukan dari `listings.attributes` **(baru, D90)**
 - [ ] **H83** Validasi pengajuan withdrawal **(baru, D84)**: `amount` minimal `withdrawal_min_amount`, `admin_fee` diambil dari `withdrawal_admin_fee` saat pengajuan, dan `net_amount` dihitung di server. Request tidak pernah memuat nominal fee
+- [ ] **H93** `snapshot_duration_minutes` dihitung server dari definisi opsi saat order dibuat, tidak pernah dari input client. Wajib punya test: order B.6 dengan opsi "8 Jam" mengunci 480 menit plus buffer, termasuk ketersediaan pendamping di `order_crew`, dan listing tanpa atribut berdurasi tetap memakai kolom listing **(baru, D100)**
 
 ### 8.5 Persiapan Data Pengujian
 
@@ -1611,8 +1651,8 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 
 ## 11. Langkah Berikutnya
 
-1. Fase 5 (pencarian)
-2. Putuskan keputusan terbuka nomor 5 dan H88 sebelum Fase 6
+1. Terapkan D100 di kode Fase 3 (validasi `options` dan seed) di awal Fase 6
+2. Fase 6 (order), termasuk keputusan H88
 3. Susun data simulasi untuk dua belas sub-kategori di Lampiran B, termasuk skenario perebutan Available Now dan pendamping pada dokumentasi acara
 4. Riset ringan rentang harga pasaran untuk dua belas sub-kategori tersebut, catat sumbernya
 5. Paralel sejak sekarang: kumpulkan H15 sedikit demi sedikit setiap minggu, dan siapkan instrumen UAT (H84)
@@ -1636,6 +1676,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 | 2.9 | 21 Oktober 2026 | Tiga usulan dari implementasi Fase 3: tipe atribut dikunci (D87), sub-kategori hasil usulan lahir nonaktif (D88), PER_UNIT bilangan bulat (D89). Sumber durasi listing disatukan ke kolom (D90), atribut `durasi_estimasi` dihapus dari Lampiran B, rekap B.13 menjadi 2 sampai 6 atribut. Option B.3 dilengkapi. Satu keputusan terbuka baru soal durasi yang ditentukan opsi. H85 sampai H87. Tanpa perubahan skema |
 | 2.10 | 22 Oktober 2026 | Tujuh usulan dari implementasi Fase 4 (D91 sampai D97). Konfigurasi bucket `listing-photos`. H88 sampai H90. Tanpa perubahan skema |
 | 2.11 | 22 Oktober 2026 | Arti filter lokasi pencarian (D98) dan status online pekerja dari memori tanpa Redis (D99). H91 dan H92 untuk persiapan stress testing. Tanpa perubahan skema |
+| 2.12 | 31 Oktober 2026 | Durasi melekat pada nilai opsi (D100), menutup keputusan terbuka nomor 5. Opsi "Dua Hari" dihapus dari B.6. H93. Tanpa perubahan skema |
 
 ---
 
@@ -1646,7 +1687,7 @@ Status: **selesai seluruhnya**, dua belas sub-kategori di empat kategori.
 Pola yang dipakai di seluruh sub-kategori:
 
 - Setiap sub-kategori punya minimal satu atribut OPTION, kalau tidak fitur harga bertingkat jadi mubazir
-- Durasi **bukan** atribut. Durasi diisi lewat kolom `listings.estimated_duration_minutes` yang disalin ke `snapshot_duration_minutes` untuk pemeriksaan bentrok jadwal (D90, D41)
+- Durasi **bukan** atribut. Durasi diisi lewat kolom `listings.estimated_duration_minutes` yang disalin ke `snapshot_duration_minutes` untuk pemeriksaan bentrok jadwal (D90, D41). Pengecualiannya D100: nilai opsi boleh membawa `duration_minutes`, dan durasi opsi terpilih menggantikan kolom itu saat order dibuat. Dipakai di B.5 dan B.6
 - Atribut yang tidak memengaruhi harga tapi menentukan ekspektasi client tetap dimasukkan sebagai SPEC
 - Jumlah atribut sengaja tidak seragam antar sub-kategori, karena keseragaman justru melemahkan klaim tujuan penelitian nomor 1
 
@@ -1756,6 +1797,7 @@ Mode: Scheduled. Rentang harga acuan: 1.500.000 sampai 7.000.000
 
 ```
 paket_durasi           Setengah Hari (4 jam), Sehari Penuh (8 jam)
+                       duration_minutes (D100): 240, 480
                        contoh delta: Setengah Hari +0,
                                      Sehari Penuh +2.000.000
 
@@ -1793,14 +1835,17 @@ jenis_acara            Ulang Tahun, Seminar, Wisuda, Gathering Perusahaan,
                        contoh delta: Ulang Tahun +0 sampai
                                      Pernikahan +1.500.000
 
-durasi_liputan         2 Jam, 4 Jam, 8 Jam, Dua Hari
-                       contoh delta: 2 Jam +0 sampai Dua Hari +3.000.000
+durasi_liputan         2 Jam, 4 Jam, 8 Jam
+                       duration_minutes (D100): 120, 240, 480
+                       contoh delta: 2 Jam +0 sampai 8 Jam +2.000.000
 
 tambahan               Cetak Instan di Lokasi, Live Streaming, Drone,
                        Same Day Edit, Photobooth
 jenis_dokumentasi      Foto, Video, Foto dan Video
 waktu_pengerjaan_hari  validation_rule { min: 1, max: 45 }
 ```
+
+Opsi "Dua Hari" dihapus (D100). Liputan dua hari melewati batas 720 menit dan melanggar satu order satu kedatangan (D75), sehingga dipesan sebagai dua order.
 
 **Sub-kategori ini adalah contoh utama aturan pendamping (D69).** Order dokumentasi pernikahan ditugaskan ke satu penanggung jawab, dua rekannya dicentang sebagai pendamping, dan ketersediaan mereka ikut terblokir. Pakai kasus ini saat demo.
 
@@ -1992,5 +2037,6 @@ Rentang 2 sampai 6 atribut dalam struktur yang sama persis, tanpa satu pun kolom
 | `jenis_kendaraan` (cuci mobil, OPTION berbayar) versus `tipe_motor` (servis motor, SPEC) | Atribut bernama mirip di kategori yang sama bisa punya peran dan perilaku berbeda |
 | `jenis_acara` (makeup artist, OPTION) versus `gaya_riasan` (makeup pengantin, SPEC) | Pola yang sama berulang di kategori lain, jadi bukan kebetulan |
 | Ganti oli 2 atribut versus foto prewedding 6 atribut | Hybrid Approach tidak memaksa penyedia sederhana mengisi banyak kolom |
+| `paket_durasi` (foto prewedding) versus kolom durasi listing (ganti oli) | Satu atribut OPTION bisa menentukan harga sekaligus lama pekerjaan, tanpa kolom tambahan di skema (D100) |
 
 **Catatan tipe data yang tidak terpakai.** TEXT dan DATE tidak muncul di dua belas sub-kategori ini. DATE tertutup oleh `scheduled_at` yang sudah jadi kolom tersendiri, dan TEXT dihindari karena tidak bisa difilter serta hampir selalu sebenarnya milik deskripsi listing. Kalau ditanya, jawabannya: definisi tipe disediakan lengkap supaya admin bisa menambah jasa baru yang membutuhkannya, dan dua belas sub-kategori contoh belum tentu memakai seluruhnya. Sistemnya memang dirancang lebih luas dari datanya.
