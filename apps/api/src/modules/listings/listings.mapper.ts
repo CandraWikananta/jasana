@@ -195,3 +195,67 @@ export function toListingDto(row: ListingRow, view: 'public' | 'owner'): Listing
       : {}),
   };
 }
+
+// ---------------------------------------------------------------------------
+// Kartu hasil pencarian (GET /listings). Harga "mulai dari", tanpa delta opsi.
+// ---------------------------------------------------------------------------
+
+export const CARD_SELECT = {
+  id: true,
+  title: true,
+  price: true,
+  priceUnit: true,
+  estimatedDurationMinutes: true,
+  supportsScheduled: true,
+  supportsAvailableNow: true,
+  ratingAverage: true,
+  ratingCount: true,
+  orderCount: true,
+  subcategory: { select: { id: true, name: true } },
+  providerProfile: { select: { id: true, businessName: true, ratingAverage: true, ratingCount: true } },
+  photos: { where: { isPrimary: true }, select: { fileUrl: true }, take: 1 },
+} as const satisfies Prisma.ListingSelect;
+
+export type ListingCardRow = Prisma.ListingGetPayload<{ select: typeof CARD_SELECT }>;
+
+export interface ListingCardDto {
+  id: string;
+  title: string;
+  price: number;
+  price_unit: string;
+  estimated_duration_minutes: number | null;
+  supports_scheduled: boolean;
+  supports_available_now: boolean;
+  rating_average: number;
+  rating_count: number;
+  order_count: number;
+  subcategory: { id: string; name: string };
+  provider: { id: string; business_name: string | null; rating_average: number; rating_count: number };
+  primary_photo_url: string | null;
+  /** Dari basis usaha, atau dari pekerja online terdekat kalau available_now (D98). */
+  distance_km: number | null;
+}
+
+export function toListingCardDto(row: ListingCardRow, distanceKm: number | null): ListingCardDto {
+  return {
+    id: row.id,
+    title: row.title,
+    price: row.price.toNumber(),
+    price_unit: row.priceUnit,
+    estimated_duration_minutes: row.estimatedDurationMinutes,
+    supports_scheduled: row.supportsScheduled,
+    supports_available_now: row.supportsAvailableNow,
+    rating_average: row.ratingAverage.toNumber(),
+    rating_count: row.ratingCount,
+    order_count: row.orderCount,
+    subcategory: row.subcategory,
+    provider: {
+      id: row.providerProfile.id,
+      business_name: row.providerProfile.businessName,
+      rating_average: row.providerProfile.ratingAverage.toNumber(),
+      rating_count: row.providerProfile.ratingCount,
+    },
+    primary_photo_url: row.photos[0]?.fileUrl ?? null,
+    distance_km: distanceKm === null ? null : Math.round(distanceKm * 100) / 100,
+  };
+}

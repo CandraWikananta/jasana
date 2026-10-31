@@ -5,7 +5,7 @@
  */
 
 import { z } from 'zod';
-import { paginationQuery } from '../../lib/pagination';
+import { paginationQuery, queryNumber } from '../../lib/pagination';
 
 const MAX_PRICE = 9_999_999_999;
 
@@ -95,6 +95,48 @@ export const faqsSchema = z.object({
     .max(100),
 });
 
+/**
+ * GET /listings (PRD 4.3). `lat` dan `lng` berpasangan, `radius_km` opsional
+ * dan hanya sah kalau ada lokasi (D98). `attr[key]` divalidasi terhadap
+ * definisi sub-kategori di service, karena itu wajib `subcategory_id`
+ * (usulan D baru).
+ */
+export const SEARCH_SORTS = ['distance', 'price_asc', 'price_desc', 'rating', 'popular'] as const;
+
+const coordinate = (max: number) => queryNumber(z.coerce.number().min(-max).max(max).optional());
+const queryPrice = queryNumber(z.coerce.number().int('harus bilangan bulat rupiah').min(0).max(MAX_PRICE).optional());
+
+export const searchListingsQuerySchema = z
+  .object({
+    ...paginationQuery,
+    q: z.string().trim().min(1).max(100).optional(),
+    category_id: uuid('category_id').optional(),
+    subcategory_id: uuid('subcategory_id').optional(),
+    lat: coordinate(90),
+    lng: coordinate(180),
+    radius_km: queryNumber(z.coerce.number().positive('radius_km harus lebih dari nol').max(999.99).optional()),
+    available_now: z.enum(['true', 'false']).transform((value) => value === 'true').optional(),
+    booking_mode: z.enum(['SCHEDULED', 'AVAILABLE_NOW']).optional(),
+    price_min: queryPrice,
+    price_max: queryPrice,
+    attr: z.record(z.string()).optional(),
+    sort: z.enum(SEARCH_SORTS).optional(),
+  })
+  .superRefine((query, ctx) => {
+    const fail = (path: string, message: string) => ctx.addIssue({ code: 'custom', path: [path], message });
+    const located = query.lat !== undefined && query.lng !== undefined;
+    if ((query.lat === undefined) !== (query.lng === undefined)) fail('lat', 'lat dan lng wajib diisi berpasangan');
+    if (query.radius_km !== undefined && !located) fail('radius_km', 'radius_km hanya sah bersama lat dan lng');
+    if (query.sort === 'distance' && !located) fail('sort', 'sort=distance butuh lat dan lng');
+    if (query.price_min !== undefined && query.price_max !== undefined && query.price_min > query.price_max) {
+      fail('price_min', 'price_min tidak boleh melebihi price_max');
+    }
+    if (query.attr && Object.keys(query.attr).length > 0 && !query.subcategory_id) {
+      fail('attr', 'Filter atribut butuh subcategory_id');
+    }
+  });
+
+export type SearchListingsQuery = z.infer<typeof searchListingsQuerySchema>;
 export type CreateListingBody = z.infer<typeof createListingSchema>;
 export type UpdateListingBody = z.infer<typeof updateListingSchema>;
 export type ListMyListingsQuery = z.infer<typeof listMyListingsQuerySchema>;

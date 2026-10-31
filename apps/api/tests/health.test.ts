@@ -11,7 +11,9 @@ import request from 'supertest';
 
 const checkDatabaseConnection = vi.hoisted(() => vi.fn());
 
-vi.mock('@jasana/database', () => ({
+vi.mock('@jasana/database', async (importOriginal) => ({
+  // `Prisma` asli tetap ada: modul seperti pencarian membentuk `Prisma.sql` saat dimuat.
+  Prisma: (await importOriginal<typeof import('@jasana/database')>()).Prisma,
   checkDatabaseConnection,
   disconnectDatabase: vi.fn(),
   prisma: {},

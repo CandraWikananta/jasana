@@ -7,7 +7,8 @@ import { asyncHandler } from '../../lib/async-handler';
 import { sendCreated, sendOk } from '../../lib/envelope';
 import { currentUser } from '../../middlewares/auth';
 import { currentProvider } from '../../middlewares/rbac';
-import type { ListMyListingsQuery } from './listings.schema';
+import * as search from './listing-search.service';
+import type { ListMyListingsQuery, SearchListingsQuery } from './listings.schema';
 import * as service from './listings.service';
 
 function paramId(req: Request): string {
@@ -53,6 +54,11 @@ export const deletePhoto = asyncHandler(async (req, res) => {
 
 export const setFaqs = asyncHandler(async (req, res) => {
   sendOk(res, await service.setFaqs(currentProvider(req), paramId(req), req.body));
+});
+
+export const searchPublic = asyncHandler(async (req, res) => {
+  const { items, meta } = await search.searchListings(req.query as unknown as SearchListingsQuery);
+  sendOk(res, items, meta);
 });
 
 export const getPublic = asyncHandler(async (req, res) => {

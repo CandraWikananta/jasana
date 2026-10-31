@@ -78,6 +78,7 @@ export function toDefinition(row: SubcategoryAttribute): Required<AttributeDefin
     validation_rule: (row.validationRule as ValidationRule | null) ?? null,
     is_required: row.isRequired,
     is_active: row.isActive,
+    is_filterable: row.isFilterable,
   };
 }
 

@@ -35,6 +35,8 @@ if (!hasTestDatabase) {
 export async function resetDatabase(): Promise<void> {
   await prisma.$transaction([
     prisma.notification.deleteMany(),
+    // Order merujuk listing, pekerja, dan user. Fase 5 membuatnya langsung untuk uji in-flight.
+    prisma.order.deleteMany(),
     prisma.workerListing.deleteMany(),
     prisma.providerWorker.deleteMany(),
     prisma.listing.deleteMany(),

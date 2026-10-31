@@ -29,7 +29,8 @@
     "db:seed:catalog": "node scripts/seed-catalog.mjs",
     "postman:seed": "node scripts/postman-seed-fase-2.mjs",
     "postman:seed:fase-3": "node scripts/postman-seed-fase-3.mjs",
-    "postman:seed:fase-4": "node scripts/postman-seed-fase-4.mjs"
+    "postman:seed:fase-4": "node scripts/postman-seed-fase-4.mjs",
+    "postman:seed:fase-5": "node scripts/postman-seed-fase-5.mjs"
   },
   "devDependencies": {
     "typescript": "5.6.3"

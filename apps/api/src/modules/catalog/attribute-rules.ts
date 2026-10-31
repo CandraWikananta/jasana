@@ -39,6 +39,7 @@ export interface AttributeDefinition {
   validation_rule?: ValidationRule | null;
   is_required?: boolean;
   is_active?: boolean;
+  is_filterable?: boolean;
 }
 
 /**
@@ -243,4 +244,73 @@ export function listingCompletenessErrors(
     }
   }
   return errors;
+}
+
+/** Filter `attr[key]` pencarian yang sudah lolos validasi. */
+export interface AttributeFilters {
+  /** Nilai SPEC, dicocokkan sekaligus lewat `attributes @>` (GIN, H18). */
+  spec: Record<string, unknown>;
+  /** OPTION dicocokkan ke `listing_option_prices` yang dilayani, `offered = false` berarti tidak melayani. */
+  options: { attribute_key: string; option_value: string | null; offered: boolean }[];
+}
+
+/** Nilai query string ke tipe definisinya, `undefined` kalau tidak bisa. */
+function coerceFilterValue(def: AttributeDefinition, raw: string): unknown {
+  switch (def.data_type) {
+    case 'BOOLEAN':
+      return raw === 'true' ? true : raw === 'false' ? false : undefined;
+    case 'NUMBER':
+      return raw.trim() !== '' && Number.isFinite(Number(raw)) ? Number(raw) : undefined;
+    case 'MULTISELECT':
+      return [raw];
+    default:
+      return raw;
+  }
+}
+
+/**
+ * `attr[key]=value` pada GET /listings terhadap definisi SATU sub-kategori
+ * (usulan D baru, key yang sama bisa berbeda peran antar sub-kategori).
+ * Hanya atribut aktif dan `is_filterable`. Nilai diperiksa
+ * `validateAttributeValue`, jadi option nonaktif tertolak seperti di jalur
+ * tulis dan baris harga opsi nonaktif tidak pernah cocok.
+ */
+export function parseAttributeFilters(
+  defs: AttributeDefinition[],
+  attr: Record<string, string>,
+): { filters: AttributeFilters; errors: ErrorDetail[] } {
+  const usable = new Map(
+    defs.filter((def) => def.is_active !== false && def.is_filterable).map((def) => [def.attribute_key, def]),
+  );
+  const filters: AttributeFilters = { spec: {}, options: [] };
+  const errors: ErrorDetail[] = [];
+
+  for (const [key, raw] of Object.entries(attr)) {
+    const path = `attr.${key}`;
+    const def = usable.get(key);
+    if (!def) {
+      errors.push({ path, message: `${key} bukan atribut yang bisa difilter di sub-kategori ini` });
+      continue;
+    }
+    const value = coerceFilterValue(def, raw);
+    const message =
+      value === undefined
+        ? def.data_type === 'BOOLEAN' ? 'harus true atau false' : 'harus angka'
+        : validateAttributeValue(def, value);
+    if (message) {
+      errors.push({ path, message: `${key} ${message}` });
+      continue;
+    }
+
+    if (def.attribute_role === 'SPEC') {
+      filters.spec[key] = value;
+    } else if (def.data_type === 'SELECT' || def.data_type === 'MULTISELECT') {
+      filters.options.push({ attribute_key: key, option_value: raw, offered: true });
+    } else {
+      // BOOLEAN: true = melayani, false = tidak. NUMBER (PER_UNIT): melayani.
+      filters.options.push({ attribute_key: key, option_value: null, offered: value !== false });
+    }
+  }
+
+  return { filters, errors };
 }

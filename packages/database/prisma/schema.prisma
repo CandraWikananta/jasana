@@ -607,6 +607,9 @@ model ProviderProfile {
 
   @@index([verificationStatus])
   @@index([providerType])
+  /// Bounding box pencarian lokasi dari basis usaha (D6, D98), pasangan
+  /// idx_worker_geo untuk pencarian non-Available Now.
+  @@index([baseLatitude, baseLongitude], map: "idx_provider_base_geo")
   @@map("provider_profiles")
 }
 

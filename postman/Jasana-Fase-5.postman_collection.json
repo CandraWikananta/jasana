@@ -1,0 +1,1706 @@
+{
+  "info": {
+    "_postman_id": "6c74111d-abf0-54b2-aee3-4390ccb2c511",
+    "name": "Jasana Backend - Fase 5 (Pencarian)",
+    "description": "Pengujian `GET /listings` Fase 5: filter kategori, harga, kata kunci, mode, atribut dinamis (H18), lokasi (D6, D98), dan `available_now` turunan (D45, D99).\n\n## Setiap putaran\n1. `npm run postman:seed:fase-5` di akar repo. Lima usaha demo di sekitar Denpasar dibuat ulang beserta pekerja online dan dua order in-flight. Akun fase lain tidak disentuh.\n2. `npm run dev`.\n3. Jalankan folder berurutan dari 00. Endpoint publik, tidak perlu login.\n\n## Peta demo\n| Usaha | Basis | Radius | Dari Renon | Dari Kuta |\n|---|---|---|---|---|\n| Cuci Mobil Renon | Renon | 3 km | 0,40 km masuk | 9,38 km keluar |\n| Dingin Sanur Teknik | Sanur | 15 km | 3,56 km masuk | 10,86 km masuk |\n| Oli Kilat Kuta | Kuta | 8 km | 8,67 km keluar | 0,40 km masuk |\n| Studio Ubud Visual | Ubud | 30 km | 18,68 km masuk | 25,98 km masuk |\n| Cuci Mobil Gianyar | Denpasar | 20 km | SUSPENDED, tidak pernah muncul (D96) | |\n\n## Request bertanda KRITERIA\nFolder 02 dan 03. Bukti index terpakai (EXPLAIN) tidak bisa lewat Postman, jalankan `npx tsx apps/api/scripts/bench-search.ts` (ke basis data uji).\n\n## Catatan\nDev DB juga berisi listing fase lain, jadi pemeriksaan memakai judul listing demo, bukan jumlah total. Rate limit global 100 request per menit per IP, collection ini memakai 36.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "00. Persiapan (jalankan npm run postman:seed:fase-5 dulu)",
+      "item": [
+        {
+          "name": "Health",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Kategori publik",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.environment.set('otomotif_id', pm.response.json().data.find(function (x) { return x.slug === 'otomotif'; }).id);",
+                  "pm.environment.set('perbaikan_id', pm.response.json().data.find(function (x) { return x.slug === 'perbaikan'; }).id);",
+                  "pm.environment.set('fotografi_id', pm.response.json().data.find(function (x) { return x.slug === 'fotografi'; }).id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/categories",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "categories"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Sub-kategori Otomotif",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.environment.set('cuci_mobil_id', pm.response.json().data.find(function (x) { return x.slug === 'cuci-mobil-panggilan'; }).id);",
+                  "pm.environment.set('ganti_oli_id', pm.response.json().data.find(function (x) { return x.slug === 'ganti-oli-panggilan'; }).id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/categories/{{otomotif_id}}/subcategories",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "categories",
+                "{{otomotif_id}}",
+                "subcategories"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Sub-kategori Perbaikan",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.environment.set('servis_ac_id', pm.response.json().data.find(function (x) { return x.slug === 'servis-ac'; }).id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/categories/{{perbaikan_id}}/subcategories",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "categories",
+                "{{perbaikan_id}}",
+                "subcategories"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Sub-kategori Fotografi",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.environment.set('foto_produk_id', pm.response.json().data.find(function (x) { return x.slug === 'foto-produk'; }).id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/categories/{{fotografi_id}}/subcategories",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "categories",
+                "{{fotografi_id}}",
+                "subcategories"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Seed sudah ada",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "const items = Array.isArray(body.data) ? body.data : [];",
+                  "const titles = items.map(function (i) { return i.title; });",
+                  "const byTitle = function (t) { return items.find(function (i) { return i.title === t; }); };",
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "if (titles.indexOf('Cuci Mobil Panggilan Renon') === -1) console.warn('Data demo belum ada. Jalankan: npm run postman:seed:fase-5');",
+                  "pm.test('Memuat \"Cuci Mobil Panggilan Renon\"', function () { pm.expect(titles).to.include('Cuci Mobil Panggilan Renon'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/listings?q=Cuci%20Mobil%20Panggilan%20Renon",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "listings"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "Cuci%20Mobil%20Panggilan%20Renon"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "01. Filter dasar dan visibilitas (D96)",
+      "item": [
+        {
+          "name": "Sub-kategori cuci mobil: usaha SUSPENDED tidak muncul",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "const items = Array.isArray(body.data) ? body.data : [];",
+                  "const titles = items.map(function (i) { return i.title; });",
+                  "const byTitle = function (t) { return items.find(function (i) { return i.title === t; }); };",
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Memuat \"Cuci Mobil Panggilan Renon\"', function () { pm.expect(titles).to.include('Cuci Mobil Panggilan Renon'); });",
+                  "pm.test('Tidak memuat \"Cuci Mobil Gianyar (ditangguhkan)\" (provider SUSPENDED, D96)', function () { pm.expect(titles).to.not.include('Cuci Mobil Gianyar (ditangguhkan)'); });",
+                  "pm.test('Kartu berisi harga mulai dari, tanpa jarak', function () { const c = byTitle('Cuci Mobil Panggilan Renon'); pm.expect(c.price).to.eql(60000); pm.expect(c.distance_km).to.eql(null); pm.expect(c.provider.business_name).to.eql('Cuci Mobil Renon'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/listings?subcategory_id={{cuci_mobil_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "listings"
+              ],
+              "query": [
+                {
+                  "key": "subcategory_id",
+                  "value": "{{cuci_mobil_id}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Kata kunci menemukan judul, tetap tanpa listing ditangguhkan",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "const items = Array.isArray(body.data) ? body.data : [];",
+                  "const titles = items.map(function (i) { return i.title; });",
+                  "const byTitle = function (t) { return items.find(function (i) { return i.title === t; }); };",
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Tidak memuat \"Cuci Mobil Gianyar (ditangguhkan)\" (D96)', function () { pm.expect(titles).to.not.include('Cuci Mobil Gianyar (ditangguhkan)'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/listings?q=Gianyar",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "listings"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "Gianyar"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Kategori Perbaikan dan rentang harga",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "const items = Array.isArray(body.data) ? body.data : [];",
+                  "const titles = items.map(function (i) { return i.title; });",
+                  "const byTitle = function (t) { return items.find(function (i) { return i.title === t; }); };",
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Memuat \"Perbaikan AC Sharp dan Gree\"', function () { pm.expect(titles).to.include('Perbaikan AC Sharp dan Gree'); });",
+                  "pm.test('Tidak memuat \"Cuci AC Sanur Teknik\" (harga 75.000 di bawah price_min)', function () { pm.expect(titles).to.not.include('Cuci AC Sanur Teknik'); });",
+                  "pm.test('Semua harga di rentang', function () { items.forEach(function (i) { pm.expect(i.price).to.be.within(100000, 200000); }); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/listings?category_id={{perbaikan_id}}&price_min=100000&price_max=200000",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "listings"
+              ],
+              "query": [
+                {
+                  "key": "category_id",
+                  "value": "{{perbaikan_id}}"
+                },
+                {
+                  "key": "price_min",
+                  "value": "100000"
+                },
+                {
+                  "key": "price_max",
+                  "value": "200000"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "booking_mode AVAILABLE_NOW membuang listing yang hanya Scheduled",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "const items = Array.isArray(body.data) ? body.data : [];",
+                  "const titles = items.map(function (i) { return i.title; });",
+                  "const byTitle = function (t) { return items.find(function (i) { return i.title === t; }); };",
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Tidak memuat \"Foto Produk Katalog Ubud\" (supports_available_now false)', function () { pm.expect(titles).to.not.include('Foto Produk Katalog Ubud'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/listings?subcategory_id={{foto_produk_id}}&booking_mode=AVAILABLE_NOW",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "listings"
+              ],
+              "query": [
+                {
+                  "key": "subcategory_id",
+                  "value": "{{foto_produk_id}}"
+                },
+                {
+                  "key": "booking_mode",
+                  "value": "AVAILABLE_NOW"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Sort price_asc",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "const items = Array.isArray(body.data) ? body.data : [];",
+                  "const titles = items.map(function (i) { return i.title; });",
+                  "const byTitle = function (t) { return items.find(function (i) { return i.title === t; }); };",
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Harga menaik', function () { const p = items.map(function (i) { return i.price; }); pm.expect(p).to.eql(p.slice().sort(function (a, b) { return a - b; })); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/listings?subcategory_id={{servis_ac_id}}&sort=price_asc",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "listings"
+              ],
+              "query": [
+                {
+                  "key": "subcategory_id",
+                  "value": "{{servis_ac_id}}"
+                },
+                {
+                  "key": "sort",
+                  "value": "price_asc"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Paginasi",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "const items = Array.isArray(body.data) ? body.data : [];",
+                  "const titles = items.map(function (i) { return i.title; });",
+                  "const byTitle = function (t) { return items.find(function (i) { return i.title === t; }); };",
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Meta paginasi', function () { pm.expect(body.meta.page).to.eql(2); pm.expect(body.meta.limit).to.eql(1); pm.expect(body.meta.total).to.be.at.least(2); pm.expect(items.length).to.eql(1); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/listings?subcategory_id={{servis_ac_id}}&sort=price_asc&limit=1&page=2",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "listings"
+              ],
+              "query": [
+                {
+                  "key": "subcategory_id",
+                  "value": "{{servis_ac_id}}"
+                },
+                {
+                  "key": "sort",
+                  "value": "price_asc"
+                },
+                {
+                  "key": "limit",
+                  "value": "1"
+                },
+                {
+                  "key": "page",
+                  "value": "2"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "02. KRITERIA: lokasi client di dalam radius layanan (D98, D6)",
+      "item": [
+        {
+          "name": "Dari Puputan Renon",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "const items = Array.isArray(body.data) ? body.data : [];",
+                  "const titles = items.map(function (i) { return i.title; });",
+                  "const byTitle = function (t) { return items.find(function (i) { return i.title === t; }); };",
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Memuat \"Cuci Mobil Panggilan Renon\"', function () { pm.expect(titles).to.include('Cuci Mobil Panggilan Renon'); });",
+                  "pm.test('Jarak \"Cuci Mobil Panggilan Renon\" sekitar 0.4 km', function () { pm.expect(byTitle('Cuci Mobil Panggilan Renon').distance_km).to.be.closeTo(0.4, 0.05); });",
+                  "pm.test('Memuat \"Cuci AC Sanur Teknik\"', function () { pm.expect(titles).to.include('Cuci AC Sanur Teknik'); });",
+                  "pm.test('Jarak \"Cuci AC Sanur Teknik\" sekitar 3.56 km', function () { pm.expect(byTitle('Cuci AC Sanur Teknik').distance_km).to.be.closeTo(3.56, 0.05); });",
+                  "pm.test('Memuat \"Perbaikan AC Sharp dan Gree\"', function () { pm.expect(titles).to.include('Perbaikan AC Sharp dan Gree'); });",
+                  "pm.test('Memuat \"Foto Produk Katalog Ubud\"', function () { pm.expect(titles).to.include('Foto Produk Katalog Ubud'); });",
+                  "pm.test('Jarak \"Foto Produk Katalog Ubud\" sekitar 18.68 km', function () { pm.expect(byTitle('Foto Produk Katalog Ubud').distance_km).to.be.closeTo(18.68, 0.05); });",
+                  "pm.test('Tidak memuat \"Ganti Oli Motor Kuta\" (8,67 km, radius usaha 8 km)', function () { pm.expect(titles).to.not.include('Ganti Oli Motor Kuta'); });",
+                  "pm.test('Tidak memuat \"Cuci Mobil Gianyar (ditangguhkan)\" (D96)', function () { pm.expect(titles).to.not.include('Cuci Mobil Gianyar (ditangguhkan)'); });",
+                  "pm.test('Urut jarak menaik', function () { const d = items.map(function (i) { return i.distance_km; }); pm.expect(d).to.eql(d.slice().sort(function (a, b) { return a - b; })); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/listings?lat={{renon_lat}}&lng={{renon_lng}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "listings"
+              ],
+              "query": [
+                {
+                  "key": "lat",
+                  "value": "{{renon_lat}}"
+                },
+                {
+                  "key": "lng",
+                  "value": "{{renon_lng}}"
+                }
+              ]
+            },
+            "description": "Default sort=distance kalau ada lokasi. Ubud 18,7 km tetap muncul karena radius usahanya 30 km, Kuta 8,7 km tidak karena radiusnya 8 km."
+          },
+          "response": []
+        },
+        {
+          "name": "Dari Puputan Renon, radius_km=5",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "const items = Array.isArray(body.data) ? body.data : [];",
+                  "const titles = items.map(function (i) { return i.title; });",
+                  "const byTitle = function (t) { return items.find(function (i) { return i.title === t; }); };",
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Memuat \"Cuci Mobil Panggilan Renon\"', function () { pm.expect(titles).to.include('Cuci Mobil Panggilan Renon'); });",
+                  "pm.test('Memuat \"Cuci AC Sanur Teknik\"', function () { pm.expect(titles).to.include('Cuci AC Sanur Teknik'); });",
+                  "pm.test('Tidak memuat \"Foto Produk Katalog Ubud\" (18,68 km melebihi radius_km 5)', function () { pm.expect(titles).to.not.include('Foto Produk Katalog Ubud'); });",
+                  "pm.test('Urut jarak menaik', function () { const d = items.map(function (i) { return i.distance_km; }); pm.expect(d).to.eql(d.slice().sort(function (a, b) { return a - b; })); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/listings?lat={{renon_lat}}&lng={{renon_lng}}&radius_km=5",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "listings"
+              ],
+              "query": [
+                {
+                  "key": "lat",
+                  "value": "{{renon_lat}}"
+                },
+                {
+                  "key": "lng",
+                  "value": "{{renon_lng}}"
+                },
+                {
+                  "key": "radius_km",
+                  "value": "5"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Dari Pantai Kuta",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "const items = Array.isArray(body.data) ? body.data : [];",
+                  "const titles = items.map(function (i) { return i.title; });",
+                  "const byTitle = function (t) { return items.find(function (i) { return i.title === t; }); };",
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Memuat \"Ganti Oli Motor Kuta\"', function () { pm.expect(titles).to.include('Ganti Oli Motor Kuta'); });",
+                  "pm.test('Jarak \"Ganti Oli Motor Kuta\" sekitar 0.4 km', function () { pm.expect(byTitle('Ganti Oli Motor Kuta').distance_km).to.be.closeTo(0.4, 0.05); });",
+                  "pm.test('Memuat \"Cuci AC Sanur Teknik\"', function () { pm.expect(titles).to.include('Cuci AC Sanur Teknik'); });",
+                  "pm.test('Jarak \"Cuci AC Sanur Teknik\" sekitar 10.86 km', function () { pm.expect(byTitle('Cuci AC Sanur Teknik').distance_km).to.be.closeTo(10.86, 0.05); });",
+                  "pm.test('Memuat \"Foto Produk Katalog Ubud\"', function () { pm.expect(titles).to.include('Foto Produk Katalog Ubud'); });",
+                  "pm.test('Tidak memuat \"Cuci Mobil Panggilan Renon\" (9,38 km, radius usaha 3 km)', function () { pm.expect(titles).to.not.include('Cuci Mobil Panggilan Renon'); });",
+                  "pm.test('Urut jarak menaik', function () { const d = items.map(function (i) { return i.distance_km; }); pm.expect(d).to.eql(d.slice().sort(function (a, b) { return a - b; })); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/listings?lat={{kuta_lat}}&lng={{kuta_lng}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "listings"
+              ],
+              "query": [
+                {
+                  "key": "lat",
+                  "value": "{{kuta_lat}}"
+                },
+                {
+                  "key": "lng",
+                  "value": "{{kuta_lng}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Dari Puputan Renon, sort price_desc",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "const items = Array.isArray(body.data) ? body.data : [];",
+                  "const titles = items.map(function (i) { return i.title; });",
+                  "const byTitle = function (t) { return items.find(function (i) { return i.title === t; }); };",
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Harga menurun dan jarak tetap terisi', function () { const p = items.map(function (i) { return i.price; }); pm.expect(p).to.eql(p.slice().sort(function (a, b) { return b - a; })); items.forEach(function (i) { pm.expect(i.distance_km).to.be.a('number'); }); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/listings?lat={{renon_lat}}&lng={{renon_lng}}&sort=price_desc",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "listings"
+              ],
+              "query": [
+                {
+                  "key": "lat",
+                  "value": "{{renon_lat}}"
+                },
+                {
+                  "key": "lng",
+                  "value": "{{renon_lng}}"
+                },
+                {
+                  "key": "sort",
+                  "value": "price_desc"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "03. KRITERIA: available_now turunan (D45, D98, D99)",
+      "item": [
+        {
+          "name": "Dari Renon, available_now",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "const items = Array.isArray(body.data) ? body.data : [];",
+                  "const titles = items.map(function (i) { return i.title; });",
+                  "const byTitle = function (t) { return items.find(function (i) { return i.title === t; }); };",
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Memuat \"Cuci Mobil Panggilan Renon\"', function () { pm.expect(titles).to.include('Cuci Mobil Panggilan Renon'); });",
+                  "pm.test('Jarak \"Cuci Mobil Panggilan Renon\" sekitar 0.08 km', function () { pm.expect(byTitle('Cuci Mobil Panggilan Renon').distance_km).to.be.closeTo(0.08, 0.05); });",
+                  "pm.test('Memuat \"Cuci AC Sanur Teknik\"', function () { pm.expect(titles).to.include('Cuci AC Sanur Teknik'); });",
+                  "pm.test('Jarak \"Cuci AC Sanur Teknik\" sekitar 1.45 km', function () { pm.expect(byTitle('Cuci AC Sanur Teknik').distance_km).to.be.closeTo(1.45, 0.05); });",
+                  "pm.test('Memuat \"Perbaikan AC Sharp dan Gree\"', function () { pm.expect(titles).to.include('Perbaikan AC Sharp dan Gree'); });",
+                  "pm.test('Tidak memuat \"Foto Produk Katalog Ubud\" (supports_available_now false)', function () { pm.expect(titles).to.not.include('Foto Produk Katalog Ubud'); });",
+                  "pm.test('Tidak memuat \"Ganti Oli Motor Kuta\" (pemilik in-flight)', function () { pm.expect(titles).to.not.include('Ganti Oli Motor Kuta'); });",
+                  "pm.test('Urut jarak menaik', function () { const d = items.map(function (i) { return i.distance_km; }); pm.expect(d).to.eql(d.slice().sort(function (a, b) { return a - b; })); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/listings?lat={{renon_lat}}&lng={{renon_lng}}&available_now=true",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "listings"
+              ],
+              "query": [
+                {
+                  "key": "lat",
+                  "value": "{{renon_lat}}"
+                },
+                {
+                  "key": "lng",
+                  "value": "{{renon_lng}}"
+                },
+                {
+                  "key": "available_now",
+                  "value": "true"
+                }
+              ]
+            },
+            "description": "Jarak diukur dari pekerja online terdekat. Cuci AC Sanur 1,45 km (teknisi 2 di Panjer), BUKAN 0,68 km, karena teknisi 1 yang lebih dekat sedang mengerjakan order (predikat uniq_inflight_order_per_worker). Online sementara = is_available (D99)."
+          },
+          "response": []
+        },
+        {
+          "name": "Dari Kuta, tanpa available_now: Oli Kilat Kuta muncul",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "const items = Array.isArray(body.data) ? body.data : [];",
+                  "const titles = items.map(function (i) { return i.title; });",
+                  "const byTitle = function (t) { return items.find(function (i) { return i.title === t; }); };",
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Memuat \"Ganti Oli Motor Kuta\"', function () { pm.expect(titles).to.include('Ganti Oli Motor Kuta'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/listings?lat={{kuta_lat}}&lng={{kuta_lng}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "listings"
+              ],
+              "query": [
+                {
+                  "key": "lat",
+                  "value": "{{kuta_lat}}"
+                },
+                {
+                  "key": "lng",
+                  "value": "{{kuta_lng}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Dari Kuta, available_now: Oli Kilat Kuta hilang karena pekerjanya in-flight",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "const items = Array.isArray(body.data) ? body.data : [];",
+                  "const titles = items.map(function (i) { return i.title; });",
+                  "const byTitle = function (t) { return items.find(function (i) { return i.title === t; }); };",
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Tidak memuat \"Ganti Oli Motor Kuta\" (satu-satunya pekerja sedang IN_PROGRESS)', function () { pm.expect(titles).to.not.include('Ganti Oli Motor Kuta'); });",
+                  "pm.test('Memuat \"Cuci AC Sanur Teknik\"', function () { pm.expect(titles).to.include('Cuci AC Sanur Teknik'); });",
+                  "pm.test('Jarak \"Cuci AC Sanur Teknik\" sekitar 7.56 km', function () { pm.expect(byTitle('Cuci AC Sanur Teknik').distance_km).to.be.closeTo(7.56, 0.05); });",
+                  "pm.test('Tidak memuat \"Cuci Mobil Panggilan Renon\" (pekerja online 9 km, radius 3 km)', function () { pm.expect(titles).to.not.include('Cuci Mobil Panggilan Renon'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/listings?lat={{kuta_lat}}&lng={{kuta_lng}}&available_now=true",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "listings"
+              ],
+              "query": [
+                {
+                  "key": "lat",
+                  "value": "{{kuta_lat}}"
+                },
+                {
+                  "key": "lng",
+                  "value": "{{kuta_lng}}"
+                },
+                {
+                  "key": "available_now",
+                  "value": "true"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Tanpa lokasi, available_now",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "const items = Array.isArray(body.data) ? body.data : [];",
+                  "const titles = items.map(function (i) { return i.title; });",
+                  "const byTitle = function (t) { return items.find(function (i) { return i.title === t; }); };",
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Tidak memuat \"Ganti Oli Motor Kuta\" (in-flight)', function () { pm.expect(titles).to.not.include('Ganti Oli Motor Kuta'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/listings?available_now=true&q=Kuta",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "listings"
+              ],
+              "query": [
+                {
+                  "key": "available_now",
+                  "value": "true"
+                },
+                {
+                  "key": "q",
+                  "value": "Kuta"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "04. Filter atribut dinamis (H18)",
+      "item": [
+        {
+          "name": "SPEC MULTISELECT merek Daikin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "const items = Array.isArray(body.data) ? body.data : [];",
+                  "const titles = items.map(function (i) { return i.title; });",
+                  "const byTitle = function (t) { return items.find(function (i) { return i.title === t; }); };",
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Memuat \"Cuci AC Sanur Teknik\"', function () { pm.expect(titles).to.include('Cuci AC Sanur Teknik'); });",
+                  "pm.test('Tidak memuat \"Perbaikan AC Sharp dan Gree\" (tidak melayani Daikin)', function () { pm.expect(titles).to.not.include('Perbaikan AC Sharp dan Gree'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/listings?subcategory_id={{servis_ac_id}}&attr[merek_dilayani]=Daikin",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "listings"
+              ],
+              "query": [
+                {
+                  "key": "subcategory_id",
+                  "value": "{{servis_ac_id}}"
+                },
+                {
+                  "key": "attr[merek_dilayani]",
+                  "value": "Daikin"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "SPEC MULTISELECT merek Sharp",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "const items = Array.isArray(body.data) ? body.data : [];",
+                  "const titles = items.map(function (i) { return i.title; });",
+                  "const byTitle = function (t) { return items.find(function (i) { return i.title === t; }); };",
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Memuat \"Perbaikan AC Sharp dan Gree\"', function () { pm.expect(titles).to.include('Perbaikan AC Sharp dan Gree'); });",
+                  "pm.test('Tidak memuat \"Cuci AC Sanur Teknik\" (tidak melayani Sharp)', function () { pm.expect(titles).to.not.include('Cuci AC Sanur Teknik'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/listings?subcategory_id={{servis_ac_id}}&attr[merek_dilayani]=Sharp",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "listings"
+              ],
+              "query": [
+                {
+                  "key": "subcategory_id",
+                  "value": "{{servis_ac_id}}"
+                },
+                {
+                  "key": "attr[merek_dilayani]",
+                  "value": "Sharp"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "OPTION jenis_pekerjaan Isi Freon",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "const items = Array.isArray(body.data) ? body.data : [];",
+                  "const titles = items.map(function (i) { return i.title; });",
+                  "const byTitle = function (t) { return items.find(function (i) { return i.title === t; }); };",
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Memuat \"Cuci AC Sanur Teknik\"', function () { pm.expect(titles).to.include('Cuci AC Sanur Teknik'); });",
+                  "pm.test('Tidak memuat \"Perbaikan AC Sharp dan Gree\" (tidak menawarkan Isi Freon)', function () { pm.expect(titles).to.not.include('Perbaikan AC Sharp dan Gree'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/listings?subcategory_id={{servis_ac_id}}&attr[jenis_pekerjaan]=Isi%20Freon",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "listings"
+              ],
+              "query": [
+                {
+                  "key": "subcategory_id",
+                  "value": "{{servis_ac_id}}"
+                },
+                {
+                  "key": "attr[jenis_pekerjaan]",
+                  "value": "Isi%20Freon"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "SPEC dan OPTION digabung",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "const items = Array.isArray(body.data) ? body.data : [];",
+                  "const titles = items.map(function (i) { return i.title; });",
+                  "const byTitle = function (t) { return items.find(function (i) { return i.title === t; }); };",
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Memuat \"Perbaikan AC Sharp dan Gree\"', function () { pm.expect(titles).to.include('Perbaikan AC Sharp dan Gree'); });",
+                  "pm.test('Tidak memuat \"Cuci AC Sanur Teknik\" (tidak melayani Sharp)', function () { pm.expect(titles).to.not.include('Cuci AC Sanur Teknik'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/listings?subcategory_id={{servis_ac_id}}&attr[merek_dilayani]=Sharp&attr[kapasitas_pk]=1%20PK",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "listings"
+              ],
+              "query": [
+                {
+                  "key": "subcategory_id",
+                  "value": "{{servis_ac_id}}"
+                },
+                {
+                  "key": "attr[merek_dilayani]",
+                  "value": "Sharp"
+                },
+                {
+                  "key": "attr[kapasitas_pk]",
+                  "value": "1%20PK"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "OPTION jenis_kendaraan SUV",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "const items = Array.isArray(body.data) ? body.data : [];",
+                  "const titles = items.map(function (i) { return i.title; });",
+                  "const byTitle = function (t) { return items.find(function (i) { return i.title === t; }); };",
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Memuat \"Cuci Mobil Panggilan Renon\"', function () { pm.expect(titles).to.include('Cuci Mobil Panggilan Renon'); });",
+                  "pm.test('Tidak memuat \"Cuci Mobil Gianyar (ditangguhkan)\" (D96, dan tidak menawarkan SUV)', function () { pm.expect(titles).to.not.include('Cuci Mobil Gianyar (ditangguhkan)'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/listings?subcategory_id={{cuci_mobil_id}}&attr[jenis_kendaraan]=SUV",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "listings"
+              ],
+              "query": [
+                {
+                  "key": "subcategory_id",
+                  "value": "{{cuci_mobil_id}}"
+                },
+                {
+                  "key": "attr[jenis_kendaraan]",
+                  "value": "SUV"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "OPTION BOOLEAN oli_disediakan",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "const items = Array.isArray(body.data) ? body.data : [];",
+                  "const titles = items.map(function (i) { return i.title; });",
+                  "const byTitle = function (t) { return items.find(function (i) { return i.title === t; }); };",
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Memuat \"Ganti Oli Motor Kuta\"', function () { pm.expect(titles).to.include('Ganti Oli Motor Kuta'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/listings?subcategory_id={{ganti_oli_id}}&attr[oli_disediakan]=true",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "listings"
+              ],
+              "query": [
+                {
+                  "key": "subcategory_id",
+                  "value": "{{ganti_oli_id}}"
+                },
+                {
+                  "key": "attr[oli_disediakan]",
+                  "value": "true"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Ditolak: atribut tidak is_filterable",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "const items = Array.isArray(body.data) ? body.data : [];",
+                  "const titles = items.map(function (i) { return i.title; });",
+                  "const byTitle = function (t) { return items.find(function (i) { return i.title === t; }); };",
+                  "pm.test('Status 422 VALIDATION_ERROR', function () {",
+                  "  pm.response.to.have.status(422);",
+                  "  pm.expect(body.error.code).to.eql('VALIDATION_ERROR');",
+                  "});",
+                  "pm.test('details menunjuk attr.jumlah_unit', function () {",
+                  "  pm.expect(body.error.details.map(function (d) { return d.path; })).to.include('attr.jumlah_unit');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/listings?subcategory_id={{servis_ac_id}}&attr[jumlah_unit]=2",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "listings"
+              ],
+              "query": [
+                {
+                  "key": "subcategory_id",
+                  "value": "{{servis_ac_id}}"
+                },
+                {
+                  "key": "attr[jumlah_unit]",
+                  "value": "2"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Ditolak: bukan pilihan atribut",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "const items = Array.isArray(body.data) ? body.data : [];",
+                  "const titles = items.map(function (i) { return i.title; });",
+                  "const byTitle = function (t) { return items.find(function (i) { return i.title === t; }); };",
+                  "pm.test('Status 422 VALIDATION_ERROR', function () {",
+                  "  pm.response.to.have.status(422);",
+                  "  pm.expect(body.error.code).to.eql('VALIDATION_ERROR');",
+                  "});",
+                  "pm.test('details menunjuk attr.jenis_kendaraan', function () {",
+                  "  pm.expect(body.error.details.map(function (d) { return d.path; })).to.include('attr.jenis_kendaraan');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/listings?subcategory_id={{cuci_mobil_id}}&attr[jenis_kendaraan]=Bus",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "listings"
+              ],
+              "query": [
+                {
+                  "key": "subcategory_id",
+                  "value": "{{cuci_mobil_id}}"
+                },
+                {
+                  "key": "attr[jenis_kendaraan]",
+                  "value": "Bus"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Ditolak: attr tanpa subcategory_id",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "const items = Array.isArray(body.data) ? body.data : [];",
+                  "const titles = items.map(function (i) { return i.title; });",
+                  "const byTitle = function (t) { return items.find(function (i) { return i.title === t; }); };",
+                  "pm.test('Status 422 VALIDATION_ERROR', function () {",
+                  "  pm.response.to.have.status(422);",
+                  "  pm.expect(body.error.code).to.eql('VALIDATION_ERROR');",
+                  "});",
+                  "pm.test('details menunjuk attr', function () {",
+                  "  pm.expect(body.error.details.map(function (d) { return d.path; })).to.include('attr');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/listings?attr[merek_dilayani]=Daikin",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "listings"
+              ],
+              "query": [
+                {
+                  "key": "attr[merek_dilayani]",
+                  "value": "Daikin"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "05. Validasi dan injeksi",
+      "item": [
+        {
+          "name": "Ditolak: sort=distance tanpa lokasi",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "const items = Array.isArray(body.data) ? body.data : [];",
+                  "const titles = items.map(function (i) { return i.title; });",
+                  "const byTitle = function (t) { return items.find(function (i) { return i.title === t; }); };",
+                  "pm.test('Status 422 VALIDATION_ERROR', function () {",
+                  "  pm.response.to.have.status(422);",
+                  "  pm.expect(body.error.code).to.eql('VALIDATION_ERROR');",
+                  "});",
+                  "pm.test('details menunjuk sort', function () {",
+                  "  pm.expect(body.error.details.map(function (d) { return d.path; })).to.include('sort');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/listings?sort=distance",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "listings"
+              ],
+              "query": [
+                {
+                  "key": "sort",
+                  "value": "distance"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Ditolak: lat tanpa lng",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "const items = Array.isArray(body.data) ? body.data : [];",
+                  "const titles = items.map(function (i) { return i.title; });",
+                  "const byTitle = function (t) { return items.find(function (i) { return i.title === t; }); };",
+                  "pm.test('Status 422 VALIDATION_ERROR', function () {",
+                  "  pm.response.to.have.status(422);",
+                  "  pm.expect(body.error.code).to.eql('VALIDATION_ERROR');",
+                  "});",
+                  "pm.test('details menunjuk lat', function () {",
+                  "  pm.expect(body.error.details.map(function (d) { return d.path; })).to.include('lat');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/listings?lat={{renon_lat}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "listings"
+              ],
+              "query": [
+                {
+                  "key": "lat",
+                  "value": "{{renon_lat}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Ditolak: radius_km tanpa lokasi",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "const items = Array.isArray(body.data) ? body.data : [];",
+                  "const titles = items.map(function (i) { return i.title; });",
+                  "const byTitle = function (t) { return items.find(function (i) { return i.title === t; }); };",
+                  "pm.test('Status 422 VALIDATION_ERROR', function () {",
+                  "  pm.response.to.have.status(422);",
+                  "  pm.expect(body.error.code).to.eql('VALIDATION_ERROR');",
+                  "});",
+                  "pm.test('details menunjuk radius_km', function () {",
+                  "  pm.expect(body.error.details.map(function (d) { return d.path; })).to.include('radius_km');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/listings?radius_km=5",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "listings"
+              ],
+              "query": [
+                {
+                  "key": "radius_km",
+                  "value": "5"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Ditolak: sort di luar daftar putih",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "const items = Array.isArray(body.data) ? body.data : [];",
+                  "const titles = items.map(function (i) { return i.title; });",
+                  "const byTitle = function (t) { return items.find(function (i) { return i.title === t; }); };",
+                  "pm.test('Status 422 VALIDATION_ERROR', function () {",
+                  "  pm.response.to.have.status(422);",
+                  "  pm.expect(body.error.code).to.eql('VALIDATION_ERROR');",
+                  "});",
+                  "pm.test('details menunjuk sort', function () {",
+                  "  pm.expect(body.error.details.map(function (d) { return d.path; })).to.include('sort');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/listings?sort=l.id%3B%20DROP%20TABLE%20listings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "listings"
+              ],
+              "query": [
+                {
+                  "key": "sort",
+                  "value": "l.id%3B%20DROP%20TABLE%20listings"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "q berisi potongan SQL dicari sebagai teks",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "const items = Array.isArray(body.data) ? body.data : [];",
+                  "const titles = items.map(function (i) { return i.title; });",
+                  "const byTitle = function (t) { return items.find(function (i) { return i.title === t; }); };",
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Tidak ada hasil', function () { pm.expect(items.length).to.eql(0); pm.expect(body.meta.total).to.eql(0); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/listings?q=%27%20OR%201%3D1%20--",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "listings"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "%27%20OR%201%3D1%20--"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "attr berisi potongan SQL ditolak sebagai nilai tidak sah",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "const items = Array.isArray(body.data) ? body.data : [];",
+                  "const titles = items.map(function (i) { return i.title; });",
+                  "const byTitle = function (t) { return items.find(function (i) { return i.title === t; }); };",
+                  "pm.test('Status 422 VALIDATION_ERROR', function () {",
+                  "  pm.response.to.have.status(422);",
+                  "  pm.expect(body.error.code).to.eql('VALIDATION_ERROR');",
+                  "});",
+                  "pm.test('details menunjuk attr.merek_dilayani', function () {",
+                  "  pm.expect(body.error.details.map(function (d) { return d.path; })).to.include('attr.merek_dilayani');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/listings?subcategory_id={{servis_ac_id}}&attr[merek_dilayani]=Daikin%22%5D%7D%27%20OR%201%3D1%20--",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "listings"
+              ],
+              "query": [
+                {
+                  "key": "subcategory_id",
+                  "value": "{{servis_ac_id}}"
+                },
+                {
+                  "key": "attr[merek_dilayani]",
+                  "value": "Daikin%22%5D%7D%27%20OR%201%3D1%20--"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Tabel listings masih utuh",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "const items = Array.isArray(body.data) ? body.data : [];",
+                  "const titles = items.map(function (i) { return i.title; });",
+                  "const byTitle = function (t) { return items.find(function (i) { return i.title === t; }); };",
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Memuat \"Cuci Mobil Panggilan Renon\"', function () { pm.expect(titles).to.include('Cuci Mobil Panggilan Renon'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/listings?q=Cuci%20Mobil%20Panggilan%20Renon",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "listings"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "Cuci%20Mobil%20Panggilan%20Renon"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

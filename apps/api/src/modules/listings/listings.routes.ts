@@ -3,8 +3,8 @@
  *
  *   PR  /providers/me/listings   requireAuth + requireProvider. Dipasang di
  *                                app.ts SEBELUM router /providers
- *   P   /listings/:id[/faqs]     publik, hanya listing yang tayang.
- *                                `GET /listings` (pencarian) menyusul Fase 5
+ *   P   /listings[/:id[/faqs]]   publik, hanya listing yang tayang.
+ *                                `GET /listings` pencarian Fase 5
  *   C   /uploads/signed-url      hanya untuk foto listing (D80)
  */
 
@@ -22,6 +22,7 @@ import {
   optionPricesSchema,
   photoParamsSchema,
   photoSchema,
+  searchListingsQuerySchema,
   updateListingSchema,
 } from './listings.schema';
 
@@ -47,6 +48,7 @@ export function createProviderListingsRouter(): Router {
 
 export function createPublicListingsRouter(): Router {
   const router = Router();
+  router.get('/', validate({ query: searchListingsQuerySchema }), controller.searchPublic);
   router.get('/:id', validate({ params: listingParamsSchema }), controller.getPublic);
   router.get('/:id/faqs', validate({ params: listingParamsSchema }), controller.getPublicFaqs);
   return router;
