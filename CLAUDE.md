@@ -6,10 +6,10 @@ Marketplace jasa on-demand berbasis web. Ini kode untuk Tugas Akhir, jadi **doku
 
 | Berkas | Isi |
 |---|---|
-| `docs/Keputusan-Desain-Sistem.md` | Register keputusan D1 sampai D101 (versi 2.12) beserta alasannya. **Baca ini kalau ragu kenapa sesuatu dirancang begitu** |
+| `docs/Keputusan-Desain-Sistem.md` | Register keputusan D1 sampai D102 (versi 2.12) beserta alasannya. **Baca ini kalau ragu kenapa sesuatu dirancang begitu** |
 | `docs/State-Machine-Order.md` | 15 status, 22 transisi, guard, efek samping, dan kode `ALLOWED_TRANSITIONS` |
 | `docs/PRD-Backend.md` | Kontrak endpoint, NFR, cron, Socket.IO, milestone |
-| `packages/database/prisma/schema.prisma` | 34 model, 35 enum |
+| `packages/database/prisma/schema.prisma` | 35 model, 35 enum (`order_offers` masuk di sesi 6d, D102) |
 | `packages/database/prisma/migrations/*/migration.sql` | Termasuk constraint manual |
 
 Jangan mengubah keputusan desain sendiri. Kalau menemukan alasan kuat untuk mengubah sesuatu, **sampaikan usulannya, jangan langsung terapkan.** Setiap keputusan punya nomor D dan harus dicatat di register sebelum masuk kode.
@@ -149,6 +149,8 @@ RETURNING id;
 ```
 
 Nol baris berarti sudah keduluan: 409 `ORDER_ALREADY_CLAIMED`. **Jangan pakai pola baca lalu cek**, dua orang yang menekan pada detik yang sama bisa lolos berdua.
+
+Klaim hanya sah untuk pekerja yang punya baris `order_offers` dan belum menolak, dan pemilik hanya boleh memilih dari daftar yang sama (D102). Pekerja menolak lewat `decline-offer`, bukan lewat T2.
 
 Pola yang sama dipakai untuk lock `webhook_events`.
 

@@ -2,13 +2,13 @@
 
 **Artefak desain 3 dari 8**
 Platform Jasana, Tugas Akhir I Nyoman Gede Candra Wikananta (2305551065)
-**Versi 2.6**, 30 September 2026
+**Versi 2.7**, 31 Oktober 2026
 
 Dokumen ini mendefinisikan seluruh kondisi yang boleh dialami sebuah order, perpindahan yang diizinkan di antaranya, dan efek samping yang wajib terjadi pada setiap perpindahan.
 
 **Aturan tunggal yang mengikat seluruh kode:** tidak ada satu pun bagian sistem yang boleh menulis `orders.status` secara langsung. Semua perubahan status melewati satu fungsi `transitionOrder()`. Di luar fungsi itu, kolom `status` bersifat read-only.
 
-Rujukan keputusan lengkap ada di `Keputusan-Desain-Sistem.md` (D1 sampai D79). Nomor D di dokumen ini menunjuk ke sana.
+Rujukan keputusan lengkap ada di `Keputusan-Desain-Sistem.md` (D1 sampai D102). Nomor D di dokumen ini menunjuk ke sana.
 
 ---
 
@@ -65,8 +65,8 @@ Kolom Aktor memakai singkatan: **C** client, **O** pemilik provider, **W** peker
 | No | Dari | Ke | Trigger | Aktor | Mode |
 |---|---|---|---|---|---|
 | T1 | PENDING_ACCEPTANCE | ACCEPTED | Menerima order sekaligus menugaskan pekerja | **O** (Scheduled), **W atau O** (Available Now) | Keduanya |
-| T2 | PENDING_ACCEPTANCE | REJECTED | Menolak order | **O** (Scheduled), **W atau O** (Available Now) | Keduanya |
-| T3 | PENDING_ACCEPTANCE | EXPIRED | Deadline respons lewat | S (cron) | Keduanya |
+| T2 | PENDING_ACCEPTANCE | REJECTED | Pemilik menolak order atas nama usaha | **O** (kedua mode, D102) | Keduanya |
+| T3 | PENDING_ACCEPTANCE | EXPIRED | Deadline respons lewat, atau seluruh penerima tawaran Available Now sudah menolak (D102) | S (cron, atau server saat penolakan terakhir) | Keduanya |
 | T4 | PENDING_ACCEPTANCE | CANCELLED | Client membatalkan | C | Keduanya |
 | T5 | ACCEPTED | PAID | Webhook invoice berstatus lunas | S (Xendit) | Keduanya |
 | T6 | ACCEPTED | PAYMENT_EXPIRED | Deadline bayar lewat | S (cron) | Keduanya |
@@ -99,9 +99,9 @@ Kolom Aktor memakai singkatan: **C** client, **O** pemilik provider, **W** peker
 
 | No | Guard (syarat yang harus terpenuhi) | Efek samping (wajib terjadi dalam transaksi yang sama) |
 |---|---|---|
-| T1 | `now() < response_deadline_at`; listing masih `ACTIVE`; **pekerja yang ditugaskan terpetakan ke listing itu** (`worker_listings`), keanggotaannya `ACTIVE`, `accepts_assignments = true`; **pekerja itu tidak punya order lain berstatus in-flight**; **tidak bentrok jadwal** (lihat rumus di bawah); untuk Available Now, `assigned_worker_id` order ini masih NULL | Set `assigned_worker_id`, `snapshot_assignee_name`, `accepted_by`, `accepted_at`; set `payment_deadline_at = now() + payment_window_minutes`; kunci slot pekerja **tentatif** (D43); untuk Scheduled, simpan pekerja pendamping ke `order_crew` kalau dicentang (D69); buat invoice Xendit; **buka jalur `order_messages`** (D79); notifikasi client dan pekerja |
+| T1 | `now() < response_deadline_at`; listing masih `ACTIVE`; **pekerja yang ditugaskan terpetakan ke listing itu** (`worker_listings`), keanggotaannya `ACTIVE`, `accepts_assignments = true`; **pekerja itu tidak punya order lain berstatus in-flight**; **tidak bentrok jadwal** (lihat rumus di bawah); untuk Available Now, `assigned_worker_id` order ini masih NULL dan pekerjanya punya baris `order_offers` yang belum menolak (D102) | Set `assigned_worker_id`, `snapshot_assignee_name`, `accepted_by`, `accepted_at`; set `payment_deadline_at = now() + payment_window_minutes`; kunci slot pekerja **tentatif** (D43); untuk Scheduled, simpan pekerja pendamping ke `order_crew` kalau dicentang (D69); buat invoice Xendit; **buka jalur `order_messages`** (D79); notifikasi client dan pekerja |
 | T2 | `now() < response_deadline_at` | Set `cancelled_at`, `cancelled_by = PROVIDER`; notifikasi client |
-| T3 | `response_deadline_at < now()` | Notifikasi kedua pihak; untuk `AVAILABLE_NOW`, catat SLA miss untuk **seluruh pekerja yang ditawari** dan **matikan toggle `is_available`** mereka (D57) |
+| T3 | `response_deadline_at < now()`, atau seluruh baris `order_offers` order itu sudah terisi `declined_at` (D102) | Notifikasi kedua pihak; untuk `AVAILABLE_NOW` yang lewat deadline, isi `sla_missed_at` untuk **penerima yang belum menolak** dan **matikan toggle `is_available`** mereka (D57, D102). Penerima yang menolak tidak kena catatan |
 | T4 | Belum ada `payments` berstatus `PAID` | Set `cancelled_at`, `cancelled_by = CLIENT` |
 | T5 | Signature `x-callback-token` valid; `event_id` belum pernah diproses; belum ada `payments` lain berstatus `PAID` untuk order ini | Set `paid_at`; **ledger `ESCROW_HOLD`: `pending += provider_earning`**; kunci slot pekerja jadi **pasti** (D43); notifikasi pemilik, pekerja, dan client |
 | T6 | `payment_deadline_at < now()`; tidak ada payment `PAID` | Expire invoice di Xendit; **lepas kunci slot tentatif** pekerja dan seluruh pendampingnya (D43, H26) |
@@ -166,6 +166,8 @@ Nol baris berarti sudah keduluan: balas 409 `ORDER_ALREADY_CLAIMED`, dan kirim e
 **Jangan memakai pola baca lalu cek**, karena dua orang yang menekan pada detik yang sama bisa lolos berdua. Pola ini identik dengan pengambilan lock webhook di `webhook_events`, jadi tidak ada konsep baru yang perlu dijelaskan di sidang.
 
 Guard sisanya (pemetaan listing, keanggotaan, in-flight, bentrok jadwal) tetap diperiksa **setelah** klaim berhasil, di dalam transaksi yang sama, karena keadaan bisa berubah dalam 5 menit sejak tawaran dikirim (H41). Kalau guard gagal, transaksi di-rollback dan klaimnya batal.
+
+**Daftar penerima dan penolakan (D102).** Penerima tawaran disimpan di `order_offers` saat order dibuat. Pekerja yang tidak punya baris, atau sudah menolak, tidak bisa mengklaim, dan pemilik hanya boleh memilih dari baris yang belum menolak. Pekerja boleh menolak tawarannya sendiri lewat `POST /orders/:id/decline-offer`. Penolakan hanya mengisi `declined_at` dan bukan transisi. Kalau itu penolakan terakhir, server menjalankan T3 dengan aktor SYSTEM di transaksi yang sama. Penolakan terakhir yang bersamaan dengan klaim pekerja lain diselesaikan oleh UPDATE bersyarat: hanya satu yang menemukan status masih `PENDING_ACCEPTANCE`.
 
 **Kenapa tidak ada percabangan "kalau pemilik sedang online".** Percabangan seperti itu selalu bocor di tepinya, misalnya pemilik online lalu tabnya mati tepat saat order masuk. Dengan membiarkan keduanya berhak sejak awal, tidak ada deteksi yang perlu dilakukan.
 
@@ -255,7 +257,7 @@ Hanya lima tempat di mana `booking_mode` mengubah perilaku, naik dari tiga. Sisa
 | Titik | `AVAILABLE_NOW` | `SCHEDULED` |
 |---|---|---|
 | `response_deadline_at` saat order dibuat | `now() + 5 menit` | `now() + 24 jam` |
-| Siapa yang boleh melakukan T1 dan T2 | **Pekerja atau pemilik**, siapa cepat dia dapat (D70) | Pemilik saja |
+| Siapa yang boleh melakukan T1 | **Pekerja atau pemilik**, siapa cepat dia dapat (D70). Pekerja menolak lewat `decline-offer`, sedangkan T2 tetap milik pemilik (D102) | Pemilik saja |
 | Cara T1 dijalankan | UPDATE bersyarat atomik (Bagian 3.2) | UPDATE biasa di dalam transaksi |
 | Pendamping (`order_crew`) | **Tidak tersedia** (D70, H47) | Tersedia, sampai `ON_THE_WAY` |
 | Guard T8 (boleh berangkat) | Kapan saja setelah `PAID` | `now() >= scheduled_at - 60 menit` |
@@ -293,11 +295,11 @@ export const ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
 // Keduanya bisa jadi orang yang sama pada provider INDIVIDUAL, tapi
 // pemeriksaannya tetap dua jalur berbeda supaya BUSINESS ikut benar.
 export const ALLOWED_ACTORS: Record<string, OrderActorType[]> = {
-  // T1 dan T2: WORKER hanya sah pada mode AVAILABLE_NOW.
+  // T1: WORKER hanya sah pada mode AVAILABLE_NOW. T2 hanya PROVIDER (D102).
   // Pemeriksaan mode dilakukan di assertActorForMode(), bukan di sini,
   // karena tabel ini tidak tahu booking_mode.
   'PENDING_ACCEPTANCE->ACCEPTED':       ['PROVIDER', 'WORKER'],
-  'PENDING_ACCEPTANCE->REJECTED':       ['PROVIDER', 'WORKER'],
+  'PENDING_ACCEPTANCE->REJECTED':       ['PROVIDER'],
   'PENDING_ACCEPTANCE->EXPIRED':        ['SYSTEM'],
   'PENDING_ACCEPTANCE->CANCELLED':      ['CLIENT'],
   'ACCEPTED->PAID':                     ['SYSTEM'],
@@ -429,8 +431,9 @@ Setiap baris di Bagian 2 menghasilkan minimal dua test case Black Box:
 | **Negatif, pekerja salah** | Jalankan transisi pelaksanaan dengan pekerja lain di usaha yang sama, verifikasi ditolak 403 | **5** |
 | Negatif, transisi ilegal | Coba lompat, misalnya `PENDING_ACCEPTANCE -> COMPLETED`, verifikasi ditolak 409 | minimal 10 |
 | **Operasi non-transisi** | Penggantian penanggung jawab dan perubahan pendamping, positif dan negatif | **8** |
+| **Penolakan tawaran** | Penolakan per pekerja, penolakan terakhir memicu T3, klaim oleh pekerja yang sudah menolak ditolak, dan penolakan terakhir yang bersamaan dengan klaim (D102) | **4** |
 
-Totalnya sekitar **85 test case** hanya untuk modul order, naik dari 72. Ini melengkapi dokumen `PPL_A_2305551065_UAS.docx` yang sudah memuat 127 test case, dan kolom Guard di Bagian 3 memberi skenario negatif yang konkret, bukan karangan.
+Totalnya sekitar **89 test case** hanya untuk modul order, naik dari 85 di versi 2.6. Ini melengkapi dokumen `PPL_A_2305551065_UAS.docx` yang sudah memuat 127 test case, dan kolom Guard di Bagian 3 memberi skenario negatif yang konkret, bukan karangan.
 
 Lima skenario negatif yang paling layak ditonjolkan di laporan:
 
@@ -504,5 +507,6 @@ Diagram ASCII di atas hanya untuk orientasi cepat. Gunakan versi Mermaid untuk l
 | Versi | Tanggal | Perubahan |
 |---|---|---|
 | 1.0 | 17 September 2026 | Versi awal. 15 state, 22 transisi, guard dan efek samping, tiga aturan alur uang |
+| 2.7 | 31 Oktober 2026 | Menyesuaikan D102. Penerima tawaran Available Now disimpan di `order_offers`, pekerja menolak lewat `decline-offer` tanpa mematikan order, T2 hanya oleh pemilik, T3 juga terpicu saat seluruh penerima menolak, dan SLA miss hanya untuk penerima yang belum menolak. Test case naik jadi sekitar 89 |
 | 2.6 | 30 September 2026 | Menyesuaikan D78 dan D79. Jalur `order_messages` dibuka pada efek samping T1, jadi read-only saat T18, dan otomatis jadi bukti saat transisi ke DISPUTED. Bagian 4.3 baru |
 | 2.5 | 30 September 2026 | Menyesuaikan D31 sampai D77. Aktor WORKER ditambahkan, transisi pelaksanaan pindah ke pekerja yang ditugaskan. Guard T1 memeriksa pemetaan listing, kunci in-flight per pekerja, dan bentrok jadwal per pekerja. Klaim atomik untuk Available Now (Bagian 3.2). Bagian 4 baru: operasi non-transisi (penggantian penanggung jawab dan pendamping). Toggle `listings.is_available_now` dihapus dari efek samping. Aturan auto-reject antrean dihapus. Test case naik dari 72 jadi 85 |

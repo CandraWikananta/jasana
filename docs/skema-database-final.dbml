@@ -5,8 +5,8 @@ Project jasana {
   yang Terintegrasi dengan Kecerdasan Buatan
   I Nyoman Gede Candra Wikananta - 2305551065
 
-  VERSI 2.9. 34 tabel, 35 enum. Versi 2.8 dan 2.9 tidak mengubah struktur.
-  Rujukan lengkap: Keputusan-Desain-Sistem.md (D1 sampai D90)
+  VERSI 2.12. 35 tabel, 35 enum. Versi 2.12 menambah order_offers (D102).
+  Rujukan lengkap: Keputusan-Desain-Sistem.md (D1 sampai D102)
 
   Keputusan yang mengunci rancangan ini:
   - Available Now model DIRECT (client pilih listing milik satu penyedia)
@@ -892,6 +892,35 @@ Table order_crew {
   '''
 }
 
+Table order_offers {
+  id               uuid         [pk, note: 'Primary key']
+  order_id         uuid         [not null, note: 'Order Available Now yang ditawarkan']
+  worker_id        uuid         [not null, note: 'Pekerja yang ditawari']
+  distance_meters  int          [not null, note: 'Jarak pekerja ke lokasi client saat ditawari, dalam meter']
+  offered_at       timestamptz  [not null, default: `now()`, note: 'Kapan tawaran dikirim']
+  declined_at      timestamptz  [note: 'D102. Pekerja menolak tawarannya sendiri. Bukan transisi, tidak mematikan order']
+  sla_missed_at    timestamptz  [note: 'D102. Diisi cron T3 untuk penerima yang belum menolak saat deadline lewat']
+
+  indexes {
+    (order_id, worker_id)       [unique]
+    (worker_id, sla_missed_at)  [note: 'laporan SLA miss per pekerja']
+  }
+
+  Note: '''
+  D102. Daftar pekerja yang ditawari order AVAILABLE_NOW, satu baris per pekerja,
+  ditulis di transaksi yang sama dengan pembuatan order.
+
+  Dipakai di empat tempat:
+    validasi klaim pekerja dan pilihan pemilik (D70)
+    syarat seluruh penerima menolak, yang langsung memicu T3 (D56)
+    SLA miss saat T3, hanya untuk penerima yang belum menolak
+    laporan admin SLA miss per pekerja dan per penyedia
+
+  Pemenang klaim tercatat di orders.assigned_worker_id. Yang kalah perebutan tidak
+  kena catatan apa pun. declined_at dan sla_missed_at tidak boleh terisi bersamaan (H94).
+  '''
+}
+
 Table order_messages {
   id              bigserial         [pk, increment, note: 'bigserial, bukan UUID, karena volumenya tinggi dan urutan kronologis penting']
   order_id        uuid              [not null, note: 'Percakapan ini milik order mana. Tidak ada percakapan tanpa order']
@@ -1386,6 +1415,8 @@ Ref: orders.listing_id > listings.id [delete: restrict]
 Ref: order_crew.order_id > orders.id [delete: cascade]
 Ref: order_crew.worker_id > provider_workers.id [delete: restrict]
 Ref: order_crew.added_by > users.id [delete: restrict]
+Ref: order_offers.order_id > orders.id [delete: cascade]
+Ref: order_offers.worker_id > provider_workers.id [delete: restrict]
 
 Ref: order_messages.order_id > orders.id [delete: cascade]
 Ref: order_messages.sender_user_id > users.id [delete: restrict]
@@ -1458,6 +1489,7 @@ TableGroup B_Katalog_Jasa {
 TableGroup C_Order {
   orders
   order_crew
+  order_offers
   order_messages
   order_status_histories
   order_checkins

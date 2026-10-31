@@ -13,7 +13,7 @@
 | Tanggal | 31 Oktober 2026 |
 | Cakupan dokumen | **Backend saja** (Express.js REST API, basis data, integrasi eksternal, cron). Frontend dan UI/UX di luar cakupan dokumen ini |
 
-**Dokumen rujukan:** `Keputusan-Desain-Sistem.md` (register keputusan D1 sampai D101, versi 2.12), `State-Machine-Order.md` (artefak desain 3), `skema-database-final.dbml` (34 tabel, 35 enum), `schema.prisma`, `migration-constraints.sql`, `Panduan-Struktur-Database.md`.
+**Dokumen rujukan:** `Keputusan-Desain-Sistem.md` (register keputusan D1 sampai D102, versi 2.12), `State-Machine-Order.md` (artefak desain 3), `skema-database-final.dbml` (35 tabel, 35 enum), `schema.prisma`, `migration-constraints.sql`, `Panduan-Struktur-Database.md`.
 
 **Catatan versi.** Dokumen ini menggantikan PRD versi 1.x sepenuhnya, bukan merevisinya. Implementasi dimulai ulang dari nol mengikuti milestone di Bagian 9. Perubahan terbesar sejak versi 1.x adalah masuknya entitas tenaga kerja (D31 sampai D53) atas arahan Pembimbing 1, yang memindahkan pelaksanaan order dari akun provider ke pekerja.
 
@@ -212,14 +212,14 @@ Sumber kebenaran struktur ada di `skema-database-final.dbml` dan `schema.prisma`
 | A. Identitas dan akses | `users`, `user_addresses`, `verification_tokens`, `refresh_tokens`, `provider_profiles`, `kyc_documents` |
 | A2. Tenaga kerja | `provider_workers`, `worker_listings` |
 | B. Katalog jasa | `categories`, `subcategories`, `subcategory_attributes`, `listings`, `listing_option_prices`, `listing_photos`, `listing_faqs`, `taxonomy_requests` |
-| C. Order | `orders`, `order_crew`, `order_messages`, `order_status_histories`, `order_checkins` |
+| C. Order | `orders`, `order_crew`, `order_offers`, `order_messages`, `order_status_histories`, `order_checkins` |
 | D. Pembayaran dan uang | `payments`, `webhook_events`, `wallets`, `wallet_transactions`, `withdrawals`, `refunds` |
 | E. Dispute | `disputes`, `dispute_evidences` |
 | F. Review | `reviews` |
 | G. Chatbot | `chat_sessions`, `chat_messages` |
 | H. Sistem | `notifications`, `platform_settings` |
 
-Total **34 tabel dan 35 enum**. Seluruh primary key bertipe UUID, kecuali tabel bervolume tinggi yang bersifat log (`order_status_histories`, `order_messages`, `wallet_transactions`, `chat_messages`, `notifications`) yang memakai `bigserial`, dan `platform_settings` yang memakai `key` sebagai primary key.
+Total **35 tabel dan 35 enum**. Seluruh primary key bertipe UUID, kecuali tabel bervolume tinggi yang bersifat log (`order_status_histories`, `order_messages`, `wallet_transactions`, `chat_messages`, `notifications`) yang memakai `bigserial`, dan `platform_settings` yang memakai `key` sebagai primary key.
 
 ### 3.2 Entitas Inti
 
@@ -755,7 +755,8 @@ Query parameter `GET /listings`:
 | GET | `/orders/:id` | C/PR/W/A | Detail order |
 | GET | `/orders/:id/history` | C/PR/W/A | Audit trail transisi |
 | POST | `/orders/:id/accept` | PR/W | T1 `-> ACCEPTED`. Scheduled oleh pemilik, Available Now oleh pekerja maupun pemilik |
-| POST | `/orders/:id/reject` | PR/W | T2 `-> REJECTED` |
+| POST | `/orders/:id/reject` | PR | T2 `-> REJECTED`, pemilik saja di kedua mode (D102) |
+| POST | `/orders/:id/decline-offer` | W | Pekerja menolak tawaran Available Now miliknya (bukan transisi). Penolakan terakhir memicu T3 (D102) |
 | PATCH | `/orders/:id/assignment` | PR | Ganti penanggung jawab (bukan transisi) |
 | PUT | `/orders/:id/crew` | PR | Atur pendamping, `SCHEDULED` saja (bukan transisi) |
 | POST | `/orders/:id/cancel` | C/PR/A | T4, T7, T9, T11 `-> CANCELLED` |
@@ -883,7 +884,8 @@ Alur server:
 5. Set response_deadline_at sesuai mode
 6. Mode AVAILABLE_NOW: susun daftar penerima tawaran, maksimal
    available_now_offer_limit pekerja terdekat yang memenuhi syarat,
-   lalu kirim Socket.IO ke mereka DAN ke dashboard pemilik
+   simpan ke order_offers (D102), lalu kirim Socket.IO ke mereka
+   DAN ke dashboard pemilik
 7. Mode SCHEDULED: notifikasi ke pemilik
 ```
 
@@ -1255,7 +1257,7 @@ Ringkasan aturan yang tidak boleh dilanggar implementasi mana pun:
 
 | Job | Jadwal | Aksi |
 |---|---|---|
-| Sweep response deadline | tiap 1 menit | Order `PENDING_ACCEPTANCE` yang `response_deadline_at` lewat menjadi `EXPIRED`. Untuk Available Now, catat SLA miss dan **matikan toggle `is_available`** seluruh pekerja yang ditawari |
+| Sweep response deadline | tiap 1 menit | Order `PENDING_ACCEPTANCE` yang `response_deadline_at` lewat menjadi `EXPIRED`. Untuk Available Now, isi `order_offers.sla_missed_at` dan **matikan toggle `is_available`** penerima yang belum menolak (D102) |
 | Sweep payment deadline | tiap 1 menit | Order `ACCEPTED` yang `payment_deadline_at` lewat menjadi `PAYMENT_EXPIRED`, invoice di-expire di Xendit, **kunci slot tentatif pekerja dan pendamping dilepas** |
 | Sweep settlement | tiap 5 menit | Order `COMPLETED` yang `settlement_due_at` lewat dan tidak punya dispute `OPEN` atau `UNDER_REVIEW` menjadi `SETTLED` beserta `ESCROW_RELEASE`. Jalur pesan jadi read-only |
 | Sweep presence pekerja | tiap 2 menit | Pekerja yang koneksi Socket.IO-nya putus lebih dari `worker_presence_timeout_minutes` dimatikan `is_available`-nya, supaya tampilan dashboard jujur |
@@ -1477,4 +1479,4 @@ Tidak menyangkut aturan bisnis, dibentuk oleh middleware bersama pada Fase 0.
 | 2.3 | 21 Oktober 2026 | Sinkron dengan register keputusan versi 2.9. Sumber snapshot durasi dari kolom listing (D90), rentang atribut 2 sampai 6, kode error `TAXONOMY_REQUEST_STATE_CONFLICT`, satu pertanyaan terbuka soal durasi yang ditentukan opsi, status milestone Fase 0 sampai 3 selesai |
 | 2.4 | 22 Oktober 2026 | Sinkron dengan register keputusan versi 2.10. Dua endpoint baca listing provider (D91), status milestone Fase 0 sampai 4 selesai |
 | 2.5 | 22 Oktober 2026 | Arti filter lokasi pencarian (D98) dan status online `available_now` dari memori proses (D99) |
-| 2.6 | 31 Oktober 2026 | Sinkron dengan register keputusan versi 2.12. Snapshot durasi dari nilai opsi (D100), pertanyaan terbuka nomor 5 ditutup, status milestone Fase 0 sampai 5 selesai. Pembagian transisi antar fase, port `PaymentGateway`, endpoint simulasi pembayaran, dan kriteria milestone Fase 6 sampai 8 (D101) |
+| 2.6 | 31 Oktober 2026 | Sinkron dengan register keputusan versi 2.12. Snapshot durasi dari nilai opsi (D100), pertanyaan terbuka nomor 5 ditutup, status milestone Fase 0 sampai 5 selesai. Pembagian transisi antar fase, port `PaymentGateway`, endpoint simulasi pembayaran, dan kriteria milestone Fase 6 sampai 8 (D101). Tabel `order_offers`, endpoint `decline-offer`, dan T2 hanya oleh pemilik (D102) |
