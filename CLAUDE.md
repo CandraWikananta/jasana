@@ -6,7 +6,7 @@ Marketplace jasa on-demand berbasis web. Ini kode untuk Tugas Akhir, jadi **doku
 
 | Berkas | Isi |
 |---|---|
-| `docs/Keputusan-Desain-Sistem.md` | Register keputusan D1 sampai D100 (versi 2.12) beserta alasannya. **Baca ini kalau ragu kenapa sesuatu dirancang begitu** |
+| `docs/Keputusan-Desain-Sistem.md` | Register keputusan D1 sampai D101 (versi 2.12) beserta alasannya. **Baca ini kalau ragu kenapa sesuatu dirancang begitu** |
 | `docs/State-Machine-Order.md` | 15 status, 22 transisi, guard, efek samping, dan kode `ALLOWED_TRANSITIONS` |
 | `docs/PRD-Backend.md` | Kontrak endpoint, NFR, cron, Socket.IO, milestone |
 | `packages/database/prisma/schema.prisma` | 34 model, 35 enum |
@@ -157,6 +157,8 @@ Pola yang sama dipakai untuk lock `webhook_events`.
 Xendit, Gemini, dan SMTP semuanya di luar transaksi. Pola yang benar: commit dulu, panggil API, perbarui hasilnya lewat webhook.
 
 Untuk email, baris `notifications` ditulis **di dalam** transaksi, pengirimannya **setelah** commit. Kegagalan SMTP tidak pernah membatalkan transisi order.
+
+Seluruh panggilan Xendit lewat interface `PaymentGateway` (D101), jangan memanggil SDK Xendit langsung dari service order. Sampai Fase 7 yang dipakai implementasi palsu (`PAYMENT_GATEWAY=fake`), dan aplikasi wajib gagal start kalau `fake` dipakai bersama `NODE_ENV=production`.
 
 ### 8. Webhook butuh dua transaksi terpisah
 

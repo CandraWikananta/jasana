@@ -29,15 +29,16 @@
 | Katalog lanjutan dan sumber durasi (D87 sampai D90) | 4 | 0 |
 | Listing dan pemetaan (D91 sampai D97) | 7 | 0 |
 | Pencarian: lokasi dan status online (D98 sampai D99) | 2 | 0 |
-| Durasi dari nilai opsi (D100) | 1 | 0 |
+| Durasi opsi dan pembagian transisi antar fase (D100 sampai D101) | 2 | 0 |
 | Keputusan terbuka tanpa nomor D (Bagian 7) | | 0 |
 
 **Perubahan pada versi 2.12:**
 
 1. Durasi bisa melekat pada nilai opsi, dan durasi opsi yang dipilih client menjadi `snapshot_duration_minutes` saat order dibuat (D100). Menutup keputusan terbuka nomor 5
 2. Opsi "Dua Hari" di B.6 dihapus, liputan dua hari dipesan sebagai dua order (D75)
-3. Hutang teknis H93
-4. Tidak ada lagi keputusan terbuka. Tanpa perubahan skema
+3. Seluruh 22 transisi dipasang di Fase 6 dan diuji di tingkat unit, transisi uang end-to-end menunggu Fase 7 dan 8, dan Xendit dibungkus port `PaymentGateway` dengan implementasi palsu. Kriteria milestone Fase 6 sampai 8 disesuaikan (D101)
+4. Hutang teknis H93
+5. Tidak ada lagi keputusan terbuka. Tanpa perubahan skema
 
 **Perubahan pada versi 2.11:**
 
@@ -122,8 +123,8 @@
 
 | Artefak | Versi | Keterangan |
 |---|---|---|
-| `PRD-Backend.md` | 2.6 | Sumber snapshot durasi di langkah pembuatan order (D100), Bagian 10 tanpa pertanyaan terbuka, status milestone Fase 0 sampai 5 selesai |
-| `CLAUDE.md` | | Rujukan D1 sampai D100, jebakan nomor 13 menyebut durasi opsi |
+| `PRD-Backend.md` | 2.6 | Sumber snapshot durasi di langkah pembuatan order (D100), Bagian 10 tanpa pertanyaan terbuka, kriteria milestone Fase 6 sampai 8, endpoint simulasi pembayaran dan env `PAYMENT_GATEWAY` (D101), status milestone Fase 0 sampai 5 selesai |
+| `CLAUDE.md` | | Rujukan D1 sampai D101, jebakan nomor 7 menyebut `PaymentGateway`, jebakan nomor 13 menyebut durasi opsi |
 | `skema-database-final.dbml`, `schema.prisma`, `Panduan-Struktur-Database.md` | 2.9 | Struktur tidak terdampak. Yang berubah hanya bentuk isi JSONB `options` |
 | `migration-constraints.sql`, `State-Machine-Order.md` | 2.6 | Tidak terdampak, rumus bentrok jadwal tetap memakai `snapshot_duration_minutes` |
 | Kode Fase 0 sampai 5 | | Fase 5 selesai (commit `a3c6cc5`). **Perlu diubah di awal Fase 6**: validasi `options` dan seed katalog untuk D100, nonaktifkan opsi "Dua Hari" di basis data pengembangan |
@@ -988,17 +989,28 @@ Diputuskan sebelum Fase 5 karena PRD hanya menulis parameter `lat`, `lng`, dan `
 | D98 | **Arti filter lokasi pencarian.** Titik `lat`, `lng` adalah lokasi client, yaitu tempat jasa dikerjakan. Listing muncul kalau lokasi client berada **di dalam `service_radius_km` usahanya**. Jarak diukur dari **lokasi tetap usaha** (`base_latitude`, `base_longitude`) untuk pencarian biasa, dan dari **pekerja online terdekat** yang terpetakan ke listing itu kalau `available_now=true`. `radius_km` dari client adalah penyaring tambahan yang opsional, dan `sort=distance` memakai jarak yang sama. Bounding box tetap dijalankan sebelum Haversine (D6) | Seluruh jasa dikerjakan di lokasi client (D75), jadi yang menentukan adalah apakah usaha itu mau datang ke client, bukan seberapa dekat client ke usaha. Untuk Available Now yang berangkat adalah pekerja online, sehingga posisinya yang relevan, dan karena itu `idx_worker_geo` menjadi kriteria selesai Fase 5 |
 | D99 | **Status online pekerja dibaca dari memori proses API, tanpa Redis.** API dan Socket.IO berjalan di satu proses, sehingga daftar ID pekerja yang terhubung disisipkan ke query sebagai `id = ANY(...)`. Di Fase 5 pelacak itu belum ada, jadi filter `available_now` sementara memakai `is_available` saja dan ditandai `shortcut:` di kode. Di Fase 6 filter ditambah daftar pekerja online. Cron presence tetap ada supaya tampilan dashboard pekerja jujur | Redis baru dibutuhkan kalau API berjalan di beberapa server sekaligus. Menambahkannya berarti infrastruktur baru untuk dev dan test, menulis ulang rate limiter Fase 1, dan perubahan dokumen, tanpa manfaat di skala penelitian. Batasan satu instance sudah tertulis di Bagian 2.2, dan hasil stress test dibaca sebagai kapasitas satu instance. Beberapa instance dengan Redis masuk saran pengembangan |
 
-## 4G. Keputusan Versi 2.12 (D100)
+## 4G. Keputusan Versi 2.12 (D100 sampai D101)
 
-Diputuskan sebelum Fase 6 dan menutup keputusan terbuka nomor 5. Tidak ada perubahan skema, karena `subcategory_attributes.options` sudah berupa JSONB.
+Keduanya diputuskan sebelum Fase 6. D100 menutup keputusan terbuka nomor 5, dan D101 menyesuaikan kriteria milestone dengan urutan fase. Tidak ada perubahan skema: `subcategory_attributes.options` sudah berupa JSONB, dan D101 hanya menyangkut kode serta urutan kerja.
 
 | # | Keputusan | Alasan |
 |---|---|---|
 | D100 | **Durasi bisa melekat pada nilai opsi.** Setiap nilai di `subcategory_attributes.options` boleh membawa `duration_minutes`, misalnya `{ "value": "4 Jam", "is_active": true, "duration_minutes": 240 }`. Saat order dibuat, `snapshot_duration_minutes` diambil dari durasi opsi yang dipilih client. Kalau sub-kategorinya tidak punya atribut berdurasi yang aktif, durasi tetap dari `listings.estimated_duration_minutes` (D90). Aturannya: (1) hanya atribut SELECT, berperan OPTION, dan wajib diisi yang boleh membawa durasi, dan status wajibnya tidak boleh dicabut selama durasi itu ada; (2) maksimal satu atribut berdurasi per sub-kategori; (3) kalau satu nilai opsi punya `duration_minutes`, seluruh nilai opsi atribut itu wajib punya, berupa bilangan bulat 15 sampai 720; (4) durasi ditetapkan admin di taksonomi, bukan provider per listing, dan nilai opsi baru lewat `NEW_ATTRIBUTE_OPTION` (D74) diberi durasinya oleh admin saat menyetujui; (5) mengubah durasi sebuah opsi hanya berlaku untuk order berikutnya, karena order lama memakai snapshot. Opsi "Dua Hari" di B.6 dihapus | Label opsinya sendiri sudah menyebut durasi, sehingga durasi adalah bagian dari definisi opsi, bukan nilai yang perlu diisi ulang tiap provider. Dua provider yang menawarkan "4 Jam" pasti maksudnya sama, jadi menaruhnya di taksonomi menutup kemungkinan durasi bertentangan dengan label. Delta durasi per listing ditolak karena butuh migration dan justru membuka inkonsistensi itu. Memecah paket menjadi listing terpisah ditolak karena menghilangkan atribut OPTION dari B.5 dan B.6 dan melemahkan tujuan penelitian nomor 1. "Dua Hari" melewati batas 720 menit dan melanggar satu order satu kedatangan (D75), sehingga liputan dua hari dipesan sebagai dua order |
+| D101 | **Pembagian transisi antar fase dan gerbang pembayaran.** (1) Fase 6 memasang seluruh 22 transisi di `ALLOWED_TRANSITIONS` dan `ALLOWED_ACTORS`, dan guard-nya diuji di tingkat unit. (2) Yang diuji end-to-end lewat API di Fase 6 adalah T1 sampai T4, T6 sampai T8, T10, T12, T14, dan T16, ditambah T5 lewat gateway palsu. (3) Seluruh panggilan Xendit dibungkus interface `PaymentGateway` di `apps/api/src/lib/payment-gateway.ts` dengan dua implementasi: palsu untuk dev dan test, Xendit untuk Fase 7. Pilihannya lewat env `PAYMENT_GATEWAY` (`fake` atau `xendit`), dan aplikasi gagal start kalau `fake` dipakai bersama `NODE_ENV=production`. (4) Selama memakai gateway palsu, T5 dipicu lewat `POST /dev/orders/:id/simulate-payment` yang hanya terdaftar saat `PAYMENT_GATEWAY=fake`. Endpoint itu memanggil fungsi service yang sama dengan yang nanti dipanggil handler webhook. Di Fase 6 fungsi itu menulis `payments` berstatus PAID dan mengubah slot pekerja dari tentatif menjadi pasti. Ledger `ESCROW_HOLD` ditambahkan ke fungsi yang sama di Fase 7. (5) T5 lewat webhook sungguhan dan T18 dipasang di Fase 7. T9, T11, T13, T15, T17, T19, dan T20 sampai T22 dipasang di Fase 8. Sampai fasenya tiba, `POST /orders/:id/cancel` untuk order berstatus PAID atau ON_THE_WAY menolak dengan 409 `ORDER_TRANSITION_NOT_ALLOWED` dan ditandai `shortcut:` di kode | Kriteria lama Fase 6, yaitu 22 transisi lulus end-to-end, tidak bisa dipenuhi tanpa Fase 7 dan 8, karena T5 butuh webhook, T9 dan T11 butuh refund, dan T13 sampai T22 butuh dispute serta ledger. Memasang seluruh transisi di tabel sejak awal menjaga state machine tetap utuh dan teruji, sedangkan efek samping uang menunggu fasenya. Port `PaymentGateway` membuat kode order tidak berubah saat Xendit dipasang, dan sekaligus memudahkan test karena tidak bergantung pada sandbox. Endpoint simulasi memakai fungsi service yang sama dengan webhook supaya yang teruji di Fase 6 adalah jalur yang benar-benar dipakai nanti |
 
 **Konsekuensi yang disadari.** D90 tidak dibongkar. Kolom durasi listing tetap wajib dan tetap satu-satunya sumber durasi untuk sepuluh sub-kategori lainnya. Untuk B.5 dan B.6 nilainya hanya cadangan, dipakai kalau atribut durasinya dinonaktifkan. Durasi juga tetap bukan atribut: yang ditambahkan adalah properti pada nilai opsi, dan kode tetap tidak membaca durasi dari `listings.attributes`.
 
 **Penerapan.** Di awal Fase 6, kode Fase 3 diubah: validasi `options` di skema dan service katalog menerima `duration_minutes` dengan aturan (1) sampai (3), seed B.5 diberi 240 dan 480 menit, seed B.6 diberi 120, 240, dan 480 menit, dan opsi "Dua Hari" yang sudah ada di basis data pengembangan dinonaktifkan (`is_active = false`, D67), bukan dihapus. Pengisian `snapshot_duration_minutes` dibangun di Fase 6 bersama pembuatan order (H93).
+
+**Pembagian transisi menurut D101:**
+
+| Fase | Transisi yang diuji end-to-end lewat API |
+|---|---|
+| 6 | T1, T2, T3, T4, T6, T7, T8, T10, T12, T14, T16, ditambah T5 lewat gateway palsu |
+| 7 | T5 lewat webhook Xendit, T18 |
+| 8 | T9, T11, T13, T15, T17, T19, T20, T21, T22 |
+
+Pelaksanaan Fase 6 dibagi enam sesi: 6a penerapan D100, 6b mesin state machine dan port `PaymentGateway`, 6c order Scheduled, 6d Available Now dan real-time, 6e pelaksanaan di lokasi, 6f cron SLA dan penutup.
 
 ---
 
@@ -1652,7 +1664,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 ## 11. Langkah Berikutnya
 
 1. Terapkan D100 di kode Fase 3 (validasi `options` dan seed) di awal Fase 6
-2. Fase 6 (order), termasuk keputusan H88
+2. Fase 6 (order) dalam enam sesi, 6a sampai 6f, termasuk keputusan H88
 3. Susun data simulasi untuk dua belas sub-kategori di Lampiran B, termasuk skenario perebutan Available Now dan pendamping pada dokumentasi acara
 4. Riset ringan rentang harga pasaran untuk dua belas sub-kategori tersebut, catat sumbernya
 5. Paralel sejak sekarang: kumpulkan H15 sedikit demi sedikit setiap minggu, dan siapkan instrumen UAT (H84)
@@ -1676,7 +1688,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 | 2.9 | 21 Oktober 2026 | Tiga usulan dari implementasi Fase 3: tipe atribut dikunci (D87), sub-kategori hasil usulan lahir nonaktif (D88), PER_UNIT bilangan bulat (D89). Sumber durasi listing disatukan ke kolom (D90), atribut `durasi_estimasi` dihapus dari Lampiran B, rekap B.13 menjadi 2 sampai 6 atribut. Option B.3 dilengkapi. Satu keputusan terbuka baru soal durasi yang ditentukan opsi. H85 sampai H87. Tanpa perubahan skema |
 | 2.10 | 22 Oktober 2026 | Tujuh usulan dari implementasi Fase 4 (D91 sampai D97). Konfigurasi bucket `listing-photos`. H88 sampai H90. Tanpa perubahan skema |
 | 2.11 | 22 Oktober 2026 | Arti filter lokasi pencarian (D98) dan status online pekerja dari memori tanpa Redis (D99). H91 dan H92 untuk persiapan stress testing. Tanpa perubahan skema |
-| 2.12 | 31 Oktober 2026 | Durasi melekat pada nilai opsi (D100), menutup keputusan terbuka nomor 5. Opsi "Dua Hari" dihapus dari B.6. H93. Tanpa perubahan skema |
+| 2.12 | 31 Oktober 2026 | Durasi melekat pada nilai opsi (D100), menutup keputusan terbuka nomor 5. Opsi "Dua Hari" dihapus dari B.6. Pembagian transisi antar fase dan port `PaymentGateway` (D101). H93. Tanpa perubahan skema |
 
 ---
 

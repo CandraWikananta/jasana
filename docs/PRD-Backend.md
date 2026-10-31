@@ -13,7 +13,7 @@
 | Tanggal | 31 Oktober 2026 |
 | Cakupan dokumen | **Backend saja** (Express.js REST API, basis data, integrasi eksternal, cron). Frontend dan UI/UX di luar cakupan dokumen ini |
 
-**Dokumen rujukan:** `Keputusan-Desain-Sistem.md` (register keputusan D1 sampai D100, versi 2.12), `State-Machine-Order.md` (artefak desain 3), `skema-database-final.dbml` (34 tabel, 35 enum), `schema.prisma`, `migration-constraints.sql`, `Panduan-Struktur-Database.md`.
+**Dokumen rujukan:** `Keputusan-Desain-Sistem.md` (register keputusan D1 sampai D101, versi 2.12), `State-Machine-Order.md` (artefak desain 3), `skema-database-final.dbml` (34 tabel, 35 enum), `schema.prisma`, `migration-constraints.sql`, `Panduan-Struktur-Database.md`.
 
 **Catatan versi.** Dokumen ini menggantikan PRD versi 1.x sepenuhnya, bukan merevisinya. Implementasi dimulai ulang dari nol mengikuti milestone di Bagian 9. Perubahan terbesar sejak versi 1.x adalah masuknya entitas tenaga kerja (D31 sampai D53) atas arahan Pembimbing 1, yang memindahkan pelaksanaan order dari akun provider ke pekerja.
 
@@ -765,6 +765,7 @@ Query parameter `GET /listings`:
 | POST | `/orders/:id/finish` | W | T14 `-> AWAITING_VERIFICATION`, membuat kode |
 | GET | `/orders/:id/verification-code` | C | Menampilkan kode 6 digit, hanya client pemilik order |
 | POST | `/orders/:id/verify` | W | T16 `-> COMPLETED` |
+| POST | `/dev/orders/:id/simulate-payment` | C | T5 lewat gateway palsu. Hanya terdaftar saat `PAYMENT_GATEWAY=fake`, tidak pernah di produksi (D101) |
 | GET | `/orders/:id/messages` | C/PR/W/A | Riwayat pesan, terpaginasi. Admin membaca saja |
 | POST | `/orders/:id/messages` | C/PR/W | Kirim pesan, hanya selama masa aktif |
 | PATCH | `/orders/:id/messages/read` | C/PR/W | Tandai pesan sisi lawan sudah dibaca |
@@ -1141,6 +1142,7 @@ REFRESH_TOKEN_TTL_DAYS
 VERIFICATION_CODE_AES_KEY
 XENDIT_SECRET_KEY
 XENDIT_CALLBACK_TOKEN
+PAYMENT_GATEWAY            # fake atau xendit; fake ditolak saat NODE_ENV=production (D101)
 GEMINI_API_KEY
 SUPABASE_URL
 SUPABASE_SERVICE_ROLE_KEY
@@ -1366,9 +1368,9 @@ Status per 31 Oktober 2026: **Fase 0 sampai Fase 5 selesai**, sisanya belum dike
 | **3. Katalog** | Kategori, sub-kategori, atribut dinamis dengan `attribute_role` dan `pricing_mode`, validasi JSONB, usulan taksonomi | Sub-kategori baru beserta atribut berbayar bisa ditambah tanpa migrasi |
 | **4. Listing dan pemetaan** | CRUD listing, harga opsi, foto, FAQ, pemetaan pekerja ke listing dari dua arah | Listing tanpa pekerja terpetakan tertahan di `DRAFT`, terbukti lewat V7 |
 | **5. Pencarian** | Filter kategori, harga, atribut, lokasi (bounding box lalu Haversine), dan `available_now` turunan | Query plan memakai index, bukan sequential scan. `idx_worker_geo` terpakai |
-| **6. Order** | `transitionOrder()`, tiga lapis pemeriksaan, seluruh endpoint transisi, penugasan, kru, klaim atomik, cron SLA, Socket.IO | 22 transisi lulus uji positif dan negatif. Dua klaim paralel menghasilkan tepat satu pemenang |
-| **7. Pembayaran** | Invoice Xendit, webhook idempotent dua transaksi, ledger escrow, cron settlement | Webhook duplikat menghasilkan satu `ESCROW_HOLD`. V1 tetap 0 baris |
-| **8. Uang lanjutan** | Withdrawal dengan minimum dan admin fee (D84), payout, refund, dispute beserta bukti dan riwayat pesan | Rekonsiliasi ledger tetap 0 baris setelah seluruh skenario |
+| **6. Order** | `transitionOrder()`, tiga lapis pemeriksaan, endpoint transisi operasional, penugasan, kru, klaim atomik, cron SLA, Socket.IO, port `PaymentGateway` dengan implementasi palsu (D101) | 22 transisi lulus uji positif dan negatif di tingkat unit. T1 sampai T4, T6 sampai T8, T10, T12, T14, T16, dan T5 lewat gateway palsu lulus end-to-end. Dua klaim paralel menghasilkan tepat satu pemenang |
+| **7. Pembayaran** | Invoice Xendit, webhook idempotent dua transaksi, ledger escrow, cron settlement | Webhook duplikat menghasilkan satu `ESCROW_HOLD`. V1 tetap 0 baris. T5 lewat webhook dan T18 lulus end-to-end (D101) |
+| **8. Uang lanjutan** | Withdrawal dengan minimum dan admin fee (D84), payout, refund, dispute beserta bukti dan riwayat pesan | Rekonsiliasi ledger tetap 0 baris setelah seluruh skenario. T9, T11, T13, T15, T17, T19 sampai T22 lulus end-to-end (D101) |
 | **9. Chatbot** | Sesi tamu dan terdaftar, klaim sesi, personalisasi, structured output Gemini, rate limiting tiga lapis | Intent terekam beserta confidence dan latensi. Batas tamu terbukti menahan pemakaian berlebih |
 | **10. Pelengkap** | Review, pesan dalam order, notifikasi email, laporan admin, `platform_settings` | Laporan cocok dengan data transaksi. Pesan hanya bisa dikirim peserta order |
 
@@ -1475,4 +1477,4 @@ Tidak menyangkut aturan bisnis, dibentuk oleh middleware bersama pada Fase 0.
 | 2.3 | 21 Oktober 2026 | Sinkron dengan register keputusan versi 2.9. Sumber snapshot durasi dari kolom listing (D90), rentang atribut 2 sampai 6, kode error `TAXONOMY_REQUEST_STATE_CONFLICT`, satu pertanyaan terbuka soal durasi yang ditentukan opsi, status milestone Fase 0 sampai 3 selesai |
 | 2.4 | 22 Oktober 2026 | Sinkron dengan register keputusan versi 2.10. Dua endpoint baca listing provider (D91), status milestone Fase 0 sampai 4 selesai |
 | 2.5 | 22 Oktober 2026 | Arti filter lokasi pencarian (D98) dan status online `available_now` dari memori proses (D99) |
-| 2.6 | 31 Oktober 2026 | Sinkron dengan register keputusan versi 2.12. Snapshot durasi dari nilai opsi (D100), pertanyaan terbuka nomor 5 ditutup, status milestone Fase 0 sampai 5 selesai |
+| 2.6 | 31 Oktober 2026 | Sinkron dengan register keputusan versi 2.12. Snapshot durasi dari nilai opsi (D100), pertanyaan terbuka nomor 5 ditutup, status milestone Fase 0 sampai 5 selesai. Pembagian transisi antar fase, port `PaymentGateway`, endpoint simulasi pembayaran, dan kriteria milestone Fase 6 sampai 8 (D101) |
