@@ -52,6 +52,7 @@ const defaults: Record<string, string> = {
   JWT_ACCESS_TTL_MINUTES: '15',
   REFRESH_TOKEN_TTL_DAYS: '30',
   VERIFICATION_CODE_AES_KEY: '0'.repeat(64),
+  PAYMENT_GATEWAY: 'fake',
   XENDIT_SECRET_KEY: 'xnd_development_dummy',
   XENDIT_CALLBACK_TOKEN: 'callback-token-dummy',
   GEMINI_API_KEY: 'gemini-key-dummy',

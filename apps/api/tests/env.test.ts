@@ -19,6 +19,7 @@ function validEnv(): NodeJS.ProcessEnv {
     JWT_ACCESS_TTL_MINUTES: '15',
     REFRESH_TOKEN_TTL_DAYS: '30',
     VERIFICATION_CODE_AES_KEY: '0'.repeat(64),
+    PAYMENT_GATEWAY: 'fake',
     XENDIT_SECRET_KEY: 'xnd_development_dummy',
     XENDIT_CALLBACK_TOKEN: 'callback-token-dummy',
     GEMINI_API_KEY: 'gemini-key-dummy',
@@ -100,6 +101,22 @@ describe('loadEnv', () => {
   it('menolak NODE_ENV di luar tiga nilai yang dikenal', () => {
     expect(() => loadEnv({ ...validEnv(), NODE_ENV: 'staging' })).toThrow(
       /development, test, atau production/,
+    );
+  });
+
+  // D101: gateway palsu tidak boleh sampai ke produksi.
+  it('gagal start kalau PAYMENT_GATEWAY=fake bersama NODE_ENV=production', () => {
+    expect(() =>
+      loadEnv({ ...validEnv(), NODE_ENV: 'production', PAYMENT_GATEWAY: 'fake' }),
+    ).toThrow(/PAYMENT_GATEWAY=fake tidak boleh/);
+  });
+
+  it('menerima xendit di produksi dan menolak gateway yang tidak dikenal', () => {
+    expect(
+      loadEnv({ ...validEnv(), NODE_ENV: 'production', PAYMENT_GATEWAY: 'xendit' }).PAYMENT_GATEWAY,
+    ).toBe('xendit');
+    expect(() => loadEnv({ ...validEnv(), PAYMENT_GATEWAY: 'midtrans' })).toThrow(
+      /fake atau xendit/,
     );
   });
 

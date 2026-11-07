@@ -76,6 +76,10 @@ const envSchema = z.object({
   ),
 
   // --- Xendit ---
+  // D101. `fake` untuk dev dan test sampai Fase 7, ditolak di produksi (lihat superRefine).
+  PAYMENT_GATEWAY: z.enum(['fake', 'xendit'], {
+    errorMap: () => ({ message: 'PAYMENT_GATEWAY harus fake atau xendit' }),
+  }),
   XENDIT_SECRET_KEY: requiredString('XENDIT_SECRET_KEY'),
   XENDIT_CALLBACK_TOKEN: requiredString('XENDIT_CALLBACK_TOKEN'),
 
@@ -98,6 +102,14 @@ const envSchema = z.object({
   // --- Aplikasi ---
   APP_BASE_URL: requiredString('APP_BASE_URL').url('APP_BASE_URL harus URL yang sah'),
   CORS_ORIGIN: requiredString('CORS_ORIGIN'),
+}).superRefine((value, ctx) => {
+  if (value.NODE_ENV === 'production' && value.PAYMENT_GATEWAY === 'fake') {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['PAYMENT_GATEWAY'],
+      message: 'PAYMENT_GATEWAY=fake tidak boleh dipakai bersama NODE_ENV=production (D101)',
+    });
+  }
 });
 
 type RawEnv = z.infer<typeof envSchema>;

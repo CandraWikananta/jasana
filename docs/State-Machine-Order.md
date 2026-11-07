@@ -2,7 +2,7 @@
 
 **Artefak desain 3 dari 8**
 Platform Jasana, Tugas Akhir I Nyoman Gede Candra Wikananta (2305551065)
-**Versi 2.7**, 31 Oktober 2026
+**Versi 2.8**, 7 November 2026
 
 Dokumen ini mendefinisikan seluruh kondisi yang boleh dialami sebuah order, perpindahan yang diizinkan di antaranya, dan efek samping yang wajib terjadi pada setiap perpindahan.
 
@@ -338,7 +338,7 @@ export const ASSIGNEE_ONLY_TRANSITIONS = new Set([
 Satu-satunya pintu masuk perubahan status:
 
 ```ts
-// apps/api/src/services/order-transition.service.ts
+// apps/api/src/modules/orders/order-transition.service.ts
 
 export async function transitionOrder(
   tx: Prisma.TransactionClient,
@@ -349,9 +349,10 @@ export async function transitionOrder(
   reason?: string,
 ) {
   // Kunci barisnya supaya dua request bersamaan tidak sama-sama lolos.
-  const [order] = await tx.$queryRaw<Order[]>`
-    SELECT * FROM orders WHERE id = ${orderId}::uuid FOR UPDATE
-  `
+  // Kunci dengan SELECT id, lalu baca lewat Prisma. $queryRaw mengembalikan
+  // kolom snake_case, sehingga order.bookingMode akan selalu undefined.
+  await tx.$queryRaw`SELECT id FROM orders WHERE id = ${orderId}::uuid FOR UPDATE`
+  const order = await tx.order.findUnique({ where: { id: orderId } })
   if (!order) throw new NotFoundError('Order tidak ditemukan')
 
   const key = `${order.status}->${toStatus}`
@@ -363,20 +364,25 @@ export async function transitionOrder(
     throw new ForbiddenError(`${actor} tidak berhak melakukan transisi ${key}`)
   }
 
-  // WORKER hanya sah menerima atau menolak pada mode AVAILABLE_NOW (D70).
+  // WORKER hanya sah menerima pada mode AVAILABLE_NOW (D70).
+  // T2 sudah tertutup untuk WORKER lewat ALLOWED_ACTORS (D102).
   if (actor === 'WORKER'
-      && key.startsWith('PENDING_ACCEPTANCE->')
+      && key === 'PENDING_ACCEPTANCE->ACCEPTED'
       && order.bookingMode !== 'AVAILABLE_NOW') {
-    throw new ForbiddenError(
-      'Order terjadwal hanya bisa diterima atau ditolak pemilik usaha'
-    )
+    throw new ForbiddenError('Order terjadwal hanya bisa diterima pemilik usaha')
   }
 
   // Transisi pelaksanaan hanya boleh oleh pekerja yang DITUGASKAN,
   // bukan sembarang pekerja di usaha itu, dan bukan pendamping.
   if (ASSIGNEE_ONLY_TRANSITIONS.has(key)) {
-    const worker = await getWorkerByUserId(tx, actorUserId!)
-    if (!worker || worker.id !== order.assignedWorkerId) {
+    // Keanggotaan juga harus masih ACTIVE. Kalau sudah berakhir di tengah
+    // order, pemilik mengganti penanggung jawab lewat Bagian 4.1 (D44).
+    const worker = actorUserId && order.assignedWorkerId
+      ? await tx.providerWorker.findFirst({
+          where: { id: order.assignedWorkerId, userId: actorUserId, membershipStatus: 'ACTIVE' },
+        })
+      : null
+    if (!worker) {
       throw new ForbiddenError(
         'Hanya penanggung jawab order ini yang boleh melakukan transisi'
       )
@@ -385,10 +391,12 @@ export async function transitionOrder(
 
   await assertGuards(tx, order, toStatus)          // Bagian 3, kolom Guard
 
-  await tx.order.update({
-    where: { id: orderId },
-    data: { status: toStatus, ...timestampFor(toStatus) },
+  // UPDATE bersyarat pada status lama, sebagai pengaman kedua di atas kunci baris.
+  const { count } = await tx.order.updateMany({
+    where: { id: orderId, status: order.status },
+    data: { status: toStatus, ...timestampFor(toStatus, actor), ...data },
   })
+  if (count !== 1) throw new ConflictError(`Transisi ${key} tidak diizinkan`)
 
   await tx.orderStatusHistory.create({
     data: {
@@ -405,7 +413,7 @@ export async function transitionOrder(
 }
 ```
 
-Lima hal yang membuat fungsi ini benar dan gampang dilupakan:
+Enam hal yang membuat fungsi ini benar dan gampang dilupakan:
 
 `SELECT ... FOR UPDATE` mengunci baris order. Tanpa ini, dua request bersamaan bisa sama-sama membaca status `PENDING_ACCEPTANCE`, sama-sama lolos pengecekan, dan menghasilkan dua kali efek samping.
 
@@ -416,6 +424,8 @@ Pengecekan aktor dipisah dari pengecekan transisi. Transisi `COMPLETED -> SETTLE
 **Klaim Available Now tidak lewat fungsi ini**, melainkan lewat UPDATE bersyarat atomik (Bagian 3.2) yang dijalankan lebih dulu, baru guard-nya diperiksa di dalam transaksi yang sama. `SELECT ... FOR UPDATE` tidak cukup untuk kasus itu, karena barisnya belum terkunci saat lima pekerja menekan tombol bersamaan.
 
 `runSideEffects` menerima `tx`, bukan `prisma`. Kalau tidak, efek sampingnya jalan di luar transaksi dan bisa bertahan meskipun transisinya gagal.
+
+**Panggilan ke layanan luar didaftarkan untuk jalan setelah commit**, lewat `withOrderTransaction` dan `afterCommit`. Gateway pembayaran, email, dan Socket.IO tidak pernah dipanggil di dalam transaksi. Kalau panggilannya gagal, kegagalan itu dicatat dan transisi tetap berlaku. Kalau transaksinya rollback, tidak ada satu pun tugas yang jalan.
 
 ---
 
@@ -507,6 +517,7 @@ Diagram ASCII di atas hanya untuk orientasi cepat. Gunakan versi Mermaid untuk l
 | Versi | Tanggal | Perubahan |
 |---|---|---|
 | 1.0 | 17 September 2026 | Versi awal. 15 state, 22 transisi, guard dan efek samping, tiga aturan alur uang |
+| 2.8 | 7 November 2026 | Contoh `transitionOrder()` di Bagian 8 disamakan dengan implementasi sesi 6b: path `modules/orders`, kunci baris dengan `SELECT id` lalu baca lewat Prisma (contoh lama dengan `SELECT *` membuat `bookingMode` undefined), lapis ketiga mensyaratkan keanggotaan ACTIVE, UPDATE bersyarat pada status lama, dan tugas setelah commit |
 | 2.7 | 31 Oktober 2026 | Menyesuaikan D102. Penerima tawaran Available Now disimpan di `order_offers`, pekerja menolak lewat `decline-offer` tanpa mematikan order, T2 hanya oleh pemilik, T3 juga terpicu saat seluruh penerima menolak, dan SLA miss hanya untuk penerima yang belum menolak. Test case naik jadi sekitar 89 |
 | 2.6 | 30 September 2026 | Menyesuaikan D78 dan D79. Jalur `order_messages` dibuka pada efek samping T1, jadi read-only saat T18, dan otomatis jadi bukti saat transisi ke DISPUTED. Bagian 4.3 baru |
 | 2.5 | 30 September 2026 | Menyesuaikan D31 sampai D77. Aktor WORKER ditambahkan, transisi pelaksanaan pindah ke pekerja yang ditugaskan. Guard T1 memeriksa pemetaan listing, kunci in-flight per pekerja, dan bentrok jadwal per pekerja. Klaim atomik untuk Available Now (Bagian 3.2). Bagian 4 baru: operasi non-transisi (penggantian penanggung jawab dan pendamping). Toggle `listings.is_available_now` dihapus dari efek samping. Aturan auto-reject antrean dihapus. Test case naik dari 72 jadi 85 |
