@@ -4,16 +4,16 @@
 
 | | |
 |---|---|
-| Versi | 2.6 |
+| Versi | 2.7 |
 | Penyusun | I Nyoman Gede Candra Wikananta (2305551065) |
 | Program Studi | Teknologi Informasi, Universitas Udayana |
 | Bidang Keahlian | Sistem Informasi |
 | Pembimbing 1 | Dr. Ir. Ni Kadek Ayu Wirdiani, S.T., M.T., IPU |
 | Pembimbing 2 | Dr. Ir. Anak Agung Kompiang Oka Sudana, S.Kom., M.T., IPM |
-| Tanggal | 31 Oktober 2026 |
+| Tanggal | 7 November 2026 |
 | Cakupan dokumen | **Backend saja** (Express.js REST API, basis data, integrasi eksternal, cron). Frontend dan UI/UX di luar cakupan dokumen ini |
 
-**Dokumen rujukan:** `Keputusan-Desain-Sistem.md` (register keputusan D1 sampai D102, versi 2.12), `State-Machine-Order.md` (artefak desain 3), `skema-database-final.dbml` (35 tabel, 35 enum), `schema.prisma`, `migration-constraints.sql`, `Panduan-Struktur-Database.md`.
+**Dokumen rujukan:** `Keputusan-Desain-Sistem.md` (register keputusan D1 sampai D106, versi 2.13), `State-Machine-Order.md` (artefak desain 3), `skema-database-final.dbml` (35 tabel, 35 enum), `schema.prisma`, `migration-constraints.sql`, `Panduan-Struktur-Database.md`.
 
 **Catatan versi.** Dokumen ini menggantikan PRD versi 1.x sepenuhnya, bukan merevisinya. Implementasi dimulai ulang dari nol mengikuti milestone di Bagian 9. Perubahan terbesar sejak versi 1.x adalah masuknya entitas tenaga kerja (D31 sampai D53) atas arahan Pembimbing 1, yang memindahkan pelaksanaan order dari akun provider ke pekerja.
 
@@ -866,6 +866,10 @@ Alur server:
 
 ```
 1. Validasi listing ACTIVE dan tidak deleted
+   pemanggil bukan pemilik atau pekerja usaha pemilik listing    (D106)
+   lokasi layanan di dalam service_radius_km usaha               (D106)
+   response_deadline_at = min(now + scheduled_approval_hours,
+     scheduled_at - payment_window_minutes), tolak kalau lewat   (D106)
 2. Validasi selected_options terhadap subcategory_attributes:
      atribut OPTION wajib terisi
      nilai SELECT ada di options dan is_active
@@ -1212,7 +1216,7 @@ Tabel di atas adalah **beban normal dengan kriteria lulus** (D85). Stress testin
 
 | Kegagalan | Perilaku |
 |---|---|
-| Xendit tidak merespons saat membuat invoice | 502 dengan pesan ramah. Order tetap `ACCEPTED`, client bisa memicu pembuatan ulang invoice |
+| Xendit tidak merespons saat membuat invoice di T1 | Accept tetap 200 dengan `invoice_url = null`, order tetap `ACCEPTED`, dan errornya dicatat (D104). Client memicu pembuatan ulang lewat `POST /orders/:id/payment`, dan endpoint itulah yang membalas 502 kalau Xendit tetap gagal |
 | Xendit gagal saat payout | Withdrawal tetap `APPROVED`, `failure_code` dicatat, admin bisa mencoba ulang |
 | Gemini timeout atau over quota | 502 dengan pesan ramah. Sesi chat tetap tersimpan, pesan user tetap direkam |
 | SMTP gagal | `email_status = FAILED`, cron mencoba ulang maksimal 3 kali. **Tidak pernah membatalkan transisi order** |
@@ -1425,7 +1429,8 @@ Yang sudah ditutup di register keputusan versi 2.8:
 | `CREW_NOT_ALLOWED_FOR_MODE` | 422 | Pendamping hanya tersedia pada mode Scheduled |
 | `PROVIDER_HAS_NO_ACTIVE_WORKER` | 409 | Provider wajib punya minimal satu pekerja aktif yang bersedia ditugaskan |
 | `LISTING_HAS_NO_WORKER` | 409 | Listing tidak bisa diaktifkan tanpa pekerja terpetakan |
-| `LISTING_NOT_AVAILABLE` | 409 | Listing tidak aktif atau tidak ada pekerja idle |
+| `LISTING_NOT_AVAILABLE` | 409 | Listing tidak aktif, tidak ada pekerja idle, atau lokasi layanan di luar radius usaha (D106) |
+| `LISTING_HAS_ACTIVE_ORDERS` | 409 | Listing masih punya order berstatus `PENDING_ACCEPTANCE` sampai `AWAITING_VERIFICATION`, jadi belum bisa dihapus (D105) |
 | `ORDER_ALREADY_PAID` | 409 | Order sudah punya pembayaran lunas |
 | `MESSAGE_WINDOW_CLOSED` | 409 | Di luar masa aktif pesan dalam order |
 | `DISPUTE_ALREADY_EXISTS` | 409 | Satu order hanya boleh punya satu dispute |
@@ -1480,3 +1485,4 @@ Tidak menyangkut aturan bisnis, dibentuk oleh middleware bersama pada Fase 0.
 | 2.4 | 22 Oktober 2026 | Sinkron dengan register keputusan versi 2.10. Dua endpoint baca listing provider (D91), status milestone Fase 0 sampai 4 selesai |
 | 2.5 | 22 Oktober 2026 | Arti filter lokasi pencarian (D98) dan status online `available_now` dari memori proses (D99) |
 | 2.6 | 31 Oktober 2026 | Sinkron dengan register keputusan versi 2.12. Snapshot durasi dari nilai opsi (D100), pertanyaan terbuka nomor 5 ditutup, status milestone Fase 0 sampai 5 selesai. Pembagian transisi antar fase, port `PaymentGateway`, endpoint simulasi pembayaran, dan kriteria milestone Fase 6 sampai 8 (D101). Tabel `order_offers`, endpoint `decline-offer`, dan T2 hanya oleh pemilik (D102) |
+| 2.7 | 7 November 2026 | Sinkron dengan register keputusan versi 2.13. Invoice gagal saat T1 (D104) di Bagian 6.4, kode error `LISTING_HAS_ACTIVE_ORDERS` (D105), dan aturan pembuatan order (D106) di kontrak `POST /orders` |

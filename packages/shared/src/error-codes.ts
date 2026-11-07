@@ -35,6 +35,9 @@ export const BUSINESS_ERROR_STATUS = {
   WORKER_MEMBERSHIP_CONFLICT: 409,
   LISTING_HAS_NO_WORKER: 409,
   LISTING_NOT_AVAILABLE: 409,
+  // Fase 6, belum tercatat di Lampiran A (usulan D105, H88). Listing tidak
+  // bisa dihapus selama masih punya order yang pekerjaannya belum selesai.
+  LISTING_HAS_ACTIVE_ORDERS: 409,
   ORDER_ALREADY_PAID: 409,
   MESSAGE_WINDOW_CLOSED: 409,
   DISPUTE_ALREADY_EXISTS: 409,

@@ -36,6 +36,8 @@ export async function resetDatabase(): Promise<void> {
   await prisma.$transaction([
     prisma.notification.deleteMany(),
     // Order merujuk listing, pekerja, dan user. Fase 5 membuatnya langsung untuk uji in-flight.
+    // payments.order_id restrict, jadi dihapus sebelum order (Fase 6).
+    prisma.payment.deleteMany(),
     prisma.order.deleteMany(),
     prisma.workerListing.deleteMany(),
     prisma.providerWorker.deleteMany(),
@@ -46,7 +48,7 @@ export async function resetDatabase(): Promise<void> {
     prisma.kycDocument.deleteMany(),
     prisma.providerProfile.deleteMany(),
     prisma.platformSetting.deleteMany({
-      where: { key: { in: ['kyc_document_max_size_mb', 'listing_faq_max_items', 'orphan_upload_cleanup_hours', 'schedule_conflict_buffer_minutes'] } },
+      where: { key: { in: ['kyc_document_max_size_mb', 'listing_faq_max_items', 'orphan_upload_cleanup_hours', 'schedule_conflict_buffer_minutes', 'platform_fee_percentage'] } },
     }),
     prisma.refreshToken.deleteMany(),
     prisma.verificationToken.deleteMany(),

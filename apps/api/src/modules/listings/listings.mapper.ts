@@ -72,6 +72,8 @@ export interface OptionPriceDto {
   unit: string | null;
   option_value: string | null;
   price_delta: number;
+  /** D100: lama pekerjaan kalau opsi ini dipilih. Selalu ada, null kalau tidak diisi. */
+  duration_minutes: number | null;
   is_offered?: boolean;
 }
 
@@ -124,10 +126,9 @@ function optionPrices(row: ListingRow, owner: boolean): OptionPriceDto[] {
   for (const price of row.optionPrices) {
     const def = defs.get(price.attributeKey);
     if (!def) continue;
+    const option = ((def.options as AttributeOption[] | null) ?? []).find((o) => o.value === price.optionValue);
     if (!owner) {
-      const valueActive =
-        price.optionValue === null ||
-        ((def.options as AttributeOption[] | null) ?? []).some((o) => o.value === price.optionValue && o.is_active);
+      const valueActive = price.optionValue === null || option?.is_active === true;
       if (!price.isOffered || !def.isActive || !valueActive) continue;
     }
     result.push({
@@ -139,6 +140,7 @@ function optionPrices(row: ListingRow, owner: boolean): OptionPriceDto[] {
       unit: def.unit,
       option_value: price.optionValue,
       price_delta: price.priceDelta.toNumber(),
+      duration_minutes: option?.duration_minutes ?? null,
       ...(owner ? { is_offered: price.isOffered } : {}),
     });
   }

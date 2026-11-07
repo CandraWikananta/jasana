@@ -13,7 +13,7 @@
  * lewat keberadaan relasi.
  */
 
-import { prisma, type ProviderType } from '@jasana/database';
+import { prisma, type OrderActorType, type ProviderType } from '@jasana/database';
 import { AppError } from '../../lib/errors';
 
 export interface ProviderContext {
@@ -64,4 +64,52 @@ export async function assertAdmin(userId: string): Promise<void> {
   if (!user || !user.isActive || user.role !== 'ADMIN') {
     throw new AppError('FORBIDDEN_ACTOR', 'Hanya admin yang boleh melakukan aksi ini');
   }
+}
+
+export type OrderRole = 'CLIENT' | 'PROVIDER' | 'WORKER' | 'ADMIN';
+
+export interface OrderAccess {
+  orderId: string;
+  userId: string;
+  roles: Set<OrderRole>;
+}
+
+/**
+ * requireOrderParticipant (PRD 5.2): client order itu, pemilik usaha yang
+ * VERIFIED, atau penanggung jawab dengan keanggotaan ACTIVE. Pendamping di
+ * `order_crew` sengaja tidak mendapat peran apa pun. ADMIN hanya kalau rutenya
+ * mengizinkan, dan hanya diperiksa bila pemanggil bukan peserta.
+ */
+export async function resolveOrderAccess(userId: string, orderId: string, allowAdmin: boolean): Promise<OrderAccess> {
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    select: {
+      clientId: true,
+      providerProfile: { select: { userId: true, verificationStatus: true } },
+      assignedWorker: { select: { userId: true, membershipStatus: true } },
+    },
+  });
+  if (!order) throw new AppError('NOT_FOUND', 'Order tidak ditemukan');
+
+  const roles = new Set<OrderRole>();
+  if (order.clientId === userId) roles.add('CLIENT');
+  if (order.providerProfile.userId === userId && order.providerProfile.verificationStatus === 'VERIFIED') roles.add('PROVIDER');
+  if (order.assignedWorker?.userId === userId && order.assignedWorker.membershipStatus === 'ACTIVE') roles.add('WORKER');
+  if (roles.size === 0 && allowAdmin) {
+    await assertAdmin(userId).then(() => roles.add('ADMIN'), () => undefined);
+  }
+  if (roles.size === 0) throw new AppError('FORBIDDEN_ACTOR', 'Anda bukan peserta order ini');
+  return { orderId, userId, roles };
+}
+
+/**
+ * Peran pelaku untuk satu endpoint: peran PERTAMA di `accepted` yang dimiliki
+ * pemanggil. Tiap endpoint menyebut daftarnya sendiri, bukan prioritas global,
+ * karena pemilik INDIVIDUAL yang juga penanggung jawab harus bertindak sebagai
+ * PROVIDER saat accept tapi sebagai WORKER saat depart (6e).
+ */
+export function actorFrom(access: OrderAccess, accepted: OrderRole[]): OrderActorType {
+  const role = accepted.find((candidate) => access.roles.has(candidate));
+  if (!role) throw new AppError('FORBIDDEN_ACTOR', 'Peran Anda di order ini tidak berhak melakukan aksi ini');
+  return role;
 }

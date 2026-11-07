@@ -11,6 +11,7 @@
 
 import type { Logger } from 'pino';
 import type { ProviderType, UserRole } from '@jasana/database';
+import type { OrderAccess } from '../modules/access/access.service';
 
 declare global {
   namespace Express {
@@ -44,6 +45,8 @@ declare global {
         providerProfileId: string;
         isOwner: boolean;
       };
+      /** Diisi requireOrderParticipant: peran pemanggil di order `:id`. */
+      orderAccess?: OrderAccess;
     }
   }
 }

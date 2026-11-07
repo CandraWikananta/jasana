@@ -35,6 +35,7 @@ import { createWorkersRouter } from './modules/workers/workers.routes';
 import { createAdminRouter } from './modules/admin/admin.routes';
 import { createCatalogRouter } from './modules/catalog/catalog.routes';
 import { createTaxonomyRouter } from './modules/taxonomy/taxonomy.routes';
+import { createDevRouter, createOrdersRouter } from './modules/orders/orders.routes';
 import {
   createProviderListingsRouter,
   createPublicListingsRouter,
@@ -97,6 +98,9 @@ export function createApp(): Express {
   app.use(`${API_PREFIX}/workers`, createWorkersRouter());
   app.use(`${API_PREFIX}/admin`, createAdminRouter());
   app.use(`${API_PREFIX}/taxonomy-requests`, createTaxonomyRouter());
+  app.use(`${API_PREFIX}/orders`, createOrdersRouter());
+  // D101: simulasi pembayaran tidak pernah ada di luar gateway palsu.
+  if (env.PAYMENT_GATEWAY === 'fake') app.use(`${API_PREFIX}/dev`, createDevRouter());
   // /categories dan /subcategories, publik.
   app.use(API_PREFIX, createCatalogRouter());
 

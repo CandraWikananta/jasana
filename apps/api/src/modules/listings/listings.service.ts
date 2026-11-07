@@ -245,8 +245,24 @@ export async function updateListing(
 /**
  * DELETE /providers/me/listings/:id. Soft delete (D22): order lama tetap
  * merujuk ke sini. Pemetaan, foto, dan harga opsinya tidak disentuh.
+ *
+ * Usulan D105 (H88): ditolak selama pekerjaannya belum selesai. Order yang
+ * sudah COMPLETED atau DISPUTED tidak menghalangi, karena memakai snapshot (D10).
  */
 export async function deleteListing(provider: ProviderContext, id: string): Promise<{ id: string; deleted_at: string }> {
+  const active = await prisma.order.count({
+    where: {
+      listingId: id,
+      providerProfileId: provider.id,
+      status: { in: ['PENDING_ACCEPTANCE', 'ACCEPTED', 'PAID', 'ON_THE_WAY', 'ARRIVED', 'IN_PROGRESS', 'AWAITING_VERIFICATION'] },
+    },
+  });
+  if (active > 0) {
+    throw new AppError(
+      'LISTING_HAS_ACTIVE_ORDERS',
+      `Listing masih punya ${active} order yang belum selesai. Nonaktifkan dulu (INACTIVE) supaya tidak menerima order baru.`,
+    );
+  }
   const deletedAt = new Date();
   const result = await prisma.listing.updateMany({
     where: { id, providerProfileId: provider.id, deletedAt: null },
@@ -495,7 +511,7 @@ export async function setFaqs(provider: ProviderContext, id: string, body: FaqsB
 // ---------------------------------------------------------------------------
 
 /** Hanya listing yang benar-benar tayang. DRAFT dan yang terhapus tampak tidak ada. */
-const PUBLIC_WHERE = {
+export const PUBLIC_WHERE = {
   status: 'ACTIVE',
   deletedAt: null,
   providerProfile: { verificationStatus: 'VERIFIED' },

@@ -46,3 +46,14 @@ export function haversineKmSql(latCol: Prisma.Sql, lngCol: Prisma.Sql, lat: numb
     power(sin(radians(${lngCol}::float8 - ${lng}::float8) / 2), 2)
   )))`;
 }
+
+/**
+ * Kembaran JS dari `haversineKmSql`, rumus dan jari-jari yang sama, supaya
+ * pemeriksaan radius di server (D106, check-in di 6e) setuju dengan pencarian.
+ */
+export function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const a =
+    Math.sin(toRad(lat1 - lat2) / 2) ** 2 +
+    Math.cos(toRad(lat2)) * Math.cos(toRad(lat1)) * Math.sin(toRad(lng1 - lng2) / 2) ** 2;
+  return 2 * EARTH_RADIUS_KM * Math.asin(Math.sqrt(a));
+}

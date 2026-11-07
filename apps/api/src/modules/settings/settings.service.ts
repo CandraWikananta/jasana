@@ -20,6 +20,9 @@ export const NUMERIC_SETTING_DEFAULTS = {
   listing_faq_max_items: 10,
   orphan_upload_cleanup_hours: 24,
   schedule_conflict_buffer_minutes: 30,
+  platform_fee_percentage: 10,
+  scheduled_approval_hours: 24,
+  payment_window_minutes: 10,
 } as const;
 
 export type NumericSettingKey = keyof typeof NUMERIC_SETTING_DEFAULTS;

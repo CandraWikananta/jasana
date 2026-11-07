@@ -35,3 +35,15 @@ export function isActiveMembershipViolation(error: unknown): boolean {
     isUniqueViolation(error, 'uniq_active_worker_membership')
   );
 }
+
+/**
+ * Pelanggaran `uniq_inflight_order_per_worker` (H4). Index manual, jadi
+ * `meta.target` bisa berupa nama kolom atau nama index.
+ */
+export function isInflightViolation(error: unknown): boolean {
+  return (
+    isUniqueViolation(error, 'assigned_worker_id') ||
+    isUniqueViolation(error, 'assignedWorkerId') ||
+    isUniqueViolation(error, 'uniq_inflight_order_per_worker')
+  );
+}

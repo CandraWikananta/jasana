@@ -17,6 +17,7 @@ import {
 import { prisma, type Order, type OrderActorType, type OrderStatus, type Prisma } from '@jasana/database';
 import { AppError, Errors } from '../../lib/errors';
 import { logger } from '../../lib/logger';
+import { isInflightViolation } from '../../lib/prisma-errors';
 
 type Tx = Prisma.TransactionClient;
 
@@ -57,17 +58,32 @@ function timestampFor(toStatus: OrderStatus, actor: OrderActorType): Prisma.Orde
   }
 }
 
-/** Mengembalikan baris order SEBELUM transisi. Wajib dipanggil di dalam transaksi. */
-export async function transitionOrder(tx: Tx, input: TransitionInput): Promise<{ order: Order }> {
-  const { orderId, toStatus, actor, actorUserId } = input;
-
-  // Kunci barisnya supaya dua request bersamaan tidak sama-sama lolos. `SELECT id`
-  // lalu baca lewat Prisma, karena `SELECT *` mentah mengembalikan kolom snake_case.
+/**
+ * Kunci baris order sampai transaksi selesai, lalu baca lewat Prisma (`SELECT *`
+ * mentah mengembalikan kolom snake_case). Dipakai juga operasi non-transisi (Bagian 4).
+ */
+export async function lockOrder(tx: Tx, orderId: string): Promise<Order> {
   const locked = await tx.$queryRaw<{ id: string }[]>`
     SELECT id FROM orders WHERE id = ${orderId}::uuid FOR UPDATE
   `;
   if (locked.length === 0) throw Errors.notFound('Order tidak ditemukan');
-  const order = await tx.order.findUniqueOrThrow({ where: { id: orderId } });
+  return tx.order.findUniqueOrThrow({ where: { id: orderId } });
+}
+
+/** PRD 3.4: pelanggaran `uniq_inflight_order_per_worker` (H4) jadi 409, bukan 500. */
+export function rethrowInflight(error: unknown): never {
+  if (isInflightViolation(error)) {
+    throw new AppError('WORKER_HAS_INFLIGHT_ORDER', 'Pekerja sedang mengerjakan order lain');
+  }
+  throw error;
+}
+
+/** Mengembalikan baris order SEBELUM transisi. Wajib dipanggil di dalam transaksi. */
+export async function transitionOrder(tx: Tx, input: TransitionInput): Promise<{ order: Order }> {
+  const { orderId, toStatus, actor, actorUserId } = input;
+
+  // Kunci barisnya supaya dua request bersamaan tidak sama-sama lolos.
+  const order = await lockOrder(tx, orderId);
 
   const key = `${order.status}->${toStatus}`;
 
@@ -102,10 +118,12 @@ export async function transitionOrder(tx: Tx, input: TransitionInput): Promise<{
 
   // UPDATE bersyarat pada status lama. Dengan FOR UPDATE di atas ini seharusnya
   // selalu satu baris; kalau tidak, ada penulis status di luar fungsi ini.
-  const updated = await tx.order.updateMany({
-    where: { id: orderId, status: order.status },
-    data: { ...timestampFor(toStatus, actor), ...input.data, status: toStatus },
-  });
+  const updated = await tx.order
+    .updateMany({
+      where: { id: orderId, status: order.status },
+      data: { ...timestampFor(toStatus, actor), ...input.data, status: toStatus },
+    })
+    .catch(rethrowInflight);
   if (updated.count !== 1) {
     throw new AppError('ORDER_TRANSITION_NOT_ALLOWED', `Status order berubah sebelum transisi ${key}`);
   }

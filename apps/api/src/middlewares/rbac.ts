@@ -6,15 +6,19 @@
  *   requireWorker     provider_workers berstatus ACTIVE          403 FORBIDDEN_ACTOR
  *   requireAdmin      users.role = 'ADMIN'                       403 FORBIDDEN_ACTOR
  *
- * requireOrderParticipant dan requireAssignedWorker menyusul di Fase 6.
+ *   requireOrderParticipant  client, pemilik, atau penanggung jawab order :id  403 FORBIDDEN_ACTOR
+ *
+ * requireAssignedWorker menyusul di sesi 6e.
  */
 
 import type { Request, RequestHandler } from 'express';
 import { Errors } from '../lib/errors';
 import {
   assertAdmin,
+  resolveOrderAccess,
   resolveProvider,
   resolveWorker,
+  type OrderAccess,
   type ProviderContext,
   type WorkerContext,
 } from '../modules/access/access.service';
@@ -59,4 +63,27 @@ export function currentProvider(req: Request): ProviderContext {
 export function currentWorker(req: Request): WorkerContext {
   if (!req.worker) throw Errors.unauthorized();
   return req.worker;
+}
+
+/**
+ * Wajib setelah requireAuth dan validasi param `:id`. Pendamping tidak lolos
+ * (PRD 5.2). Peran mana yang boleh bertindak diputuskan endpoint, bukan di sini.
+ */
+export function requireOrderParticipant(options: { allowAdmin?: boolean } = {}): RequestHandler {
+  return (req, _res, next) => {
+    if (!req.user) {
+      next(Errors.unauthorized());
+      return;
+    }
+    resolveOrderAccess(req.user.id, req.params.id!, options.allowAdmin ?? false).then((access) => {
+      req.orderAccess = access;
+      next();
+    }, next);
+  };
+}
+
+/** Konteks peserta untuk controller di belakang requireOrderParticipant. */
+export function currentOrderAccess(req: Request): OrderAccess {
+  if (!req.orderAccess) throw Errors.unauthorized();
+  return req.orderAccess;
 }

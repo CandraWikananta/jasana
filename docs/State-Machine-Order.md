@@ -143,6 +143,8 @@ Yang dikunci **bukan tanggal dan bukan orangnya, melainkan rentang waktu**. Peke
 
 **Kasus silang antar mode.** Pekerja punya jadwal pukul 14.00, lalu pukul 13.00 masuk order Available Now. Tolak Available Now kalau ada order Scheduled berstatus `PAID` milik pekerja itu yang jatuh dalam rentang `now + snapshot_duration_minutes + buffer` (H28).
 
+**Rumus ini hanya menghitung ACCEPTED dan PAID, jadi guard in-flight di T1 tetap wajib untuk mode Scheduled.** Order yang sedang ON_THE_WAY sampai AWAITING_VERIFICATION tidak ikut rumus ini. Guard in-flight yang mencegah pekerja yang sedang bekerja ditugaskan ke order lain di jam yang sama.
+
 **Kasus batas yang wajib masuk unit test:** order yang berdempetan persis (selesai 14.00, berikutnya mulai 14.00), dan order yang hanya beririsan di buffer (selesai 14.00, berikutnya mulai 14.20 dengan buffer 30 menit).
 
 ### 3.2 Klaim Order Available Now (guard T1, mode AVAILABLE_NOW)
@@ -256,7 +258,7 @@ Hanya lima tempat di mana `booking_mode` mengubah perilaku, naik dari tiga. Sisa
 
 | Titik | `AVAILABLE_NOW` | `SCHEDULED` |
 |---|---|---|
-| `response_deadline_at` saat order dibuat | `now() + 5 menit` | `now() + 24 jam` |
+| `response_deadline_at` saat order dibuat | `now() + 5 menit` | `min(now() + 24 jam, scheduled_at - payment_window_minutes)` (D106) |
 | Siapa yang boleh melakukan T1 | **Pekerja atau pemilik**, siapa cepat dia dapat (D70). Pekerja menolak lewat `decline-offer`, sedangkan T2 tetap milik pemilik (D102) | Pemilik saja |
 | Cara T1 dijalankan | UPDATE bersyarat atomik (Bagian 3.2) | UPDATE biasa di dalam transaksi |
 | Pendamping (`order_crew`) | **Tidak tersedia** (D70, H47) | Tersedia, sampai `ON_THE_WAY` |
@@ -517,7 +519,7 @@ Diagram ASCII di atas hanya untuk orientasi cepat. Gunakan versi Mermaid untuk l
 | Versi | Tanggal | Perubahan |
 |---|---|---|
 | 1.0 | 17 September 2026 | Versi awal. 15 state, 22 transisi, guard dan efek samping, tiga aturan alur uang |
-| 2.8 | 7 November 2026 | Contoh `transitionOrder()` di Bagian 8 disamakan dengan implementasi sesi 6b: path `modules/orders`, kunci baris dengan `SELECT id` lalu baca lewat Prisma (contoh lama dengan `SELECT *` membuat `bookingMode` undefined), lapis ketiga mensyaratkan keanggotaan ACTIVE, UPDATE bersyarat pada status lama, dan tugas setelah commit |
+| 2.8 | 7 November 2026 | Contoh `transitionOrder()` di Bagian 8 disamakan dengan implementasi sesi 6b: path `modules/orders`, kunci baris dengan `SELECT id` lalu baca lewat Prisma (contoh lama dengan `SELECT *` membuat `bookingMode` undefined), lapis ketiga mensyaratkan keanggotaan ACTIVE, UPDATE bersyarat pada status lama, dan tugas setelah commit. Ditambah dari sesi 6c: rumus `response_deadline_at` mode Scheduled (D106) dan catatan bahwa guard in-flight tetap wajib di Bagian 3.1 |
 | 2.7 | 31 Oktober 2026 | Menyesuaikan D102. Penerima tawaran Available Now disimpan di `order_offers`, pekerja menolak lewat `decline-offer` tanpa mematikan order, T2 hanya oleh pemilik, T3 juga terpicu saat seluruh penerima menolak, dan SLA miss hanya untuk penerima yang belum menolak. Test case naik jadi sekitar 89 |
 | 2.6 | 30 September 2026 | Menyesuaikan D78 dan D79. Jalur `order_messages` dibuka pada efek samping T1, jadi read-only saat T18, dan otomatis jadi bukti saat transisi ke DISPUTED. Bagian 4.3 baru |
 | 2.5 | 30 September 2026 | Menyesuaikan D31 sampai D77. Aktor WORKER ditambahkan, transisi pelaksanaan pindah ke pekerja yang ditugaskan. Guard T1 memeriksa pemetaan listing, kunci in-flight per pekerja, dan bentrok jadwal per pekerja. Klaim atomik untuk Available Now (Bagian 3.2). Bagian 4 baru: operasi non-transisi (penggantian penanggung jawab dan pendamping). Toggle `listings.is_available_now` dihapus dari efek samping. Aturan auto-reject antrean dihapus. Test case naik dari 72 jadi 85 |

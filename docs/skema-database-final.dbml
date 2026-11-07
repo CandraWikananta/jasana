@@ -771,7 +771,7 @@ Table taxonomy_requests {
 
 Table orders {
   id                           uuid                  [pk, note: 'Primary key']
-  order_number                 varchar(30)           [unique, not null, note: 'ORD-20260914-0001']
+  order_number                 varchar(30)           [unique, not null, note: 'ORD-YYYYMMDD-XXXXXXXX, 8 hex acak (catatan sesi 6c di register 4H)']
   client_id                    uuid                  [not null, note: 'Yang memesan dan membayar']
   provider_profile_id          uuid                  [not null, note: 'usaha yang bertanggung jawab, penerima uang']
   assigned_worker_id           uuid                  [note: 'D42, D68. PENANGGUNG JAWAB order. Nullable saat PENDING_ACCEPTANCE, WAJIB mulai ACCEPTED']
