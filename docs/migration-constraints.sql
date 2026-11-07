@@ -382,6 +382,18 @@ ALTER TABLE listing_faqs
 
 
 -- ------------------------------------------------------------
+-- 11d. Hasil tawaran Available Now                         [H94]
+-- ------------------------------------------------------------
+-- D102. Penerima yang menolak dianggap sudah merespons, jadi tidak boleh
+-- sekaligus tercatat SLA miss. Tabel order_offers ditambahkan di sesi 6d,
+-- sehingga constraint ini dipasang di migration add_order_offers.
+
+ALTER TABLE order_offers
+  ADD CONSTRAINT chk_order_offer_outcome
+  CHECK (declined_at IS NULL OR sla_missed_at IS NULL);
+
+
+-- ------------------------------------------------------------
 -- 12. Index GIN untuk atribut dinamis                      [H18]
 -- ------------------------------------------------------------
 -- Tanpa ini, fitur filter berbasis atribut dinamis akan melakukan

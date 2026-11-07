@@ -19,6 +19,7 @@
 import { prisma, Prisma } from '@jasana/database';
 import { Errors } from '../../lib/errors';
 import { boundingBox, haversineKmSql } from '../../lib/haversine';
+import { currentOnlineWorkerIds } from '../../realtime/presence';
 import { pageMeta, skipTake, type Paginated } from '../../lib/pagination';
 import { parseAttributeFilters, type AttributeFilters } from '../catalog/attribute-rules';
 import { toDefinition } from '../catalog/catalog.mapper';
@@ -82,7 +83,11 @@ interface SearchSql {
 export async function buildSearchSql(query: SearchListingsQuery): Promise<SearchSql> {
   const located = query.lat !== undefined && query.lng !== undefined;
   // Saling lepas, jadi dijalankan bersamaan: satu perjalanan jaringan lebih sedikit.
-  const [filters, boxKm] = await Promise.all([attributeFilters(query), located ? boxRadiusKm(query.radius_km) : 0]);
+  const [filters, boxKm, onlineIds] = await Promise.all([
+    attributeFilters(query),
+    located ? boxRadiusKm(query.radius_km) : 0,
+    query.available_now ? currentOnlineWorkerIds() : [],
+  ]);
   const conditions: Prisma.Sql[] = [
     Prisma.sql`l.status = 'ACTIVE'`,
     Prisma.sql`l.deleted_at IS NULL`,
@@ -128,7 +133,7 @@ export async function buildSearchSql(query: SearchListingsQuery): Promise<Search
 
     if (query.available_now) {
       const km = haversineKmSql(Prisma.sql`pw.current_latitude`, Prisma.sql`pw.current_longitude`, lat, lng);
-      online = onlineWorkersCte(Prisma.sql`min(${km})`, inBox(Prisma.sql`pw.current_latitude`, Prisma.sql`pw.current_longitude`, box));
+      online = onlineWorkersCte(Prisma.sql`min(${km})`, inBox(Prisma.sql`pw.current_latitude`, Prisma.sql`pw.current_longitude`, box), onlineIds);
       distance = Prisma.sql`w.km`;
     } else {
       conditions.push(inBox(Prisma.sql`p.base_latitude`, Prisma.sql`p.base_longitude`, box));
@@ -136,7 +141,7 @@ export async function buildSearchSql(query: SearchListingsQuery): Promise<Search
     }
     conditions.push(Prisma.sql`${distance} <= ${limit}`);
   } else if (query.available_now) {
-    online = onlineWorkersCte(Prisma.sql`NULL::float8`, Prisma.sql`TRUE`);
+    online = onlineWorkersCte(Prisma.sql`NULL::float8`, Prisma.sql`TRUE`, onlineIds);
   }
   if (query.available_now) onlineJoin = Prisma.sql`JOIN online w ON w.listing_id = l.id`;
 
@@ -161,16 +166,16 @@ export async function buildSearchSql(query: SearchListingsQuery): Promise<Search
 
 /**
  * Pekerja yang bisa mengambil order mendadak sekarang (D45), per listing.
- *
- * shortcut: online = `is_available` saja (D99). Fase 6 menambah
- * `pw.id = ANY(<pekerja terhubung Socket.IO>)` sebagai parameter terikat (H49).
+ * Online = toggle menyala DAN terhubung Socket.IO atau denyutnya belum basi
+ * (D65, D99). Daftar online masuk sebagai parameter terikat (H49).
  */
-function onlineWorkersCte(km: Prisma.Sql, where: Prisma.Sql): Prisma.Sql {
+function onlineWorkersCte(km: Prisma.Sql, where: Prisma.Sql, onlineIds: string[]): Prisma.Sql {
   return Prisma.sql`WITH online AS (
     SELECT wl.listing_id, ${km} AS km
     FROM provider_workers pw
     JOIN worker_listings wl ON wl.worker_id = pw.id
     WHERE pw.membership_status = 'ACTIVE' AND pw.accepts_assignments AND pw.is_available
+      AND pw.id = ANY(${onlineIds}::uuid[])
       AND NOT EXISTS (SELECT 1 FROM orders o WHERE o.assigned_worker_id = pw.id AND ${INFLIGHT_ORDER})
       AND ${where}
     GROUP BY wl.listing_id

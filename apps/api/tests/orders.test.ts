@@ -14,128 +14,24 @@
  * alur order, bukan login dan e-KYC yang sudah diuji fase sebelumnya.
  */
 
-import { randomInt } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
 import type { Express } from 'express';
 import { prisma } from '@jasana/database';
 import { createApp } from '../src/app';
 import { env } from '../src/config/env';
-import { signAccessToken } from '../src/lib/jwt';
 import { paymentGateway } from '../src/lib/payment-gateway';
 import { isInflightViolation } from '../src/lib/prisma-errors';
 import { issueInvoice } from '../src/modules/orders/order-payment.service';
 import { hasTestDatabase, resetDatabase } from './helpers/integration';
-
-/** Puputan Renon, Denpasar. */
-const RENON = { lat: -8.6725, lng: 115.234 };
-const KUTA = { lat: -8.7215, lng: 115.169 };
-const HOUR = 3_600_000;
-const MINUTE = 60_000;
-
-type User = { id: string; token: string };
+import { HOUR, KUTA, MINUTE, RENON, auth, newProvider, newUser, newWorld, waitForLockWaiters, type User, type World } from './helpers/orders';
 
 describe.skipIf(!hasTestDatabase)('order Scheduled (6c)', () => {
   let app: Express;
-  let w: Awaited<ReturnType<typeof newWorld>>;
+  let w: World;
   /** Jam bulat 3 hari lagi, supaya rentang waktu mudah dibaca. */
   const T = new Date(Math.ceil((Date.now() + 3 * 24 * HOUR) / HOUR) * HOUR);
   const at = (offsetMinutes: number) => new Date(T.getTime() + offsetMinutes * MINUTE).toISOString();
-
-  // -------------------------------------------------------------------------
-  // Fixture
-  // -------------------------------------------------------------------------
-
-  async function newUser(options: { verified?: boolean; admin?: boolean } = {}): Promise<User> {
-    const n = randomInt(1e9);
-    const user = await prisma.user.create({
-      data: {
-        fullName: `Uji ${n}`,
-        email: `order-${n}@uji.test`,
-        phone: `+6283${n}`,
-        passwordHash: 'x',
-        emailVerifiedAt: options.verified === false ? null : new Date(),
-        role: options.admin ? 'ADMIN' : 'CLIENT',
-      },
-    });
-    const token = signAccessToken({ user_id: user.id, role: user.role, provider_profile_id: null, worker_id: null });
-    return { id: user.id, token };
-  }
-
-  async function newProvider() {
-    const owner = await newUser();
-    const provider = await prisma.providerProfile.create({
-      data: {
-        userId: owner.id,
-        providerType: 'BUSINESS',
-        businessName: `Studio ${randomInt(1e6)}`,
-        verificationStatus: 'VERIFIED',
-        verifiedAt: new Date(),
-        baseLatitude: RENON.lat,
-        baseLongitude: RENON.lng,
-        serviceRadiusKm: 5,
-      },
-    });
-    const worker = async (user: User, isOwner = false) => ({
-      ...user,
-      workerId: (
-        await prisma.providerWorker.create({
-          data: { providerProfileId: provider.id, userId: user.id, displayName: `Pekerja ${user.id.slice(0, 4)}`, isOwner, membershipStatus: 'ACTIVE' },
-        })
-      ).id,
-    });
-    return { provider, owner: await worker(owner, true), worker };
-  }
-
-  /** Usaha dengan empat pekerja; owner, w2, w3 terpetakan, w4 tidak. Listing mirip B.6. */
-  async function newWorld() {
-    const { provider, owner, worker } = await newProvider();
-    const [w2, w3, w4] = [await worker(await newUser()), await worker(await newUser()), await worker(await newUser())];
-
-    const n = randomInt(1e9);
-    const category = await prisma.category.create({ data: { name: `Kat ${n}`, slug: `uji-kat-${n}` } });
-    const sub = await prisma.subcategory.create({ data: { categoryId: category.id, name: `Sub ${n}`, slug: `uji-sub-${n}` } });
-    const option = (value: string, minutes?: number, is_active = true) => ({ value, is_active, ...(minutes ? { duration_minutes: minutes } : {}) });
-    await prisma.subcategoryAttribute.createMany({
-      data: [
-        {
-          subcategoryId: sub.id, attributeKey: 'durasi_liputan', label: 'Durasi liputan', dataType: 'SELECT', attributeRole: 'OPTION',
-          pricingMode: 'FLAT_PER_OPTION', isRequired: true,
-          options: [option('2 Jam', 120), option('4 Jam', 240), option('8 Jam', 480), option('Dua Hari', undefined, false)],
-        },
-        { subcategoryId: sub.id, attributeKey: 'tambahan', label: 'Tambahan', dataType: 'MULTISELECT', attributeRole: 'OPTION', pricingMode: 'FLAT_PER_OPTION', options: [option('Album'), option('Drone')] },
-        { subcategoryId: sub.id, attributeKey: 'jumlah_orang', label: 'Jumlah orang', dataType: 'NUMBER', attributeRole: 'OPTION', pricingMode: 'PER_UNIT', validationRule: { min: 1, max: 10 } },
-        { subcategoryId: sub.id, attributeKey: 'cetak', label: 'Cetak', dataType: 'BOOLEAN', attributeRole: 'OPTION', pricingMode: 'FLAT_PER_OPTION' },
-      ],
-    });
-    const listing = await prisma.listing.create({
-      data: {
-        providerProfileId: provider.id, subcategoryId: sub.id, title: 'Liputan Acara', price: 500000,
-        estimatedDurationMinutes: 60, attributes: {}, status: 'ACTIVE', supportsScheduled: true,
-      },
-    });
-    await prisma.listingOptionPrice.createMany({
-      data: [
-        ['durasi_liputan', '2 Jam', 0], ['durasi_liputan', '4 Jam', 200000], ['durasi_liputan', '8 Jam', 500000],
-        // D103: barisnya masih dilayani, tapi nilainya sudah nonaktif di taksonomi.
-        ['durasi_liputan', 'Dua Hari', 900000],
-        ['tambahan', 'Album', 150000], ['jumlah_orang', null, 50000], ['cetak', null, 75000],
-      ].map(([attributeKey, optionValue, priceDelta]) => ({
-        listingId: listing.id, attributeKey: attributeKey as string, optionValue: optionValue as string | null, priceDelta: priceDelta as number,
-      })),
-    });
-    await prisma.workerListing.createMany({
-      data: [owner, w2, w3].map((x) => ({ workerId: x.workerId, listingId: listing.id })),
-    });
-
-    const client = await newUser();
-    const address = await prisma.userAddress.create({
-      data: { userId: client.id, addressLine: 'Jl. Raya Puputan', latitude: RENON.lat, longitude: RENON.lng },
-    });
-    return { provider, owner, w2, w3, w4, listingId: listing.id, client, addressId: address.id };
-  }
-
-  const auth = (user: User): [string, string] => ['Authorization', `Bearer ${user.token}`];
 
   const orderBody = (overrides: Record<string, unknown> = {}) => ({
     listing_id: w.listingId,
@@ -228,10 +124,14 @@ describe.skipIf(!hasTestDatabase)('order Scheduled (6c)', () => {
       expect(res.body.error.code).toBe('EMAIL_NOT_VERIFIED');
     });
 
-    it('AVAILABLE_NOW ditolak sampai sesi 6d', async () => {
-      const res = await post('', w.client, orderBody({ booking_mode: 'AVAILABLE_NOW' }));
-      expect(res.status).toBe(422);
-      expect(res.body.error.code).toBe('VALIDATION_ERROR');
+    it('AVAILABLE_NOW tanpa pekerja online ditolak 409, dan scheduled_at hanya untuk SCHEDULED', async () => {
+      const now = await post('', w.client, orderBody({ booking_mode: 'AVAILABLE_NOW', scheduled_at: undefined }));
+      expect(now.status).toBe(409);
+      expect(now.body.error.code).toBe('LISTING_NOT_AVAILABLE');
+      const mixed = await post('', w.client, orderBody({ booking_mode: 'AVAILABLE_NOW' }));
+      expect(mixed.body.error.details[0].path).toBe('scheduled_at');
+      const missing = await post('', w.client, orderBody({ scheduled_at: undefined }));
+      expect(missing.body.error.details[0].path).toBe('scheduled_at');
     });
 
     it('usulan D106 no. 1: pemilik dan pekerja usaha itu tidak bisa memesan', async () => {
@@ -417,14 +317,7 @@ describe.skipIf(!hasTestDatabase)('order Scheduled (6c)', () => {
         async (tx) => {
           await tx.$queryRaw`SELECT id FROM provider_workers WHERE id = ${w.w2.workerId}::uuid FOR UPDATE`;
           both = Promise.all([accept(first.id, w.w2.workerId), accept(second.id, w.w2.workerId)]);
-          for (let i = 0; i < 100; i += 1) {
-            const [{ waiting }] = await prisma.$queryRaw<{ waiting: number }[]>`
-              SELECT count(*)::int AS waiting FROM pg_stat_activity
-              WHERE datname = current_database() AND wait_event_type = 'Lock'
-            `;
-            if (waiting >= 2) break;
-            await new Promise((resolve) => setTimeout(resolve, 50));
-          }
+          await waitForLockWaiters(2);
           // Tidak menunggu `both` di sini: request menunggu kunci transaksi ini.
         },
         { timeout: 15_000 },

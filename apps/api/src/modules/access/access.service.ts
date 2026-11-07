@@ -66,12 +66,19 @@ export async function assertAdmin(userId: string): Promise<void> {
   }
 }
 
-export type OrderRole = 'CLIENT' | 'PROVIDER' | 'WORKER' | 'ADMIN';
+/**
+ * WORKER = penanggung jawab. OFFERED = pekerja yang ditawari order Available
+ * Now dan belum menolak, hanya selama PENDING_ACCEPTANCE (D102, usulan sesi 6d).
+ * OFFERED bukan peserta percakapan maupun room order.
+ */
+export type OrderRole = 'CLIENT' | 'PROVIDER' | 'WORKER' | 'OFFERED' | 'ADMIN';
 
 export interface OrderAccess {
   orderId: string;
   userId: string;
   roles: Set<OrderRole>;
+  /** Baris pekerja pemanggil yang ditawari, terisi bersama peran OFFERED. */
+  offeredWorkerId: string | null;
 }
 
 /**
@@ -85,8 +92,10 @@ export async function resolveOrderAccess(userId: string, orderId: string, allowA
     where: { id: orderId },
     select: {
       clientId: true,
+      status: true,
       providerProfile: { select: { userId: true, verificationStatus: true } },
       assignedWorker: { select: { userId: true, membershipStatus: true } },
+      offers: { where: { declinedAt: null, worker: { userId, membershipStatus: 'ACTIVE' } }, select: { workerId: true } },
     },
   });
   if (!order) throw new AppError('NOT_FOUND', 'Order tidak ditemukan');
@@ -95,11 +104,14 @@ export async function resolveOrderAccess(userId: string, orderId: string, allowA
   if (order.clientId === userId) roles.add('CLIENT');
   if (order.providerProfile.userId === userId && order.providerProfile.verificationStatus === 'VERIFIED') roles.add('PROVIDER');
   if (order.assignedWorker?.userId === userId && order.assignedWorker.membershipStatus === 'ACTIVE') roles.add('WORKER');
+  // Yang kalah klaim atau sudah menolak kehilangan akses, alamat client tidak terbuka.
+  const offeredWorkerId = order.status === 'PENDING_ACCEPTANCE' ? (order.offers[0]?.workerId ?? null) : null;
+  if (offeredWorkerId) roles.add('OFFERED');
   if (roles.size === 0 && allowAdmin) {
     await assertAdmin(userId).then(() => roles.add('ADMIN'), () => undefined);
   }
   if (roles.size === 0) throw new AppError('FORBIDDEN_ACTOR', 'Anda bukan peserta order ini');
-  return { orderId, userId, roles };
+  return { orderId, userId, roles, offeredWorkerId };
 }
 
 /**
@@ -111,5 +123,5 @@ export async function resolveOrderAccess(userId: string, orderId: string, allowA
 export function actorFrom(access: OrderAccess, accepted: OrderRole[]): OrderActorType {
   const role = accepted.find((candidate) => access.roles.has(candidate));
   if (!role) throw new AppError('FORBIDDEN_ACTOR', 'Peran Anda di order ini tidak berhak melakukan aksi ini');
-  return role;
+  return role === 'OFFERED' ? 'WORKER' : role;
 }

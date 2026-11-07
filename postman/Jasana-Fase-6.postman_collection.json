@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Jasana Backend - Fase 6 (Order Scheduled)",
-    "description": "Sesi 6c: order Scheduled sampai PAID lewat gateway palsu (D101). Create, accept (T1) dengan pendamping, bentrok jadwal (H25, H45),\nganti penanggung jawab (D44), kru (D69), simulate-payment (T5), reject (T2), cancel (T4, T7), dan hapus listing (usulan D105).\n\n## Setiap putaran\n1. `npm run postman:seed:fase-6` di akar repo.\n2. `npm run dev` dengan `PAYMENT_GATEWAY=fake` di `.env`.\n3. Jalankan folder berurutan dari 00. Request saling bergantung lewat variabel environment.\n\n## Akun\n| Akun | Peran |\n|---|---|\n| downer | Pemilik Lensa Sanur Dokumentasi, basis Sanur radius 15 km |\n| dfoto1, dfoto2 | Pekerja terpetakan |\n| dklien | Client, alamat Renon |\n| dasing | Client lain |\n\nJadwal dihitung di request Health: jam bulat 3 hari lagi (A), +45 menit (B, beririsan), dan +24 jam (C, D).",
+    "description": "Sesi 6c: order Scheduled sampai PAID lewat gateway palsu (D101). Create, accept (T1) dengan pendamping, bentrok jadwal (H25, H45),\nganti penanggung jawab (D44), kru (D69), simulate-payment (T5), reject (T2), cancel (T4, T7), dan hapus listing (usulan D105).\nSesi 6d (folder 07): Available Now, pekerja online lewat endpoint dev presence (H92), klaim atomik, decline-offer, dan T3 oleh penolakan terakhir (D102).\n\n## Setiap putaran\n1. `npm run postman:seed:fase-6` di akar repo.\n2. `npm run dev` dengan `PAYMENT_GATEWAY=fake` di `.env`.\n3. Jalankan folder berurutan dari 00. Request saling bergantung lewat variabel environment.\n\n## Akun\n| Akun | Peran |\n|---|---|\n| downer | Pemilik Lensa Sanur Dokumentasi, basis Sanur radius 15 km |\n| dfoto1, dfoto2 | Pekerja terpetakan, toggle menyala dekat Renon (online setelah folder 07 memanggil dev presence) |\n| dklien | Client, alamat Renon |\n| dasing | Client lain |\n\nJadwal dihitung di request Health: jam bulat 3 hari lagi (A), +45 menit (B, beririsan), dan +24 jam (C, D).",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -1808,6 +1808,703 @@
                 "me",
                 "listings",
                 "{{f6_listing_id}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "07. KRITERIA: Available Now, klaim dan penolakan (D55, D102, H92)",
+      "item": [
+        {
+          "name": "Belum ada pekerja online: create Available Now 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 409', function () { pm.response.to.have.status(409); });",
+                  "pm.test('Kode LISTING_NOT_AVAILABLE', function () { pm.expect(pm.response.json().error.code).to.eql('LISTING_NOT_AVAILABLE'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{dklien_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"listing_id\": \"{{f6_listing_id}}\",\n  \"booking_mode\": \"AVAILABLE_NOW\",\n  \"location_source\": \"SAVED_ADDRESS\",\n  \"address_id\": \"{{f6_address_id}}\",\n  \"selected_options\": {\n    \"jenis_acara\": \"Seminar\",\n    \"durasi_liputan\": \"2 Jam\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Pencarian available_now belum memunculkan listing",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Listing tidak muncul', function () { pm.expect(pm.response.json().data.map(function (l) { return l.id; })).to.not.include(pm.environment.get('f6_listing_id')); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/listings?available_now=true&lat=-8.6725&lng=115.234",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "listings"
+              ],
+              "query": [
+                {
+                  "key": "available_now",
+                  "value": "true"
+                },
+                {
+                  "key": "lat",
+                  "value": "-8.6725"
+                },
+                {
+                  "key": "lng",
+                  "value": "115.234"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Tandai dfoto1 dan dfoto2 online (H92, hanya gateway palsu)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{downer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/dev/workers/presence",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "dev",
+                "workers",
+                "presence"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"worker_ids\": [\n    \"{{f6_foto1_id}}\",\n    \"{{f6_foto2_id}}\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Pencarian available_now memunculkan listing (D99)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Listing muncul', function () { pm.expect(pm.response.json().data.map(function (l) { return l.id; })).to.include(pm.environment.get('f6_listing_id')); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/listings?available_now=true&lat=-8.6725&lng=115.234",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "listings"
+              ],
+              "query": [
+                {
+                  "key": "available_now",
+                  "value": "true"
+                },
+                {
+                  "key": "lat",
+                  "value": "-8.6725"
+                },
+                {
+                  "key": "lng",
+                  "value": "115.234"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Buat order E Available Now",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', function () { pm.response.to.have.status(201); });",
+                  "pm.environment.set('f6_order_e', pm.response.json().data.id);",
+                  "pm.test('Belum ada penanggung jawab', function () { pm.expect(pm.response.json().data.assigned_worker).to.eql(null); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{dklien_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"listing_id\": \"{{f6_listing_id}}\",\n  \"booking_mode\": \"AVAILABLE_NOW\",\n  \"location_source\": \"SAVED_ADDRESS\",\n  \"address_id\": \"{{f6_address_id}}\",\n  \"selected_options\": {\n    \"jenis_acara\": \"Seminar\",\n    \"durasi_liputan\": \"2 Jam\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Tawaran E muncul di daftar dfoto2",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('E ditawarkan', function () { pm.expect(pm.response.json().data.map(function (o) { return o.id; })).to.include(pm.environment.get('f6_order_e')); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{dfoto2_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders?as=worker",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders"
+              ],
+              "query": [
+                {
+                  "key": "as",
+                  "value": "worker"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "dfoto2 menolak tawaran E (bukan transisi)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Order tetap terbuka', function () { pm.expect(pm.response.json().data.order_status).to.eql('PENDING_ACCEPTANCE'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{dfoto2_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{f6_order_e}}/decline-offer",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{f6_order_e}}",
+                "decline-offer"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "dfoto2 yang sudah menolak tidak bisa mengklaim: 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 403', function () { pm.response.to.have.status(403); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{dfoto2_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{f6_order_e}}/accept",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{f6_order_e}}",
+                "accept"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "dfoto1 mengklaim E (klaim atomik)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('ACCEPTED oleh dfoto1', function () { var o = pm.response.json().data; pm.expect(o.status).to.eql('ACCEPTED'); pm.expect(o.assigned_worker.id).to.eql(pm.environment.get('f6_foto1_id')); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{dfoto1_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{f6_order_e}}/accept",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{f6_order_e}}",
+                "accept"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Pemilik terlambat menerima E: 409 ORDER_ALREADY_CLAIMED",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 409', function () { pm.response.to.have.status(409); });",
+                  "pm.test('Kode ORDER_ALREADY_CLAIMED', function () { pm.expect(pm.response.json().error.code).to.eql('ORDER_ALREADY_CLAIMED'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{downer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{f6_order_e}}/accept",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{f6_order_e}}",
+                "accept"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"assigned_worker_id\": \"{{f6_foto1_id}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Buat order F: dfoto1 in-flight, hanya dfoto2 yang ditawari",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', function () { pm.response.to.have.status(201); });",
+                  "pm.environment.set('f6_order_f', pm.response.json().data.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{dklien_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"listing_id\": \"{{f6_listing_id}}\",\n  \"booking_mode\": \"AVAILABLE_NOW\",\n  \"location_source\": \"SAVED_ADDRESS\",\n  \"address_id\": \"{{f6_address_id}}\",\n  \"selected_options\": {\n    \"jenis_acara\": \"Seminar\",\n    \"durasi_liputan\": \"2 Jam\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "dfoto1 bukan penerima F: 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 403', function () { pm.response.to.have.status(403); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{dfoto1_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{f6_order_f}}/accept",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{f6_order_f}}",
+                "accept"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Penolakan terakhir F langsung EXPIRED (T3 oleh SYSTEM)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('EXPIRED', function () { pm.expect(pm.response.json().data.order_status).to.eql('EXPIRED'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{dfoto2_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{f6_order_f}}/decline-offer",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{f6_order_f}}",
+                "decline-offer"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Riwayat F",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('T3 oleh SYSTEM', function () { var last = pm.response.json().data.pop(); pm.expect(last.to_status).to.eql('EXPIRED'); pm.expect(last.actor).to.eql('SYSTEM'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{dklien_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{f6_order_f}}/history",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{f6_order_f}}",
+                "history"
               ]
             }
           },

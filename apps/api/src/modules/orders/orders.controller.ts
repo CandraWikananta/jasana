@@ -8,6 +8,7 @@ import { currentUser } from '../../middlewares/auth';
 import { currentOrderAccess } from '../../middlewares/rbac';
 import * as actions from './order-actions.service';
 import { simulatePayment as simulate } from './order-payment.service';
+import { presence } from '../../realtime/presence';
 import type { ListOrdersQuery } from './orders.schema';
 import * as service from './orders.service';
 
@@ -58,4 +59,21 @@ export const simulatePayment = asyncHandler(async (req, res) => {
   const access = currentOrderAccess(req);
   await simulate(access);
   sendOk(res, await service.getOrder(access.orderId));
+});
+
+export const declineOffer = asyncHandler(async (req, res) => {
+  const access = currentOrderAccess(req);
+  sendOk(res, await actions.declineOffer(access, access.orderId));
+});
+
+/**
+ * H92: menandai pekerja seed sebagai online untuk Postman dan k6. Dihitung satu
+ * denyut presence, jadi kedaluwarsa setelah `worker_presence_timeout_minutes`;
+ * script k6 harus mengirim ulang secara berkala selama skenario berjalan.
+ * Hanya ada di router /dev, yang tidak pernah terdaftar di produksi (D101).
+ */
+export const devPresence = asyncHandler(async (req, res) => {
+  const ids = (req.body as { worker_ids: string[] }).worker_ids;
+  ids.forEach((id) => presence.touch(id));
+  sendOk(res, { touched: ids.length });
 });

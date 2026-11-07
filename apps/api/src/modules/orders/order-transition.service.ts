@@ -18,6 +18,7 @@ import { prisma, type Order, type OrderActorType, type OrderStatus, type Prisma 
 import { AppError, Errors } from '../../lib/errors';
 import { logger } from '../../lib/logger';
 import { isInflightViolation } from '../../lib/prisma-errors';
+import { emit } from '../../realtime/socket';
 
 type Tx = Prisma.TransactionClient;
 
@@ -34,6 +35,43 @@ export interface TransitionInput {
   guard?: (tx: Tx, order: Order) => Promise<void>;
   /** Kolom Efek Samping Bagian 3, di transaksi yang sama. */
   effects?: (tx: Tx, order: Order) => Promise<void>;
+  /** Wajib: `order:status_changed` dikirim dari sini setelah commit (PRD 7.2). */
+  afterCommit: (task: AfterCommitTask) => void;
+}
+
+export interface TransitionRecord {
+  orderId: string;
+  fromStatus: OrderStatus;
+  toStatus: OrderStatus;
+  actor: OrderActorType;
+  actorUserId?: string | undefined;
+  reason?: string | undefined;
+}
+
+/**
+ * Histori transisi dan `order:status_changed`, satu tempat untuk seluruh
+ * transisi termasuk klaim atomik Available Now yang tidak lewat `transitionOrder`.
+ */
+export async function recordTransition(tx: Tx, afterCommit: (task: AfterCommitTask) => void, record: TransitionRecord) {
+  const history = await tx.orderStatusHistory.create({
+    data: {
+      orderId: record.orderId,
+      fromStatus: record.fromStatus,
+      toStatus: record.toStatus,
+      actor: record.actor,
+      changedByUserId: record.actorUserId ?? null,
+      reason: record.reason ?? null,
+    },
+    select: { createdAt: true },
+  });
+  afterCommit(() =>
+    emit(`order:${record.orderId}`, 'order:status_changed', {
+      order_id: record.orderId,
+      from_status: record.fromStatus,
+      to_status: record.toStatus,
+      timestamp: history.createdAt.toISOString(),
+    }),
+  );
 }
 
 /** Kolom waktu yang selalu ikut status tertentu (Bagian 3). */
@@ -128,15 +166,13 @@ export async function transitionOrder(tx: Tx, input: TransitionInput): Promise<{
     throw new AppError('ORDER_TRANSITION_NOT_ALLOWED', `Status order berubah sebelum transisi ${key}`);
   }
 
-  await tx.orderStatusHistory.create({
-    data: {
-      orderId,
-      fromStatus: order.status,
-      toStatus,
-      actor,
-      changedByUserId: actorUserId ?? null,
-      reason: input.reason ?? null,
-    },
+  await recordTransition(tx, input.afterCommit, {
+    orderId,
+    fromStatus: order.status,
+    toStatus,
+    actor,
+    actorUserId,
+    reason: input.reason,
   });
 
   await input.effects?.(tx, order);

@@ -23,6 +23,9 @@ export const NUMERIC_SETTING_DEFAULTS = {
   platform_fee_percentage: 10,
   scheduled_approval_hours: 24,
   payment_window_minutes: 10,
+  available_now_response_minutes: 5,
+  available_now_offer_limit: 5,
+  worker_presence_timeout_minutes: 10,
 } as const;
 
 export type NumericSettingKey = keyof typeof NUMERIC_SETTING_DEFAULTS;

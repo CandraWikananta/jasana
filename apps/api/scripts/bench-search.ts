@@ -20,6 +20,7 @@ import type { AddressInfo } from 'node:net';
 import { prisma, Prisma } from '@jasana/database';
 import { createApp } from '../src/app';
 import { buildSearchSql } from '../src/modules/listings/listing-search.service';
+import { presence } from '../src/realtime/presence';
 import { searchListingsQuerySchema } from '../src/modules/listings/listings.schema';
 
 // Skrip ini menulis lalu menghapus ratusan ribu baris: hanya untuk basis data uji di mesin ini.
@@ -192,6 +193,13 @@ async function main() {
     SELECT (SELECT count(*) FROM listings) AS listings, (SELECT count(*) FROM provider_workers) AS workers,
            (SELECT count(*) FROM provider_profiles) AS providers`;
   console.log(`Seed ${((Date.now() - started) / 1000).toFixed(1)} detik:`, counts[0]);
+
+  // H92: pekerja seed yang toggle-nya menyala dianggap terhubung (proses yang sama dengan API).
+  const online = await prisma.$queryRaw<{ id: string }[]>`
+    SELECT pw.id::text FROM provider_workers pw JOIN provider_profiles p ON p.id = pw.provider_profile_id
+    WHERE p.business_name LIKE 'Bench %' AND pw.is_available`;
+  online.forEach(({ id }) => presence.touch(id));
+  console.log(`Pekerja online: ${online.length}`);
 
   const [{ id: subId }] = await prisma.$queryRaw<{ id: string }[]>(Prisma.sql`SELECT md5('bench-sub-1')::uuid::text AS id`);
   for (const scenario of SCENARIOS) {

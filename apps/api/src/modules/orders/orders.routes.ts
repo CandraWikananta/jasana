@@ -4,7 +4,7 @@
  *
  *   /orders                     C, buat dan daftar sesuai peran
  *   /dev/orders/:id/simulate-payment
- *                               hanya terdaftar saat PAYMENT_GATEWAY=fake (D101)
+ *   /dev/workers/presence       hanya terdaftar saat PAYMENT_GATEWAY=fake (D101, H92)
  */
 
 import { Router, type RequestHandler } from 'express';
@@ -17,6 +17,7 @@ import {
   assignmentSchema,
   createOrderSchema,
   crewSchema,
+  devPresenceSchema,
   listOrdersQuerySchema,
   orderParamsSchema,
   reasonSchema,
@@ -37,6 +38,7 @@ export function createOrdersRouter(): Router {
   router.get('/:id/history', ...participant(true), controller.history);
   router.post('/:id/accept', ...participant(), validate({ body: acceptOrderSchema }), controller.accept);
   router.post('/:id/reject', ...participant(), validate({ body: reasonSchema }), controller.reject);
+  router.post('/:id/decline-offer', ...participant(), controller.declineOffer);
   router.post('/:id/cancel', ...participant(true), validate({ body: reasonSchema }), controller.cancel);
   router.patch('/:id/assignment', ...participant(), validate({ body: assignmentSchema }), controller.assignment);
   router.put('/:id/crew', ...participant(), validate({ body: crewSchema }), controller.crew);
@@ -47,5 +49,6 @@ export function createOrdersRouter(): Router {
 export function createDevRouter(): Router {
   const router = Router();
   router.post('/orders/:id/simulate-payment', ...participant(), controller.simulatePayment);
+  router.post('/workers/presence', requireAuth, validate({ body: devPresenceSchema }), controller.devPresence);
   return router;
 }

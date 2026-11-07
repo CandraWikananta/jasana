@@ -9,6 +9,7 @@
 import { schedule } from 'node-cron';
 import { logger } from '../lib/logger';
 import { cleanOrphanListingPhotos } from './orphan-listing-photos';
+import { sweepStalePresence } from './presence-sweep';
 
 function register(name: string, expression: string, job: () => Promise<unknown>): void {
   schedule(
@@ -27,5 +28,7 @@ function register(name: string, expression: string, job: () => Promise<unknown>)
 export function startJobs(): void {
   // Tiap 1 hari (H80).
   register('orphan-listing-photos', '0 3 * * *', cleanOrphanListingPhotos);
+  // Tiap 2 menit (H40).
+  register('presence-sweep', '*/2 * * * *', sweepStalePresence);
   logger.info('Cron terdaftar');
 }

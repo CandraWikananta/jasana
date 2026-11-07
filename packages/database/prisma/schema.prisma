@@ -2,7 +2,7 @@
 // Platform Marketplace Jasa On-Demand "Jasana"
 // I Nyoman Gede Candra Wikananta - 2305551065
 //
-// VERSI 2.9. 34 model, 35 enum. Versi 2.8 dan 2.9 hanya mengubah komentar.
+// VERSI 2.12. 35 model, 35 enum. Versi 2.12 menambah OrderOffer (D102).
 // Rujukan keputusan lengkap: Keputusan-Desain-Sistem.md (D1 sampai D90)
 //
 // Lokasi yang disarankan pada monorepo:
@@ -689,6 +689,7 @@ model ProviderWorker {
   listings        WorkerListing[]
   assignedOrders  Order[]         @relation("OrderAssignee")
   crewAssignments OrderCrew[]
+  offers          OrderOffer[]
   checkins        OrderCheckin[]
 
   /// Dipakai bounding box filter sebelum Haversine presisi (D6).
@@ -1183,6 +1184,7 @@ model Order {
   listing         Listing         @relation(fields: [listingId], references: [id], onDelete: Restrict)
 
   crew               OrderCrew[]
+  offers             OrderOffer[]
   messages           OrderMessage[]
   statusHistories    OrderStatusHistory[]
   checkins           OrderCheckin[]
@@ -1239,6 +1241,33 @@ model OrderCrew {
   /// Dipanggil di setiap pencocokan dan dropdown penugasan.
   @@index([workerId])
   @@map("order_crew")
+}
+
+/// D102. Daftar pekerja yang ditawari order AVAILABLE_NOW, satu baris per
+/// pekerja, ditulis di transaksi yang sama dengan pembuatan order. Dipakai
+/// untuk memvalidasi klaim pekerja dan pilihan pemilik (D70), penolakan per
+/// pekerja (D56), SLA miss saat T3, dan laporan admin. Pemenang klaim tercatat
+/// di Order.assignedWorkerId, yang kalah tidak kena catatan apa pun.
+/// declinedAt dan slaMissedAt tidak boleh terisi bersamaan (H94).
+model OrderOffer {
+  id             String    @id @default(uuid()) @db.Uuid
+  orderId        String    @map("order_id") @db.Uuid
+  workerId       String    @map("worker_id") @db.Uuid
+  /// Jarak pekerja ke lokasi client saat ditawari, dalam meter.
+  distanceMeters Int       @map("distance_meters")
+  offeredAt      DateTime  @default(now()) @map("offered_at") @db.Timestamptz(6)
+  /// Pekerja menolak tawarannya sendiri. Bukan transisi, tidak mematikan order.
+  declinedAt     DateTime? @map("declined_at") @db.Timestamptz(6)
+  /// Diisi cron T3 untuk penerima yang belum menolak saat deadline lewat.
+  slaMissedAt    DateTime? @map("sla_missed_at") @db.Timestamptz(6)
+
+  order  Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  worker ProviderWorker @relation(fields: [workerId], references: [id], onDelete: Restrict)
+
+  @@unique([orderId, workerId])
+  /// Laporan SLA miss per pekerja.
+  @@index([workerId, slaMissedAt])
+  @@map("order_offers")
 }
 
 /// D79. Pesan dalam order antara client dan penyedia. SATU percakapan per

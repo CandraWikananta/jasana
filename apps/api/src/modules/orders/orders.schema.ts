@@ -17,10 +17,9 @@ export const orderParamsSchema = z.object({ id: uuid('id order') });
 export const createOrderSchema = z
   .object({
     listing_id: uuid('listing_id'),
-    // shortcut: AVAILABLE_NOW ditolak sampai order_offers dimigrasikan di sesi 6d,
-    // karena D102 mewajibkan baris tawaran ditulis di transaksi pembuatan order.
-    booking_mode: z.literal('SCHEDULED', { errorMap: () => ({ message: 'Saat ini hanya mode SCHEDULED yang bisa dipesan' }) }),
-    scheduled_at: z.string().datetime({ offset: true, message: 'scheduled_at harus ISO 8601' }),
+    booking_mode: z.enum(['SCHEDULED', 'AVAILABLE_NOW']),
+    /** Wajib untuk SCHEDULED, dilarang untuk AVAILABLE_NOW (berarti sekarang). */
+    scheduled_at: z.string().datetime({ offset: true, message: 'scheduled_at harus ISO 8601' }).optional(),
     location_source: z.enum(['SAVED_ADDRESS', 'CURRENT_LOCATION', 'MAP_PIN']),
     address_id: uuid('address_id').optional(),
     service_address: z.string().trim().min(1).max(500).optional(),
@@ -32,6 +31,8 @@ export const createOrderSchema = z
   })
   .superRefine((body, ctx) => {
     const issue = (path: string, message: string) => ctx.addIssue({ code: z.ZodIssueCode.custom, path: [path], message });
+    if (body.booking_mode === 'SCHEDULED' && !body.scheduled_at) issue('scheduled_at', 'scheduled_at wajib untuk SCHEDULED');
+    if (body.booking_mode === 'AVAILABLE_NOW' && body.scheduled_at) issue('scheduled_at', 'AVAILABLE_NOW tidak memakai scheduled_at');
     if (body.location_source === 'SAVED_ADDRESS') {
       if (!body.address_id) issue('address_id', 'address_id wajib untuk SAVED_ADDRESS');
     } else {
@@ -45,8 +46,13 @@ export const createOrderSchema = z
     }
   });
 
+/**
+ * SCHEDULED: pemilik wajib memilih penanggung jawab. AVAILABLE_NOW: kosong berarti
+ * pekerja yang ditawari mengklaim untuk dirinya sendiri; terisi berarti pemilik
+ * memilih dari daftar penerima tawaran (D70, D102).
+ */
 export const acceptOrderSchema = z.object({
-  assigned_worker_id: uuid('assigned_worker_id'),
+  assigned_worker_id: uuid('assigned_worker_id').optional(),
   crew_worker_ids: uniqueIds('crew_worker_ids').default([]),
 });
 
@@ -55,6 +61,9 @@ export const reasonSchema = z.object({ reason: z.string().trim().min(1).max(500)
 export const assignmentSchema = z.object({ assigned_worker_id: uuid('assigned_worker_id') });
 
 export const crewSchema = z.object({ crew_worker_ids: uniqueIds('crew_worker_ids') });
+
+/** H92, hanya di router /dev. */
+export const devPresenceSchema = z.object({ worker_ids: z.array(uuid('worker_ids berisi id')).min(1).max(20_000) });
 
 export const listOrdersQuerySchema = z.object({
   as: z.enum(['client', 'provider', 'worker']).default('client'),

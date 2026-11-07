@@ -19,6 +19,7 @@ import type { Express } from 'express';
 import { prisma, type Prisma } from '@jasana/database';
 import { createApp } from '../src/app';
 import { hasTestDatabase, resetDatabase } from './helpers/integration';
+import { presence } from '../src/realtime/presence';
 
 /** Puputan Renon, Denpasar. */
 const CLIENT = { lat: -8.6725, lng: 115.234 };
@@ -92,9 +93,9 @@ describe.skipIf(!hasTestDatabase)('pencarian listing', () => {
 
   async function newWorker(
     providerId: string,
-    data: Partial<Prisma.ProviderWorkerUncheckedCreateInput> & { at?: { lat: number; lng: number } } = {},
+    data: Partial<Prisma.ProviderWorkerUncheckedCreateInput> & { at?: { lat: number; lng: number }; connected?: boolean } = {},
   ) {
-    const { at = CLIENT, ...rest } = data;
+    const { at = CLIENT, connected = true, ...rest } = data;
     const user = await newUser();
     const worker = await prisma.providerWorker.create({
       data: {
@@ -108,6 +109,8 @@ describe.skipIf(!hasTestDatabase)('pencarian listing', () => {
         ...rest,
       },
     });
+    // D99: online = toggle menyala DAN terhubung. Di sini koneksinya diwakili satu denyut.
+    if (connected) presence.touch(worker.id);
     return worker.id;
   }
 
@@ -169,6 +172,7 @@ describe.skipIf(!hasTestDatabase)('pencarian listing', () => {
 
   beforeEach(async () => {
     await resetDatabase();
+    presence.reset();
     app = createApp();
     const sub = await newSubcategory();
     subcategoryId = sub.id;
@@ -310,6 +314,10 @@ describe.skipIf(!hasTestDatabase)('pencarian listing', () => {
     const offline = await make();
     await map(await newWorker(offline.provider.id, { isAvailable: false }), offline.listingId);
 
+    // Toggle menyala tapi tidak terhubung Socket.IO dan denyutnya tidak ada (D65, D99).
+    const tidakTerhubung = await make();
+    await map(await newWorker(tidakTerhubung.provider.id, { connected: false }), tidakTerhubung.listingId);
+
     const sibuk = await make();
     const sibukWorker = await newWorker(sibuk.provider.id);
     await map(sibukWorker, sibuk.listingId);
@@ -328,7 +336,7 @@ describe.skipIf(!hasTestDatabase)('pencarian listing', () => {
 
     const found = await ids({ available_now: 'true' });
     expect(found.sort()).toEqual([ok.listingId, terjadwal.listingId].sort());
-    expect(await ids({ available_now: 'false' })).toHaveLength(9);
+    expect(await ids({ available_now: 'false' })).toHaveLength(10);
   });
 
   it('D98: available_now + lokasi diukur dari pekerja online terdekat', async () => {

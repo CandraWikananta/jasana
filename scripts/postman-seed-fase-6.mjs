@@ -4,8 +4,12 @@
  *   npm run postman:seed:fase-6
  *
  * Satu usaha BUSINESS dengan dua pekerja dan satu listing Dokumentasi Acara
- * (B.6) yang punya opsi berdurasi (D100), ditambah dua client. Order sendiri
- * dibuat oleh collection lewat API, bukan oleh skrip ini.
+ * (B.6) yang punya opsi berdurasi (D100) dan menerima kedua mode, ditambah dua
+ * client. Order sendiri dibuat oleh collection lewat API, bukan oleh skrip ini.
+ *
+ * Available Now (sesi 6d): dfoto1 dan dfoto2 toggle-nya menyala dengan posisi
+ * dekat Renon, tapi baru dianggap online setelah collection memanggil
+ * POST /dev/workers/presence (H92). Pemilik tidak pernah online.
  *
  *   downer   pemilik "Lensa Sanur Dokumentasi", basis Sanur, radius 15 km
  *   dfoto1   pekerja, terpetakan ke listing
@@ -46,6 +50,8 @@ const BCRYPT_COST = 10;
 
 const SANUR = { lat: -8.6885, lng: 115.262 };
 const RENON = { lat: -8.6725, lng: 115.234 };
+/** Posisi pekerja untuk Available Now, sekitar 0,4 dan 1 km dari alamat dklien. */
+const WORKER_AT = { dfoto1: { lat: -8.669, lng: 115.235 }, dfoto2: { lat: -8.6635, lng: 115.237 } };
 
 const ACTORS = [
   { key: 'downer', fullName: 'Wayan Lensa', phone: '+628990000061' },
@@ -151,6 +157,9 @@ async function main() {
               isOwner: key === 'downer',
               membershipStatus: 'ACTIVE',
               acceptsAssignments: true,
+              ...(WORKER_AT[key]
+                ? { isAvailable: true, currentLatitude: WORKER_AT[key].lat, currentLongitude: WORKER_AT[key].lng, locationUpdatedAt: now }
+                : {}),
               approvedBy: key === 'downer' ? null : users.downer.id,
               approvedAt: now,
             },
@@ -168,7 +177,7 @@ async function main() {
           estimatedDurationMinutes: 120,
           attributes: { jenis_dokumentasi: ['Foto dan Video'], waktu_pengerjaan_hari: 7 },
           supportsScheduled: true,
-          supportsAvailableNow: false,
+          supportsAvailableNow: true,
           status: 'ACTIVE',
           optionPrices: { create: OPTIONS.map(([attributeKey, optionValue, priceDelta]) => ({ attributeKey, optionValue, priceDelta })) },
         },

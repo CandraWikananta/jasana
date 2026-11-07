@@ -4,16 +4,16 @@
 
 | | |
 |---|---|
-| Versi | 2.7 |
+| Versi | 2.8 |
 | Penyusun | I Nyoman Gede Candra Wikananta (2305551065) |
 | Program Studi | Teknologi Informasi, Universitas Udayana |
 | Bidang Keahlian | Sistem Informasi |
 | Pembimbing 1 | Dr. Ir. Ni Kadek Ayu Wirdiani, S.T., M.T., IPU |
 | Pembimbing 2 | Dr. Ir. Anak Agung Kompiang Oka Sudana, S.Kom., M.T., IPM |
-| Tanggal | 7 November 2026 |
+| Tanggal | 8 November 2026 |
 | Cakupan dokumen | **Backend saja** (Express.js REST API, basis data, integrasi eksternal, cron). Frontend dan UI/UX di luar cakupan dokumen ini |
 
-**Dokumen rujukan:** `Keputusan-Desain-Sistem.md` (register keputusan D1 sampai D106, versi 2.13), `State-Machine-Order.md` (artefak desain 3), `skema-database-final.dbml` (35 tabel, 35 enum), `schema.prisma`, `migration-constraints.sql`, `Panduan-Struktur-Database.md`.
+**Dokumen rujukan:** `Keputusan-Desain-Sistem.md` (register keputusan D1 sampai D109, versi 2.14), `State-Machine-Order.md` (artefak desain 3), `skema-database-final.dbml` (35 tabel, 35 enum), `schema.prisma`, `migration-constraints.sql`, `Panduan-Struktur-Database.md`.
 
 **Catatan versi.** Dokumen ini menggantikan PRD versi 1.x sepenuhnya, bukan merevisinya. Implementasi dimulai ulang dari nol mengikuti milestone di Bagian 9. Perubahan terbesar sejak versi 1.x adalah masuknya entitas tenaga kerja (D31 sampai D53) atas arahan Pembimbing 1, yang memindahkan pelaksanaan order dari akun provider ke pekerja.
 
@@ -475,7 +475,7 @@ Status yang dihitung: ACCEPTED dan PAID.
 
 **Kasus batas yang wajib masuk unit test:** order yang berdempetan persis, dan order yang hanya beririsan di buffer.
 
-**Kasus silang antar mode (H28):** pekerja punya jadwal pukul 14.00, lalu pukul 13.00 masuk order Available Now. Tolak Available Now kalau ada order `SCHEDULED` berstatus `PAID` milik pekerja itu yang jatuh dalam rentang `now + snapshot_duration_minutes + buffer`.
+**Kasus silang antar mode (H28):** pekerja punya jadwal pukul 14.00, lalu pukul 13.00 masuk order Available Now. Tolak Available Now kalau ada order `SCHEDULED` berstatus `ACCEPTED` atau `PAID` (D108) milik pekerja itu yang jatuh dalam rentang `now + snapshot_duration_minutes + buffer`.
 
 ### 3.5 Parameter Sistem (`platform_settings`)
 
@@ -767,6 +767,7 @@ Query parameter `GET /listings`:
 | GET | `/orders/:id/verification-code` | C | Menampilkan kode 6 digit, hanya client pemilik order |
 | POST | `/orders/:id/verify` | W | T16 `-> COMPLETED` |
 | POST | `/dev/orders/:id/simulate-payment` | C | T5 lewat gateway palsu. Hanya terdaftar saat `PAYMENT_GATEWAY=fake`, tidak pernah di produksi (D101) |
+| POST | `/dev/workers/presence` | auth | Menandai pekerja online untuk pengujian (H92). Hanya terdaftar saat `PAYMENT_GATEWAY=fake`, kedaluwarsa per `worker_presence_timeout_minutes` |
 | GET | `/orders/:id/messages` | C/PR/W/A | Riwayat pesan, terpaginasi. Admin membaca saja |
 | POST | `/orders/:id/messages` | C/PR/W | Kirim pesan, hanya selama masa aktif |
 | PATCH | `/orders/:id/messages/read` | C/PR/W | Tandai pesan sisi lawan sudah dibaca |
@@ -887,7 +888,8 @@ Alur server:
     listings.estimated_duration_minutes, D90)
 5. Set response_deadline_at sesuai mode
 6. Mode AVAILABLE_NOW: susun daftar penerima tawaran, maksimal
-   available_now_offer_limit pekerja terdekat yang memenuhi syarat,
+   available_now_offer_limit pekerja terdekat yang memenuhi syarat
+   dan posisinya di dalam service_radius_km dari lokasi client (D107),
    simpan ke order_offers (D102), lalu kirim Socket.IO ke mereka
    DAN ke dashboard pemilik
 7. Mode SCHEDULED: notifikasi ke pemilik
@@ -1292,6 +1294,7 @@ Autentikasi koneksi memakai access token yang sama. Room yang dipakai:
 | `order:location_update` | pekerja ke server ke client | Posisi pekerja saat `ON_THE_WAY` |
 | `order:message` | server ke room order | Pesan baru dalam order |
 | `worker:presence` | pekerja ke server | Denyut koneksi, dasar penentuan online |
+| `order:join` | client ke server | Masuk room `order:<id>`, dengan ack. Hanya client, pemilik, dan penanggung jawab yang diterima (D109) |
 | `notification:new` | server ke `user:<id>` | Notifikasi baru |
 
 Socket.IO hanya mengirim pemberitahuan. **Seluruh perubahan state tetap lewat REST API**, supaya ada satu jalur otorisasi dan satu jalur audit. Satu-satunya pengecualian adalah `worker:presence`, yang memang tidak mengubah state apa pun.
@@ -1486,3 +1489,4 @@ Tidak menyangkut aturan bisnis, dibentuk oleh middleware bersama pada Fase 0.
 | 2.5 | 22 Oktober 2026 | Arti filter lokasi pencarian (D98) dan status online `available_now` dari memori proses (D99) |
 | 2.6 | 31 Oktober 2026 | Sinkron dengan register keputusan versi 2.12. Snapshot durasi dari nilai opsi (D100), pertanyaan terbuka nomor 5 ditutup, status milestone Fase 0 sampai 5 selesai. Pembagian transisi antar fase, port `PaymentGateway`, endpoint simulasi pembayaran, dan kriteria milestone Fase 6 sampai 8 (D101). Tabel `order_offers`, endpoint `decline-offer`, dan T2 hanya oleh pemilik (D102) |
 | 2.7 | 7 November 2026 | Sinkron dengan register keputusan versi 2.13. Invoice gagal saat T1 (D104) di Bagian 6.4, kode error `LISTING_HAS_ACTIVE_ORDERS` (D105), dan aturan pembuatan order (D106) di kontrak `POST /orders` |
+| 2.8 | 8 November 2026 | Sinkron dengan register keputusan versi 2.14. Radius Available Now dari posisi pekerja (D107), H28 menghitung ACCEPTED dan PAID (D108), event `order:join` (D109), dan endpoint `/dev/workers/presence` (H92) |

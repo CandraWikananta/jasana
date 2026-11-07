@@ -79,6 +79,7 @@ export async function confirmPayment(orderId: string, details: PaymentDetails = 
   await withOrderTransaction(async (tx, afterCommit) => {
     await transitionOrder(tx, {
       orderId,
+      afterCommit,
       toStatus: 'PAID',
       actor: 'SYSTEM',
       guard: async (tx) => {

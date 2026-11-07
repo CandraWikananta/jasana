@@ -2,7 +2,7 @@
 
 **Artefak desain 3 dari 8**
 Platform Jasana, Tugas Akhir I Nyoman Gede Candra Wikananta (2305551065)
-**Versi 2.8**, 7 November 2026
+**Versi 2.9**, 8 November 2026
 
 Dokumen ini mendefinisikan seluruh kondisi yang boleh dialami sebuah order, perpindahan yang diizinkan di antaranya, dan efek samping yang wajib terjadi pada setiap perpindahan.
 
@@ -141,7 +141,7 @@ buffer = schedule_conflict_buffer_minutes, nilai awal 30 menit.
 
 Yang dikunci **bukan tanggal dan bukan orangnya, melainkan rentang waktu**. Pekerja yang punya jadwal 12 September tetap boleh menerima pekerjaan 8 September.
 
-**Kasus silang antar mode.** Pekerja punya jadwal pukul 14.00, lalu pukul 13.00 masuk order Available Now. Tolak Available Now kalau ada order Scheduled berstatus `PAID` milik pekerja itu yang jatuh dalam rentang `now + snapshot_duration_minutes + buffer` (H28).
+**Kasus silang antar mode.** Pekerja punya jadwal pukul 14.00, lalu pukul 13.00 masuk order Available Now. Tolak Available Now kalau ada order Scheduled berstatus `ACCEPTED` atau `PAID` (D108) milik pekerja itu yang jatuh dalam rentang `now + snapshot_duration_minutes + buffer` (H28).
 
 **Rumus ini hanya menghitung ACCEPTED dan PAID, jadi guard in-flight di T1 tetap wajib untuk mode Scheduled.** Order yang sedang ON_THE_WAY sampai AWAITING_VERIFICATION tidak ikut rumus ini. Guard in-flight yang mencegah pekerja yang sedang bekerja ditugaskan ke order lain di jam yang sama.
 
@@ -519,6 +519,7 @@ Diagram ASCII di atas hanya untuk orientasi cepat. Gunakan versi Mermaid untuk l
 | Versi | Tanggal | Perubahan |
 |---|---|---|
 | 1.0 | 17 September 2026 | Versi awal. 15 state, 22 transisi, guard dan efek samping, tiga aturan alur uang |
+| 2.9 | 8 November 2026 | Kasus silang antar mode di Bagian 3.1 menghitung order Scheduled ACCEPTED dan PAID (D108) |
 | 2.8 | 7 November 2026 | Contoh `transitionOrder()` di Bagian 8 disamakan dengan implementasi sesi 6b: path `modules/orders`, kunci baris dengan `SELECT id` lalu baca lewat Prisma (contoh lama dengan `SELECT *` membuat `bookingMode` undefined), lapis ketiga mensyaratkan keanggotaan ACTIVE, UPDATE bersyarat pada status lama, dan tugas setelah commit. Ditambah dari sesi 6c: rumus `response_deadline_at` mode Scheduled (D106) dan catatan bahwa guard in-flight tetap wajib di Bagian 3.1 |
 | 2.7 | 31 Oktober 2026 | Menyesuaikan D102. Penerima tawaran Available Now disimpan di `order_offers`, pekerja menolak lewat `decline-offer` tanpa mematikan order, T2 hanya oleh pemilik, T3 juga terpicu saat seluruh penerima menolak, dan SLA miss hanya untuk penerima yang belum menolak. Test case naik jadi sekitar 89 |
 | 2.6 | 30 September 2026 | Menyesuaikan D78 dan D79. Jalur `order_messages` dibuka pada efek samping T1, jadi read-only saat T18, dan otomatis jadi bukti saat transisi ke DISPUTED. Bagian 4.3 baru |

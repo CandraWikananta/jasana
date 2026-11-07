@@ -1,5 +1,6 @@
 /**
- * Aksi pada satu order (PRD 4.3): accept (T1), reject (T2), cancel (T4, T7),
+ * Aksi pada satu order (PRD 4.3): accept (T1, termasuk klaim Available Now),
+ * decline-offer, reject (T2), cancel (T4, T7),
  * ganti penanggung jawab (D44) dan pendamping (D69). Seluruhnya di belakang
  * requireOrderParticipant.
  *
@@ -8,15 +9,23 @@
  * harus bertindak sebagai WORKER, sedangkan di sini sebagai PROVIDER.
  */
 
-import type { Order, Prisma } from '@jasana/database';
-import { AppError } from '../../lib/errors';
+import { prisma, type Order, type Prisma } from '@jasana/database';
+import { AppError, Errors } from '../../lib/errors';
+import { emit, leaveRoom } from '../../realtime/socket';
 import { actorFrom, type OrderAccess } from '../access/access.service';
 import { dispatchEmails } from '../notifications/email-outbox';
 import { getNumberSetting } from '../settings/settings.service';
 import { notifyUsers } from './order-notify';
 import { createPendingPayment, expireInvoices, expirePendingPayments, issueInvoice } from './order-payment.service';
 import { assertWorkersFree, lockWorkers, type Slot } from './order-schedule';
-import { lockOrder, rethrowInflight, transitionOrder, withOrderTransaction } from './order-transition.service';
+import {
+  lockOrder,
+  recordTransition,
+  rethrowInflight,
+  transitionOrder,
+  withOrderTransaction,
+  type AfterCommitTask,
+} from './order-transition.service';
 import { getOrder } from './orders.service';
 import type { AcceptOrderBody, ReasonBody } from './orders.schema';
 import type { OrderDto } from './orders.mapper';
@@ -86,51 +95,192 @@ const parties = (tx: Tx, orderId: string) =>
 // T1, T2
 // ---------------------------------------------------------------------------
 
+type Assignee = Awaited<ReturnType<typeof assertAssignable>>;
+type AfterCommit = (task: AfterCommitTask) => void;
+
+/** Efek T1 yang sama di kedua mode (State Machine 3, T1). */
+async function applyAcceptance(tx: Tx, afterCommit: AfterCommit, order: Order, assignee: Assignee, paymentDeadlineAt: Date) {
+  await tx.order.update({ where: { id: order.id }, data: { snapshotAssigneeName: assignee.displayName } });
+  const payment = await createPendingPayment(tx, order, paymentDeadlineAt);
+  const who = await parties(tx, order.id);
+  const emails = await notifyUsers(tx, [order.clientId, who.providerProfile.userId, assignee.userId], order, 'Order diterima',
+    `Order diterima dan ditangani ${assignee.displayName}. Selesaikan pembayaran sebelum ${paymentDeadlineAt.toISOString()}.`);
+  afterCommit(() => void dispatchEmails(emails));
+  // Usulan D104: gagal di sini tidak membatalkan T1, invoice_url tetap null.
+  afterCommit(() => issueInvoice(payment.id));
+}
+
+/** POST /orders/:id/accept. Mode menentukan jalurnya: Scheduled lewat transitionOrder, Available Now lewat klaim atomik. */
 export async function acceptOrder(access: OrderAccess, orderId: string, body: AcceptOrderBody): Promise<OrderDto> {
-  const actor = actorFrom(access, ['PROVIDER']);
+  const { bookingMode } = await prisma.order.findUniqueOrThrow({ where: { id: orderId }, select: { bookingMode: true } });
   const paymentDeadlineAt = new Date(Date.now() + (await getNumberSetting('payment_window_minutes')) * MINUTE);
+  if (bookingMode === 'AVAILABLE_NOW') await claimAvailableNow(access, orderId, body, paymentDeadlineAt);
+  else await acceptScheduled(access, orderId, body, paymentDeadlineAt);
+  return getOrder(orderId);
+}
+
+async function acceptScheduled(access: OrderAccess, orderId: string, body: AcceptOrderBody, paymentDeadlineAt: Date) {
+  const actor = actorFrom(access, ['PROVIDER']);
+  const assignedWorkerId = body.assigned_worker_id;
+  if (!assignedWorkerId) {
+    throw Errors.validation([{ path: 'assigned_worker_id', message: 'assigned_worker_id wajib untuk order Scheduled' }]);
+  }
 
   await withOrderTransaction(async (tx, afterCommit) => {
-    let assignee!: Awaited<ReturnType<typeof assertAssignable>>;
+    let assignee!: Assignee;
     await transitionOrder(tx, {
       orderId,
+      afterCommit,
       toStatus: 'ACCEPTED',
       actor,
       actorUserId: access.userId,
-      data: { assignedWorkerId: body.assigned_worker_id, acceptedBy: access.userId, paymentDeadlineAt },
+      data: { assignedWorkerId, acceptedBy: access.userId, paymentDeadlineAt },
       guard: async (tx, order) => {
-        // shortcut: klaim dan pilihan pemilik Available Now (order_offers, D102) masuk sesi 6d.
-        if (order.bookingMode !== 'SCHEDULED') {
-          throw new AppError('ORDER_TRANSITION_NOT_ALLOWED', 'Penerimaan order Available Now belum tersedia');
-        }
         if (!order.responseDeadlineAt || order.responseDeadlineAt <= new Date()) {
           throw new AppError('RESPONSE_DEADLINE_PASSED', 'Batas waktu menerima order sudah lewat');
         }
         const listing = await tx.listing.count({ where: { id: order.listingId, status: 'ACTIVE', deletedAt: null } });
         if (!listing) throw new AppError('LISTING_NOT_AVAILABLE', 'Listing tidak lagi aktif');
 
-        await lockWorkers(tx, [body.assigned_worker_id, ...body.crew_worker_ids]);
-        assignee = await assertAssignable(tx, order, body.assigned_worker_id);
+        await lockWorkers(tx, [assignedWorkerId, ...body.crew_worker_ids]);
+        assignee = await assertAssignable(tx, order, assignedWorkerId);
         await assertCrew(tx, order, body.crew_worker_ids, assignee.id);
         await assertWorkersFree(tx, [assignee.id, ...body.crew_worker_ids], slotOf(order));
       },
       effects: async (tx, order) => {
-        await tx.order.update({ where: { id: orderId }, data: { snapshotAssigneeName: assignee.displayName } });
         if (body.crew_worker_ids.length > 0) {
           await tx.orderCrew.createMany({
             data: body.crew_worker_ids.map((workerId) => ({ orderId, workerId, addedBy: access.userId })),
           });
         }
-        const payment = await createPendingPayment(tx, order, paymentDeadlineAt);
-        const emails = await notifyUsers(tx, [order.clientId, access.userId, assignee.userId], order, 'Order diterima',
-          `Order diterima dan ditangani ${assignee.displayName}. Selesaikan pembayaran sebelum ${paymentDeadlineAt.toISOString()}.`);
-        afterCommit(() => void dispatchEmails(emails));
-        // Usulan D104: gagal di sini tidak membatalkan T1, invoice_url tetap null.
-        afterCommit(() => issueInvoice(payment.id));
+        await applyAcceptance(tx, afterCommit, order, assignee, paymentDeadlineAt);
       },
     });
   });
-  return getOrder(orderId);
+}
+
+/**
+ * T1 Available Now (jebakan 6, State Machine 3.2, H38). TIDAK lewat
+ * transitionOrder: SELECT FOR UPDATE tidak cukup karena barisnya belum terkunci
+ * saat beberapa pekerja menekan tombol bersamaan. UPDATE bersyarat lebih dulu,
+ * baru guard diperiksa di transaksi yang sama (H41); guard gagal = klaim batal.
+ *
+ * Body kosong: pekerja yang ditawari mengklaim untuk dirinya sendiri. Body
+ * berisi `assigned_worker_id`: pemilik memilih dari daftar penerima (D70, D102).
+ */
+async function claimAvailableNow(access: OrderAccess, orderId: string, body: AcceptOrderBody, paymentDeadlineAt: Date) {
+  if (body.crew_worker_ids.length > 0) {
+    throw new AppError('CREW_NOT_ALLOWED_FOR_MODE', 'Pendamping hanya tersedia pada mode Scheduled');
+  }
+  const byOwner = body.assigned_worker_id !== undefined;
+  const actor = actorFrom(access, byOwner ? ['PROVIDER'] : ['OFFERED']);
+  const workerId = byOwner ? body.assigned_worker_id! : access.offeredWorkerId!;
+
+  await withOrderTransaction(async (tx, afterCommit) => {
+    // D102: hanya dari daftar penerima yang belum menolak. Dicek SEBELUM UPDATE supaya id
+    // pekerja usaha lain tidak sampai ke index in-flight (beda kode = bocor status sibuknya),
+    // dan diulang SESUDAH UPDATE karena penolakan bisa masuk di antaranya.
+    const assertOffered = async () => {
+      const offer = await tx.orderOffer.findUnique({ where: { orderId_workerId: { orderId, workerId } } });
+      if (!offer || offer.declinedAt) {
+        throw byOwner
+          ? new AppError('WORKER_NOT_ASSIGNABLE', 'Pekerja itu bukan penerima tawaran order ini, atau sudah menolak')
+          : new AppError('FORBIDDEN_ACTOR', 'Tawaran ini sudah Anda tolak');
+      }
+    };
+    await assertOffered();
+    // Pekerja dulu baru order, supaya klaim dan accept Scheduled untuk pekerja yang sama bergiliran.
+    await lockWorkers(tx, [workerId]);
+    const claimed = await tx.$queryRaw<{ id: string }[]>`
+      UPDATE orders
+      SET    status = 'ACCEPTED', assigned_worker_id = ${workerId}::uuid, accepted_by = ${access.userId}::uuid,
+             accepted_at = now(), payment_deadline_at = ${paymentDeadlineAt}, updated_at = now()
+      WHERE  id = ${orderId}::uuid AND status = 'PENDING_ACCEPTANCE'
+        AND  assigned_worker_id IS NULL AND booking_mode = 'AVAILABLE_NOW'
+      RETURNING id
+    `.catch(rethrowInflight);
+    if (claimed.length === 0) {
+      const { status } = await tx.order.findUniqueOrThrow({ where: { id: orderId }, select: { status: true } });
+      throw status === 'ACCEPTED'
+        ? new AppError('ORDER_ALREADY_CLAIMED', 'Order sudah diambil pihak lain')
+        : new AppError('ORDER_TRANSITION_NOT_ALLOWED', `Order sudah berstatus ${status}`);
+    }
+
+    const order = await tx.order.findUniqueOrThrow({ where: { id: orderId } });
+    if (!order.responseDeadlineAt || order.responseDeadlineAt <= new Date()) {
+      throw new AppError('RESPONSE_DEADLINE_PASSED', 'Batas waktu menerima order sudah lewat');
+    }
+    const listing = await tx.listing.count({ where: { id: order.listingId, status: 'ACTIVE', deletedAt: null } });
+    if (!listing) throw new AppError('LISTING_NOT_AVAILABLE', 'Listing tidak lagi aktif');
+    await assertOffered();
+    // H41: keadaan bisa berubah sejak tawaran dikirim.
+    const assignee = await assertAssignable(tx, order, workerId);
+    await assertWorkersFree(tx, [workerId], { start: new Date(), minutes: order.snapshotDurationMinutes ?? 0, excludeOrderId: orderId });
+
+    await recordTransition(tx, afterCommit, {
+      orderId,
+      fromStatus: 'PENDING_ACCEPTANCE',
+      toStatus: 'ACCEPTED',
+      actor,
+      actorUserId: access.userId,
+    });
+    await applyAcceptance(tx, afterCommit, order, assignee, paymentDeadlineAt);
+
+    // Kartu hilang dari layar penerima lain dan dashboard pemilik (State Machine 3.2).
+    const others = await tx.orderOffer.findMany({
+      where: { orderId, workerId: { not: workerId } },
+      select: { worker: { select: { userId: true } } },
+    });
+    afterCommit(() =>
+      emit([...others.map((o) => `user:${o.worker.userId}`), `provider:${order.providerProfileId}`], 'order:offer_closed', {
+        order_id: orderId,
+        reason: 'CLAIMED',
+      }),
+    );
+  });
+}
+
+/**
+ * POST /orders/:id/decline-offer (D102). Bukan transisi: hanya mengisi
+ * `declined_at`. Penolakan terakhir menjalankan T3 di transaksi yang sama.
+ * Kunci baris order membuat penolakan terakhir dan klaim yang bersamaan
+ * menghasilkan tepat satu hasil.
+ */
+export async function declineOffer(access: OrderAccess, orderId: string) {
+  actorFrom(access, ['OFFERED']);
+  const workerId = access.offeredWorkerId!;
+  return withOrderTransaction(async (tx, afterCommit) => {
+    const order = await lockOrder(tx, orderId);
+    if (order.status !== 'PENDING_ACCEPTANCE') {
+      throw order.status === 'ACCEPTED'
+        ? new AppError('ORDER_ALREADY_CLAIMED', 'Order sudah diambil pihak lain')
+        : new AppError('ORDER_TRANSITION_NOT_ALLOWED', `Order sudah berstatus ${order.status}`);
+    }
+    const declined = await tx.orderOffer.updateMany({
+      where: { orderId, workerId, declinedAt: null },
+      data: { declinedAt: new Date() },
+    });
+    if (declined.count === 0) throw new AppError('FORBIDDEN_ACTOR', 'Tawaran ini sudah Anda tolak');
+
+    const open = await tx.orderOffer.count({ where: { orderId, declinedAt: null } });
+    if (open === 0) {
+      await transitionOrder(tx, {
+        orderId,
+        afterCommit,
+        toStatus: 'EXPIRED',
+        actor: 'SYSTEM',
+        reason: 'Seluruh penerima tawaran menolak (D102)',
+        effects: async (tx, order) => {
+          const who = await parties(tx, orderId);
+          const emails = await notifyUsers(tx, [order.clientId, who.providerProfile.userId], order, 'Order kedaluwarsa',
+            'Tidak ada pekerja yang bisa mengambil order ini. Silakan pesan ulang.');
+          afterCommit(() => void dispatchEmails(emails));
+          afterCommit(() => emit(`provider:${order.providerProfileId}`, 'order:offer_closed', { order_id: orderId, reason: 'EXPIRED' }));
+        },
+      });
+    }
+    return { order_id: orderId, declined: true, order_status: open === 0 ? 'EXPIRED' : 'PENDING_ACCEPTANCE' };
+  });
 }
 
 export async function rejectOrder(access: OrderAccess, orderId: string, body: ReasonBody): Promise<OrderDto> {
@@ -138,6 +288,7 @@ export async function rejectOrder(access: OrderAccess, orderId: string, body: Re
   await withOrderTransaction(async (tx, afterCommit) => {
     await transitionOrder(tx, {
       orderId,
+      afterCommit,
       toStatus: 'REJECTED',
       actor,
       actorUserId: access.userId,
@@ -167,6 +318,7 @@ export async function cancelOrder(access: OrderAccess, orderId: string, body: Re
   await withOrderTransaction(async (tx, afterCommit) => {
     await transitionOrder(tx, {
       orderId,
+      afterCommit,
       toStatus: 'CANCELLED',
       actor,
       actorUserId: access.userId,
@@ -234,6 +386,16 @@ export async function changeAssignment(access: OrderAccess, orderId: string, wor
     const emails = await notifyUsers(tx, [order.clientId, before.assignedWorker?.userId, assignee.userId], order,
       'Penanggung jawab diganti', `Penanggung jawab order sekarang ${assignee.displayName}.`);
     afterCommit(() => void dispatchEmails(emails));
+    afterCommit(() => {
+      emit(`order:${orderId}`, 'order:assignment_changed', {
+        order_id: orderId,
+        from_worker_name: order.snapshotAssigneeName,
+        to_worker_name: assignee.displayName,
+      });
+      // Usulan D109: pekerja lama bukan peserta lagi, kecuali dia pemilik usaha.
+      const oldUserId = before.assignedWorker?.userId;
+      if (oldUserId && oldUserId !== before.providerProfile.userId) leaveRoom(oldUserId, `order:${orderId}`);
+    });
   });
   return getOrder(orderId);
 }

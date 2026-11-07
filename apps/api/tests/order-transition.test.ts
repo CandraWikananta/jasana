@@ -67,7 +67,8 @@ describe.skipIf(!hasTestDatabase)('transitionOrder', () => {
     return order.id;
   }
 
-  const run = (input: TransitionInput) => withOrderTransaction((tx) => transitionOrder(tx, input));
+  const run = (input: Omit<TransitionInput, 'afterCommit'>) =>
+    withOrderTransaction((tx, afterCommit) => transitionOrder(tx, { ...input, afterCommit }));
   const historyCount = (orderId: string) => prisma.orderStatusHistory.count({ where: { orderId } });
   const statusOf = async (orderId: string) =>
     (await prisma.order.findUniqueOrThrow({ where: { id: orderId } })).status;
@@ -207,6 +208,7 @@ describe.skipIf(!hasTestDatabase)('transitionOrder', () => {
           afterCommit(() => { ran = true; });
           return transitionOrder(tx, {
             orderId,
+            afterCommit,
             toStatus: 'CANCELLED',
             actor: 'CLIENT',
             actorUserId: world.client.id,
@@ -235,7 +237,7 @@ describe.skipIf(!hasTestDatabase)('transitionOrder', () => {
         afterCommit(() => { throw new Error('gateway mati'); });
         // Dibaca lewat koneksi lain: hanya terlihat CANCELLED kalau sudah commit.
         afterCommit(async () => { seen.push(await statusOf(orderId)); });
-        return transitionOrder(tx, { orderId, toStatus: 'CANCELLED', actor: 'CLIENT', actorUserId: world.client.id });
+        return transitionOrder(tx, { orderId, afterCommit, toStatus: 'CANCELLED', actor: 'CLIENT', actorUserId: world.client.id });
       });
       expect(seen).toEqual(['CANCELLED']);
       expect(await historyCount(orderId)).toBe(1);

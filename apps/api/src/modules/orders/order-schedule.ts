@@ -57,16 +57,31 @@ export interface Slot {
   excludeOrderId: string;
 }
 
-/** Wajib setelah `lockWorkers` di transaksi yang sama. */
-export async function assertWorkersFree(tx: Tx, workerIds: string[], slot: Slot): Promise<void> {
-  if (workerIds.length === 0) return;
+export interface BusyWorkers {
+  inflight: Set<string>;
+  /** Pekerja bentrok jadwal beserta nomor order yang ditabraknya. */
+  conflicts: Map<string, string>;
+}
+
+/**
+ * Pekerja yang tidak bisa ditugaskan di `slot`, sebagai penanggung jawab ATAU
+ * pendamping (H45). Dipakai penugasan (assertWorkersFree) dan pencocokan
+ * Available Now, yang membutuhkan daftar, bukan galat (D55, D108).
+ */
+export async function findBusyWorkers(tx: Tx, workerIds: string[], slot: Slot): Promise<BusyWorkers> {
+  const busy: BusyWorkers = { inflight: new Set(), conflicts: new Map() };
+  if (workerIds.length === 0) return busy;
+  const wanted = new Set(workerIds);
   const involving: Prisma.OrderWhereInput = {
     id: { not: slot.excludeOrderId },
     OR: [{ assignedWorkerId: { in: workerIds } }, { crew: { some: { workerId: { in: workerIds } } } }],
   };
+  const people = { assignedWorkerId: true, crew: { select: { workerId: true } } } as const;
+  const membersOf = (order: { assignedWorkerId: string | null; crew: { workerId: string }[] }) =>
+    [order.assignedWorkerId, ...order.crew.map((c) => c.workerId)].filter((id): id is string => !!id && wanted.has(id));
 
-  const inflight = await tx.order.findFirst({ where: { AND: [involving, IN_FLIGHT_WHERE] }, select: { id: true } });
-  if (inflight) throw new AppError('WORKER_HAS_INFLIGHT_ORDER', 'Pekerja sedang mengerjakan order lain');
+  const inflight = await tx.order.findMany({ where: { AND: [involving, IN_FLIGHT_WHERE] }, select: people });
+  for (const order of inflight) membersOf(order).forEach((id) => busy.inflight.add(id));
 
   const buffer = await getNumberSetting('schedule_conflict_buffer_minutes');
   const candidates = await tx.order.findMany({
@@ -79,12 +94,22 @@ export async function assertWorkersFree(tx: Tx, workerIds: string[], slot: Slot)
         lt: new Date(slot.start.getTime() + (slot.minutes + buffer) * MINUTE),
       },
     },
-    select: { orderNumber: true, scheduledAt: true, snapshotDurationMinutes: true },
+    select: { orderNumber: true, scheduledAt: true, snapshotDurationMinutes: true, ...people },
   });
-  const clash = candidates.find((order) =>
-    rangesOverlap(order.scheduledAt!, order.snapshotDurationMinutes ?? 0, slot.start, slot.minutes, buffer),
-  );
-  if (clash) {
-    throw new AppError('WORKER_SCHEDULE_CONFLICT', `Jadwal pekerja bentrok dengan order ${clash.orderNumber}`);
+  for (const order of candidates) {
+    if (rangesOverlap(order.scheduledAt!, order.snapshotDurationMinutes ?? 0, slot.start, slot.minutes, buffer)) {
+      membersOf(order).forEach((id) => busy.conflicts.set(id, order.orderNumber));
+    }
+  }
+  return busy;
+}
+
+/** Wajib setelah `lockWorkers` di transaksi yang sama. */
+export async function assertWorkersFree(tx: Tx, workerIds: string[], slot: Slot): Promise<void> {
+  const busy = await findBusyWorkers(tx, workerIds, slot);
+  if (busy.inflight.size > 0) throw new AppError('WORKER_HAS_INFLIGHT_ORDER', 'Pekerja sedang mengerjakan order lain');
+  const [orderNumber] = busy.conflicts.values();
+  if (orderNumber) {
+    throw new AppError('WORKER_SCHEDULE_CONFLICT', `Jadwal pekerja bentrok dengan order ${orderNumber}`);
   }
 }
