@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| Versi | 2.10 |
+| Versi | 2.11 |
 | Penyusun | I Nyoman Gede Candra Wikananta (2305551065) |
 | Program Studi | Teknologi Informasi, Universitas Udayana |
 | Bidang Keahlian | Sistem Informasi |
@@ -13,7 +13,7 @@
 | Tanggal | 9 November 2026 |
 | Cakupan dokumen | **Backend saja** (Express.js REST API, basis data, integrasi eksternal, cron). Frontend dan UI/UX di luar cakupan dokumen ini |
 
-**Dokumen rujukan:** `Keputusan-Desain-Sistem.md` (register keputusan D1 sampai D116, versi 2.16), `State-Machine-Order.md` (artefak desain 3), `skema-database-final.dbml` (35 tabel, 35 enum), `schema.prisma`, `migration-constraints.sql`, `Panduan-Struktur-Database.md`.
+**Dokumen rujukan:** `Keputusan-Desain-Sistem.md` (register keputusan D1 sampai D118, versi 2.17), `State-Machine-Order.md` (artefak desain 3), `skema-database-final.dbml` (35 tabel, 35 enum), `schema.prisma`, `migration-constraints.sql`, `Panduan-Struktur-Database.md`.
 
 **Catatan versi.** Dokumen ini menggantikan PRD versi 1.x sepenuhnya, bukan merevisinya. Implementasi dimulai ulang dari nol mengikuti milestone di Bagian 9. Perubahan terbesar sejak versi 1.x adalah masuknya entitas tenaga kerja (D31 sampai D53) atas arahan Pembimbing 1, yang memindahkan pelaksanaan order dari akun provider ke pekerja.
 
@@ -1142,7 +1142,7 @@ Pendamping di `order_crew` **tidak lolos** `requireAssignedWorker` maupun `requi
 | Endpoint | Batas | Alasan |
 |---|---|---|
 | `/auth/login` | 10 per 15 menit per IP | Mencegah penebakan password |
-| `/auth/forgot-password` | 3 per jam per IP | Mencegah banjir email |
+| `/auth/forgot-password` | 3 per jam per IP, dan 3 per jam per alamat email tujuan (D118) | Mencegah banjir email. Kelebihan per email diabaikan diam-diam dengan balasan 200 yang sama, supaya tidak bisa dipakai menebak email terdaftar |
 | `/auth/resend-verification` | 1 per menit per akun | Setiap panggilan mengirim email sungguhan |
 | `/users/me/email` | 3 per hari per akun | Endpoint ini bisa dipakai membanjiri inbox orang lain |
 | `/chat/sessions/:id/messages` terdaftar | 30 per jam per akun | Setiap pesan memanggil Gemini yang berbiaya |
@@ -1150,6 +1150,8 @@ Pendamping di `order_crew` **tidak lolos** `requireAssignedWorker` maupun `requi
 | `/orders/:id/messages` | 20 per menit per pengirim | Mencegah banjir pesan |
 | `/taxonomy-requests` | 3 usulan aktif per provider, lintas jenis | Menjaga antrean admin tetap wajar |
 | Global | 100 per menit per IP | Pengaman umum |
+
+Seluruh batas per IP membaca `req.ip`, yang bergantung pada pengaturan `trust proxy`. Nilainya diambil dari env `TRUST_PROXY` (D117), supaya header `X-Forwarded-For` palsu tidak bisa dipakai melewati batas saat API berjalan tanpa proxy di depannya.
 
 ### 5.6 Environment Variables
 
@@ -1162,6 +1164,7 @@ VERIFICATION_CODE_AES_KEY
 XENDIT_SECRET_KEY
 XENDIT_CALLBACK_TOKEN
 PAYMENT_GATEWAY            # fake atau xendit; fake ditolak saat NODE_ENV=production (D101)
+TRUST_PROXY                # jumlah hop proxy tepercaya, 0 untuk lokal dan pengujian (D117)
 GEMINI_API_KEY
 SUPABASE_URL
 SUPABASE_SERVICE_ROLE_KEY
@@ -1503,3 +1506,4 @@ Tidak menyangkut aturan bisnis, dibentuk oleh middleware bersama pada Fase 0.
 | 2.8 | 8 November 2026 | Sinkron dengan register keputusan versi 2.14. Radius Available Now dari posisi pekerja (D107), H28 menghitung ACCEPTED dan PAID (D108), event `order:join` (D109), dan endpoint `/dev/workers/presence` (H92) |
 | 2.9 | 9 November 2026 | Sinkron dengan register keputusan versi 2.15. Langkah verify di Bagian 4.4 mengikuti D110 dan D114, endpoint `POST /orders/:id/verification-code` (D111), relay lokasi (D112), dan nama parameter radius check-in `geolocation_radius_meters` |
 | 2.10 | 9 November 2026 | Sinkron dengan register keputusan versi 2.16. Fase 0 sampai 6 selesai. Guard deadline pada `decline-offer` (D115), notifikasi SLA miss (D116) di cron, dan dua endpoint pemicu cron di router dev |
+| 2.11 | 9 November 2026 | Sinkron dengan register keputusan versi 2.17. Batas `forgot-password` per email (D118) di Bagian 5.5 dan env `TRUST_PROXY` (D117) di Bagian 5.6 |

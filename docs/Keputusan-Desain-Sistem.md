@@ -4,8 +4,8 @@
 **Nama sistem:** Jasana
 **Penyusun:** I Nyoman Gede Candra Wikananta (2305551065)
 **Bidang Keahlian:** Sistem Informasi, Teknologi Informasi, Universitas Udayana
-**Versi:** 2.16
-**Terakhir diperbarui:** 9 November 2026 (versi 2.16)
+**Versi:** 2.17
+**Terakhir diperbarui:** 9 November 2026 (versi 2.17)
 **Tahap saat ini:** Implementasi backend. Fase 0 sampai Fase 6 selesai, berikutnya Fase 7 (pembayaran)
 
 ---
@@ -34,7 +34,14 @@
 | Available Now dan real-time (D107 sampai D109) | 3 | 0 |
 | Pelaksanaan dan kode verifikasi (D110 sampai D114) | 5 | 0 |
 | Cron deadline (D115 sampai D116) | 2 | 0 |
+| Hasil audit hutang teknis (D117 sampai D118) | 2 | 0 |
 | Keputusan terbuka tanpa nomor D (Bagian 7) | | 0 |
+
+**Perubahan pada versi 2.17:**
+
+1. `trust proxy` diambil dari env `TRUST_PROXY` (D117)
+2. `forgot-password` juga dibatasi per alamat email tujuan (D118)
+3. Hasil audit hutang teknis: 14 H di 8.1 dicentang setelah diverifikasi `db:check-constraints`, 14 H lain lulus audit dan dicentang (247 test, 0 skipped), rumusan H55 diselaraskan, H93 dibuka kembali, dan catatan desain retry H37
 
 **Perubahan pada versi 2.16:**
 
@@ -1137,6 +1144,21 @@ Keduanya muncul di sesi 6f dan sudah diterapkan di kode. Tidak ada perubahan ske
 
 Angka penutupan: 561 test lulus di 29 file, collection Postman Fase 6 84 request dengan 142 assertion tanpa gagal. Keputusan yang lahir selama Fase 6: D100 sampai D116. Belum diperiksa: event `order:offer_closed` dari T3 karena deadline lewat klien Socket.IO, cron yang benar-benar berjalan menurut jadwalnya, dan perilaku saat jam server aplikasi dan basis data berbeda.
 
+## 4L. Keputusan Versi 2.17 (D117 sampai D118)
+
+Keduanya muncul dari audit hutang teknis sebelum Fase 7 (9 November 2026), dan diterapkan di sesi perapian sebelum Fase 7. Tidak ada perubahan skema.
+
+| # | Keputusan | Alasan |
+|---|---|---|
+| D117 | **Pengaturan `trust proxy` Express diambil dari env `TRUST_PROXY`**, berupa jumlah hop proxy tepercaya. Nilai bawaannya 0 untuk lokal dan pengujian, lalu diisi sesuai jumlah proxy di lingkungan deploy. Sebelumnya di-hardcode 1 | Seluruh rate limit per IP, termasuk batas tebak password di login, membaca `req.ip`. Kalau API berjalan tanpa proxy di depannya tapi `trust proxy` bernilai 1, siapa pun bisa mengirim header `X-Forwarded-For` palsu yang berganti-ganti dan melewati semua batas itu. Kalau jumlah hop tidak sesuai, batasnya mengenai alamat yang salah. Berkaitan dengan H91, karena pengaturan pengujian beban k6 juga bergantung pada cara alamat IP dibaca |
+| D118 | **`POST /auth/forgot-password` juga dibatasi 3 kali per jam per alamat email tujuan**, selain batas 3 per jam per IP yang sudah ada. Permintaan yang melewati batas diabaikan diam-diam: email tidak dikirim, tapi balasannya tetap 200 dengan isi yang sama | Batas per IP saja tidak mencegah inbox satu korban dibanjiri dari banyak alamat IP, padahal itu tujuan H36. Balasan yang tetap 200 menjaga endpoint ini tidak bisa dipakai menebak email mana yang terdaftar, sama seperti perilaku untuk email yang tidak terdaftar |
+
+**Catatan audit hutang teknis (9 November 2026).** Audit membaca kode dan test untuk H yang belum dicentang. Temuan yang tidak menjadi keputusan baru:
+
+- **Rumusan H55 diselaraskan.** Kode, test, CLAUDE.md jebakan 4, dan PRD 8.2 memperlakukan nominal palsu dari client sebagai **diabaikan**, bukan ditolak. Register mengikuti perilaku itu
+- **H93 dibuka kembali.** Cabang "listing tanpa atribut berdurasi memakai kolom listing" ternyata tidak punya integration test, karena fixture order selalu memakai atribut berdurasi. Satu test yang sama menutup H85 dan H93
+- **Desain retry email H37 belum bisa dibangun dengan skema sekarang.** Tabel `notifications` tidak punya kolom hitungan percobaan, dan isi email non-token tidak disimpan lengkap. Diputuskan di awal Fase 10: kolom `email_attempts` ditambah penyimpanan isi email lengkap, atau render ulang dari `reference_type` dan `reference_id`
+
 ---
 
 ## 5. Alur Sistem End-to-End
@@ -1645,23 +1667,23 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 
 ### 8.1 Constraint SQL Manual
 
-- [ ] **H1** Saldo wallet tidak boleh negatif
-- [ ] **H2** Satu order satu pembayaran lunas dan satu invoice aktif
-- [ ] **H3** Satu order satu ESCROW_HOLD dan satu ESCROW_RELEASE, selamanya
+- [x] **H1** **(terpasang, diverifikasi db:check-constraints 8 November 2026)** Saldo wallet tidak boleh negatif
+- [x] **H2** **(terpasang, diverifikasi db:check-constraints 8 November 2026)** Satu order satu pembayaran lunas dan satu invoice aktif
+- [x] **H3** **(terpasang, diverifikasi db:check-constraints 8 November 2026)** Satu order satu ESCROW_HOLD dan satu ESCROW_RELEASE, selamanya
 - [x] **H4** **(diverifikasi di Fase 6: index terpasang menurut db:check-constraints, diuji lewat PRD 8.2 nomor 3 dan T8)** Satu pekerja tidak boleh punya dua order in-flight **(direvisi, D40)**
-- [ ] **H5** Konsistensi nominal order dan batas fee yang dikembalikan
-- [ ] **H6** Ledger harus bergerak, rating 1 sampai 5, jarak check-in tidak negatif
-- [ ] **H18** Index GIN untuk `listings.attributes`
-- [ ] **H23** Eksklusivitas keanggotaan pekerja (D36)
+- [x] **H5** **(terpasang, diverifikasi db:check-constraints 8 November 2026)** Konsistensi nominal order dan batas fee yang dikembalikan
+- [x] **H6** **(terpasang, diverifikasi db:check-constraints 8 November 2026)** Ledger harus bergerak, rating 1 sampai 5, jarak check-in tidak negatif
+- [x] **H18** **(terpasang, diverifikasi db:check-constraints 8 November 2026)** Index GIN untuk `listings.attributes`
+- [x] **H23** **(terpasang, diverifikasi db:check-constraints 8 November 2026)** Eksklusivitas keanggotaan pekerja (D36)
 - [x] **H24** **(ditutup di sesi 6c)** `assigned_worker_id` wajib terisi mulai status ACCEPTED (D42)
-- [ ] **H32** Unique `(worker_id, listing_id)` pada `worker_listings` **(baru, D50)**
-- [ ] **H33** Unique pada `verification_tokens.token_hash` **(baru, D63)**
+- [x] **H32** **(terpasang, diverifikasi db:check-constraints 8 November 2026)** Unique `(worker_id, listing_id)` pada `worker_listings` **(baru, D50)**
+- [x] **H33** **(terpasang, diverifikasi db:check-constraints 8 November 2026)** Unique pada `verification_tokens.token_hash` **(baru, D63)**
 - [x] **H44** **(ditutup di sesi 6c)** Unique `(order_id, worker_id)` pada `order_crew`, plus index `(worker_id)` **(baru, D69)**
-- [ ] **H53** `chk_order_total_composition` pada `orders` **(baru, D73)**
-- [ ] **H54** Unique `(listing_id, attribute_key, option_value)` pada `listing_option_prices` **(baru, D72)**
-- [ ] **H62** Unique pada `refresh_tokens.token_hash` **(baru, D76)**
-- [ ] **H63** `chk_chat_session_identity` pada `chat_sessions` **(baru, D77)**
-- [ ] **H69** `chk_order_message_sender_role` dan `chk_order_message_content_length` **(baru, D79)**
+- [x] **H53** **(terpasang, diverifikasi db:check-constraints 8 November 2026)** `chk_order_total_composition` pada `orders` **(baru, D73)**
+- [x] **H54** **(terpasang, diverifikasi db:check-constraints 8 November 2026)** Unique `(listing_id, attribute_key, option_value)` pada `listing_option_prices` **(baru, D72)**
+- [x] **H62** **(terpasang, diverifikasi db:check-constraints 8 November 2026)** Unique pada `refresh_tokens.token_hash` **(baru, D76)**
+- [x] **H63** **(terpasang, diverifikasi db:check-constraints 8 November 2026)** `chk_chat_session_identity` pada `chat_sessions` **(baru, D77)**
+- [x] **H69** **(terpasang, diverifikasi db:check-constraints 8 November 2026)** `chk_order_message_sender_role` dan `chk_order_message_content_length` **(baru, D79)**
 - [x] **H94** **(ditutup di sesi 6d)** `chk_order_offer_outcome` pada `order_offers`: `declined_at` dan `sla_missed_at` tidak boleh terisi bersamaan **(baru, D102)**
 
 ### 8.2 Keamanan Kode Verifikasi dan Token
@@ -1669,11 +1691,11 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 - [x] **H7** **(ditutup di sesi 6e)** Generate kode order pakai `crypto.randomInt`, bukan `Math.random`
 - [x] **H8** **(ditutup di sesi 6e)** Tolak input kalau `verification_attempts >= 5` sampai `verification_locked_until` lewat. Increment counter sebelum membandingkan, bukan sesudah
 - [x] **H9** **(ditutup di sesi 6e)** Terapkan `verification_expires_at`
-- [ ] **H34** Token email pakai `crypto.randomBytes(32)`, disimpan sebagai hash SHA-256 **(baru, D63)**. Token tidak punya lockout seperti H8, jadi ruang tebakannya harus besar
+- [x] **H34** **(lulus audit 9 November 2026: perilaku ada di kode dan dijaga test)** Token email pakai `crypto.randomBytes(32)`, disimpan sebagai hash SHA-256 **(baru, D63)**. Token tidak punya lockout seperti H8, jadi ruang tebakannya harus besar
 - [ ] **H35** Kirim ulang token membatalkan token lama, dan ganti password membatalkan seluruh token PASSWORD_RESET milik user itu **(baru)**
-- [ ] **H36** Rate limit ketat pada `resend-verification`, `forgot-password`, dan `users/me/email` **(baru)**. Tanpa ini endpoint tersebut jadi alat membanjiri inbox orang lain
-- [ ] **H64** Rotasi refresh token pada setiap pemakaian, plus deteksi pemakaian ulang yang mencabut seluruh `family_id` **(baru, D76)**. Wajib punya test: pakai token yang sudah dicabut, pastikan seluruh rantai ikut mati
-- [ ] **H65** Pencabutan seluruh refresh token saat ganti password **(baru, D76)**
+- [x] **H36** **(lulus audit 9 November 2026: perilaku ada di kode dan dijaga test)** Rate limit ketat pada `resend-verification`, `forgot-password`, dan `users/me/email` **(baru; diperkuat D118)**. Tanpa ini endpoint tersebut jadi alat membanjiri inbox orang lain
+- [x] **H64** **(lulus audit 9 November 2026: perilaku ada di kode dan dijaga test)** Rotasi refresh token pada setiap pemakaian, plus deteksi pemakaian ulang yang mencabut seluruh `family_id` **(baru, D76)**. Wajib punya test: pakai token yang sudah dicabut, pastikan seluruh rantai ikut mati
+- [x] **H65** **(lulus audit 9 November 2026: perilaku ada di kode dan dijaga test)** Pencabutan seluruh refresh token saat ganti password **(baru, D76)**
 
 ### 8.3 Integrasi Eksternal
 
@@ -1683,39 +1705,39 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 - [ ] **H13** Verifikasi header `x-callback-token` pada setiap webhook
 - [ ] **H14** Gemini dipanggil dengan structured output atau function calling
 - [ ] **H19** **Prioritas tinggi setelah D77.** Rate limiting chatbot tiga lapis: per `guest_token`, per alamat IP, dan rem global harian. Tanpa identitas login, endpoint chatbot terbuka untuk siapa saja sedangkan tiap pesan memanggil Gemini yang ada biayanya
-- [ ] **H37** Pengiriman email dilakukan setelah commit, bukan di dalam transaksi **(baru, D58)**. Cron mengirim ulang baris FAILED maksimal tiga kali
+- [ ] **H37** Pengiriman email dilakukan setelah commit, bukan di dalam transaksi **(baru, D58)**. Cron mengirim ulang baris FAILED maksimal tiga kali **(audit 9 November 2026: bagian pertama ada di kode tapi belum ada test SMTP gagal; bagian cron butuh keputusan skema di awal Fase 10, lihat catatan Bagian 4L)**
 - [ ] **H96** Tugas `afterCommit` dijalankan berurutan sebelum respons dikirim. Saat Xendit dipasang di Fase 7, setiap panggilan `PaymentGateway` wajib punya timeout, supaya Xendit yang lambat tidak menahan respons transisi **(baru, sesi 6b)**
 
 ### 8.4 Logika Service Layer yang Tidak Bisa Dijaga Database
 
 - [x] **H25** **(ditutup di sesi 6c)** Pemeriksaan tumpang tindih jadwal pekerja (D41). Unique index tidak bisa memeriksa irisan rentang waktu. Wajib punya unit test, termasuk kasus batas: order berdempetan persis dan order yang hanya beririsan di buffer
 - [x] **H26** **(ditutup di sesi 6c)** Pelepasan slot tentatif saat PAYMENT_EXPIRED atau CANCELLED (D43)
-- [ ] **H27** Validasi minimal satu pekerja ACTIVE dengan `accepts_assignments = true` per provider (D39)
+- [x] **H27** **(lulus audit 9 November 2026: perilaku ada di kode dan dijaga test)** Validasi minimal satu pekerja ACTIVE dengan `accepts_assignments = true` per provider (D39)
 - [x] **H28** **(ditutup di sesi 6d, status ACCEPTED dan PAID menurut D108)** Guard silang antar mode: tolak Available Now kalau ada jadwal pekerja yang akan datang dalam rentang `now + durasi + buffer`
 - [x] **H38** **(ditutup di sesi 6d)** Klaim order Available Now pakai UPDATE bersyarat atomik **(baru, D55)**. Wajib punya integration test yang menembakkan dua klaim bersamaan, dan hasilnya harus tepat satu yang berhasil
-- [ ] **H39** Listing tidak boleh berpindah dari DRAFT ke aktif kalau belum punya pekerja terpetakan **(baru, D53)**
+- [x] **H39** **(lulus audit 9 November 2026: perilaku ada di kode dan dijaga test)** Listing tidak boleh berpindah dari DRAFT ke aktif kalau belum punya pekerja terpetakan **(baru, D53)**
 - [x] **H40** **(ditutup di sesi 6d)** Cron mematikan toggle pekerja yang presence-nya basi **(baru, D57)**
 - [x] **H41** **(ditutup di sesi 6d)** Guard `accept` memeriksa ulang pemetaan listing, status keanggotaan, dan kondisi in-flight, tidak mengandalkan daftar penerima notifikasi **(baru, D55)**
 - [x] **H45** **(ditutup: dropdown penugasan Scheduled di sesi 6c, pencocokan Available Now di sesi 6d)** Pendamping ikut disaring dari pencocokan Available Now dan dropdown penugasan Scheduled **(baru, D69)**. Database tidak menjaganya, karena `uniq_inflight_order_per_worker` hanya melihat `assigned_worker_id`
 - [x] **H46** **(ditutup di sesi 6c lewat assertWorkersFree)** Pendamping ikut pemeriksaan bentrok jadwal yang sama dengan penanggung jawab **(baru, D69)**
 - [x] **H47** **(ditutup di sesi 6c)** Tolak penambahan pendamping pada order AVAILABLE_NOW **(baru, D70)**. Satu guard, tidak perlu memeriksa siapa yang menerima
-- [ ] **H48** Atribut wajib baru memblokir penyimpanan listing lama pada kali berikutnya diedit, lewat penanda `attributes_need_update` **(baru, D67)**. Validasi tidak pernah dijalankan saat baca
+- [x] **H48** **(lulus audit 9 November 2026: perilaku ada di kode dan dijaga test)** Atribut wajib baru memblokir penyimpanan listing lama pada kali berikutnya diedit, lewat penanda `attributes_need_update` **(baru, D67)**. Validasi tidak pernah dijalankan saat baca
 - [x] **H49** **(ditutup di sesi 6d)** Presence diturunkan dari koneksi Socket.IO, dengan toleransi putus sinyal sesaat **(baru, D65)**. Cron yang mematikan toggle (H40) memakai penanda ini, bukan umur koordinat
-- [ ] **H55** **Prioritas tinggi.** Harga dihitung ulang sepenuhnya di server dari `listing_option_prices`, tidak pernah menerima nominal dari client **(baru, D73)**. Wajib punya test yang mengirim total palsu lewat API dan memastikan ditolak
-- [ ] **H56** Validasi bercabang pada `POST /taxonomy-requests` **(baru, D74)**. NEW_ATTRIBUTE wajib `subcategory_id`, NEW_ATTRIBUTE_OPTION wajib `subcategory_id` dan `attribute_key`. Validasi bersyarat seperti ini gampang lolos kalau hanya mengandalkan skema validasi datar
-- [ ] **H57** Batas 3 usulan aktif per provider dihitung lintas jenis **(baru, D74)**
+- [x] **H55** **(lulus audit 9 November 2026: perilaku ada di kode dan dijaga test)** **Prioritas tinggi.** Harga dihitung ulang sepenuhnya di server dari `listing_option_prices`, tidak pernah menerima nominal dari client **(baru, D73)**. Wajib punya test yang mengirim total palsu lewat API dan memastikan nominal itu diabaikan **(rumusan diselaraskan dengan kode dan PRD 8.2 pada audit 9 November 2026; sebelumnya "ditolak")**
+- [x] **H56** **(lulus audit 9 November 2026: perilaku ada di kode dan dijaga test)** Validasi bercabang pada `POST /taxonomy-requests` **(baru, D74)**. NEW_ATTRIBUTE wajib `subcategory_id`, NEW_ATTRIBUTE_OPTION wajib `subcategory_id` dan `attribute_key`. Validasi bersyarat seperti ini gampang lolos kalau hanya mengandalkan skema validasi datar
+- [x] **H57** **(lulus audit 9 November 2026: perilaku ada di kode dan dijaga test)** Batas 3 usulan aktif per provider dihitung lintas jenis **(baru, D74)**
 - [ ] **H70** Masa aktif pesan dalam order ditegakkan service layer **(baru, D79)**. Hanya boleh mengirim saat status order antara ACCEPTED dan sebelum `settlement_due_at` lewat. Setelah itu read-only, bukan terhapus
 - [ ] **H71** Pengirim wajib peserta order itu **(baru, D79)**: client pemilik order, pemilik provider, atau `assigned_worker_id`. Pendamping dan pekerja lain di usaha yang sama DITOLAK, sama polanya dengan `ASSIGNEE_ONLY_TRANSITIONS` di state machine
 - [ ] **H72** Rate limit pengiriman pesan per pengirim **(baru, D79)**
-- [ ] **H73** Batas jumlah butir FAQ per listing **(baru, D78)**
-- [ ] **H78** Validasi **magic bytes** pada unggahan multipart **(baru, D80)**, bukan `Content-Type` dari client dan bukan ekstensi nama berkas. Wajib punya test yang mengunggah berkas non-gambar bernama `.jpg` dan memastikan ditolak
-- [ ] **H79** Urutan unggah multipart: validasi, kirim ke Storage, baru tulis baris basis data **(baru, D80)**. Kalau Storage gagal, jangan tinggalkan baris setengah jadi
-- [ ] **H80** Cron pembersih berkas yatim di bucket foto listing **(baru, D80)**, berkas lebih tua dari `orphan_upload_cleanup_hours` yang tidak punya baris `listing_photos`
+- [x] **H73** **(lulus audit 9 November 2026: perilaku ada di kode dan dijaga test)** Batas jumlah butir FAQ per listing **(baru, D78)**
+- [x] **H78** **(lulus audit 9 November 2026 untuk jalur e-KYC; unggahan bukti dispute di Fase 8 wajib memakai pola yang sama)** Validasi **magic bytes** pada unggahan multipart **(baru, D80)**, bukan `Content-Type` dari client dan bukan ekstensi nama berkas. Wajib punya test yang mengunggah berkas non-gambar bernama `.jpg` dan memastikan ditolak
+- [x] **H79** **(lulus audit 9 November 2026 untuk jalur e-KYC; unggahan bukti dispute di Fase 8 wajib memakai pola yang sama)** Urutan unggah multipart: validasi, kirim ke Storage, baru tulis baris basis data **(baru, D80)**. Kalau Storage gagal, jangan tinggalkan baris setengah jadi
+- [x] **H80** **(lulus audit 9 November 2026: perilaku ada di kode dan dijaga test)** Cron pembersih berkas yatim di bucket foto listing **(baru, D80)**, berkas lebih tua dari `orphan_upload_cleanup_hours` yang tidak punya baris `listing_photos`
 - [x] **H88** **(ditutup di sesi 6c oleh D105)** Perilaku hapus listing (soft delete) saat masih ada order yang belum selesai **diputuskan di Fase 6**, karena order baru ada di fase itu. Saat ini hapus listing tidak memeriksa order
 - [x] **H89** **(ditutup di sesi 6b: `schedule_conflict_buffer_minutes` boleh 0, kunci lain tetap wajib lebih dari 0)** `getNumberSetting` menganggap nilai 0 tidak sah dan memakai default. Sesuaikan sebelum `schedule_conflict_buffer_minutes` (Fase 6) atau `withdrawal_admin_fee` (Fase 8) boleh bernilai 0
 - [ ] **H85** Validasi `listings.estimated_duration_minutes` wajib terisi dan berada di rentang 15 sampai 720 menit saat listing dibuat atau diubah, dan `orders.snapshot_duration_minutes` selalu disalin dari kolom ini, bukan dari `listings.attributes` **(baru, D90)**
 - [ ] **H83** Validasi pengajuan withdrawal **(baru, D84)**: `amount` minimal `withdrawal_min_amount`, `admin_fee` diambil dari `withdrawal_admin_fee` saat pengajuan, dan `net_amount` dihitung di server. Request tidak pernah memuat nominal fee
-- [x] **H93** **(ditutup di sesi 6c)** `snapshot_duration_minutes` dihitung server dari definisi opsi saat order dibuat, tidak pernah dari input client. Wajib punya test: order B.6 dengan opsi "8 Jam" mengunci 480 menit plus buffer, termasuk ketersediaan pendamping di `order_crew`, dan listing tanpa atribut berdurasi tetap memakai kolom listing **(baru, D100)**
+- [ ] **H93** **(dibuka kembali pada audit 9 November 2026: cabang listing tanpa atribut berdurasi belum punya integration test)** `snapshot_duration_minutes` dihitung server dari definisi opsi saat order dibuat, tidak pernah dari input client. Wajib punya test: order B.6 dengan opsi "8 Jam" mengunci 480 menit plus buffer, termasuk ketersediaan pendamping di `order_crew`, dan listing tanpa atribut berdurasi tetap memakai kolom listing **(baru, D100)**
 - [x] **H95** **(ditutup: klaim, pilihan pemilik, dan penolakan terakhir di sesi 6d; SLA miss pada cron T3 di sesi 6f)** Aturan `order_offers` di service layer (D102): klaim pekerja dan pilihan pemilik hanya dari baris yang belum menolak, penolakan terakhir langsung memicu T3 di transaksi yang sama, dan cron T3 tidak memberi SLA miss ke penerima yang sudah menolak. Wajib punya test untuk ketiganya, termasuk penolakan terakhir yang bersamaan dengan klaim pekerja lain **(baru)**
 - [ ] **H97** Pemeriksaan D105 tidak memakai kunci, sehingga order yang dibuat tepat bersamaan dengan penghapusan listing bisa lolos. Order seperti itu tidak bisa di-accept karena listing sudah terhapus, lalu kedaluwarsa sendiri. Diterima sebagai batasan **(baru, sesi 6c)**
 - [ ] **H98** `order_number` acak bisa kembar dengan peluang sangat kecil, dan saat ini berakhir 500. Ditandai `shortcut:`. Ganti dengan retry atau sequence kalau order per hari mencapai ribuan **(baru, sesi 6c)**
@@ -1794,7 +1816,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 ## 11. Langkah Berikutnya
 
 1. Fase 7 (pembayaran): invoice dan webhook Xendit sungguhan di balik `PaymentGateway`, ledger `ESCROW_HOLD`, settlement T18, dan timeout gateway (H96)
-2. Audit status H yang masih terbuka dari fase-fase sebelumnya (antara lain H10 sampai H21, H27, H39, H48, H55 sampai H57, H70, dan H85), karena sebagian kemungkinan sudah selesai tapi belum dicentang
+2. Sesi perapian sebelum Fase 7: D117, D118, dan test yang kurang untuk H35, H37, H85, dan H93. Sebelumnya: audit status H yang masih terbuka dari fase-fase sebelumnya (antara lain H10 sampai H21, H27, H39, H48, H55 sampai H57, H70, dan H85), karena sebagian kemungkinan sudah selesai tapi belum dicentang
 3. Susun data simulasi untuk dua belas sub-kategori di Lampiran B, termasuk skenario perebutan Available Now dan pendamping pada dokumentasi acara
 4. Riset ringan rentang harga pasaran untuk dua belas sub-kategori tersebut, catat sumbernya
 5. Paralel sejak sekarang: kumpulkan H15 sedikit demi sedikit setiap minggu, dan siapkan instrumen UAT (H84)
@@ -1823,6 +1845,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 | 2.14 | 8 November 2026 | Tiga usulan dari sesi 6d: radius Available Now dari posisi pekerja (D107), slot ACCEPTED dan PAID memblokir Available Now (D108), dan room order lewat `order:join` (D109). Catatan peran OFFERED, jalur accept menurut isi body, penanda online pengujian, dan toleransi presence. Tanpa perubahan skema baru |
 | 2.15 | 9 November 2026 | Lima usulan dari sesi 6e: reset percobaan setelah lockout (D110), kode baru oleh client (D111), relay lokasi tanpa tulis basis data (D112), kode error tiga guard waktu (D113), dan kode kedaluwarsa tidak dihitung sebagai percobaan (D114). Catatan pola catat lalu commit baru tolak, penamaan radius, dan `requireAssignedWorker`. H7 sampai H9 ditutup. Tanpa perubahan skema |
 | 2.16 | 9 November 2026 | Dua usulan dari sesi 6f: penolakan tawaran ditolak setelah deadline (D115) dan notifikasi SLA miss untuk pekerja (D116). Catatan implementasi cron. Fase 6 ditutup dengan seluruh kriteria PRD Bagian 9 terpenuhi. H95 ditutup penuh, H4, H46, dan H49 dicentang. Tanpa perubahan skema |
+| 2.17 | 9 November 2026 | Dua keputusan dari audit hutang teknis: `TRUST_PROXY` dari env (D117) dan batas `forgot-password` per email (D118). H di 8.1 dan H yang lulus audit dicentang, rumusan H55 diselaraskan, H93 dibuka kembali, catatan desain retry H37. Tanpa perubahan skema |
 
 ---
 
