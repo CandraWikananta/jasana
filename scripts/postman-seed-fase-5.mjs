@@ -204,7 +204,8 @@ async function main() {
             membershipStatus: 'ACTIVE',
             acceptsAssignments: true,
             approvedAt: now,
-            // shortcut: online = is_available (D99), sampai pelacak Socket.IO ada di Fase 6.
+            // Toggle saja tidak membuat pekerja online: sejak 6d available_now juga membaca presence
+            // Socket.IO (D99). Di Postman, tandai online lewat POST /dev/workers/presence (H92).
             ...(p.ownerAt
               ? { isAvailable: true, currentLatitude: p.ownerAt.lat, currentLongitude: p.ownerAt.lng, locationUpdatedAt: now }
               : {}),

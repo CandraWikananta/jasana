@@ -7,6 +7,13 @@
 import type { Prisma } from '@jasana/database';
 import { recordEmail, type OutgoingEmail } from '../notifications/email-outbox';
 
+/** Pihak-pihak order: client, pemilik usaha, dan penanggung jawab. */
+export const parties = (tx: Prisma.TransactionClient, orderId: string) =>
+  tx.order.findUniqueOrThrow({
+    where: { id: orderId },
+    select: { clientId: true, providerProfile: { select: { userId: true } }, assignedWorker: { select: { userId: true } } },
+  });
+
 export async function notifyUsers(
   tx: Prisma.TransactionClient,
   userIds: Array<string | null | undefined>,

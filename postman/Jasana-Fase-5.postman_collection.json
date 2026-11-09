@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "6c74111d-abf0-54b2-aee3-4390ccb2c511",
     "name": "Jasana Backend - Fase 5 (Pencarian)",
-    "description": "Pengujian `GET /listings` Fase 5: filter kategori, harga, kata kunci, mode, atribut dinamis (H18), lokasi (D6, D98), dan `available_now` turunan (D45, D99).\n\n## Setiap putaran\n1. `npm run postman:seed:fase-5` di akar repo. Lima usaha demo di sekitar Denpasar dibuat ulang beserta pekerja online dan dua order in-flight. Akun fase lain tidak disentuh.\n2. `npm run dev`.\n3. Jalankan folder berurutan dari 00. Endpoint publik, tidak perlu login.\n\n## Peta demo\n| Usaha | Basis | Radius | Dari Renon | Dari Kuta |\n|---|---|---|---|---|\n| Cuci Mobil Renon | Renon | 3 km | 0,40 km masuk | 9,38 km keluar |\n| Dingin Sanur Teknik | Sanur | 15 km | 3,56 km masuk | 10,86 km masuk |\n| Oli Kilat Kuta | Kuta | 8 km | 8,67 km keluar | 0,40 km masuk |\n| Studio Ubud Visual | Ubud | 30 km | 18,68 km masuk | 25,98 km masuk |\n| Cuci Mobil Gianyar | Denpasar | 20 km | SUSPENDED, tidak pernah muncul (D96) | |\n\n## Request bertanda KRITERIA\nFolder 02 dan 03. Bukti index terpakai (EXPLAIN) tidak bisa lewat Postman, jalankan `npx tsx apps/api/scripts/bench-search.ts` (ke basis data uji).\n\n## Catatan\nDev DB juga berisi listing fase lain, jadi pemeriksaan memakai judul listing demo, bukan jumlah total. Rate limit global 100 request per menit per IP, collection ini memakai 36.",
+    "description": "Pengujian `GET /listings` Fase 5: filter kategori, harga, kata kunci, mode, atribut dinamis (H18), lokasi (D6, D98), dan `available_now` turunan (D45, D99).\n\n## Setiap putaran\n1. `npm run postman:seed:fase-5` di akar repo. Lima usaha demo di sekitar Denpasar dibuat ulang beserta pekerja online dan dua order in-flight. Akun fase lain tidak disentuh.\n2. Jalankan server dengan **`PAYMENT_GATEWAY=fake`**. Folder 03 menandai pekerja seed online lewat `POST /dev/workers/presence` (H92), dan router `/dev` hanya terdaftar di mode itu. Sejak sesi 6d, `available_now` membaca presence Socket.IO (D99), jadi toggle dari seed saja tidak cukup.\n3. Jalankan folder berurutan dari 00. Pencarian sendiri publik. Login hanya dipakai folder 03 untuk mengambil id lima pekerja seed (5 dari batas 10 login per 15 menit).\n\n## Peta demo\n| Usaha | Basis | Radius | Dari Renon | Dari Kuta |\n|---|---|---|---|---|\n| Cuci Mobil Renon | Renon | 3 km | 0,40 km masuk | 9,38 km keluar |\n| Dingin Sanur Teknik | Sanur | 15 km | 3,56 km masuk | 10,86 km masuk |\n| Oli Kilat Kuta | Kuta | 8 km | 8,67 km keluar | 0,40 km masuk |\n| Studio Ubud Visual | Ubud | 30 km | 18,68 km masuk | 25,98 km masuk |\n| Cuci Mobil Gianyar | Denpasar | 20 km | SUSPENDED, tidak pernah muncul (D96) | |\n\n## Request bertanda KRITERIA\nFolder 02 dan 03. Bukti index terpakai (EXPLAIN) tidak bisa lewat Postman, jalankan `npx tsx apps/api/scripts/bench-search.ts` (ke basis data uji).\n\n## Catatan\nDev DB juga berisi listing fase lain, jadi pemeriksaan memakai judul listing demo, bukan jumlah total. Rate limit global 100 request per menit per IP, collection ini memakai 47.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -731,6 +731,502 @@
       "name": "03. KRITERIA: available_now turunan (D45, D98, D99)",
       "item": [
         {
+          "name": "Login crenon",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code === 401) console.warn('Akun demo belum ada. Jalankan: npm run postman:seed:fase-5');",
+                  "pm.environment.set('f5_crenon_token', pm.response.json().data.access_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"crenon@postman.jasana.test\",\n  \"password\": \"{{seed_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Id pekerja crenon",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.environment.set('f5_crenon_worker_id', pm.response.json().data.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{f5_crenon_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/workers/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "workers",
+                "me"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login cteknisi1",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code === 401) console.warn('Akun demo belum ada. Jalankan: npm run postman:seed:fase-5');",
+                  "pm.environment.set('f5_cteknisi1_token', pm.response.json().data.access_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"cteknisi1@postman.jasana.test\",\n  \"password\": \"{{seed_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Id pekerja cteknisi1",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.environment.set('f5_cteknisi1_worker_id', pm.response.json().data.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{f5_cteknisi1_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/workers/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "workers",
+                "me"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login cteknisi2",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code === 401) console.warn('Akun demo belum ada. Jalankan: npm run postman:seed:fase-5');",
+                  "pm.environment.set('f5_cteknisi2_token', pm.response.json().data.access_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"cteknisi2@postman.jasana.test\",\n  \"password\": \"{{seed_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Id pekerja cteknisi2",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.environment.set('f5_cteknisi2_worker_id', pm.response.json().data.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{f5_cteknisi2_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/workers/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "workers",
+                "me"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login ckuta",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code === 401) console.warn('Akun demo belum ada. Jalankan: npm run postman:seed:fase-5');",
+                  "pm.environment.set('f5_ckuta_token', pm.response.json().data.access_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"ckuta@postman.jasana.test\",\n  \"password\": \"{{seed_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Id pekerja ckuta",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.environment.set('f5_ckuta_worker_id', pm.response.json().data.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{f5_ckuta_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/workers/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "workers",
+                "me"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login cgianyar",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code === 401) console.warn('Akun demo belum ada. Jalankan: npm run postman:seed:fase-5');",
+                  "pm.environment.set('f5_cgianyar_token', pm.response.json().data.access_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"cgianyar@postman.jasana.test\",\n  \"password\": \"{{seed_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Id pekerja cgianyar",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.environment.set('f5_cgianyar_worker_id', pm.response.json().data.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{f5_cgianyar_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/workers/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "workers",
+                "me"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Tandai pekerja seed online (H92, hanya gateway palsu)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "// Sejak 6d available_now membaca presence Socket.IO (D99), toggle saja tidak cukup.",
+                  "pm.test('Lima pekerja ditandai, termasuk pemilik usaha SUSPENDED', function () { pm.expect(pm.response.json().data.touched).to.eql(5); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{f5_crenon_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/dev/workers/presence",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "dev",
+                "workers",
+                "presence"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"worker_ids\": [\n    \"{{f5_crenon_worker_id}}\",\n    \"{{f5_cteknisi1_worker_id}}\",\n    \"{{f5_cteknisi2_worker_id}}\",\n    \"{{f5_ckuta_worker_id}}\",\n    \"{{f5_cgianyar_worker_id}}\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
           "name": "Dari Renon, available_now",
           "event": [
             {
@@ -750,6 +1246,7 @@
                   "pm.test('Memuat \"Perbaikan AC Sharp dan Gree\"', function () { pm.expect(titles).to.include('Perbaikan AC Sharp dan Gree'); });",
                   "pm.test('Tidak memuat \"Foto Produk Katalog Ubud\" (supports_available_now false)', function () { pm.expect(titles).to.not.include('Foto Produk Katalog Ubud'); });",
                   "pm.test('Tidak memuat \"Ganti Oli Motor Kuta\" (pemilik in-flight)', function () { pm.expect(titles).to.not.include('Ganti Oli Motor Kuta'); });",
+                  "pm.test('Tidak memuat \"Cuci Mobil Gianyar (ditangguhkan)\" walaupun pekerjanya online (D96)', function () { pm.expect(titles).to.not.include('Cuci Mobil Gianyar (ditangguhkan)'); });",
                   "pm.test('Urut jarak menaik', function () { const d = items.map(function (i) { return i.distance_km; }); pm.expect(d).to.eql(d.slice().sort(function (a, b) { return a - b; })); });"
                 ]
               }

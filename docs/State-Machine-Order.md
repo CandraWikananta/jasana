@@ -2,7 +2,7 @@
 
 **Artefak desain 3 dari 8**
 Platform Jasana, Tugas Akhir I Nyoman Gede Candra Wikananta (2305551065)
-**Versi 2.10**, 9 November 2026
+**Versi 2.11**, 9 November 2026
 
 Dokumen ini mendefinisikan seluruh kondisi yang boleh dialami sebuah order, perpindahan yang diizinkan di antaranya, dan efek samping yang wajib terjadi pada setiap perpindahan.
 
@@ -101,7 +101,7 @@ Kolom Aktor memakai singkatan: **C** client, **O** pemilik provider, **W** peker
 |---|---|---|
 | T1 | `now() < response_deadline_at`; listing masih `ACTIVE`; **pekerja yang ditugaskan terpetakan ke listing itu** (`worker_listings`), keanggotaannya `ACTIVE`, `accepts_assignments = true`; **pekerja itu tidak punya order lain berstatus in-flight**; **tidak bentrok jadwal** (lihat rumus di bawah); untuk Available Now, `assigned_worker_id` order ini masih NULL dan pekerjanya punya baris `order_offers` yang belum menolak (D102) | Set `assigned_worker_id`, `snapshot_assignee_name`, `accepted_by`, `accepted_at`; set `payment_deadline_at = now() + payment_window_minutes`; kunci slot pekerja **tentatif** (D43); untuk Scheduled, simpan pekerja pendamping ke `order_crew` kalau dicentang (D69); buat invoice Xendit; **buka jalur `order_messages`** (D79); notifikasi client dan pekerja |
 | T2 | `now() < response_deadline_at` | Set `cancelled_at`, `cancelled_by = PROVIDER`; notifikasi client |
-| T3 | `response_deadline_at < now()`, atau seluruh baris `order_offers` order itu sudah terisi `declined_at` (D102) | Notifikasi kedua pihak; untuk `AVAILABLE_NOW` yang lewat deadline, isi `sla_missed_at` untuk **penerima yang belum menolak** dan **matikan toggle `is_available`** mereka (D57, D102). Penerima yang menolak tidak kena catatan |
+| T3 | `response_deadline_at < now()`, atau seluruh baris `order_offers` order itu sudah terisi `declined_at` (D102) | Notifikasi kedua pihak; untuk `AVAILABLE_NOW` yang lewat deadline, isi `sla_missed_at` untuk **penerima yang belum menolak** dan **matikan toggle `is_available`** mereka (D57, D102). Penerima yang menolak tidak kena catatan. Pekerja yang terkena SLA miss diberi notifikasi bahwa toggle-nya dimatikan (D116) |
 | T4 | Belum ada `payments` berstatus `PAID` | Set `cancelled_at`, `cancelled_by = CLIENT` |
 | T5 | Signature `x-callback-token` valid; `event_id` belum pernah diproses; belum ada `payments` lain berstatus `PAID` untuk order ini | Set `paid_at`; **ledger `ESCROW_HOLD`: `pending += provider_earning`**; kunci slot pekerja jadi **pasti** (D43); notifikasi pemilik, pekerja, dan client |
 | T6 | `payment_deadline_at < now()`; tidak ada payment `PAID` | Expire invoice di Xendit; **lepas kunci slot tentatif** pekerja dan seluruh pendampingnya (D43, H26) |
@@ -169,7 +169,7 @@ Nol baris berarti sudah keduluan: balas 409 `ORDER_ALREADY_CLAIMED`, dan kirim e
 
 Guard sisanya (pemetaan listing, keanggotaan, in-flight, bentrok jadwal) tetap diperiksa **setelah** klaim berhasil, di dalam transaksi yang sama, karena keadaan bisa berubah dalam 5 menit sejak tawaran dikirim (H41). Kalau guard gagal, transaksi di-rollback dan klaimnya batal.
 
-**Daftar penerima dan penolakan (D102).** Penerima tawaran disimpan di `order_offers` saat order dibuat. Pekerja yang tidak punya baris, atau sudah menolak, tidak bisa mengklaim, dan pemilik hanya boleh memilih dari baris yang belum menolak. Pekerja boleh menolak tawarannya sendiri lewat `POST /orders/:id/decline-offer`. Penolakan hanya mengisi `declined_at` dan bukan transisi. Kalau itu penolakan terakhir, server menjalankan T3 dengan aktor SYSTEM di transaksi yang sama. Penolakan terakhir yang bersamaan dengan klaim pekerja lain diselesaikan oleh UPDATE bersyarat: hanya satu yang menemukan status masih `PENDING_ACCEPTANCE`.
+**Daftar penerima dan penolakan (D102).** Penerima tawaran disimpan di `order_offers` saat order dibuat. Pekerja yang tidak punya baris, atau sudah menolak, tidak bisa mengklaim, dan pemilik hanya boleh memilih dari baris yang belum menolak. Pekerja boleh menolak tawarannya sendiri lewat `POST /orders/:id/decline-offer`. Penolakan hanya mengisi `declined_at` dan bukan transisi. Kalau itu penolakan terakhir, server menjalankan T3 dengan aktor SYSTEM di transaksi yang sama. Penolakan setelah `response_deadline_at` lewat ditolak 409 `RESPONSE_DEADLINE_PASSED` (D115), supaya pekerja tidak bisa lolos dari SLA miss di sela waktu sebelum cron berjalan. Cron dan penolakan terakhir memakai satu fungsi T3 yang sama. Penolakan terakhir yang bersamaan dengan klaim pekerja lain diselesaikan oleh UPDATE bersyarat: hanya satu yang menemukan status masih `PENDING_ACCEPTANCE`.
 
 **Kenapa tidak ada percabangan "kalau pemilik sedang online".** Percabangan seperti itu selalu bocor di tepinya, misalnya pemilik online lalu tabnya mati tepat saat order masuk. Dengan membiarkan keduanya berhak sejak awal, tidak ada deteksi yang perlu dilakukan.
 
@@ -529,6 +529,7 @@ Diagram ASCII di atas hanya untuk orientasi cepat. Gunakan versi Mermaid untuk l
 | Versi | Tanggal | Perubahan |
 |---|---|---|
 | 1.0 | 17 September 2026 | Versi awal. 15 state, 22 transisi, guard dan efek samping, tiga aturan alur uang |
+| 2.11 | 9 November 2026 | Penolakan tawaran ditolak setelah deadline (D115), satu fungsi T3 untuk cron dan penolakan terakhir, dan notifikasi SLA miss pada efek samping T3 (D116) |
 | 2.10 | 9 November 2026 | Guard T10 memakai parameter `geolocation_radius_meters`, guard T16 mengikuti D110 dan D114, dan Bagian 4.3 baru untuk pembaruan kode verifikasi (D111). Bagian pesan dalam order menjadi 4.4 |
 | 2.9 | 8 November 2026 | Kasus silang antar mode di Bagian 3.1 menghitung order Scheduled ACCEPTED dan PAID (D108) |
 | 2.8 | 7 November 2026 | Contoh `transitionOrder()` di Bagian 8 disamakan dengan implementasi sesi 6b: path `modules/orders`, kunci baris dengan `SELECT id` lalu baca lewat Prisma (contoh lama dengan `SELECT *` membuat `bookingMode` undefined), lapis ketiga mensyaratkan keanggotaan ACTIVE, UPDATE bersyarat pada status lama, dan tugas setelah commit. Ditambah dari sesi 6c: rumus `response_deadline_at` mode Scheduled (D106) dan catatan bahwa guard in-flight tetap wajib di Bagian 3.1 |

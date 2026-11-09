@@ -8,6 +8,7 @@
 
 import { schedule } from 'node-cron';
 import { logger } from '../lib/logger';
+import { sweepPaymentDeadlines, sweepResponseDeadlines } from '../modules/orders/order-expiry.service';
 import { cleanOrphanListingPhotos } from './orphan-listing-photos';
 import { sweepStalePresence } from './presence-sweep';
 
@@ -28,6 +29,9 @@ function register(name: string, expression: string, job: () => Promise<unknown>)
 export function startJobs(): void {
   // Tiap 1 hari (H80).
   register('orphan-listing-photos', '0 3 * * *', cleanOrphanListingPhotos);
+  // Tiap 1 menit: T3 dan T6 (PRD 7.1, sesi 6f).
+  register('response-deadline-sweep', '* * * * *', sweepResponseDeadlines);
+  register('payment-deadline-sweep', '* * * * *', sweepPaymentDeadlines);
   // Tiap 2 menit (H40).
   register('presence-sweep', '*/2 * * * *', sweepStalePresence);
   logger.info('Cron terdaftar');

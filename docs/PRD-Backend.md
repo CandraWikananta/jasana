@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| Versi | 2.9 |
+| Versi | 2.10 |
 | Penyusun | I Nyoman Gede Candra Wikananta (2305551065) |
 | Program Studi | Teknologi Informasi, Universitas Udayana |
 | Bidang Keahlian | Sistem Informasi |
@@ -13,7 +13,7 @@
 | Tanggal | 9 November 2026 |
 | Cakupan dokumen | **Backend saja** (Express.js REST API, basis data, integrasi eksternal, cron). Frontend dan UI/UX di luar cakupan dokumen ini |
 
-**Dokumen rujukan:** `Keputusan-Desain-Sistem.md` (register keputusan D1 sampai D114, versi 2.15), `State-Machine-Order.md` (artefak desain 3), `skema-database-final.dbml` (35 tabel, 35 enum), `schema.prisma`, `migration-constraints.sql`, `Panduan-Struktur-Database.md`.
+**Dokumen rujukan:** `Keputusan-Desain-Sistem.md` (register keputusan D1 sampai D116, versi 2.16), `State-Machine-Order.md` (artefak desain 3), `skema-database-final.dbml` (35 tabel, 35 enum), `schema.prisma`, `migration-constraints.sql`, `Panduan-Struktur-Database.md`.
 
 **Catatan versi.** Dokumen ini menggantikan PRD versi 1.x sepenuhnya, bukan merevisinya. Implementasi dimulai ulang dari nol mengikuti milestone di Bagian 9. Perubahan terbesar sejak versi 1.x adalah masuknya entitas tenaga kerja (D31 sampai D53) atas arahan Pembimbing 1, yang memindahkan pelaksanaan order dari akun provider ke pekerja.
 
@@ -756,7 +756,7 @@ Query parameter `GET /listings`:
 | GET | `/orders/:id/history` | C/PR/W/A | Audit trail transisi |
 | POST | `/orders/:id/accept` | PR/W | T1 `-> ACCEPTED`. Scheduled oleh pemilik, Available Now oleh pekerja maupun pemilik |
 | POST | `/orders/:id/reject` | PR | T2 `-> REJECTED`, pemilik saja di kedua mode (D102) |
-| POST | `/orders/:id/decline-offer` | W | Pekerja menolak tawaran Available Now miliknya (bukan transisi). Penolakan terakhir memicu T3 (D102) |
+| POST | `/orders/:id/decline-offer` | W | Pekerja menolak tawaran Available Now miliknya (bukan transisi). Penolakan terakhir memicu T3 (D102). Ditolak 409 `RESPONSE_DEADLINE_PASSED` setelah deadline lewat (D115) |
 | PATCH | `/orders/:id/assignment` | PR | Ganti penanggung jawab (bukan transisi) |
 | PUT | `/orders/:id/crew` | PR | Atur pendamping, `SCHEDULED` saja (bukan transisi) |
 | POST | `/orders/:id/cancel` | C/PR/A | T4, T7, T9, T11 `-> CANCELLED` |
@@ -769,6 +769,8 @@ Query parameter `GET /listings`:
 | POST | `/orders/:id/verify` | W | T16 `-> COMPLETED` |
 | POST | `/dev/orders/:id/simulate-payment` | C | T5 lewat gateway palsu. Hanya terdaftar saat `PAYMENT_GATEWAY=fake`, tidak pernah di produksi (D101) |
 | POST | `/dev/workers/presence` | auth | Menandai pekerja online untuk pengujian (H92). Hanya terdaftar saat `PAYMENT_GATEWAY=fake`, kedaluwarsa per `worker_presence_timeout_minutes` |
+| PATCH | `/dev/orders/:id/deadline` | C/PR/W | Memundurkan `response_deadline_at` atau `payment_deadline_at` untuk pengujian cron. Hanya saat `PAYMENT_GATEWAY=fake` |
+| POST | `/dev/jobs/:job/run` | auth | Menjalankan sweep `response-deadline` atau `payment-deadline` yang sama dengan cron. Hanya saat `PAYMENT_GATEWAY=fake` |
 | GET | `/orders/:id/messages` | C/PR/W/A | Riwayat pesan, terpaginasi. Admin membaca saja |
 | POST | `/orders/:id/messages` | C/PR/W | Kirim pesan, hanya selama masa aktif |
 | PATCH | `/orders/:id/messages/read` | C/PR/W | Tandai pesan sisi lawan sudah dibaca |
@@ -1272,7 +1274,7 @@ Ringkasan aturan yang tidak boleh dilanggar implementasi mana pun:
 
 | Job | Jadwal | Aksi |
 |---|---|---|
-| Sweep response deadline | tiap 1 menit | Order `PENDING_ACCEPTANCE` yang `response_deadline_at` lewat menjadi `EXPIRED`. Untuk Available Now, isi `order_offers.sla_missed_at` dan **matikan toggle `is_available`** penerima yang belum menolak (D102) |
+| Sweep response deadline | tiap 1 menit | Order `PENDING_ACCEPTANCE` yang `response_deadline_at` lewat menjadi `EXPIRED`. Untuk Available Now, isi `order_offers.sla_missed_at` dan **matikan toggle `is_available`** penerima yang belum menolak (D102), lalu beri mereka notifikasi (D116). Diproses per order dengan `FOR UPDATE SKIP LOCKED` |
 | Sweep payment deadline | tiap 1 menit | Order `ACCEPTED` yang `payment_deadline_at` lewat menjadi `PAYMENT_EXPIRED`, invoice di-expire di Xendit, **kunci slot tentatif pekerja dan pendamping dilepas** |
 | Sweep settlement | tiap 5 menit | Order `COMPLETED` yang `settlement_due_at` lewat dan tidak punya dispute `OPEN` atau `UNDER_REVIEW` menjadi `SETTLED` beserta `ESCROW_RELEASE`. Jalur pesan jadi read-only |
 | Sweep presence pekerja | tiap 2 menit | Pekerja yang koneksi Socket.IO-nya putus lebih dari `worker_presence_timeout_minutes` dimatikan `is_available`-nya, supaya tampilan dashboard jujur |
@@ -1376,7 +1378,7 @@ Data seed harus menyertakan kombinasi yang memungkinkan skenario di atas dijalan
 
 ## 9. Milestone Implementasi
 
-Status per 31 Oktober 2026: **Fase 0 sampai Fase 5 selesai**, sisanya belum dikerjakan. Urutan mengikuti dependency tree, bukan urutan tabel jadwal pada usulan ide.
+Status per 9 November 2026: **Fase 0 sampai Fase 6 selesai**, sisanya belum dikerjakan. Urutan mengikuti dependency tree, bukan urutan tabel jadwal pada usulan ide.
 
 | Fase | Keluaran backend | Kriteria selesai |
 |---|---|---|
@@ -1500,3 +1502,4 @@ Tidak menyangkut aturan bisnis, dibentuk oleh middleware bersama pada Fase 0.
 | 2.7 | 7 November 2026 | Sinkron dengan register keputusan versi 2.13. Invoice gagal saat T1 (D104) di Bagian 6.4, kode error `LISTING_HAS_ACTIVE_ORDERS` (D105), dan aturan pembuatan order (D106) di kontrak `POST /orders` |
 | 2.8 | 8 November 2026 | Sinkron dengan register keputusan versi 2.14. Radius Available Now dari posisi pekerja (D107), H28 menghitung ACCEPTED dan PAID (D108), event `order:join` (D109), dan endpoint `/dev/workers/presence` (H92) |
 | 2.9 | 9 November 2026 | Sinkron dengan register keputusan versi 2.15. Langkah verify di Bagian 4.4 mengikuti D110 dan D114, endpoint `POST /orders/:id/verification-code` (D111), relay lokasi (D112), dan nama parameter radius check-in `geolocation_radius_meters` |
+| 2.10 | 9 November 2026 | Sinkron dengan register keputusan versi 2.16. Fase 0 sampai 6 selesai. Guard deadline pada `decline-offer` (D115), notifikasi SLA miss (D116) di cron, dan dua endpoint pemicu cron di router dev |

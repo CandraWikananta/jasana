@@ -4,9 +4,9 @@
 **Nama sistem:** Jasana
 **Penyusun:** I Nyoman Gede Candra Wikananta (2305551065)
 **Bidang Keahlian:** Sistem Informasi, Teknologi Informasi, Universitas Udayana
-**Versi:** 2.15
-**Terakhir diperbarui:** 9 November 2026 (versi 2.15)
-**Tahap saat ini:** Implementasi backend. Fase 0 sampai Fase 5 selesai, Fase 6 berjalan (sesi 6a sampai 6e selesai)
+**Versi:** 2.16
+**Terakhir diperbarui:** 9 November 2026 (versi 2.16)
+**Tahap saat ini:** Implementasi backend. Fase 0 sampai Fase 6 selesai, berikutnya Fase 7 (pembayaran)
 
 ---
 
@@ -33,7 +33,16 @@
 | Order Scheduled (D104 sampai D106) | 3 | 0 |
 | Available Now dan real-time (D107 sampai D109) | 3 | 0 |
 | Pelaksanaan dan kode verifikasi (D110 sampai D114) | 5 | 0 |
+| Cron deadline (D115 sampai D116) | 2 | 0 |
 | Keputusan terbuka tanpa nomor D (Bagian 7) | | 0 |
+
+**Perubahan pada versi 2.16:**
+
+1. Penolakan tawaran ditolak setelah deadline lewat (D115)
+2. Pekerja yang terkena SLA miss diberi notifikasi (D116)
+3. Catatan implementasi: satu fungsi T3, pola sweep dengan `SKIP LOCKED`, urutan kunci T3 Available Now, dan pemicu sweep untuk pengujian
+4. **Fase 6 ditutup.** Seluruh kriteria PRD Bagian 9 menurut D101 terpenuhi, rinciannya di Bagian 4K
+5. H95 ditutup penuh. H4, H46, dan H49 dicentang setelah diverifikasi. Tanpa perubahan skema
 
 **Perubahan pada versi 2.15:**
 
@@ -153,13 +162,13 @@
 
 | Artefak | Versi | Keterangan |
 |---|---|---|
-| `PRD-Backend.md` | 2.9 | Sumber snapshot durasi di langkah pembuatan order (D100), Bagian 10 tanpa pertanyaan terbuka, kriteria milestone Fase 6 sampai 8, endpoint simulasi pembayaran dan env `PAYMENT_GATEWAY` (D101), endpoint `decline-offer` dan jumlah tabel (D102), status milestone Fase 0 sampai 5 selesai |
+| `PRD-Backend.md` | 2.10 | Sumber snapshot durasi di langkah pembuatan order (D100), Bagian 10 tanpa pertanyaan terbuka, kriteria milestone Fase 6 sampai 8, endpoint simulasi pembayaran dan env `PAYMENT_GATEWAY` (D101), endpoint `decline-offer` dan jumlah tabel (D102), status milestone Fase 0 sampai 5 selesai |
 | `CLAUDE.md` | | Rujukan D1 sampai D101, jebakan nomor 7 menyebut `PaymentGateway`, jebakan nomor 13 menyebut durasi opsi |
 | `skema-database-final.dbml`, `schema.prisma` | 2.12 | Tabel `order_offers` beserta relasi baliknya (D102). `docs/schema.prisma` sekaligus disamakan dengan kode, termasuk `idx_provider_base_geo` dari Fase 5 |
 | `Panduan-Struktur-Database.md` | 2.9 | **Belum disinkronkan**, penjelasan tabel `order_offers` menyusul |
-| `State-Machine-Order.md` | 2.10 | T2 hanya pemilik, T3 juga terpicu saat seluruh penerima menolak, guard klaim memeriksa `order_offers` (D102). Contoh `transitionOrder()` di Bagian 8 disamakan dengan implementasi sesi 6b. Kasus silang antar mode menghitung ACCEPTED dan PAID (D108) |
+| `State-Machine-Order.md` | 2.11 | T2 hanya pemilik, T3 juga terpicu saat seluruh penerima menolak, guard klaim memeriksa `order_offers` (D102). Contoh `transitionOrder()` di Bagian 8 disamakan dengan implementasi sesi 6b. Kasus silang antar mode menghitung ACCEPTED dan PAID (D108) |
 | `migration-constraints.sql` | 2.6 | Constraint `order_offers` ditambahkan di sesi 6d (H94) |
-| Kode Fase 0 sampai 5 | | Fase 5 selesai (commit `a3c6cc5`). D100 dan D103 diterapkan di kode katalog pada sesi 6a (357 test lulus). Sesi 6b: `transitionOrder()`, port `PaymentGateway`, dan H89 (427 test lulus). Sesi 6c: order Scheduled sampai PAID, D104 sampai D106 (477 test lulus, Postman Fase 6 lulus). Sesi 6d: Available Now, Socket.IO, dan `order_offers`, D107 sampai D109 (503 test lulus). Sesi 6e: pelaksanaan di lokasi dan kode verifikasi, D110 sampai D114 (526 test lulus). Tabel `order_offers` dimigrasikan di sesi 6d (D102) |
+| Kode Fase 0 sampai 5 | | Fase 5 selesai (commit `a3c6cc5`). D100 dan D103 diterapkan di kode katalog pada sesi 6a (357 test lulus). Sesi 6b: `transitionOrder()`, port `PaymentGateway`, dan H89 (427 test lulus). Sesi 6c: order Scheduled sampai PAID, D104 sampai D106 (477 test lulus, Postman Fase 6 lulus). Sesi 6d: Available Now, Socket.IO, dan `order_offers`, D107 sampai D109 (503 test lulus). Sesi 6e: pelaksanaan di lokasi dan kode verifikasi, D110 sampai D114 (526 test lulus). Sesi 6f: cron deadline T3 dan T6, D115 dan D116 (561 test lulus, Postman Fase 6 84 request). **Fase 6 selesai.** Tabel `order_offers` dimigrasikan di sesi 6d (D102) |
 | Usulan ide (Tabel Aktor Sistem) | | Tidak direvisi (A7) |
 
 **Status artefak per versi 2.11 (per 22 Oktober 2026):**
@@ -1101,6 +1110,33 @@ D110 sampai D113 muncul saat menyusun rencana sesi 6e, D114 dari review sesi itu
 - **Penamaan radius check-in.** Nilainya dibaca dari parameter `geolocation_radius_meters` (PRD 3.5), dibulatkan ke bilangan bulat, lalu disimpan sebagai snapshot di kolom `order_checkins.radius_threshold_meters`. State Machine T10 dan PRD 4.4 disesuaikan
 - **`requireAssignedWorker`** dipasang di kelima endpoint pelaksanaan. Rekan seusaha sudah tertahan lebih dulu oleh `requireOrderParticipant` (403 `FORBIDDEN_ACTOR`), sedangkan pemilik BUSINESS yang bukan penanggung jawab ditolak 403 `NOT_ASSIGNED_WORKER`
 
+## 4K. Keputusan Versi 2.16 (D115 sampai D116) dan Penutupan Fase 6
+
+Keduanya muncul di sesi 6f dan sudah diterapkan di kode. Tidak ada perubahan skema.
+
+| # | Keputusan | Alasan |
+|---|---|---|
+| D115 | **`POST /orders/:id/decline-offer` ditolak 409 `RESPONSE_DEADLINE_PASSED` setelah `response_deadline_at` lewat.** Pemeriksaannya dilakukan setelah baris order terkunci | Tanpa aturan ini, pekerja yang tidak merespons bisa menolak di sela waktu antara deadline lewat dan cron berjalan, yang bisa sampai satu menit, lalu lolos dari SLA miss (D102 nomor 4). Data SLA miss dipakai di laporan admin dan Bab IV, jadi harus mencerminkan siapa yang benar-benar tidak merespons. Konsisten dengan accept dan reject yang sudah menolak setelah deadline |
+| D116 | **Pada T3 karena deadline, pekerja yang terkena SLA miss diberi notifikasi** bahwa toggle Available Now-nya dimatikan karena tidak merespons tawaran. Barisnya ditulis di transaksi, emailnya lewat `afterCommit`. Pekerja yang sudah menolak tidak mendapat notifikasi ini | Sebelumnya toggle dimatikan diam-diam (D57). Saat UAT, pekerja akan bingung kenapa tawaran berhenti masuk. Biayanya hanya satu panggilan notifikasi di efek samping yang sudah ada |
+
+**Catatan implementasi sesi 6f tanpa nomor D:**
+
+- **T3 hanya punya satu implementasi**, `expireUnanswered(cause)`, yang dipakai penolakan terakhir (`ALL_DECLINED`) maupun cron (`DEADLINE`). Pada jalur `ALL_DECLINED`, himpunan penerima yang terkena SLA miss otomatis kosong
+- **Sweep membaca kandidat tanpa kunci**, lalu mengunci per order dengan `FOR UPDATE SKIP LOCKED` dan memeriksa ulang deadline. Tiap order diproses di transaksinya sendiri, jadi satu kegagalan tidak membatalkan order lain. Dibuktikan dengan uji mutasi: tanpa `SKIP LOCKED`, kedua test balapan T3 gagal
+- **Urutan kunci T3 Available Now sama dengan klaim**: pekerja dulu, baru order. Kalau dibalik, cron dan klaim yang berjalan bersamaan bisa deadlock. Belum bisa diuji secara deterministik, pencegahannya bersandar pada urutan kunci yang sama
+- **Order yang terjebak** (payment PAID tapi status masih ACCEPTED) sengaja ditolak guard T6 dan terhitung gagal setiap menit, supaya keadaan itu terlihat di log
+- **Pemicu sweep untuk pengujian**: `PATCH /dev/orders/:id/deadline` memundurkan `response_deadline_at` atau `payment_deadline_at`, dan `POST /dev/jobs/:job/run` menjalankan sweep yang sama dengan cron. Keduanya hanya terdaftar saat `PAYMENT_GATEWAY=fake`
+
+**Penutupan Fase 6 (9 November 2026).** Seluruh kriteria PRD Bagian 9 menurut D101 terpenuhi:
+
+| Kriteria | Bukti |
+|---|---|
+| 22 transisi lulus uji positif dan negatif di tingkat unit | Tabel di `order-state-machine.test.ts`, ditambah 22 kasus lewat `transitionOrder()` di `order-transition.test.ts`: aktor benar mengubah status dan menambah satu histori, aktor salah ditolak 403 tanpa histori. Guard bisnis T9, T11, T13, T15, dan T17 sampai T22 menyusul di Fase 7 dan 8 (D101 nomor 5) |
+| T1 sampai T4, T6 sampai T8, T10, T12, T14, T16, dan T5 lewat gateway palsu teruji end-to-end | `orders.test.ts`, `available-now.test.ts`, `order-execution.test.ts`, `order-expiry.test.ts`, dan collection Postman Fase 6 folder 04 sampai 09 |
+| Dua klaim paralel menghasilkan tepat satu pemenang | `available-now.test.ts`, dua request sungguhan dengan pola tahan kunci lalu lepas, dibuktikan gagal kalau UPDATE bersyarat diganti pola baca lalu cek |
+
+Angka penutupan: 561 test lulus di 29 file, collection Postman Fase 6 84 request dengan 142 assertion tanpa gagal. Keputusan yang lahir selama Fase 6: D100 sampai D116. Belum diperiksa: event `order:offer_closed` dari T3 karena deadline lewat klien Socket.IO, cron yang benar-benar berjalan menurut jadwalnya, dan perilaku saat jam server aplikasi dan basis data berbeda.
+
 ---
 
 ## 5. Alur Sistem End-to-End
@@ -1612,7 +1648,7 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 - [ ] **H1** Saldo wallet tidak boleh negatif
 - [ ] **H2** Satu order satu pembayaran lunas dan satu invoice aktif
 - [ ] **H3** Satu order satu ESCROW_HOLD dan satu ESCROW_RELEASE, selamanya
-- [ ] **H4** Satu pekerja tidak boleh punya dua order in-flight **(direvisi, D40)**
+- [x] **H4** **(diverifikasi di Fase 6: index terpasang menurut db:check-constraints, diuji lewat PRD 8.2 nomor 3 dan T8)** Satu pekerja tidak boleh punya dua order in-flight **(direvisi, D40)**
 - [ ] **H5** Konsistensi nominal order dan batas fee yang dikembalikan
 - [ ] **H6** Ledger harus bergerak, rating 1 sampai 5, jarak check-in tidak negatif
 - [ ] **H18** Index GIN untuk `listings.attributes`
@@ -1661,10 +1697,10 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 - [x] **H40** **(ditutup di sesi 6d)** Cron mematikan toggle pekerja yang presence-nya basi **(baru, D57)**
 - [x] **H41** **(ditutup di sesi 6d)** Guard `accept` memeriksa ulang pemetaan listing, status keanggotaan, dan kondisi in-flight, tidak mengandalkan daftar penerima notifikasi **(baru, D55)**
 - [x] **H45** **(ditutup: dropdown penugasan Scheduled di sesi 6c, pencocokan Available Now di sesi 6d)** Pendamping ikut disaring dari pencocokan Available Now dan dropdown penugasan Scheduled **(baru, D69)**. Database tidak menjaganya, karena `uniq_inflight_order_per_worker` hanya melihat `assigned_worker_id`
-- [ ] **H46** Pendamping ikut pemeriksaan bentrok jadwal yang sama dengan penanggung jawab **(baru, D69)**
+- [x] **H46** **(ditutup di sesi 6c lewat assertWorkersFree)** Pendamping ikut pemeriksaan bentrok jadwal yang sama dengan penanggung jawab **(baru, D69)**
 - [x] **H47** **(ditutup di sesi 6c)** Tolak penambahan pendamping pada order AVAILABLE_NOW **(baru, D70)**. Satu guard, tidak perlu memeriksa siapa yang menerima
 - [ ] **H48** Atribut wajib baru memblokir penyimpanan listing lama pada kali berikutnya diedit, lewat penanda `attributes_need_update` **(baru, D67)**. Validasi tidak pernah dijalankan saat baca
-- [ ] **H49** Presence diturunkan dari koneksi Socket.IO, dengan toleransi putus sinyal sesaat **(baru, D65)**. Cron yang mematikan toggle (H40) memakai penanda ini, bukan umur koordinat
+- [x] **H49** **(ditutup di sesi 6d)** Presence diturunkan dari koneksi Socket.IO, dengan toleransi putus sinyal sesaat **(baru, D65)**. Cron yang mematikan toggle (H40) memakai penanda ini, bukan umur koordinat
 - [ ] **H55** **Prioritas tinggi.** Harga dihitung ulang sepenuhnya di server dari `listing_option_prices`, tidak pernah menerima nominal dari client **(baru, D73)**. Wajib punya test yang mengirim total palsu lewat API dan memastikan ditolak
 - [ ] **H56** Validasi bercabang pada `POST /taxonomy-requests` **(baru, D74)**. NEW_ATTRIBUTE wajib `subcategory_id`, NEW_ATTRIBUTE_OPTION wajib `subcategory_id` dan `attribute_key`. Validasi bersyarat seperti ini gampang lolos kalau hanya mengandalkan skema validasi datar
 - [ ] **H57** Batas 3 usulan aktif per provider dihitung lintas jenis **(baru, D74)**
@@ -1680,7 +1716,7 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 - [ ] **H85** Validasi `listings.estimated_duration_minutes` wajib terisi dan berada di rentang 15 sampai 720 menit saat listing dibuat atau diubah, dan `orders.snapshot_duration_minutes` selalu disalin dari kolom ini, bukan dari `listings.attributes` **(baru, D90)**
 - [ ] **H83** Validasi pengajuan withdrawal **(baru, D84)**: `amount` minimal `withdrawal_min_amount`, `admin_fee` diambil dari `withdrawal_admin_fee` saat pengajuan, dan `net_amount` dihitung di server. Request tidak pernah memuat nominal fee
 - [x] **H93** **(ditutup di sesi 6c)** `snapshot_duration_minutes` dihitung server dari definisi opsi saat order dibuat, tidak pernah dari input client. Wajib punya test: order B.6 dengan opsi "8 Jam" mengunci 480 menit plus buffer, termasuk ketersediaan pendamping di `order_crew`, dan listing tanpa atribut berdurasi tetap memakai kolom listing **(baru, D100)**
-- [ ] **H95** **(sebagian di sesi 6d: klaim, pilihan pemilik, dan penolakan terakhir; SLA miss pada cron T3 di sesi 6f)** Aturan `order_offers` di service layer (D102): klaim pekerja dan pilihan pemilik hanya dari baris yang belum menolak, penolakan terakhir langsung memicu T3 di transaksi yang sama, dan cron T3 tidak memberi SLA miss ke penerima yang sudah menolak. Wajib punya test untuk ketiganya, termasuk penolakan terakhir yang bersamaan dengan klaim pekerja lain **(baru)**
+- [x] **H95** **(ditutup: klaim, pilihan pemilik, dan penolakan terakhir di sesi 6d; SLA miss pada cron T3 di sesi 6f)** Aturan `order_offers` di service layer (D102): klaim pekerja dan pilihan pemilik hanya dari baris yang belum menolak, penolakan terakhir langsung memicu T3 di transaksi yang sama, dan cron T3 tidak memberi SLA miss ke penerima yang sudah menolak. Wajib punya test untuk ketiganya, termasuk penolakan terakhir yang bersamaan dengan klaim pekerja lain **(baru)**
 - [ ] **H97** Pemeriksaan D105 tidak memakai kunci, sehingga order yang dibuat tepat bersamaan dengan penghapusan listing bisa lolos. Order seperti itu tidak bisa di-accept karena listing sudah terhapus, lalu kedaluwarsa sendiri. Diterima sebagai batasan **(baru, sesi 6c)**
 - [ ] **H98** `order_number` acak bisa kembar dengan peluang sangat kecil, dan saat ini berakhir 500. Ditandai `shortcut:`. Ganti dengan retry atau sequence kalau order per hari mencapai ribuan **(baru, sesi 6c)**
 
@@ -1757,8 +1793,8 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 
 ## 11. Langkah Berikutnya
 
-1. Sesi 6f (cron deadline T3 dan T6, penutup Fase 6)
-2. Fase 6 (order) dalam enam sesi, 6a sampai 6f, termasuk keputusan H88
+1. Fase 7 (pembayaran): invoice dan webhook Xendit sungguhan di balik `PaymentGateway`, ledger `ESCROW_HOLD`, settlement T18, dan timeout gateway (H96)
+2. Audit status H yang masih terbuka dari fase-fase sebelumnya (antara lain H10 sampai H21, H27, H39, H48, H55 sampai H57, H70, dan H85), karena sebagian kemungkinan sudah selesai tapi belum dicentang
 3. Susun data simulasi untuk dua belas sub-kategori di Lampiran B, termasuk skenario perebutan Available Now dan pendamping pada dokumentasi acara
 4. Riset ringan rentang harga pasaran untuk dua belas sub-kategori tersebut, catat sumbernya
 5. Paralel sejak sekarang: kumpulkan H15 sedikit demi sedikit setiap minggu, dan siapkan instrumen UAT (H84)
@@ -1786,6 +1822,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 | 2.13 | 7 November 2026 | Tiga usulan dari sesi 6c: invoice gagal tidak membatalkan T1 (D104), hapus listing ditolak selama ada order berjalan (D105, menutup H88), dan empat aturan pembuatan serta pembatalan order (D106). Catatan guard in-flight, peran per endpoint, dan format `order_number`. H97 dan H98. Tanpa perubahan skema |
 | 2.14 | 8 November 2026 | Tiga usulan dari sesi 6d: radius Available Now dari posisi pekerja (D107), slot ACCEPTED dan PAID memblokir Available Now (D108), dan room order lewat `order:join` (D109). Catatan peran OFFERED, jalur accept menurut isi body, penanda online pengujian, dan toleransi presence. Tanpa perubahan skema baru |
 | 2.15 | 9 November 2026 | Lima usulan dari sesi 6e: reset percobaan setelah lockout (D110), kode baru oleh client (D111), relay lokasi tanpa tulis basis data (D112), kode error tiga guard waktu (D113), dan kode kedaluwarsa tidak dihitung sebagai percobaan (D114). Catatan pola catat lalu commit baru tolak, penamaan radius, dan `requireAssignedWorker`. H7 sampai H9 ditutup. Tanpa perubahan skema |
+| 2.16 | 9 November 2026 | Dua usulan dari sesi 6f: penolakan tawaran ditolak setelah deadline (D115) dan notifikasi SLA miss untuk pekerja (D116). Catatan implementasi cron. Fase 6 ditutup dengan seluruh kriteria PRD Bagian 9 terpenuhi. H95 ditutup penuh, H4, H46, dan H49 dicentang. Tanpa perubahan skema |
 
 ---
 

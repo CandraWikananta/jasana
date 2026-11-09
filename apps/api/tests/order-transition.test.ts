@@ -98,6 +98,43 @@ describe.skipIf(!hasTestDatabase)('transitionOrder', () => {
     ]);
   });
 
+  // Kriteria Fase 6 (PRD 9, D101 no. 1): ke-22 transisi lewat transitionOrder, negatif lalu positif
+  // pada order yang sama. Guard per transisi dipasang pemanggil; yang uang menunggu Fase 7 dan 8.
+  it.each<[string, OrderStatus, OrderStatus, OrderActorType, OrderActorType]>([
+    ['T1', 'PENDING_ACCEPTANCE', 'ACCEPTED', 'PROVIDER', 'CLIENT'],
+    ['T2', 'PENDING_ACCEPTANCE', 'REJECTED', 'PROVIDER', 'WORKER'],
+    ['T3', 'PENDING_ACCEPTANCE', 'EXPIRED', 'SYSTEM', 'PROVIDER'],
+    ['T4', 'PENDING_ACCEPTANCE', 'CANCELLED', 'CLIENT', 'PROVIDER'],
+    ['T5', 'ACCEPTED', 'PAID', 'SYSTEM', 'CLIENT'],
+    ['T6', 'ACCEPTED', 'PAYMENT_EXPIRED', 'SYSTEM', 'CLIENT'],
+    ['T7', 'ACCEPTED', 'CANCELLED', 'CLIENT', 'WORKER'],
+    ['T8', 'PAID', 'ON_THE_WAY', 'WORKER', 'PROVIDER'],
+    ['T9', 'PAID', 'CANCELLED', 'ADMIN', 'WORKER'],
+    ['T10', 'ON_THE_WAY', 'ARRIVED', 'WORKER', 'CLIENT'],
+    ['T11', 'ON_THE_WAY', 'CANCELLED', 'ADMIN', 'SYSTEM'],
+    ['T12', 'ARRIVED', 'IN_PROGRESS', 'WORKER', 'ADMIN'],
+    ['T13', 'ARRIVED', 'DISPUTED', 'CLIENT', 'WORKER'],
+    ['T14', 'IN_PROGRESS', 'AWAITING_VERIFICATION', 'WORKER', 'PROVIDER'],
+    ['T15', 'IN_PROGRESS', 'DISPUTED', 'PROVIDER', 'ADMIN'],
+    ['T16', 'AWAITING_VERIFICATION', 'COMPLETED', 'WORKER', 'CLIENT'],
+    ['T17', 'AWAITING_VERIFICATION', 'DISPUTED', 'CLIENT', 'SYSTEM'],
+    ['T18', 'COMPLETED', 'SETTLED', 'SYSTEM', 'PROVIDER'],
+    ['T19', 'COMPLETED', 'DISPUTED', 'PROVIDER', 'WORKER'],
+    ['T20', 'DISPUTED', 'SETTLED', 'ADMIN', 'CLIENT'],
+    ['T21', 'DISPUTED', 'REFUNDED', 'ADMIN', 'PROVIDER'],
+    ['T22', 'CANCELLED', 'REFUNDED', 'SYSTEM', 'ADMIN'],
+  ])('%s %s -> %s: %s lolos, %s ditolak 403 tanpa histori', async (_no, from, to, allowed, denied) => {
+    const orderId = await newOrder(from);
+    await expect(run({ orderId, toStatus: to, actor: denied, actorUserId: world.owner.id })).rejects.toMatchObject({ status: 403 });
+    expect(await statusOf(orderId)).toBe(from);
+    expect(await historyCount(orderId)).toBe(0);
+
+    const data = to === 'ACCEPTED' ? { assignedWorkerId: world.assignee.id } : {};
+    await run({ orderId, toStatus: to, actor: allowed, actorUserId: world.owner.id, data });
+    expect(await statusOf(orderId)).toBe(to);
+    expect(await prisma.orderStatusHistory.findMany({ where: { orderId } })).toMatchObject([{ fromStatus: from, toStatus: to, actor: allowed }]);
+  });
+
   it('order yang tidak ada dibalas 404', async () => {
     await expect(
       run({ orderId: '00000000-0000-0000-0000-000000000000', toStatus: 'ACCEPTED', actor: 'PROVIDER' }),

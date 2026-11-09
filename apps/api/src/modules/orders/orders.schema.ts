@@ -7,6 +7,7 @@
 
 import { z } from 'zod';
 import { paginationQuery } from '../../lib/pagination';
+import { DEV_JOBS, type DevJob } from './order-expiry.service';
 
 const uuid = (label: string) => z.string().uuid(`${label} tidak sah`);
 const uniqueIds = (label: string) =>
@@ -73,6 +74,11 @@ export const verifySchema = z.object({ code: z.string().regex(/^\d{6}$/, 'code h
 
 /** H92, hanya di router /dev. */
 export const devPresenceSchema = z.object({ worker_ids: z.array(uuid('worker_ids berisi id')).min(1).max(20_000) });
+
+/** Sesi 6f, hanya di router /dev. */
+export const devDeadlineSchema = z.object({ field: z.enum(['response_deadline_at', 'payment_deadline_at']) });
+const devJobs = Object.keys(DEV_JOBS) as [DevJob, ...DevJob[]];
+export const devJobParamsSchema = z.object({ job: z.enum(devJobs) });
 
 export const listOrdersQuerySchema = z.object({
   as: z.enum(['client', 'provider', 'worker']).default('client'),

@@ -6,6 +6,7 @@
  *   /orders/:id/depart ... verify  lima transisi pelaksanaan, + requireAssignedWorker (6e)
  *   /dev/orders/:id/simulate-payment
  *   /dev/workers/presence       hanya terdaftar saat PAYMENT_GATEWAY=fake (D101, H92)
+ *   /dev/orders/:id/deadline, /dev/jobs/:job/run   pemicu sweep T3 dan T6 untuk Postman (6f)
  */
 
 import { Router, type RequestHandler } from 'express';
@@ -19,6 +20,8 @@ import {
   checkInSchema,
   createOrderSchema,
   crewSchema,
+  devDeadlineSchema,
+  devJobParamsSchema,
   devPresenceSchema,
   listOrdersQuerySchema,
   orderParamsSchema,
@@ -62,5 +65,7 @@ export function createDevRouter(): Router {
   const router = Router();
   router.post('/orders/:id/simulate-payment', ...participant(), controller.simulatePayment);
   router.post('/workers/presence', requireAuth, validate({ body: devPresenceSchema }), controller.devPresence);
+  router.patch('/orders/:id/deadline', ...participant(), validate({ body: devDeadlineSchema }), controller.devBackdate);
+  router.post('/jobs/:job/run', requireAuth, validate({ params: devJobParamsSchema }), controller.devRunJob);
   return router;
 }

@@ -8,6 +8,7 @@ import { currentUser } from '../../middlewares/auth';
 import { currentOrderAccess } from '../../middlewares/rbac';
 import * as actions from './order-actions.service';
 import * as execution from './order-execution.service';
+import * as expiry from './order-expiry.service';
 import { simulatePayment as simulate } from './order-payment.service';
 import { presence } from '../../realtime/presence';
 import type { ListOrdersQuery } from './orders.schema';
@@ -93,6 +94,15 @@ export const simulatePayment = asyncHandler(async (req, res) => {
 export const declineOffer = asyncHandler(async (req, res) => {
   const access = currentOrderAccess(req);
   sendOk(res, await actions.declineOffer(access, access.orderId));
+});
+
+/** Sesi 6f, hanya router /dev: deadline dimundurkan, lalu sweep dipicu lewat devRunJob. */
+export const devBackdate = asyncHandler(async (req, res) => {
+  sendOk(res, await expiry.backdateDeadline(currentOrderAccess(req).orderId, (req.body as { field: expiry.DeadlineField }).field));
+});
+
+export const devRunJob = asyncHandler(async (req, res) => {
+  sendOk(res, await expiry.DEV_JOBS[req.params.job as expiry.DevJob]());
 });
 
 /**

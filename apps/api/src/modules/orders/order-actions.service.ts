@@ -15,7 +15,8 @@ import { emit, leaveRoom } from '../../realtime/socket';
 import { actorFrom, type OrderAccess } from '../access/access.service';
 import { dispatchEmails } from '../notifications/email-outbox';
 import { getNumberSetting } from '../settings/settings.service';
-import { notifyUsers } from './order-notify';
+import { expireUnanswered } from './order-expiry.service';
+import { notifyUsers, parties } from './order-notify';
 import { createPendingPayment, expireInvoices, expirePendingPayments, issueInvoice } from './order-payment.service';
 import { assertWorkersFree, lockWorkers, type Slot } from './order-schedule';
 import {
@@ -84,12 +85,6 @@ function assertBeforeDeparture(order: Order): void {
     throw new AppError('ORDER_TRANSITION_NOT_ALLOWED', `Tidak bisa diubah saat order berstatus ${order.status}`);
   }
 }
-
-const parties = (tx: Tx, orderId: string) =>
-  tx.order.findUniqueOrThrow({
-    where: { id: orderId },
-    select: { clientId: true, providerProfile: { select: { userId: true } }, assignedWorker: { select: { userId: true } } },
-  });
 
 // ---------------------------------------------------------------------------
 // T1, T2
@@ -256,6 +251,10 @@ export async function declineOffer(access: OrderAccess, orderId: string) {
         ? new AppError('ORDER_ALREADY_CLAIMED', 'Order sudah diambil pihak lain')
         : new AppError('ORDER_TRANSITION_NOT_ALLOWED', `Order sudah berstatus ${order.status}`);
     }
+    // Usulan D115: menolak setelah deadline tidak menghapus SLA miss (D102 no. 4).
+    if (!order.responseDeadlineAt || order.responseDeadlineAt <= new Date()) {
+      throw new AppError('RESPONSE_DEADLINE_PASSED', 'Batas waktu menanggapi tawaran sudah lewat');
+    }
     const declined = await tx.orderOffer.updateMany({
       where: { orderId, workerId, declinedAt: null },
       data: { declinedAt: new Date() },
@@ -263,22 +262,7 @@ export async function declineOffer(access: OrderAccess, orderId: string) {
     if (declined.count === 0) throw new AppError('FORBIDDEN_ACTOR', 'Tawaran ini sudah Anda tolak');
 
     const open = await tx.orderOffer.count({ where: { orderId, declinedAt: null } });
-    if (open === 0) {
-      await transitionOrder(tx, {
-        orderId,
-        afterCommit,
-        toStatus: 'EXPIRED',
-        actor: 'SYSTEM',
-        reason: 'Seluruh penerima tawaran menolak (D102)',
-        effects: async (tx, order) => {
-          const who = await parties(tx, orderId);
-          const emails = await notifyUsers(tx, [order.clientId, who.providerProfile.userId], order, 'Order kedaluwarsa',
-            'Tidak ada pekerja yang bisa mengambil order ini. Silakan pesan ulang.');
-          afterCommit(() => void dispatchEmails(emails));
-          afterCommit(() => emit(`provider:${order.providerProfileId}`, 'order:offer_closed', { order_id: orderId, reason: 'EXPIRED' }));
-        },
-      });
-    }
+    if (open === 0) await expireUnanswered(tx, afterCommit, orderId, 'ALL_DECLINED');
     return { order_id: orderId, declined: true, order_status: open === 0 ? 'EXPIRED' : 'PENDING_ACCEPTANCE' };
   });
 }

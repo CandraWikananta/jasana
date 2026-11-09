@@ -3205,6 +3205,900 @@
           "response": []
         }
       ]
+    },
+    {
+      "name": "09. KRITERIA: cron deadline T3 dan T6 (sesi 6f)",
+      "item": [
+        {
+          "name": "Buat order G",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', function () { pm.response.to.have.status(201); });",
+                  "pm.environment.set('f6_order_g', pm.response.json().data.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{dklien_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"listing_id\": \"{{f6_listing_id}}\",\n  \"booking_mode\": \"SCHEDULED\",\n  \"scheduled_at\": \"{{f6_at_later}}\",\n  \"location_source\": \"SAVED_ADDRESS\",\n  \"address_id\": \"{{f6_address_id}}\",\n  \"selected_options\": {\n    \"jenis_acara\": \"Seminar\",\n    \"durasi_liputan\": \"2 Jam\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Mundurkan response deadline G (dev)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{dklien_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/dev/orders/{{f6_order_g}}/deadline",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "dev",
+                "orders",
+                "{{f6_order_g}}",
+                "deadline"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"field\": \"response_deadline_at\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Sweep response deadline (T3)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "var r = pm.response.json().data;",
+                  "// Cron server ikut berjalan tiap menit dan bisa lebih dulu memproses order ini, jadi yang dipastikan di sini hanya bentuk hasil; statusnya diperiksa di request berikutnya.",
+                  "pm.test('Hasil sweep lengkap, tidak ada yang gagal', function () { pm.expect(r).to.have.all.keys('candidates', 'expired', 'failed', 'sla_missed'); pm.expect(r.failed).to.eql(0); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{downer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/dev/jobs/response-deadline/run",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "dev",
+                "jobs",
+                "response-deadline",
+                "run"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Riwayat G: EXPIRED oleh SYSTEM",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('T3 oleh SYSTEM', function () { var last = pm.response.json().data.pop(); pm.expect(last.to_status).to.eql('EXPIRED'); pm.expect(last.actor).to.eql('SYSTEM'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{dklien_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{f6_order_g}}/history",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{f6_order_g}}",
+                "history"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Buat order H",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', function () { pm.response.to.have.status(201); });",
+                  "pm.environment.set('f6_order_h', pm.response.json().data.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{dklien_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"listing_id\": \"{{f6_listing_id}}\",\n  \"booking_mode\": \"SCHEDULED\",\n  \"scheduled_at\": \"{{f6_at_later}}\",\n  \"location_source\": \"SAVED_ADDRESS\",\n  \"address_id\": \"{{f6_address_id}}\",\n  \"selected_options\": {\n    \"jenis_acara\": \"Seminar\",\n    \"durasi_liputan\": \"2 Jam\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Pemilik menerima H untuk dfoto1",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{downer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{f6_order_h}}/accept",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{f6_order_h}}",
+                "accept"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"assigned_worker_id\": \"{{f6_foto1_id}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Mundurkan payment deadline H (dev)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{dklien_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/dev/orders/{{f6_order_h}}/deadline",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "dev",
+                "orders",
+                "{{f6_order_h}}",
+                "deadline"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"field\": \"payment_deadline_at\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Sweep payment deadline (T6)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "var r = pm.response.json().data;",
+                  "// Cron server ikut berjalan tiap menit dan bisa lebih dulu memproses order ini, jadi yang dipastikan di sini hanya bentuk hasil; statusnya diperiksa di request berikutnya.",
+                  "pm.test('Hasil sweep lengkap, tidak ada yang gagal', function () { pm.expect(r).to.have.all.keys('candidates', 'expired', 'failed', 'sla_missed'); pm.expect(r.failed).to.eql(0); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{downer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/dev/jobs/payment-deadline/run",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "dev",
+                "jobs",
+                "payment-deadline",
+                "run"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "H PAYMENT_EXPIRED, payment EXPIRED",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "var o = pm.response.json().data;",
+                  "pm.test('T6', function () { pm.expect(o.status).to.eql('PAYMENT_EXPIRED'); pm.expect(o.payment.status).to.eql('EXPIRED'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{dklien_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{f6_order_h}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{f6_order_h}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Bayar H setelah T6: 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 409', function () { pm.response.to.have.status(409); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{dklien_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/dev/orders/{{f6_order_h}}/simulate-payment",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "dev",
+                "orders",
+                "{{f6_order_h}}",
+                "simulate-payment"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Tandai dfoto1 dan dfoto2 online lagi",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{downer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/dev/workers/presence",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "dev",
+                "workers",
+                "presence"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"worker_ids\": [\n    \"{{f6_foto1_id}}\",\n    \"{{f6_foto2_id}}\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Buat order I Available Now",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', function () { pm.response.to.have.status(201); });",
+                  "pm.environment.set('f6_order_i', pm.response.json().data.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{dklien_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"listing_id\": \"{{f6_listing_id}}\",\n  \"booking_mode\": \"AVAILABLE_NOW\",\n  \"location_source\": \"SAVED_ADDRESS\",\n  \"address_id\": \"{{f6_address_id}}\",\n  \"selected_options\": {\n    \"jenis_acara\": \"Seminar\",\n    \"durasi_liputan\": \"2 Jam\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "dfoto2 menolak tawaran I",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Order tetap terbuka', function () { pm.expect(pm.response.json().data.order_status).to.eql('PENDING_ACCEPTANCE'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{dfoto2_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{f6_order_i}}/decline-offer",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{f6_order_i}}",
+                "decline-offer"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Mundurkan response deadline I (dev)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{dklien_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/dev/orders/{{f6_order_i}}/deadline",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "dev",
+                "orders",
+                "{{f6_order_i}}",
+                "deadline"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"field\": \"response_deadline_at\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "dfoto1 menolak setelah deadline: 409 (usulan D115)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 409', function () { pm.response.to.have.status(409); });",
+                  "pm.test('RESPONSE_DEADLINE_PASSED', function () { pm.expect(pm.response.json().error.code).to.eql('RESPONSE_DEADLINE_PASSED'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{dfoto1_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{f6_order_i}}/decline-offer",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{f6_order_i}}",
+                "decline-offer"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Sweep response deadline I (SLA miss dibuktikan lewat toggle di bawah)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "var r = pm.response.json().data;",
+                  "// Cron server ikut berjalan tiap menit dan bisa lebih dulu memproses order ini, jadi yang dipastikan di sini hanya bentuk hasil; statusnya diperiksa di request berikutnya.",
+                  "pm.test('Hasil sweep lengkap, tidak ada yang gagal', function () { pm.expect(r).to.have.all.keys('candidates', 'expired', 'failed', 'sla_missed'); pm.expect(r.failed).to.eql(0); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{downer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/dev/jobs/response-deadline/run",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "dev",
+                "jobs",
+                "response-deadline",
+                "run"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "I EXPIRED",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('T3', function () { pm.expect(pm.response.json().data.status).to.eql('EXPIRED'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{dklien_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{f6_order_i}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{f6_order_i}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Toggle dfoto1 mati (D57)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('is_available false', function () { pm.expect(pm.response.json().data.is_available).to.eql(false); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{dfoto1_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/workers/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "workers",
+                "me"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Toggle dfoto2 yang menolak tetap menyala (H95)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('is_available true', function () { pm.expect(pm.response.json().data.is_available).to.eql(true); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{dfoto2_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/workers/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "workers",
+                "me"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
     }
   ]
 }
