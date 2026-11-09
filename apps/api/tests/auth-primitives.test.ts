@@ -4,7 +4,15 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import jwt from 'jsonwebtoken';
-import { generateToken, hashPassword, hashToken, verifyPassword } from '../src/lib/crypto';
+import {
+  decryptVerificationCode,
+  encryptVerificationCode,
+  generateToken,
+  generateVerificationCode,
+  hashPassword,
+  hashToken,
+  verifyPassword,
+} from '../src/lib/crypto';
 import { signAccessToken, verifyAccessToken, type AccessTokenClaims } from '../src/lib/jwt';
 import { loginSchema, passwordField, phoneField } from '../src/modules/auth/auth.schema';
 
@@ -38,6 +46,31 @@ describe('token acak dan hash', () => {
     expect(hash).toMatch(/^\$2[aby]\$10\$/);
     expect(await verifyPassword('rahasia-123', hash)).toBe(true);
     expect(await verifyPassword('rahasia-124', hash)).toBe(false);
+  });
+});
+
+describe('kode verifikasi order (H7, PRD 5.3)', () => {
+  it('enam digit, termasuk nol di depan', () => {
+    const codes = Array.from({ length: 500 }, generateVerificationCode);
+    codes.forEach((code) => expect(code).toMatch(/^\d{6}$/));
+    expect(new Set(codes).size).toBeGreaterThan(490);
+  });
+
+  it('AES-GCM bolak-balik, IV acak membuat dua enkripsi kode yang sama berbeda', () => {
+    const a = encryptVerificationCode('012345');
+    const b = encryptVerificationCode('012345');
+    expect(a).not.toBe(b);
+    expect(a).not.toContain('012345');
+    expect(a.length).toBeLessThan(255);
+    expect(decryptVerificationCode(a)).toBe('012345');
+  });
+
+  it('teks terenkripsi yang diubah ditolak auth tag', () => {
+    const [iv, tag, ciphertext] = encryptVerificationCode('483920').split('.');
+    const flipped = Buffer.from(ciphertext!, 'base64url');
+    flipped[0]! ^= 1;
+    expect(() => decryptVerificationCode([iv, tag, flipped.toString('base64url')].join('.'))).toThrow();
+    expect(() => decryptVerificationCode('bukan-format')).toThrow();
   });
 });
 

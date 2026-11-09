@@ -43,6 +43,15 @@ Dua aturan lapisan yang mengikat:
 
 Logika bisnis seluruhnya di service supaya bisa diuji tanpa HTTP.
 
+## Navigasi kode (codebase-memory-mcp)
+
+Proyek ini diindeks oleh codebase-memory-mcp. Pakai tool graph-nya untuk pertanyaan struktural, supaya tidak perlu membaca banyak file:
+
+- **Graph dulu, Grep belakangan.** Untuk mencari definisi, melacak siapa yang memanggil sebuah fungsi atau service (misalnya semua pemanggil `transitionOrder()`), atau memahami hubungan antar modul, gunakan tool codebase-memory-mcp sebelum Grep, Glob, atau membuka file satu per satu
+- **Read hanya untuk yang perlu.** Buka file secara penuh hanya kalau file itu akan diedit atau ditunjuk langsung oleh hasil graph
+- **Index usang, re-index dulu.** Kalau simbol atau file yang baru dibuat tidak ditemukan, re-index proyek sebelum menyimpulkan kodenya tidak ada
+- **Graph bukan sumber keputusan.** Graph hanya tahu struktur kode. Alasan desain tetap di `docs/`, dan aturan di bagian **Dokumen rujukan** tetap berlaku
+
 ---
 
 ## Tiga belas aturan yang tidak boleh dilanggar

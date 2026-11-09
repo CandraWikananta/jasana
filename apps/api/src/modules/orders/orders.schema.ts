@@ -62,6 +62,15 @@ export const assignmentSchema = z.object({ assigned_worker_id: uuid('assigned_wo
 
 export const crewSchema = z.object({ crew_worker_ids: uniqueIds('crew_worker_ids') });
 
+/** PRD 4.4 POST /orders/:id/check-in. Jarak dihitung server, tidak pernah dari body. */
+export const checkInSchema = z.object({
+  latitude: z.number().min(-90).max(90),
+  longitude: z.number().min(-180).max(180),
+  accuracy_meters: z.number().min(0).max(999_999).nullable().optional(),
+});
+
+export const verifySchema = z.object({ code: z.string().regex(/^\d{6}$/, 'code harus 6 digit angka') });
+
 /** H92, hanya di router /dev. */
 export const devPresenceSchema = z.object({ worker_ids: z.array(uuid('worker_ids berisi id')).min(1).max(20_000) });
 
@@ -79,4 +88,5 @@ export const listOrdersQuerySchema = z.object({
 export type CreateOrderBody = z.infer<typeof createOrderSchema>;
 export type AcceptOrderBody = z.infer<typeof acceptOrderSchema>;
 export type ReasonBody = z.infer<typeof reasonSchema>;
+export type CheckInBody = z.infer<typeof checkInSchema>;
 export type ListOrdersQuery = z.infer<typeof listOrdersQuerySchema>;

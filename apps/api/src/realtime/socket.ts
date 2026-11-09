@@ -11,6 +11,11 @@
  *   order:<order_id>               lewat `order:join`, diperiksa resolveOrderAccess
  *                                  (usulan D109). Pekerja yang hanya ditawari dan
  *                                  pendamping tidak boleh masuk
+ *
+ * `order:location_update` dari penanggung jawab saat ON_THE_WAY diteruskan ke
+ * room order (usulan D112). Hanya relay: posisi tersimpan pekerja tetap lewat
+ * PATCH /workers/me/location (D66), jadi aturan "hanya worker:presence yang
+ * boleh lewat socket" di PRD 7.2 tetap utuh.
  */
 
 import type { Server as HttpServer } from 'node:http';
@@ -20,6 +25,7 @@ import { env } from '../config/env';
 import { verifyAccessToken } from '../lib/jwt';
 import { logger } from '../lib/logger';
 import { resolveOrderAccess, resolveProvider, resolveWorker } from '../modules/access/access.service';
+import { canRelayLocation } from '../modules/orders/order-execution.service';
 import { presence } from './presence';
 
 interface SocketData {
@@ -32,6 +38,13 @@ let io: Server | null = null;
 
 const joinSchema = z.object({ order_id: z.string().uuid() });
 const PARTICIPANT_ROLES = new Set(['CLIENT', 'PROVIDER', 'WORKER']);
+const locationSchema = z.object({
+  order_id: z.string().uuid(),
+  latitude: z.number().min(-90).max(90),
+  longitude: z.number().min(-180).max(180),
+});
+
+type Ack = (result: { ok: boolean; code?: string }) => void;
 
 export function attachRealtime(httpServer: HttpServer): Server {
   const server = new Server(httpServer, { cors: { origin: env.CORS_ORIGINS } });
@@ -77,6 +90,30 @@ export function attachRealtime(httpServer: HttpServer): Server {
           ack?.({ ok: true });
         })
         .catch((error: unknown) => ack?.({ ok: false, code: (error as { code?: string }).code ?? 'FORBIDDEN_ACTOR' }));
+    });
+
+    // shortcut: tanpa throttle per socket, satu kueri baca per event. Pasang throttle kalau k6 menunjukkan beban.
+    socket.on('order:location_update', (payload: unknown, ack?: Ack) => {
+      const parsed = locationSchema.safeParse(payload);
+      if (!parsed.success) {
+        ack?.({ ok: false, code: 'VALIDATION_ERROR' });
+        return;
+      }
+      const { order_id, latitude, longitude } = parsed.data;
+      canRelayLocation(userId, order_id).then(
+        (allowed) => {
+          if (!allowed) {
+            ack?.({ ok: false, code: 'FORBIDDEN_ACTOR' });
+            return;
+          }
+          emit(`order:${order_id}`, 'order:location_update', { order_id, latitude, longitude, timestamp: new Date().toISOString() });
+          ack?.({ ok: true });
+        },
+        (error: unknown) => {
+          logger.warn({ err: error, order_id }, 'Relay lokasi gagal');
+          ack?.({ ok: false, code: 'INTERNAL_ERROR' });
+        },
+      );
     });
   });
 

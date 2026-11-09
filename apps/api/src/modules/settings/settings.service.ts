@@ -26,6 +26,10 @@ export const NUMERIC_SETTING_DEFAULTS = {
   available_now_response_minutes: 5,
   available_now_offer_limit: 5,
   worker_presence_timeout_minutes: 10,
+  geolocation_radius_meters: 100,
+  settlement_holding_hours: 24,
+  verification_max_attempts: 5,
+  verification_lockout_minutes: 15,
 } as const;
 
 export type NumericSettingKey = keyof typeof NUMERIC_SETTING_DEFAULTS;

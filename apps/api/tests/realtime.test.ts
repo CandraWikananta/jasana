@@ -5,6 +5,7 @@
  *   koneksi pekerja = online, jadi ikut ditawari Available Now
  *   pekerja hanya menerima event di room miliknya
  *   order:join hanya untuk peserta, dan pekerja lama keluar setelah D44
+ *   order:location_update hanya dari penanggung jawab saat ON_THE_WAY (usulan D112)
  */
 
 import { createServer, type Server as HttpServer } from 'node:http';
@@ -16,7 +17,8 @@ import { createApp } from '../src/app';
 import { presence } from '../src/realtime/presence';
 import { attachRealtime, closeRealtime } from '../src/realtime/socket';
 import { hasTestDatabase, resetDatabase } from './helpers/integration';
-import { HOUR, auth, newUser, newWorld, type User, type World } from './helpers/orders';
+import { prisma } from '@jasana/database';
+import { HOUR, RENON, auth, newUser, newWorld, paidScheduledOrder, type User, type World } from './helpers/orders';
 
 describe.skipIf(!hasTestDatabase)('Socket.IO', () => {
   let server: HttpServer;
@@ -163,5 +165,27 @@ describe.skipIf(!hasTestDatabase)('Socket.IO', () => {
     await api().post(`/api/v1/dev/orders/${orderId}/simulate-payment`).set(...auth(w.client)).expect(200);
     await settle();
     expect(changes).toEqual([]);
+  });
+
+  it('order:location_update hanya diteruskan dari penanggung jawab saat ON_THE_WAY, tanpa menulis basis data (usulan D112)', async () => {
+    const { id } = await paidScheduledOrder(server, w, { assigned: w.w2, crew: [w.w3] });
+    const client = await connected(w.client);
+    expect(await join(client, id)).toEqual({ ok: true });
+    const seen = collect(client, 'order:location_update');
+    const [assignee, crew, coworker] = [await connected(w.w2), await connected(w.w3), await connected(w.w4)];
+    const send = (socket: Socket, lat: number) =>
+      socket.emitWithAck('order:location_update', { order_id: id, latitude: lat, longitude: RENON.lng }) as Promise<{ ok: boolean }>;
+
+    // Masih PAID: belum berangkat.
+    expect(await send(assignee, -8.7)).toEqual({ ok: false, code: 'FORBIDDEN_ACTOR' });
+    await api().post(`/api/v1/orders/${id}/depart`).set(...auth(w.w2)).expect(200);
+    expect(await send(crew, -8.71)).toEqual({ ok: false, code: 'FORBIDDEN_ACTOR' });
+    expect(await send(coworker, -8.72)).toEqual({ ok: false, code: 'FORBIDDEN_ACTOR' });
+    expect(await send(assignee, -8.68)).toEqual({ ok: true });
+    await settle();
+
+    expect(seen).toEqual([expect.objectContaining({ order_id: id, latitude: -8.68, longitude: RENON.lng })]);
+    const worker = await prisma.providerWorker.findUniqueOrThrow({ where: { id: w.w2.workerId } });
+    expect(worker.currentLatitude!.toNumber()).not.toBe(-8.68);
   });
 });

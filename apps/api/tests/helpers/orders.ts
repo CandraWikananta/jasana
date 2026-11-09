@@ -7,6 +7,7 @@
  */
 
 import { randomInt } from 'node:crypto';
+import request from 'supertest';
 import { prisma } from '@jasana/database';
 import { signAccessToken } from '../../src/lib/jwt';
 
@@ -142,4 +143,34 @@ export async function waitForLockWaiters(count: number): Promise<void> {
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
   throw new Error(`Tidak ada ${count} sesi yang tertahan kunci`);
+}
+
+/**
+ * Order Scheduled berstatus PAID lewat API (create, accept, simulate-payment),
+ * dijadwalkan 30 menit lagi supaya sudah boleh berangkat (State Machine 7).
+ */
+export async function paidScheduledOrder(
+  app: Parameters<typeof request>[0],
+  w: World,
+  options: { assigned?: Worker; crew?: Worker[]; scheduledAt?: Date } = {},
+): Promise<{ id: string }> {
+  const scheduledAt = options.scheduledAt ?? new Date(Date.now() + 30 * MINUTE);
+  const created = await request(app).post('/api/v1/orders').set(...auth(w.client)).send({
+    listing_id: w.listingId,
+    booking_mode: 'SCHEDULED',
+    scheduled_at: scheduledAt.toISOString(),
+    location_source: 'SAVED_ADDRESS',
+    address_id: w.addressId,
+    selected_options: { durasi_liputan: '2 Jam' },
+  });
+  if (created.status !== 201) throw new Error(`create ${created.status}: ${JSON.stringify(created.body)}`);
+  const id = created.body.data.id as string;
+  const accepted = await request(app).post(`/api/v1/orders/${id}/accept`).set(...auth(w.owner)).send({
+    assigned_worker_id: (options.assigned ?? w.w2).workerId,
+    crew_worker_ids: (options.crew ?? []).map((c) => c.workerId),
+  });
+  if (accepted.status !== 200) throw new Error(`accept ${accepted.status}: ${JSON.stringify(accepted.body)}`);
+  const paid = await request(app).post(`/api/v1/dev/orders/${id}/simulate-payment`).set(...auth(w.client));
+  if (paid.status !== 200) throw new Error(`pay ${paid.status}: ${JSON.stringify(paid.body)}`);
+  return { id };
 }

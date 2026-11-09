@@ -14,12 +14,15 @@
  * `hashToken(token)`. Kalau isi basis data bocor, hash itu tidak bisa dipakai
  * untuk apa pun.
  *
- * Kode verifikasi order (AES, reversible) menyusul di Fase 6 dan bukan
- * urusan berkas ini sekarang.
+ *   kode verifikasi order     AES-256-GCM, REVERSIBLE, karena client harus
+ *                             bisa melihatnya berulang kali (PRD 5.3, D30).
+ *                             Yang melindungi uang adalah lockout-nya (H8),
+ *                             bukan enkripsinya
  */
 
-import { createHash, randomBytes } from 'node:crypto';
+import { createCipheriv, createDecipheriv, createHash, randomBytes, randomInt } from 'node:crypto';
 import bcrypt from 'bcryptjs';
+import { env } from '../config/env';
 
 /** PRD 5.1: bcrypt, cost factor 10. */
 export const BCRYPT_COST = 10;
@@ -54,4 +57,28 @@ const DUMMY_PASSWORD_HASH = bcrypt.hashSync('jasana-dummy-password', BCRYPT_COST
 
 export async function burnPasswordCheck(password: string): Promise<void> {
   await bcrypt.compare(password, DUMMY_PASSWORD_HASH);
+}
+
+/** H7: `crypto.randomInt`, bukan `Math.random`. Enam digit termasuk nol di depan. */
+export function generateVerificationCode(): string {
+  return randomInt(0, 1_000_000).toString().padStart(6, '0');
+}
+
+const AES_KEY = () => Buffer.from(env.VERIFICATION_CODE_AES_KEY, 'hex');
+
+/** `iv.tag.ciphertext` dalam base64url. IV 12 byte acak, jadi kode yang sama tidak pernah menghasilkan teks yang sama. */
+export function encryptVerificationCode(code: string): string {
+  const iv = randomBytes(12);
+  const cipher = createCipheriv('aes-256-gcm', AES_KEY(), iv);
+  const ciphertext = Buffer.concat([cipher.update(code, 'utf8'), cipher.final()]);
+  return [iv, cipher.getAuthTag(), ciphertext].map((part) => part.toString('base64url')).join('.');
+}
+
+/** Melempar kalau teksnya diubah atau kuncinya lain (auth tag GCM). */
+export function decryptVerificationCode(stored: string): string {
+  const [iv, tag, ciphertext] = stored.split('.').map((part) => Buffer.from(part, 'base64url'));
+  if (!iv || !tag || !ciphertext) throw new Error('Format kode verifikasi terenkripsi tidak sah');
+  const decipher = createDecipheriv('aes-256-gcm', AES_KEY(), iv);
+  decipher.setAuthTag(tag);
+  return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf8');
 }

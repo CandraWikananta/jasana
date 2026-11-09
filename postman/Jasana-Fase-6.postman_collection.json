@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Jasana Backend - Fase 6 (Order Scheduled)",
-    "description": "Sesi 6c: order Scheduled sampai PAID lewat gateway palsu (D101). Create, accept (T1) dengan pendamping, bentrok jadwal (H25, H45),\nganti penanggung jawab (D44), kru (D69), simulate-payment (T5), reject (T2), cancel (T4, T7), dan hapus listing (usulan D105).\nSesi 6d (folder 07): Available Now, pekerja online lewat endpoint dev presence (H92), klaim atomik, decline-offer, dan T3 oleh penolakan terakhir (D102).\n\n## Setiap putaran\n1. `npm run postman:seed:fase-6` di akar repo.\n2. `npm run dev` dengan `PAYMENT_GATEWAY=fake` di `.env`.\n3. Jalankan folder berurutan dari 00. Request saling bergantung lewat variabel environment.\n\n## Akun\n| Akun | Peran |\n|---|---|\n| downer | Pemilik Lensa Sanur Dokumentasi, basis Sanur radius 15 km |\n| dfoto1, dfoto2 | Pekerja terpetakan, toggle menyala dekat Renon (online setelah folder 07 memanggil dev presence) |\n| dklien | Client, alamat Renon |\n| dasing | Client lain |\n\nJadwal dihitung di request Health: jam bulat 3 hari lagi (A), +45 menit (B, beririsan), dan +24 jam (C, D).",
+    "description": "Sesi 6c: order Scheduled sampai PAID lewat gateway palsu (D101). Create, accept (T1) dengan pendamping, bentrok jadwal (H25, H45),\nganti penanggung jawab (D44), kru (D69), simulate-payment (T5), reject (T2), cancel (T4, T7), dan hapus listing (usulan D105).\nSesi 6d (folder 07): Available Now, pekerja online lewat endpoint dev presence (H92), klaim atomik, decline-offer, dan T3 oleh penolakan terakhir (D102).\n\n## Setiap putaran\n1. `npm run postman:seed:fase-6` di akar repo.\n2. `npm run dev` dengan `PAYMENT_GATEWAY=fake` di `.env`.\n3. Jalankan folder berurutan dari 00. Request saling bergantung lewat variabel environment.\n\n## Akun\n| Akun | Peran |\n|---|---|\n| downer | Pemilik Lensa Sanur Dokumentasi, basis Sanur radius 15 km |\n| dfoto1, dfoto2 | Pekerja terpetakan, toggle menyala dekat Renon (online setelah folder 07 memanggil dev presence) |\n| dklien | Client, alamat Renon |\n| dasing | Client lain |\n\nJadwal dihitung di request Health: jam bulat 3 hari lagi (A), +45 menit (B, beririsan), dan +24 jam (C, D).\nSesi 6e (folder 08): depart, check-in gagal lalu berhasil, start, finish, kode hanya untuk client, verify salah lalu benar.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -2504,6 +2504,700 @@
               "path": [
                 "orders",
                 "{{f6_order_f}}",
+                "history"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "08. KRITERIA: pelaksanaan order T8 sampai T16 (sesi 6e)",
+      "description": "Lanjutan order E (Available Now, diklaim dfoto1 di folder 07) dan A (Scheduled PAID, dfoto2). Kode verifikasi hanya terbaca client (D60). Usulan D111 sampai D113.",
+      "item": [
+        {
+          "name": "Client membayar E",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('PAID', function () { pm.expect(pm.response.json().data.status).to.eql('PAID'); });",
+                  "var svc = pm.response.json().data.service; pm.environment.set('f6_e_lat', svc.latitude); pm.environment.set('f6_e_lng', svc.longitude);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{dklien_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/dev/orders/{{f6_order_e}}/simulate-payment",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "dev",
+                "orders",
+                "{{f6_order_e}}",
+                "simulate-payment"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "dfoto2 berangkat untuk E: 403 (PRD 8.2 no. 4)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 403', function () { pm.response.to.have.status(403); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{dfoto2_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{f6_order_e}}/depart",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{f6_order_e}}",
+                "depart"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Pemilik berangkat untuk E: 403 NOT_ASSIGNED_WORKER",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 403', function () { pm.response.to.have.status(403); });",
+                  "pm.test('Kode NOT_ASSIGNED_WORKER', function () { pm.expect(pm.response.json().error.code).to.eql('NOT_ASSIGNED_WORKER'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{downer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{f6_order_e}}/depart",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{f6_order_e}}",
+                "depart"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "dfoto2 berangkat untuk A terlalu awal: 409 (usulan D113)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 409', function () { pm.response.to.have.status(409); });",
+                  "pm.test('Kode ORDER_TRANSITION_NOT_ALLOWED', function () { pm.expect(pm.response.json().error.code).to.eql('ORDER_TRANSITION_NOT_ALLOWED'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{dfoto2_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{f6_order_a}}/depart",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{f6_order_a}}",
+                "depart"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "dfoto1 berangkat E (T8)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('ON_THE_WAY', function () { pm.expect(pm.response.json().data.status).to.eql('ON_THE_WAY'); });",
+                  "pm.test('started_at terisi', function () { pm.expect(pm.response.json().data.started_at).to.be.a('string'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{dfoto1_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{f6_order_e}}/depart",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{f6_order_e}}",
+                "depart"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Ganti penanggung jawab E setelah berangkat: 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 409', function () { pm.response.to.have.status(409); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{downer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{f6_order_e}}/assignment",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{f6_order_e}}",
+                "assignment"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"assigned_worker_id\": \"{{f6_foto2_id}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Check-in jauh dari lokasi: 422 CHECKIN_OUT_OF_RADIUS",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () { pm.response.to.have.status(422); });",
+                  "pm.test('Kode CHECKIN_OUT_OF_RADIUS', function () { pm.expect(pm.response.json().error.code).to.eql('CHECKIN_OUT_OF_RADIUS'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{dfoto1_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{f6_order_e}}/check-in",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{f6_order_e}}",
+                "check-in"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"latitude\": -8.7215,\n  \"longitude\": 115.169,\n  \"accuracy_meters\": 12.5,\n  \"distance_meters\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Check-in di lokasi (T10)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('ARRIVED', function () { pm.expect(pm.response.json().data.status).to.eql('ARRIVED'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{dfoto1_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{f6_order_e}}/check-in",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{f6_order_e}}",
+                "check-in"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"latitude\": {{f6_e_lat}},\n  \"longitude\": {{f6_e_lng}},\n  \"accuracy_meters\": 8\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Mulai kerjakan (T12)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('IN_PROGRESS', function () { pm.expect(pm.response.json().data.status).to.eql('IN_PROGRESS'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{dfoto1_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{f6_order_e}}/start",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{f6_order_e}}",
+                "start"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Selesai, kode dibuat (T14)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('AWAITING_VERIFICATION', function () { pm.expect(pm.response.json().data.status).to.eql('AWAITING_VERIFICATION'); });",
+                  "pm.test('Kode tidak ikut respons (D60)', function () { pm.expect(pm.response.text()).to.not.include('verification_code'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{dfoto1_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{f6_order_e}}/finish",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{f6_order_e}}",
+                "finish"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "dfoto1 membaca kode: 403 (D60)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 403', function () { pm.response.to.have.status(403); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{dfoto1_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{f6_order_e}}/verification-code",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{f6_order_e}}",
+                "verification-code"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Client membaca kode",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "var code = pm.response.json().data.code; pm.test('6 digit', function () { pm.expect(code).to.match(/^\\d{6}$/); });",
+                  "pm.environment.set('f6_code', code); pm.environment.set('f6_code_wrong', String((Number(code) + 1) % 1000000).padStart(6, '0'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{dklien_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{f6_order_e}}/verification-code",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{f6_order_e}}",
+                "verification-code"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Verify kode salah: 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () { pm.response.to.have.status(422); });",
+                  "pm.test('Kode VERIFICATION_CODE_INVALID', function () { pm.expect(pm.response.json().error.code).to.eql('VERIFICATION_CODE_INVALID'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{dfoto1_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{f6_order_e}}/verify",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{f6_order_e}}",
+                "verify"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"{{f6_code_wrong}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Verify kode benar (T16)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('COMPLETED', function () { pm.expect(pm.response.json().data.status).to.eql('COMPLETED'); });",
+                  "pm.test('settlement_due_at terisi', function () { pm.expect(pm.response.json().data.settlement_due_at).to.be.a('string'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{dfoto1_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{f6_order_e}}/verify",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{f6_order_e}}",
+                "verify"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"{{f6_code}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Riwayat E",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Lima transisi pelaksanaan oleh WORKER', function () { var rows = pm.response.json().data.filter(function (h) { return ['ON_THE_WAY','ARRIVED','IN_PROGRESS','AWAITING_VERIFICATION','COMPLETED'].indexOf(h.to_status) >= 0; }); pm.expect(rows.map(function (h) { return h.actor; })).to.eql(['WORKER','WORKER','WORKER','WORKER','WORKER']); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{dklien_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{f6_order_e}}/history",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{f6_order_e}}",
                 "history"
               ]
             }

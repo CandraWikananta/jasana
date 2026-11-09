@@ -116,13 +116,18 @@ export function rethrowInflight(error: unknown): never {
   throw error;
 }
 
-/** Mengembalikan baris order SEBELUM transisi. Wajib dipanggil di dalam transaksi. */
-export async function transitionOrder(tx: Tx, input: TransitionInput): Promise<{ order: Order }> {
-  const { orderId, toStatus, actor, actorUserId } = input;
-
-  // Kunci barisnya supaya dua request bersamaan tidak sama-sama lolos.
-  const order = await lockOrder(tx, orderId);
-
+/**
+ * Lapis 1 sampai 3 (jebakan 5). Diekspor untuk pola "catat, commit, baru tolak"
+ * (check-in dan verify, 6e): percobaan dari orang atau status yang salah ditolak
+ * SEBELUM ada yang ditulis.
+ */
+export async function assertTransition(
+  tx: Tx,
+  order: Order,
+  toStatus: OrderStatus,
+  actor: OrderActorType,
+  actorUserId?: string,
+): Promise<void> {
   const key = `${order.status}->${toStatus}`;
 
   // Lapis 1: transisi legal?
@@ -151,6 +156,16 @@ export async function transitionOrder(tx: Tx, input: TransitionInput): Promise<{
       throw new AppError('NOT_ASSIGNED_WORKER', 'Hanya penanggung jawab order ini yang boleh melakukan transisi');
     }
   }
+}
+
+/** Mengembalikan baris order SEBELUM transisi. Wajib dipanggil di dalam transaksi. */
+export async function transitionOrder(tx: Tx, input: TransitionInput): Promise<{ order: Order }> {
+  const { orderId, toStatus, actor, actorUserId } = input;
+
+  // Kunci barisnya supaya dua request bersamaan tidak sama-sama lolos.
+  const order = await lockOrder(tx, orderId);
+  await assertTransition(tx, order, toStatus, actor, actorUserId);
+  const key = `${order.status}->${toStatus}`;
 
   await input.guard?.(tx, order);
 

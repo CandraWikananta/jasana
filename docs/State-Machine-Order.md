@@ -2,7 +2,7 @@
 
 **Artefak desain 3 dari 8**
 Platform Jasana, Tugas Akhir I Nyoman Gede Candra Wikananta (2305551065)
-**Versi 2.9**, 8 November 2026
+**Versi 2.10**, 9 November 2026
 
 Dokumen ini mendefinisikan seluruh kondisi yang boleh dialami sebuah order, perpindahan yang diizinkan di antaranya, dan efek samping yang wajib terjadi pada setiap perpindahan.
 
@@ -108,12 +108,12 @@ Kolom Aktor memakai singkatan: **C** client, **O** pemilik provider, **W** peker
 | T7 | Belum ada payment `PAID` | Set `cancelled_at`, `cancelled_by`; expire invoice; lepas kunci slot |
 | T8 | Ada payment `PAID`; pemanggil adalah `assigned_worker_id`; untuk mode `SCHEDULED`, `now() >= scheduled_at - 60 menit` | Set `started_at`; **bekukan daftar pendamping** (tidak bisa diubah lagi); mulai pembaruan lokasi pekerja via Socket.IO |
 | T9 | Ada payment `PAID` | Set `cancelled_at`, `cancelled_by`; buat baris `refunds`; panggil Refund API Xendit; lepas kunci slot pekerja dan pendamping |
-| T10 | Pemanggil adalah `assigned_worker_id`; jarak Haversine ke `service_latitude`/`service_longitude` <= `radius_threshold_meters` | Tulis baris `order_checkins` dengan `worker_id` dan `is_valid = true`; notifikasi client |
+| T10 | Pemanggil adalah `assigned_worker_id`; jarak Haversine ke `service_latitude`/`service_longitude` <= `geolocation_radius_meters` (disimpan sebagai snapshot di `order_checkins.radius_threshold_meters`) | Tulis baris `order_checkins` dengan `worker_id` dan `is_valid = true`; notifikasi client |
 | T11 | Ada payment `PAID` | Sama dengan T9 |
 | T12 | Pemanggil adalah `assigned_worker_id`; sudah ada check-in valid untuk order ini | Notifikasi client |
 | T13, T15, T17, T19 | `now() <= settlement_due_at` atau `settlement_due_at` belum diset; belum ada dispute untuk order ini | Buat baris `disputes` berstatus `OPEN`; **hentikan cron settlement untuk order ini**; **seluruh `order_messages` order itu otomatis jadi bukti** yang ditampilkan ke admin (D79); notifikasi admin |
 | T14 | Pemanggil adalah `assigned_worker_id` | **Generate kode 6 digit** dengan `crypto.randomInt`, simpan terenkripsi di `verification_code_encrypted`; set `verification_expires_at = now() + 60 menit`; reset `verification_attempts = 0`; tampilkan kode **di aplikasi client**, dan kirim email yang memberi tahu kode bisa dilihat di aplikasi **tanpa memuat kodenya** (D60) |
-| T16 | Pemanggil adalah `assigned_worker_id`; kode cocok; `now() < verification_expires_at`; `verification_attempts < verification_max_attempts`; `verification_locked_until` null atau sudah lewat | Set `verified_at`, `completed_at`; **set `settlement_due_at = now() + settlement_holding_hours`**; lepas kunci in-flight pekerja dan pendamping; naikkan `listings.order_count` dan `provider_profiles.completed_orders_count`; buka form review untuk client |
+| T16 | Pemanggil adalah `assigned_worker_id`; kode cocok; `now() < verification_expires_at`; `verification_attempts < verification_max_attempts`, dibaca sebelum kenaikan dan direset ke 0 kalau lockout sudah lewat (D110); `verification_locked_until` null atau sudah lewat. Kode kedaluwarsa ditolak tanpa menaikkan attempts (D114) | Set `verified_at`, `completed_at`; **set `settlement_due_at = now() + settlement_holding_hours`**; lepas kunci in-flight pekerja dan pendamping; naikkan `listings.order_count` dan `provider_profiles.completed_orders_count`; buka form review untuk client |
 | T18 | `settlement_due_at < now()`; tidak ada dispute berstatus `OPEN` atau `UNDER_REVIEW` | Set `settled_at`; **ledger `ESCROW_RELEASE`: `pending -= earning`, `available += earning`**; **jalur `order_messages` jadi read-only** (D79); notifikasi pemilik |
 | T20 | Dispute berstatus `UNDER_REVIEW`; putusan `RESOLVED_RELEASE` atau `RESOLVED_PARTIAL` | Set `settled_at`; kalau parsial, buat baris `refunds` sebesar `refund_amount` dan isi `platform_fee_refunded`; **ledger `ESCROW_RELEASE` sebesar sisa** |
 | T21 | Dispute berstatus `UNDER_REVIEW`; putusan `RESOLVED_REFUND` | Buat baris `refunds` penuh; set `platform_fee_refunded = platform_fee`; **ledger `REFUND_DEDUCTION`: `pending -= earning`**; panggil Refund API Xendit |
@@ -208,7 +208,17 @@ Inilah yang membuat keputusan menugaskan pekerja di saat accept (D42) tidak kaku
 
 Pendamping **tidak punya hak transisi apa pun**. Mereka tidak bisa mengubah status, tidak bisa check-in, dan tidak bisa memasukkan kode verifikasi. Efeknya hanya satu, yaitu memblokir ketersediaan mereka selama rentang order itu (H45).
 
-### 4.3 Pesan dalam order (D79)
+### 4.3 Pembaruan kode verifikasi (D111)
+
+| Aspek | Ketentuan |
+|---|---|
+| Endpoint | `POST /orders/:id/verification-code` |
+| Siapa | Client pemilik order saja. Pekerja tidak bisa meminta kode baru, supaya tidak bisa dipakai menghindari lockout |
+| Batas waktu | Hanya saat `AWAITING_VERIFICATION` |
+| Guard | Ditolak 429 `VERIFICATION_LOCKED` selama `verification_locked_until` belum lewat. Kode yang masih berlaku dikembalikan apa adanya, tanpa rotasi |
+| Efek | Kode baru terenkripsi, `verification_attempts = 0`, `verification_locked_until = null`, `verification_expires_at = now + 60 menit` |
+
+### 4.4 Pesan dalam order (D79)
 
 `POST /orders/:id/messages`
 
@@ -519,6 +529,7 @@ Diagram ASCII di atas hanya untuk orientasi cepat. Gunakan versi Mermaid untuk l
 | Versi | Tanggal | Perubahan |
 |---|---|---|
 | 1.0 | 17 September 2026 | Versi awal. 15 state, 22 transisi, guard dan efek samping, tiga aturan alur uang |
+| 2.10 | 9 November 2026 | Guard T10 memakai parameter `geolocation_radius_meters`, guard T16 mengikuti D110 dan D114, dan Bagian 4.3 baru untuk pembaruan kode verifikasi (D111). Bagian pesan dalam order menjadi 4.4 |
 | 2.9 | 8 November 2026 | Kasus silang antar mode di Bagian 3.1 menghitung order Scheduled ACCEPTED dan PAID (D108) |
 | 2.8 | 7 November 2026 | Contoh `transitionOrder()` di Bagian 8 disamakan dengan implementasi sesi 6b: path `modules/orders`, kunci baris dengan `SELECT id` lalu baca lewat Prisma (contoh lama dengan `SELECT *` membuat `bookingMode` undefined), lapis ketiga mensyaratkan keanggotaan ACTIVE, UPDATE bersyarat pada status lama, dan tugas setelah commit. Ditambah dari sesi 6c: rumus `response_deadline_at` mode Scheduled (D106) dan catatan bahwa guard in-flight tetap wajib di Bagian 3.1 |
 | 2.7 | 31 Oktober 2026 | Menyesuaikan D102. Penerima tawaran Available Now disimpan di `order_offers`, pekerja menolak lewat `decline-offer` tanpa mematikan order, T2 hanya oleh pemilik, T3 juga terpicu saat seluruh penerima menolak, dan SLA miss hanya untuk penerima yang belum menolak. Test case naik jadi sekitar 89 |

@@ -3,24 +3,27 @@
  * requireOrderParticipant: transitionOrder() tidak memeriksa kepemilikan.
  *
  *   /orders                     C, buat dan daftar sesuai peran
+ *   /orders/:id/depart ... verify  lima transisi pelaksanaan, + requireAssignedWorker (6e)
  *   /dev/orders/:id/simulate-payment
  *   /dev/workers/presence       hanya terdaftar saat PAYMENT_GATEWAY=fake (D101, H92)
  */
 
 import { Router, type RequestHandler } from 'express';
 import { requireAuth, requireEmailVerified } from '../../middlewares/auth';
-import { requireOrderParticipant } from '../../middlewares/rbac';
+import { requireAssignedWorker, requireOrderParticipant } from '../../middlewares/rbac';
 import { validate } from '../../middlewares/validate';
 import * as controller from './orders.controller';
 import {
   acceptOrderSchema,
   assignmentSchema,
+  checkInSchema,
   createOrderSchema,
   crewSchema,
   devPresenceSchema,
   listOrdersQuerySchema,
   orderParamsSchema,
   reasonSchema,
+  verifySchema,
 } from './orders.schema';
 
 const participant = (allowAdmin = false): RequestHandler[] => [
@@ -42,6 +45,15 @@ export function createOrdersRouter(): Router {
   router.post('/:id/cancel', ...participant(true), validate({ body: reasonSchema }), controller.cancel);
   router.patch('/:id/assignment', ...participant(), validate({ body: assignmentSchema }), controller.assignment);
   router.put('/:id/crew', ...participant(), validate({ body: crewSchema }), controller.crew);
+
+  const assignee = [...participant(), requireAssignedWorker];
+  router.post('/:id/depart', ...assignee, controller.depart);
+  router.post('/:id/check-in', ...assignee, validate({ body: checkInSchema }), controller.checkIn);
+  router.post('/:id/start', ...assignee, controller.start);
+  router.post('/:id/finish', ...assignee, controller.finish);
+  router.post('/:id/verify', ...assignee, validate({ body: verifySchema }), controller.verify);
+  router.get('/:id/verification-code', ...participant(), controller.verificationCode);
+  router.post('/:id/verification-code', ...participant(), controller.renewVerificationCode);
 
   return router;
 }

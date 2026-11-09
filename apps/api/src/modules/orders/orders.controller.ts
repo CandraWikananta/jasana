@@ -7,6 +7,7 @@ import { sendCreated, sendOk } from '../../lib/envelope';
 import { currentUser } from '../../middlewares/auth';
 import { currentOrderAccess } from '../../middlewares/rbac';
 import * as actions from './order-actions.service';
+import * as execution from './order-execution.service';
 import { simulatePayment as simulate } from './order-payment.service';
 import { presence } from '../../realtime/presence';
 import type { ListOrdersQuery } from './orders.schema';
@@ -52,6 +53,34 @@ export const assignment = asyncHandler(async (req, res) => {
 export const crew = asyncHandler(async (req, res) => {
   const access = currentOrderAccess(req);
   sendOk(res, await actions.setCrew(access, access.orderId, req.body.crew_worker_ids));
+});
+
+export const depart = asyncHandler(async (req, res) => {
+  sendOk(res, await execution.departOrder(currentOrderAccess(req)));
+});
+
+export const checkIn = asyncHandler(async (req, res) => {
+  sendOk(res, await execution.checkIn(currentOrderAccess(req), req.body));
+});
+
+export const start = asyncHandler(async (req, res) => {
+  sendOk(res, await execution.startWork(currentOrderAccess(req)));
+});
+
+export const finish = asyncHandler(async (req, res) => {
+  sendOk(res, await execution.finishWork(currentOrderAccess(req)));
+});
+
+export const verify = asyncHandler(async (req, res) => {
+  sendOk(res, await execution.verifyCode(currentOrderAccess(req), req.body.code));
+});
+
+export const verificationCode = asyncHandler(async (req, res) => {
+  sendOk(res, await execution.getVerificationCode(currentOrderAccess(req)));
+});
+
+export const renewVerificationCode = asyncHandler(async (req, res) => {
+  sendOk(res, await execution.renewVerificationCode(currentOrderAccess(req)));
 });
 
 /** D101 no. 4. Hanya client order itu, memanggil fungsi yang sama dengan webhook Fase 7. */

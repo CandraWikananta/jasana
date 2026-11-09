@@ -4,9 +4,9 @@
 **Nama sistem:** Jasana
 **Penyusun:** I Nyoman Gede Candra Wikananta (2305551065)
 **Bidang Keahlian:** Sistem Informasi, Teknologi Informasi, Universitas Udayana
-**Versi:** 2.14
-**Terakhir diperbarui:** 8 November 2026 (versi 2.14)
-**Tahap saat ini:** Implementasi backend. Fase 0 sampai Fase 5 selesai, Fase 6 berjalan (sesi 6a sampai 6d selesai)
+**Versi:** 2.15
+**Terakhir diperbarui:** 9 November 2026 (versi 2.15)
+**Tahap saat ini:** Implementasi backend. Fase 0 sampai Fase 5 selesai, Fase 6 berjalan (sesi 6a sampai 6e selesai)
 
 ---
 
@@ -32,7 +32,17 @@
 | Durasi opsi, pembagian transisi, dan penerima tawaran (D100 sampai D103) | 4 | 0 |
 | Order Scheduled (D104 sampai D106) | 3 | 0 |
 | Available Now dan real-time (D107 sampai D109) | 3 | 0 |
+| Pelaksanaan dan kode verifikasi (D110 sampai D114) | 5 | 0 |
 | Keputusan terbuka tanpa nomor D (Bagian 7) | | 0 |
+
+**Perubahan pada versi 2.15:**
+
+1. Percobaan kode direset setelah lockout lewat (D110), dan client bisa meminta kode baru setelah kode kedaluwarsa (D111)
+2. `order:location_update` hanya diteruskan, tidak menulis basis data (D112)
+3. Tiga guard waktu memakai 409 `ORDER_TRANSITION_NOT_ALLOWED` (D113)
+4. Kode kedaluwarsa ditolak sebelum percobaan dihitung, mengubah urutan langkah verify di PRD 4.4 (D114)
+5. Catatan implementasi: pola catat lalu commit baru tolak, penamaan radius check-in, dan `requireAssignedWorker`
+6. H7, H8, dan H9 ditutup. Tanpa perubahan skema
 
 **Perubahan pada versi 2.14:**
 
@@ -143,13 +153,13 @@
 
 | Artefak | Versi | Keterangan |
 |---|---|---|
-| `PRD-Backend.md` | 2.8 | Sumber snapshot durasi di langkah pembuatan order (D100), Bagian 10 tanpa pertanyaan terbuka, kriteria milestone Fase 6 sampai 8, endpoint simulasi pembayaran dan env `PAYMENT_GATEWAY` (D101), endpoint `decline-offer` dan jumlah tabel (D102), status milestone Fase 0 sampai 5 selesai |
+| `PRD-Backend.md` | 2.9 | Sumber snapshot durasi di langkah pembuatan order (D100), Bagian 10 tanpa pertanyaan terbuka, kriteria milestone Fase 6 sampai 8, endpoint simulasi pembayaran dan env `PAYMENT_GATEWAY` (D101), endpoint `decline-offer` dan jumlah tabel (D102), status milestone Fase 0 sampai 5 selesai |
 | `CLAUDE.md` | | Rujukan D1 sampai D101, jebakan nomor 7 menyebut `PaymentGateway`, jebakan nomor 13 menyebut durasi opsi |
 | `skema-database-final.dbml`, `schema.prisma` | 2.12 | Tabel `order_offers` beserta relasi baliknya (D102). `docs/schema.prisma` sekaligus disamakan dengan kode, termasuk `idx_provider_base_geo` dari Fase 5 |
 | `Panduan-Struktur-Database.md` | 2.9 | **Belum disinkronkan**, penjelasan tabel `order_offers` menyusul |
-| `State-Machine-Order.md` | 2.9 | T2 hanya pemilik, T3 juga terpicu saat seluruh penerima menolak, guard klaim memeriksa `order_offers` (D102). Contoh `transitionOrder()` di Bagian 8 disamakan dengan implementasi sesi 6b. Kasus silang antar mode menghitung ACCEPTED dan PAID (D108) |
+| `State-Machine-Order.md` | 2.10 | T2 hanya pemilik, T3 juga terpicu saat seluruh penerima menolak, guard klaim memeriksa `order_offers` (D102). Contoh `transitionOrder()` di Bagian 8 disamakan dengan implementasi sesi 6b. Kasus silang antar mode menghitung ACCEPTED dan PAID (D108) |
 | `migration-constraints.sql` | 2.6 | Constraint `order_offers` ditambahkan di sesi 6d (H94) |
-| Kode Fase 0 sampai 5 | | Fase 5 selesai (commit `a3c6cc5`). D100 dan D103 diterapkan di kode katalog pada sesi 6a (357 test lulus). Sesi 6b: `transitionOrder()`, port `PaymentGateway`, dan H89 (427 test lulus). Sesi 6c: order Scheduled sampai PAID, D104 sampai D106 (477 test lulus, Postman Fase 6 lulus). Sesi 6d: Available Now, Socket.IO, dan `order_offers`, D107 sampai D109 (503 test lulus). Tabel `order_offers` dimigrasikan di sesi 6d (D102) |
+| Kode Fase 0 sampai 5 | | Fase 5 selesai (commit `a3c6cc5`). D100 dan D103 diterapkan di kode katalog pada sesi 6a (357 test lulus). Sesi 6b: `transitionOrder()`, port `PaymentGateway`, dan H89 (427 test lulus). Sesi 6c: order Scheduled sampai PAID, D104 sampai D106 (477 test lulus, Postman Fase 6 lulus). Sesi 6d: Available Now, Socket.IO, dan `order_offers`, D107 sampai D109 (503 test lulus). Sesi 6e: pelaksanaan di lokasi dan kode verifikasi, D110 sampai D114 (526 test lulus). Tabel `order_offers` dimigrasikan di sesi 6d (D102) |
 | Usulan ide (Tabel Aktor Sistem) | | Tidak direvisi (A7) |
 
 **Status artefak per versi 2.11 (per 22 Oktober 2026):**
@@ -1073,6 +1083,24 @@ Seluruhnya muncul saat menyusun rencana sesi 6d dan sudah diterapkan di kode ses
 - **Penanda pekerja online untuk pengujian (H92)** memakai `POST /dev/workers/presence { worker_ids }`, yang hanya terdaftar saat `PAYMENT_GATEWAY=fake`. Endpoint ini dihitung sebagai satu denyut presence dan kedaluwarsa sesuai `worker_presence_timeout_minutes`, sehingga script k6 harus mengirim ulang secara berkala
 - **Toleransi presence 10 menit lebih lama dari SLA Available Now 5 menit.** Pekerja yang menutup tab beberapa menit lalu masih dianggap online, sehingga masih bisa ditawari dan terkena SLA miss. Nilainya parameter (D65), jadi bisa disetel tanpa mengubah kode. Dibahas di laporan
 
+## 4J. Keputusan Versi 2.15 (D110 sampai D114)
+
+D110 sampai D113 muncul saat menyusun rencana sesi 6e, D114 dari review sesi itu. Seluruhnya sudah diterapkan di kode. Tidak ada perubahan skema.
+
+| # | Keputusan | Alasan |
+|---|---|---|
+| D110 | **Setelah `verification_locked_until` lewat, percobaan berikutnya mereset `verification_attempts` ke 0** di transaksi yang sama, sehingga pekerja punya 5 percobaan per jendela lockout. Guard T16 `verification_attempts < verification_max_attempts` dibaca sebagai nilai sebelum kenaikan, jadi percobaan kelima dengan kode benar tetap diterima | Tanpa reset, guard T16 membuat pekerja terkunci selamanya setelah lockout pertama. Opsi satu percobaan per 15 menit ditolak karena menghukum dua kali: pekerja yang salah ketik akibat layar ponsel client buram bisa tertahan di lokasi berjam-jam. Rumusan H8 sendiri berbunyi tolak sampai `verification_locked_until` lewat |
+| D111 | **Client pemilik order bisa meminta kode baru lewat `POST /orders/:id/verification-code`**, hanya saat AWAITING_VERIFICATION. Kalau kode masih berlaku, kode yang sama dikembalikan tanpa rotasi. Saat terkunci ditolak 429 `VERIFICATION_LOCKED`. Kode baru mereset `verification_attempts` ke 0, mengosongkan `verification_locked_until`, dan mengatur `verification_expires_at = now + 60 menit` | Kode yang kedaluwarsa tidak punya jalan keluar, karena order tertahan di AWAITING_VERIFICATION. Pekerja tidak diberi hak meminta kode baru supaya tidak bisa dipakai untuk menghindari lockout. Client tidak boleh mengganti kode saat terkunci, supaya lockout tetap punya arti |
+| D112 | **`order:location_update` hanya diteruskan ke room `order:<id>`, tidak menulis basis data.** Event diterima hanya dari penanggung jawab saat order ON_THE_WAY. `current_latitude` dan `current_longitude` pekerja tetap diperbarui lewat `PATCH /workers/me/location` sesuai D66 | Posisi di basis data hanya dipakai pencocokan Available Now, sedangkan pekerja yang ON_THE_WAY sedang in-flight sehingga tidak ikut pencocokan. Dengan begitu aturan PRD 7.2, satu-satunya event socket yang mengubah state adalah `worker:presence`, tetap utuh |
+| D113 | **Tiga guard tanpa kode di Lampiran A memakai 409 `ORDER_TRANSITION_NOT_ALLOWED`** dengan pesan yang jelas: berangkat lebih dari 60 menit sebelum jadwal, membaca atau memperbarui kode di luar AWAITING_VERIFICATION, dan start tanpa check-in valid | Konsisten dengan preseden `assertBeforeDeparture` di sesi 6d. Ketiganya pada dasarnya kasus "belum waktunya", dan frontend tetap bisa menampilkan pesan spesifik dari field `message` |
+| D114 | **Kode yang sudah kedaluwarsa ditolak 422 `VERIFICATION_CODE_EXPIRED` sebelum `verification_attempts` dinaikkan.** Mengubah urutan langkah verify di PRD 4.4 | Kode yang kedaluwarsa tidak mungkin diterima, jadi percobaan terhadapnya bukan tebakan dan tidak perlu dihitung. Kalau dihitung, pekerja yang mencoba lima kali setelah kode kedaluwarsa akan terkunci, dan D111 menolak client meminta kode baru selama terkunci, sehingga semua pihak menunggu 15 menit tanpa alasan. Aturan "naikkan dulu" tetap berlaku untuk kode yang masih berlaku |
+
+**Catatan implementasi sesi 6e tanpa nomor D:**
+
+- **Pola "catat, commit, baru tolak"** untuk check-in yang gagal dan verifikasi yang salah. Callback transaksi mengembalikan error penolakan alih-alih melemparnya, sehingga baris `order_checkins` dan kenaikan `verification_attempts` tetap tersimpan, lalu error dilempar setelah commit. Lapis 1 sampai 3 diperiksa sebelum menulis apa pun. Dibuktikan dengan uji mutasi: kalau penolakan dilempar di dalam transaksi, kedua test gagal
+- **Penamaan radius check-in.** Nilainya dibaca dari parameter `geolocation_radius_meters` (PRD 3.5), dibulatkan ke bilangan bulat, lalu disimpan sebagai snapshot di kolom `order_checkins.radius_threshold_meters`. State Machine T10 dan PRD 4.4 disesuaikan
+- **`requireAssignedWorker`** dipasang di kelima endpoint pelaksanaan. Rekan seusaha sudah tertahan lebih dulu oleh `requireOrderParticipant` (403 `FORBIDDEN_ACTOR`), sedangkan pemilik BUSINESS yang bukan penanggung jawab ditolak 403 `NOT_ASSIGNED_WORKER`
+
 ---
 
 ## 5. Alur Sistem End-to-End
@@ -1602,9 +1630,9 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 
 ### 8.2 Keamanan Kode Verifikasi dan Token
 
-- [ ] **H7** Generate kode order pakai `crypto.randomInt`, bukan `Math.random`
-- [ ] **H8** Tolak input kalau `verification_attempts >= 5` sampai `verification_locked_until` lewat. Increment counter sebelum membandingkan, bukan sesudah
-- [ ] **H9** Terapkan `verification_expires_at`
+- [x] **H7** **(ditutup di sesi 6e)** Generate kode order pakai `crypto.randomInt`, bukan `Math.random`
+- [x] **H8** **(ditutup di sesi 6e)** Tolak input kalau `verification_attempts >= 5` sampai `verification_locked_until` lewat. Increment counter sebelum membandingkan, bukan sesudah
+- [x] **H9** **(ditutup di sesi 6e)** Terapkan `verification_expires_at`
 - [ ] **H34** Token email pakai `crypto.randomBytes(32)`, disimpan sebagai hash SHA-256 **(baru, D63)**. Token tidak punya lockout seperti H8, jadi ruang tebakannya harus besar
 - [ ] **H35** Kirim ulang token membatalkan token lama, dan ganti password membatalkan seluruh token PASSWORD_RESET milik user itu **(baru)**
 - [ ] **H36** Rate limit ketat pada `resend-verification`, `forgot-password`, dan `users/me/email` **(baru)**. Tanpa ini endpoint tersebut jadi alat membanjiri inbox orang lain
@@ -1729,7 +1757,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 
 ## 11. Langkah Berikutnya
 
-1. Sesi 6e (pelaksanaan di lokasi)
+1. Sesi 6f (cron deadline T3 dan T6, penutup Fase 6)
 2. Fase 6 (order) dalam enam sesi, 6a sampai 6f, termasuk keputusan H88
 3. Susun data simulasi untuk dua belas sub-kategori di Lampiran B, termasuk skenario perebutan Available Now dan pendamping pada dokumentasi acara
 4. Riset ringan rentang harga pasaran untuk dua belas sub-kategori tersebut, catat sumbernya
@@ -1757,6 +1785,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 | 2.12 | 31 Oktober 2026 | Durasi melekat pada nilai opsi (D100), menutup keputusan terbuka nomor 5. Opsi "Dua Hari" dihapus dari B.6. Pembagian transisi antar fase dan port `PaymentGateway` (D101). Tabel `order_offers`, penolakan tawaran per pekerja, dan T2 hanya oleh pemilik (D102). Aturan D100 hanya menghitung baris aktif (D103). H93 sampai H95. Satu tabel baru, menjadi 35 tabel |
 | 2.13 | 7 November 2026 | Tiga usulan dari sesi 6c: invoice gagal tidak membatalkan T1 (D104), hapus listing ditolak selama ada order berjalan (D105, menutup H88), dan empat aturan pembuatan serta pembatalan order (D106). Catatan guard in-flight, peran per endpoint, dan format `order_number`. H97 dan H98. Tanpa perubahan skema |
 | 2.14 | 8 November 2026 | Tiga usulan dari sesi 6d: radius Available Now dari posisi pekerja (D107), slot ACCEPTED dan PAID memblokir Available Now (D108), dan room order lewat `order:join` (D109). Catatan peran OFFERED, jalur accept menurut isi body, penanda online pengujian, dan toleransi presence. Tanpa perubahan skema baru |
+| 2.15 | 9 November 2026 | Lima usulan dari sesi 6e: reset percobaan setelah lockout (D110), kode baru oleh client (D111), relay lokasi tanpa tulis basis data (D112), kode error tiga guard waktu (D113), dan kode kedaluwarsa tidak dihitung sebagai percobaan (D114). Catatan pola catat lalu commit baru tolak, penamaan radius, dan `requireAssignedWorker`. H7 sampai H9 ditutup. Tanpa perubahan skema |
 
 ---
 

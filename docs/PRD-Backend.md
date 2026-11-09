@@ -4,16 +4,16 @@
 
 | | |
 |---|---|
-| Versi | 2.8 |
+| Versi | 2.9 |
 | Penyusun | I Nyoman Gede Candra Wikananta (2305551065) |
 | Program Studi | Teknologi Informasi, Universitas Udayana |
 | Bidang Keahlian | Sistem Informasi |
 | Pembimbing 1 | Dr. Ir. Ni Kadek Ayu Wirdiani, S.T., M.T., IPU |
 | Pembimbing 2 | Dr. Ir. Anak Agung Kompiang Oka Sudana, S.Kom., M.T., IPM |
-| Tanggal | 8 November 2026 |
+| Tanggal | 9 November 2026 |
 | Cakupan dokumen | **Backend saja** (Express.js REST API, basis data, integrasi eksternal, cron). Frontend dan UI/UX di luar cakupan dokumen ini |
 
-**Dokumen rujukan:** `Keputusan-Desain-Sistem.md` (register keputusan D1 sampai D109, versi 2.14), `State-Machine-Order.md` (artefak desain 3), `skema-database-final.dbml` (35 tabel, 35 enum), `schema.prisma`, `migration-constraints.sql`, `Panduan-Struktur-Database.md`.
+**Dokumen rujukan:** `Keputusan-Desain-Sistem.md` (register keputusan D1 sampai D114, versi 2.15), `State-Machine-Order.md` (artefak desain 3), `skema-database-final.dbml` (35 tabel, 35 enum), `schema.prisma`, `migration-constraints.sql`, `Panduan-Struktur-Database.md`.
 
 **Catatan versi.** Dokumen ini menggantikan PRD versi 1.x sepenuhnya, bukan merevisinya. Implementasi dimulai ulang dari nol mengikuti milestone di Bagian 9. Perubahan terbesar sejak versi 1.x adalah masuknya entitas tenaga kerja (D31 sampai D53) atas arahan Pembimbing 1, yang memindahkan pelaksanaan order dari akun provider ke pekerja.
 
@@ -765,6 +765,7 @@ Query parameter `GET /listings`:
 | POST | `/orders/:id/start` | W | T12 `-> IN_PROGRESS` |
 | POST | `/orders/:id/finish` | W | T14 `-> AWAITING_VERIFICATION`, membuat kode |
 | GET | `/orders/:id/verification-code` | C | Menampilkan kode 6 digit, hanya client pemilik order |
+| POST | `/orders/:id/verification-code` | C | Meminta kode baru setelah kode kedaluwarsa. Kode yang masih berlaku dikembalikan tanpa rotasi, ditolak 429 saat terkunci (D111) |
 | POST | `/orders/:id/verify` | W | T16 `-> COMPLETED` |
 | POST | `/dev/orders/:id/simulate-payment` | C | T5 lewat gateway palsu. Hanya terdaftar saat `PAYMENT_GATEWAY=fake`, tidak pernah di produksi (D101) |
 | POST | `/dev/workers/presence` | auth | Menandai pekerja online untuk pengujian (H92). Hanya terdaftar saat `PAYMENT_GATEWAY=fake`, kedaluwarsa per `worker_presence_timeout_minutes` |
@@ -937,7 +938,8 @@ Alur server:
 2. Hitung Haversine DI SERVER terhadap
    service_latitude dan service_longitude       -> jangan percaya jarak dari client
 3. Tulis baris order_checkins dengan worker_id, apapun hasilnya
-4. Kalau jarak > radius_threshold_meters        -> 422 CHECKIN_OUT_OF_RADIUS
+4. Kalau jarak > geolocation_radius_meters      -> 422 CHECKIN_OUT_OF_RADIUS
+   (nilainya disimpan sebagai snapshot di order_checkins.radius_threshold_meters)
 5. Kalau lolos, transisi ke ARRIVED
 ```
 
@@ -950,11 +952,18 @@ Request: `{ "code": "483920" }`
 ```
 1. Pastikan pemanggil adalah assigned_worker_id  -> 403 kalau bukan
 2. Kalau verification_locked_until belum lewat   -> 429 VERIFICATION_LOCKED
-3. NAIKKAN verification_attempts DULU, baru bandingkan kode.
+   Kalau sudah lewat dan attempts >= max, reset attempts ke 0     (D110)
+3. Kalau kode sudah kedaluwarsa                  -> 422 VERIFICATION_CODE_EXPIRED
+   tanpa menaikkan attempts, client meminta kode baru            (D114, D111)
+4. NAIKKAN verification_attempts DULU, baru bandingkan kode.
    Kalau dibalik, percobaan yang request-nya putus di tengah tidak terhitung
-4. Kalau attempts >= verification_max_attempts,
+5. Kalau kode salah dan attempts >= verification_max_attempts,
    set verification_locked_until = now() + verification_lockout_minutes
-5. Kalau kode cocok dan belum kedaluwarsa, transisi ke COMPLETED
+6. Kalau kode cocok, transisi ke COMPLETED
+
+Kenaikan attempts dan lockout wajib tetap tersimpan walaupun request
+dibalas error. Penolakan dikembalikan dari callback transaksi lalu
+dilempar setelah commit, bukan dilempar di dalam transaksi.
 ```
 
 #### POST /webhooks/xendit/invoice
@@ -1291,7 +1300,7 @@ Autentikasi koneksi memakai access token yang sama. Room yang dipakai:
 | `order:offer` | server ke pekerja terpilih dan ke room provider | Ringkasan order Available Now beserta sisa waktu respons |
 | `order:offer_closed` | server ke pekerja terpilih dan ke room provider | Order sudah diklaim pihak lain, kartunya dihapus dari layar |
 | `order:assignment_changed` | server ke room order | Penanggung jawab diganti, beserta nama lama dan baru |
-| `order:location_update` | pekerja ke server ke client | Posisi pekerja saat `ON_THE_WAY` |
+| `order:location_update` | pekerja ke server ke client | Posisi pekerja saat `ON_THE_WAY`, hanya dari penanggung jawab. Hanya diteruskan, tidak menulis basis data (D112) |
 | `order:message` | server ke room order | Pesan baru dalam order |
 | `worker:presence` | pekerja ke server | Denyut koneksi, dasar penentuan online |
 | `order:join` | client ke server | Masuk room `order:<id>`, dengan ack. Hanya client, pemilik, dan penanggung jawab yang diterima (D109) |
@@ -1490,3 +1499,4 @@ Tidak menyangkut aturan bisnis, dibentuk oleh middleware bersama pada Fase 0.
 | 2.6 | 31 Oktober 2026 | Sinkron dengan register keputusan versi 2.12. Snapshot durasi dari nilai opsi (D100), pertanyaan terbuka nomor 5 ditutup, status milestone Fase 0 sampai 5 selesai. Pembagian transisi antar fase, port `PaymentGateway`, endpoint simulasi pembayaran, dan kriteria milestone Fase 6 sampai 8 (D101). Tabel `order_offers`, endpoint `decline-offer`, dan T2 hanya oleh pemilik (D102) |
 | 2.7 | 7 November 2026 | Sinkron dengan register keputusan versi 2.13. Invoice gagal saat T1 (D104) di Bagian 6.4, kode error `LISTING_HAS_ACTIVE_ORDERS` (D105), dan aturan pembuatan order (D106) di kontrak `POST /orders` |
 | 2.8 | 8 November 2026 | Sinkron dengan register keputusan versi 2.14. Radius Available Now dari posisi pekerja (D107), H28 menghitung ACCEPTED dan PAID (D108), event `order:join` (D109), dan endpoint `/dev/workers/presence` (H92) |
+| 2.9 | 9 November 2026 | Sinkron dengan register keputusan versi 2.15. Langkah verify di Bagian 4.4 mengikuti D110 dan D114, endpoint `POST /orders/:id/verification-code` (D111), relay lokasi (D112), dan nama parameter radius check-in `geolocation_radius_meters` |

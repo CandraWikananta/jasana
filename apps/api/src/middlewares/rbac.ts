@@ -7,12 +7,11 @@
  *   requireAdmin      users.role = 'ADMIN'                       403 FORBIDDEN_ACTOR
  *
  *   requireOrderParticipant  client, pemilik, atau penanggung jawab order :id  403 FORBIDDEN_ACTOR
- *
- * requireAssignedWorker menyusul di sesi 6e.
+ *   requireAssignedWorker    PERSIS penanggung jawab order :id            403 NOT_ASSIGNED_WORKER
  */
 
 import type { Request, RequestHandler } from 'express';
-import { Errors } from '../lib/errors';
+import { AppError, Errors } from '../lib/errors';
 import {
   assertAdmin,
   resolveOrderAccess,
@@ -81,6 +80,19 @@ export function requireOrderParticipant(options: { allowAdmin?: boolean } = {}):
     }, next);
   };
 }
+
+/**
+ * PRD 5.2, lima transisi pelaksanaan. Wajib setelah requireOrderParticipant:
+ * peran WORKER di sana hanya untuk penanggung jawab ACTIVE, bukan rekan
+ * seusaha (yang sudah tertahan sebagai bukan peserta) dan bukan pendamping.
+ */
+export const requireAssignedWorker: RequestHandler = (req, _res, next) => {
+  next(
+    req.orderAccess?.roles.has('WORKER')
+      ? undefined
+      : new AppError('NOT_ASSIGNED_WORKER', 'Hanya penanggung jawab order ini yang boleh melakukan aksi ini'),
+  );
+};
 
 /** Konteks peserta untuk controller di belakang requireOrderParticipant. */
 export function currentOrderAccess(req: Request): OrderAccess {
