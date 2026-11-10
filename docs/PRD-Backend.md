@@ -1164,7 +1164,7 @@ VERIFICATION_CODE_AES_KEY
 XENDIT_SECRET_KEY
 XENDIT_CALLBACK_TOKEN
 PAYMENT_GATEWAY            # fake atau xendit; fake ditolak saat NODE_ENV=production (D101)
-TRUST_PROXY                # jumlah hop proxy tepercaya, 0 untuk lokal dan pengujian (D117)
+TRUST_PROXY                # wajib, jumlah hop proxy tepercaya: 0 untuk lokal dan pengujian, sesuai jumlah proxy saat deploy (D117)
 GEMINI_API_KEY
 SUPABASE_URL
 SUPABASE_SERVICE_ROLE_KEY

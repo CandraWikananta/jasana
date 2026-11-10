@@ -49,6 +49,15 @@ const envSchema = z.object({
     }),
   }),
   PORT: port('PORT'),
+  // D117: jumlah hop proxy tepercaya untuk `trust proxy`. Wajib tanpa bawaan,
+  // supaya lupa mengisi di deploy gagal start, bukan semua pengguna berbagi
+  // kuota rate limit. Lewat requiredString karena coerce mengubah '' jadi 0.
+  TRUST_PROXY: requiredString('TRUST_PROXY').pipe(
+    z.coerce
+      .number({ invalid_type_error: 'TRUST_PROXY harus berupa angka' })
+      .int('TRUST_PROXY harus bilangan bulat')
+      .min(0, 'TRUST_PROXY tidak boleh negatif'),
+  ),
 
   // --- Basis data ---
   DATABASE_URL: requiredString('DATABASE_URL').refine(

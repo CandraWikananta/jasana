@@ -47,6 +47,7 @@ if (testDatabaseUrl) {
 const defaults: Record<string, string> = {
   NODE_ENV: 'test',
   PORT: '4001',
+  TRUST_PROXY: '0',
   DATABASE_URL: 'postgresql://postgres:secret@localhost:5432/jasana_test?schema=public',
   JWT_SECRET: 'secret-uji-yang-panjangnya-lebih-dari-32-karakter',
   JWT_ACCESS_TTL_MINUTES: '15',

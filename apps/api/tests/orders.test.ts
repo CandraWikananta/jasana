@@ -304,6 +304,27 @@ describe.skipIf(!hasTestDatabase)('order Scheduled (6c)', () => {
         const free = await createOrder({ scheduled_at: at(24 * 60 + 510) });
         expect((await accept(free.id, w.w3.workerId)).status).toBe(200);
       });
+
+      it('listing tanpa atribut berdurasi memakai kolom listing, bukan attributes (H85, H93)', async () => {
+        const sub = await prisma.subcategory.create({
+          data: { categoryId: (await prisma.category.findFirstOrThrow({ where: { slug: { startsWith: 'uji-' } } })).id, name: 'Tanpa Durasi', slug: `uji-sub-tanpa-durasi-${Date.now()}` },
+        });
+        // `durasi_estimasi` sengaja dipasang sebagai umpan: durasi tidak boleh dibaca dari sini (D90).
+        const listing = await prisma.listing.create({
+          data: {
+            providerProfileId: w.provider.id, subcategoryId: sub.id, title: 'Konsultasi', price: 300000,
+            estimatedDurationMinutes: 90, attributes: { durasi_estimasi: '180' }, status: 'ACTIVE', supportsScheduled: true,
+          },
+        });
+        await prisma.workerListing.create({ data: { workerId: w.w3.workerId, listingId: listing.id } });
+
+        const plain = await acceptedOrder(24 * 60, w.w3.workerId, [], { listing_id: listing.id, selected_options: {} });
+        expect(plain.duration_minutes).toBe(90);
+        const clash = await createOrder({ scheduled_at: at(24 * 60 + 90) });
+        expect((await accept(clash.id, w.w3.workerId)).status).toBe(409);
+        const free = await createOrder({ scheduled_at: at(24 * 60 + 120) });
+        expect((await accept(free.id, w.w3.workerId)).status).toBe(200);
+      });
     });
 
     it('dua accept bersamaan untuk pekerja dan jam yang sama: tepat satu berhasil', async () => {

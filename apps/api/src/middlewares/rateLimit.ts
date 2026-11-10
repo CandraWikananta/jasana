@@ -52,6 +52,28 @@ export function limitPerAccount(options: LimitOptions): RequestHandler {
   return build(options, (req) => `user:${req.user?.id ?? `ip:${req.ip}`}`);
 }
 
+/**
+ * D118: dihitung per alamat email di body. WAJIB dipasang SETELAH validate,
+ * karena di situ email sudah di-trim dan di-lowercase, sama dengan cara
+ * disimpan, jadi `A@x.test` dan ` a@x.test` jatuh ke kunci yang sama.
+ *
+ * Kelebihannya tidak 429, tapi diteruskan ke `reply` yang membalas persis
+ * seperti permintaan sah. Tanpa header RateLimit, supaya tidak ada pembeda.
+ */
+export function limitPerEmailSilently(
+  options: Pick<LimitOptions, 'windowMs' | 'limit'>,
+  reply: RequestHandler,
+): RequestHandler {
+  return rateLimit({
+    windowMs: options.windowMs,
+    limit: options.limit,
+    standardHeaders: false,
+    legacyHeaders: false,
+    keyGenerator: (req) => `email:${String(req.body.email)}`,
+    handler: reply,
+  });
+}
+
 const MINUTE = 60 * 1000;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
@@ -80,3 +102,6 @@ export const RATE_LIMITS = {
     message: 'Batas permintaan penggantian email hari ini sudah tercapai',
   },
 } as const satisfies Record<string, LimitOptions>;
+
+/** D118. Tanpa pesan karena kelebihannya tidak pernah dibalas sebagai galat. */
+export const FORGOT_PASSWORD_PER_EMAIL = { windowMs: HOUR, limit: 3 } as const;

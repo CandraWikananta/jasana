@@ -11,7 +11,13 @@
 import { Router } from 'express';
 import { validate } from '../../middlewares/validate';
 import { requireAuth } from '../../middlewares/auth';
-import { limitPerAccount, limitPerIp, RATE_LIMITS } from '../../middlewares/rateLimit';
+import {
+  FORGOT_PASSWORD_PER_EMAIL,
+  limitPerAccount,
+  limitPerEmailSilently,
+  limitPerIp,
+  RATE_LIMITS,
+} from '../../middlewares/rateLimit';
 import { confirmEmailChange } from '../users/users.controller';
 import { confirmEmailChangeSchema } from '../users/users.schema';
 import * as controller from './auth.controller';
@@ -42,6 +48,7 @@ export function createAuthRouter(): Router {
     '/forgot-password',
     limitPerIp(RATE_LIMITS.forgotPassword),
     validate({ body: forgotPasswordSchema }),
+    limitPerEmailSilently(FORGOT_PASSWORD_PER_EMAIL, controller.forgotPasswordReply),
     controller.forgotPassword,
   );
   router.post('/reset-password', validate({ body: resetPasswordSchema }), controller.resetPassword);

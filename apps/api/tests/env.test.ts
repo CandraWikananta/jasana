@@ -14,6 +14,7 @@ function validEnv(): NodeJS.ProcessEnv {
   return {
     NODE_ENV: 'test',
     PORT: '4000',
+    TRUST_PROXY: '0',
     DATABASE_URL: 'postgresql://postgres:secret@localhost:5432/jasana_test?schema=public',
     JWT_SECRET: 'a'.repeat(48),
     JWT_ACCESS_TTL_MINUTES: '15',
@@ -105,6 +106,12 @@ describe('loadEnv', () => {
   });
 
   // D101: gateway palsu tidak boleh sampai ke produksi.
+  it('TRUST_PROXY dikoersi ke bilangan bulat, negatif dan pecahan ditolak (D117)', () => {
+    expect(loadEnv({ ...validEnv(), TRUST_PROXY: '2' }).TRUST_PROXY).toBe(2);
+    expect(() => loadEnv({ ...validEnv(), TRUST_PROXY: '-1' })).toThrow(/TRUST_PROXY tidak boleh negatif/);
+    expect(() => loadEnv({ ...validEnv(), TRUST_PROXY: '1.5' })).toThrow(/TRUST_PROXY harus bilangan bulat/);
+  });
+
   it('gagal start kalau PAYMENT_GATEWAY=fake bersama NODE_ENV=production', () => {
     expect(() =>
       loadEnv({ ...validEnv(), NODE_ENV: 'production', PAYMENT_GATEWAY: 'fake' }),

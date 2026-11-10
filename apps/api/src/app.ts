@@ -68,9 +68,9 @@ function corsOptions(): CorsOptions {
 export function createApp(): Express {
   const app = express();
 
-  // Supabase dan platform hosting menaruh API di belakang proxy. Tanpa ini
-  // `req.ip` berisi IP proxy, dan rate limiting per IP di Fase 9 salah sasaran.
-  app.set('trust proxy', 1);
+  // D117: jumlah hop proxy dari env. Terlalu besar membuat X-Forwarded-For
+  // palsu melewati rate limit per IP, terlalu kecil membuat `req.ip` jadi IP proxy.
+  app.set('trust proxy', env.TRUST_PROXY);
   app.disable('x-powered-by');
 
   app.use(helmet());

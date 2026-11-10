@@ -3,7 +3,7 @@
  * service, lalu membungkus hasilnya dalam envelope.
  */
 
-import type { Request } from 'express';
+import type { Request, RequestHandler } from 'express';
 import { asyncHandler } from '../../lib/async-handler';
 import { sendCreated, sendOk } from '../../lib/envelope';
 import { currentUser } from '../../middlewares/auth';
@@ -54,12 +54,17 @@ export const resendVerification = asyncHandler(async (req, res) => {
   sendOk(res, await authService.resendVerification(currentUser(req).id));
 });
 
-/** Satu bentuk balasan untuk email terdaftar maupun tidak (PRD 5.4). */
-export const forgotPassword = asyncHandler(async (req, res) => {
+/**
+ * Satu bentuk balasan untuk email terdaftar, tidak terdaftar (PRD 5.4), dan
+ * yang melewati batas per email (D118).
+ */
+export const forgotPasswordReply: RequestHandler = (_req, res) => {
+  sendOk(res, { message: 'Kalau email tersebut terdaftar, tautan reset password sudah dikirim' });
+};
+
+export const forgotPassword = asyncHandler(async (req, res, next) => {
   await authService.forgotPassword(req.body.email);
-  sendOk(res, {
-    message: 'Kalau email tersebut terdaftar, tautan reset password sudah dikirim',
-  });
+  forgotPasswordReply(req, res, next);
 });
 
 export const resetPassword = asyncHandler(async (req, res) => {

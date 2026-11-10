@@ -5,12 +5,13 @@
  * Rotasi refresh token diuji terpisah di auth.refresh-reuse.test.ts.
  */
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
 import type { Express } from 'express';
 import { prisma } from '@jasana/database';
-import type { MailMessage } from '../src/lib/mailer';
+import { mailer, type MailMessage } from '../src/lib/mailer';
 import { createApp } from '../src/app';
+import { env } from '../src/config/env';
 import { hashToken } from '../src/lib/crypto';
 import {
   bearer,
@@ -36,6 +37,17 @@ describe.skipIf(!hasTestDatabase)('alur akun', () => {
     // App baru per kasus = store rate limit baru per kasus.
     app = createApp();
   });
+
+  const trustProxy = env.TRUST_PROXY;
+  afterEach(() => {
+    env.TRUST_PROXY = trustProxy;
+  });
+
+  /** App yang memercayai `hops` proxy, supaya IP bisa dibedakan lewat X-Forwarded-For. */
+  function appBehindProxy(hops: number): Express {
+    env.TRUST_PROXY = hops;
+    return createApp();
+  }
 
   // -------------------------------------------------------------------------
   describe('POST /auth/register', () => {
@@ -68,6 +80,21 @@ describe.skipIf(!hasTestDatabase)('alur akun', () => {
         expect(notification.channel).toBe('EMAIL');
         expect(notification.emailStatus).toBe('SENT');
         expect(`${notification.title} ${notification.body}`).not.toContain(token);
+      });
+    });
+
+    it('SMTP gagal tidak membatalkan pendaftaran, barisnya dicatat FAILED (H37)', async () => {
+      vi.spyOn(mailer, 'send').mockRejectedValue(new Error('SMTP mati'));
+
+      const response = await request(app).post('/api/v1/auth/register').send(newUserInput());
+      expect(response.status).toBe(201);
+      const userId = response.body.data.user.id as string;
+      expect(await prisma.user.count({ where: { id: userId } })).toBe(1);
+
+      await vi.waitFor(async () => {
+        const notification = await prisma.notification.findFirstOrThrow({ where: { userId } });
+        expect(notification.emailStatus).toBe('FAILED');
+        expect(notification.emailError).toBe('SMTP mati');
       });
     });
 
@@ -164,6 +191,27 @@ describe.skipIf(!hasTestDatabase)('alur akun', () => {
       const blocked = await attempt();
       expect(blocked.status).toBe(429);
       expect(blocked.body.error.code).toBe('RATE_LIMIT_EXCEEDED');
+    });
+
+    describe('trust proxy (D117)', () => {
+      const attempt = (target: Express, ip: string) =>
+        request(target)
+          .post('/api/v1/auth/login')
+          .set('X-Forwarded-For', ip)
+          .send({ email: 'tebak@jasana.test', password: 'tebakan' });
+
+      it('TRUST_PROXY=0: X-Forwarded-For yang berganti-ganti tidak melewati batas login', async () => {
+        const target = appBehindProxy(0);
+        for (let i = 0; i < 10; i += 1) expect((await attempt(target, `10.0.0.${i}`)).status).toBe(401);
+        expect((await attempt(target, '10.0.0.99')).status).toBe(429);
+      });
+
+      it('TRUST_PROXY=1: alamat dari X-Forwarded-For yang dihitung', async () => {
+        const target = appBehindProxy(1);
+        for (let i = 0; i < 10; i += 1) expect((await attempt(target, '10.0.0.1')).status).toBe(401);
+        expect((await attempt(target, '10.0.0.1')).status).toBe(429);
+        expect((await attempt(target, '10.0.0.2')).status).toBe(401);
+      });
     });
 
     it('menolak access token palsu dan tanpa token', async () => {
@@ -345,6 +393,39 @@ describe.skipIf(!hasTestDatabase)('alur akun', () => {
       const blocked = await ask();
       expect(blocked.status).toBe(429);
       expect(blocked.body.error.code).toBe('RATE_LIMIT_EXCEEDED');
+    });
+
+    describe('batas 3 per jam per email tujuan (D118)', () => {
+      const ask = (target: Express, email: string, ip: string) =>
+        request(target).post('/api/v1/auth/forgot-password').set('X-Forwarded-For', ip).send({ email });
+
+      it('permintaan keempat dari IP lain tidak mengirim email, balasannya sama dengan email tak terdaftar', async () => {
+        const target = appBehindProxy(1);
+        const user = await registerUser(target);
+        const before = sent.length;
+
+        for (let i = 1; i <= 3; i += 1) expect((await ask(target, user.email, `10.0.1.${i}`)).status).toBe(200);
+        expect(sent.length).toBe(before + 3);
+
+        const fourth = await ask(target, user.email, '10.0.1.4');
+        const unregistered = await ask(target, 'tidak.terdaftar@jasana.test', '10.0.1.5');
+        expect(sent.length).toBe(before + 3);
+        expect(fourth.status).toBe(200);
+        expect(fourth.body).toEqual(unregistered.body);
+      });
+
+      it('huruf besar dan spasi dihitung sebagai alamat yang sama', async () => {
+        const target = appBehindProxy(1);
+        const user = await registerUser(target);
+        const before = sent.length;
+
+        const variants = [user.email.toUpperCase(), `  ${user.email}  `, `${user.email[0]!.toUpperCase()}${user.email.slice(1)}`];
+        for (const [i, email] of variants.entries()) expect((await ask(target, email, `10.0.2.${i}`)).status).toBe(200);
+        expect(sent.length).toBe(before + 3);
+
+        expect((await ask(target, user.email, '10.0.2.9')).status).toBe(200);
+        expect(sent.length).toBe(before + 3);
+      });
     });
   });
 });

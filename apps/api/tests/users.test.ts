@@ -103,6 +103,23 @@ describe.skipIf(!hasTestDatabase)('akun pemanggil', () => {
 
       await loginUser(app, { email: user.email, password: 'password-baru-456' });
     });
+
+    it('membatalkan token PASSWORD_RESET yang masih aktif (H35)', async () => {
+      await request(app).post('/api/v1/auth/forgot-password').send({ email: user.email });
+      const resetToken = tokenFrom(lastEmailTo(sent, user.email));
+
+      const changed = await request(app)
+        .post('/api/v1/users/me/change-password')
+        .set(...auth())
+        .send({ current_password: user.password, new_password: 'password-baru-456' });
+      expect(changed.status).toBe(200);
+
+      const reset = await request(app)
+        .post('/api/v1/auth/reset-password')
+        .send({ token: resetToken, new_password: 'password-penyerang-789' });
+      expect(reset.status).toBe(422);
+      expect(reset.body.error.code).toBe('TOKEN_ALREADY_USED');
+    });
   });
 
   // -------------------------------------------------------------------------
