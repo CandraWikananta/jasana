@@ -24,6 +24,7 @@ import { paymentGateway } from '../src/lib/payment-gateway';
 import { isInflightViolation } from '../src/lib/prisma-errors';
 import { issueInvoice } from '../src/modules/orders/order-payment.service';
 import { hasTestDatabase, resetDatabase } from './helpers/integration';
+import { runVerificationQuery } from './helpers/providers';
 import { HOUR, KUTA, MINUTE, RENON, auth, newProvider, newUser, newWorld, waitForLockWaiters, type User, type World } from './helpers/orders';
 
 describe.skipIf(!hasTestDatabase)('order Scheduled (6c)', () => {
@@ -496,6 +497,14 @@ describe.skipIf(!hasTestDatabase)('order Scheduled (6c)', () => {
       expect(res.body.data).toMatchObject({ status: 'PAID', payment: { status: 'PAID' } });
       expect(await prisma.payment.count({ where: { orderId: order.id } })).toBe(1);
       expect((await simulate(order.id, w.client)).status).toBe(409);
+
+      // 7b: simulate memakai fungsi T5 yang sama dengan webhook, jadi ikut menulis tepat satu ESCROW_HOLD.
+      const { providerEarning } = await prisma.order.findUniqueOrThrow({ where: { id: order.id } });
+      const holds = await prisma.walletTransaction.findMany({ where: { orderId: order.id } });
+      expect(holds).toHaveLength(1);
+      expect(holds[0]).toMatchObject({ type: 'ESCROW_HOLD' });
+      expect(holds[0]!.amountPendingDelta.equals(providerEarning)).toBe(true);
+      expect(await runVerificationQuery('V1')).toEqual([]);
     });
 
     it('tidak terdaftar saat PAYMENT_GATEWAY=xendit', async () => {

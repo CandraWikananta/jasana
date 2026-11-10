@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| Versi | 2.13 |
+| Versi | 2.15 |
 | Penyusun | I Nyoman Gede Candra Wikananta (2305551065) |
 | Program Studi | Teknologi Informasi, Universitas Udayana |
 | Bidang Keahlian | Sistem Informasi |
@@ -13,7 +13,7 @@
 | Tanggal | 10 November 2026 |
 | Cakupan dokumen | **Backend saja** (Express.js REST API, basis data, integrasi eksternal, cron). Frontend dan UI/UX di luar cakupan dokumen ini |
 
-**Dokumen rujukan:** `Keputusan-Desain-Sistem.md` (register keputusan D1 sampai D124, versi 2.19), `State-Machine-Order.md` (artefak desain 3), `skema-database-final.dbml` (35 tabel, 35 enum), `schema.prisma`, `migration-constraints.sql`, `Panduan-Struktur-Database.md`.
+**Dokumen rujukan:** `Keputusan-Desain-Sistem.md` (register keputusan D1 sampai D128, versi 2.21), `State-Machine-Order.md` (artefak desain 3), `skema-database-final.dbml` (35 tabel, 35 enum), `schema.prisma`, `migration-constraints.sql`, `Panduan-Struktur-Database.md`.
 
 **Catatan versi.** Dokumen ini menggantikan PRD versi 1.x sepenuhnya, bukan merevisinya. Implementasi dimulai ulang dari nol mengikuti milestone di Bagian 9. Perubahan terbesar sejak versi 1.x adalah masuknya entitas tenaga kerja (D31 sampai D53) atas arahan Pembimbing 1, yang memindahkan pelaksanaan order dari akun provider ke pekerja.
 
@@ -973,17 +973,23 @@ dilempar setelah commit, bukan dilempar di dalam transaksi.
 ```
 1. Verifikasi header x-callback-token            -> 401 kalau tidak cocok
 2. Susun event_id = invoice:<invoice_id>:<status>
+   Payment dicari lewat xendit_invoice_id, lalu lewat external_id
+   untuk invoice yatim (D125)
 3. TRANSAKSI 1: catat webhook_events, commit langsung
 4. Ambil lock dengan UPDATE bersyarat atomik.
    Nol baris berarti sedang diproses pihak lain atau sudah selesai,
    balas 200 tanpa melakukan apa-apa
 5. TRANSAKSI 2: proses bisnisnya, transisi ACCEPTED -> PAID,
    tulis ledger ESCROW_HOLD
-   Status PAID: T5 hanya kalau order masih ACCEPTED (D119) dan
+   Status PAID dan SETTLED (D127): invoice yang sama sudah PAID
+   berakhir IGNORED, lalu order yang sudah punya payment PAID
+   ditandai bayar dobel (D126). T5 hanya kalau order masih ACCEPTED (D119) dan
    paid_amount sama dengan amount (D120). Status EXPIRED: hanya
    payment dengan xendit_invoice_id yang cocok dan masih PENDING,
    order tidak ditransisikan (D122)
-6. Balas 200 apapun hasilnya, supaya Xendit tidak retry
+6. Setelah kunci diambil, balas 200 apapun hasilnya, supaya Xendit tidak retry.
+   Galat SEBELUM kunci diambil (langkah 3 dan 4) dibalas 5xx, supaya
+   Xendit mengirim ulang (D128)
    untuk kegagalan yang bukan salah jaringan
 ```
 
@@ -1513,3 +1519,5 @@ Tidak menyangkut aturan bisnis, dibentuk oleh middleware bersama pada Fase 0.
 | 2.11 | 9 November 2026 | Sinkron dengan register keputusan versi 2.17. Batas `forgot-password` per email (D118) di Bagian 5.5 dan env `TRUST_PROXY` (D117) di Bagian 5.6 |
 | 2.12 | 10 November 2026 | Sinkron dengan register keputusan versi 2.18. Perilaku webhook invoice untuk pembayaran telat, selisih nominal, dan EXPIRED (D119, D120, D122), serta pemrosesan ulang event FAILED di cron pemulihan (D121) |
 | 2.13 | 10 November 2026 | Sinkron dengan register keputusan versi 2.19. Aturan `GET` dan `POST /orders/:id/payment` (D123, D124) |
+| 2.14 | 10 November 2026 | Sinkron dengan register keputusan versi 2.20. Pencarian payment untuk invoice yatim di webhook (D125) |
+| 2.15 | 10 November 2026 | Sinkron dengan register keputusan versi 2.21. Langkah webhook invoice untuk SETTLED (D127), bayar dobel (D126), dan balasan 5xx sebelum kunci (D128) |

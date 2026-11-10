@@ -54,6 +54,8 @@ export async function newProvider() {
       baseLatitude: RENON.lat,
       baseLongitude: RENON.lng,
       serviceRadiusKm: 5,
+      // Provider sungguhan selalu punya wallet sejak disetujui. T5 menulis ESCROW_HOLD ke sini (7b).
+      wallet: { create: {} },
     },
   });
   /** Pekerja ACTIVE dengan toggle menyala di `at`. Online-nya diatur uji lewat `presence`. */

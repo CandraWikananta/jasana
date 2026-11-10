@@ -5,12 +5,13 @@
  *                     ditulis di transaksi T1 (usulan D104), di sini hanya
  *                     diisi hasil gateway. Kalau gagal, order tetap ACCEPTED
  *   getPayment, renewInvoice   GET dan POST /orders/:id/payment (sesi 7a)
- *   confirmPayment    T5. Dipanggil simulate-payment sekarang, dan handler
- *                     webhook `invoice.paid` di Fase 7 (D101 no. 4)
+ *   confirmPayment    T5 untuk simulate-payment (D101 no. 4)
+ *   applyInvoiceEvent transaksi 2 webhook invoice: T5 beserta ESCROW_HOLD,
+ *                     D119, D120, D122, dan D125 (sesi 7b)
  */
 
 import { randomUUID } from 'node:crypto';
-import { prisma, type Prisma } from '@jasana/database';
+import { prisma, Prisma, type Order } from '@jasana/database';
 import { AppError } from '../../lib/errors';
 import { actorFrom, type OrderAccess } from '../access/access.service';
 import { logger } from '../../lib/logger';
@@ -18,9 +19,11 @@ import { paymentGateway } from '../../lib/payment-gateway';
 import { dispatchEmails } from '../notifications/email-outbox';
 import { notifyUsers } from './order-notify';
 import { PAYMENT_SELECT, toPaymentDto } from './orders.mapper';
-import { lockOrder, transitionOrder, withOrderTransaction } from './order-transition.service';
+import type { InvoiceCallback } from '../webhooks/webhooks.schema';
+import { lockOrder, transitionOrder, withOrderTransaction, type AfterCommitTask } from './order-transition.service';
 
 type Tx = Prisma.TransactionClient;
+type AfterCommit = (task: AfterCommitTask) => void;
 
 const asJson = (value: unknown) => JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
 
@@ -117,60 +120,171 @@ export async function expirePendingPayments(tx: Tx, orderId: string): Promise<st
   return pending.map((p) => p.xenditInvoiceId).filter((id): id is string => id !== null);
 }
 
-/** Setelah commit pembatalan. Invoice yang terlanjur dibayar ditangani webhook Fase 7. */
+/** Setelah commit pembatalan. Invoice yang terlanjur dibayar ditangani webhook lewat D119. */
 export async function expireInvoices(invoiceIds: string[]): Promise<void> {
   await Promise.all(invoiceIds.map((id) => paymentGateway.expireInvoice(id)));
 }
 
 export interface PaymentDetails {
-  paidAmount?: number;
+  paidAmount?: Prisma.Decimal;
   paymentMethod?: string;
   paymentChannel?: string;
-  raw?: unknown;
+  paidAt?: Date;
 }
 
-/** T5 ACCEPTED -> PAID, aktor SYSTEM. Slot pekerja jadi pasti karena statusnya PAID (D43). */
-export async function confirmPayment(orderId: string, details: PaymentDetails = {}): Promise<void> {
-  await withOrderTransaction(async (tx, afterCommit) => {
-    await transitionOrder(tx, {
-      orderId,
-      afterCommit,
-      toStatus: 'PAID',
-      actor: 'SYSTEM',
-      guard: async (tx) => {
-        if (await tx.payment.count({ where: { orderId, status: 'PAID' } })) {
-          throw new AppError('ORDER_ALREADY_PAID', 'Order sudah dibayar');
-        }
-      },
-      effects: async (tx, order) => {
-        const paid = {
-          status: 'PAID' as const,
-          paidAt: new Date(),
-          paidAmount: details.paidAmount ?? order.totalAmount,
-          paymentMethod: details.paymentMethod ?? null,
-          paymentChannel: details.paymentChannel ?? null,
-          ...(details.raw === undefined ? {} : { rawResponse: asJson(details.raw) }),
-        };
-        const pending = await tx.payment.findFirst({ where: { orderId, status: 'PENDING' }, select: { id: true } });
-        if (pending) await tx.payment.update({ where: { id: pending.id }, data: paid });
-        else await tx.payment.create({ data: { orderId, xenditExternalId: `PAY-${randomUUID()}`, amount: order.totalAmount, ...paid } });
-        // shortcut: ledger ESCROW_HOLD belum ditulis, dipasang di fungsi ini pada Fase 7 (D101 no. 4).
+const paidData = (details: PaymentDetails, billed: Prisma.Decimal) => ({
+  status: 'PAID' as const,
+  paidAt: details.paidAt ?? new Date(),
+  paidAmount: details.paidAmount ?? billed,
+  paymentMethod: details.paymentMethod ?? null,
+  paymentChannel: details.paymentChannel ?? null,
+});
 
-        const parties = await tx.order.findUniqueOrThrow({
-          where: { id: orderId },
-          select: { clientId: true, providerProfile: { select: { userId: true } }, assignedWorker: { select: { userId: true } } },
-        });
-        const emails = await notifyUsers(
-          tx,
-          [parties.clientId, parties.providerProfile.userId, parties.assignedWorker?.userId],
-          order,
-          'Pembayaran berhasil',
-          'Pembayaran order sudah diterima dan jadwal pekerja terkunci.',
-        );
-        afterCommit(() => void dispatchEmails(emails));
-      },
-    });
+/**
+ * Ledger ESCROW_HOLD (PRD 3.2): pending += provider_earning pada wallet usaha.
+ * UPDATE dengan increment mengunci baris wallet dan mengembalikan saldo
+ * sesudahnya, jadi `balance_*_after` tidak tertukar dengan transaksi lain.
+ */
+async function holdEscrow(tx: Tx, order: Order): Promise<void> {
+  const wallet = await tx.wallet.update({
+    where: { providerProfileId: order.providerProfileId },
+    data: { balancePending: { increment: order.providerEarning } },
+    select: { id: true, balanceAvailable: true, balancePending: true },
   });
+  await tx.walletTransaction.create({
+    data: {
+      walletId: wallet.id,
+      orderId: order.id,
+      type: 'ESCROW_HOLD',
+      amountPendingDelta: order.providerEarning,
+      balanceAvailableAfter: wallet.balanceAvailable,
+      balancePendingAfter: wallet.balancePending,
+      description: `Escrow order ${order.orderNumber}`,
+    },
+  });
+}
+
+/**
+ * T5 ACCEPTED -> PAID di dalam transaksi, aktor SYSTEM. Slot pekerja jadi pasti
+ * karena statusnya PAID (D43). `paymentId` null untuk simulate: baris PENDING
+ * mana pun, atau baris baru.
+ */
+async function settlePaid(tx: Tx, afterCommit: AfterCommit, orderId: string, paymentId: string | null, details: PaymentDetails) {
+  await transitionOrder(tx, {
+    orderId,
+    afterCommit,
+    toStatus: 'PAID',
+    actor: 'SYSTEM',
+    guard: async (tx) => {
+      if (await tx.payment.count({ where: { orderId, status: 'PAID' } })) {
+        throw new AppError('ORDER_ALREADY_PAID', 'Order sudah dibayar');
+      }
+    },
+    effects: async (tx, order) => {
+      const paid = paidData(details, order.totalAmount);
+      const target = paymentId ?? (await tx.payment.findFirst({ where: { orderId, status: 'PENDING' }, select: { id: true } }))?.id;
+      if (target) await tx.payment.update({ where: { id: target }, data: paid });
+      else await tx.payment.create({ data: { orderId, xenditExternalId: `PAY-${randomUUID()}`, amount: order.totalAmount, ...paid } });
+      await holdEscrow(tx, order);
+
+      const parties = await tx.order.findUniqueOrThrow({
+        where: { id: orderId },
+        select: { clientId: true, providerProfile: { select: { userId: true } }, assignedWorker: { select: { userId: true } } },
+      });
+      const emails = await notifyUsers(
+        tx,
+        [parties.clientId, parties.providerProfile.userId, parties.assignedWorker?.userId],
+        order,
+        'Pembayaran berhasil',
+        'Pembayaran order sudah diterima dan jadwal pekerja terkunci.',
+      );
+      afterCommit(() => void dispatchEmails(emails));
+    },
+  });
+}
+
+/** T5 untuk simulate-payment (D101 no. 4). Webhook memakai `settlePaid` yang sama lewat `applyInvoiceEvent`. */
+export async function confirmPayment(orderId: string, details: PaymentDetails = {}): Promise<void> {
+  await withOrderTransaction((tx, afterCommit) => settlePaid(tx, afterCommit, orderId, null, details));
+}
+
+export interface InvoiceOutcome {
+  status: 'PROCESSED' | 'IGNORED' | 'FAILED';
+  message?: string;
+}
+
+/** Awalan pesan event FAILED yang hasilnya akan selalu sama, jadi tidak diulang cron (D120, D125, usulan D126). */
+export const NO_RETRY_MARKERS = ['AMOUNT_MISMATCH', 'DOUBLE_PAYMENT'] as const;
+
+/**
+ * Transaksi 2 webhook invoice (PRD 4.4 langkah 5). Hasil bisnis dikembalikan,
+ * bukan dilempar, supaya catatan seperti `paid_amount` D120 ikut ter-commit.
+ */
+export async function applyInvoiceEvent(tx: Tx, afterCommit: AfterCommit, event: InvoiceCallback): Promise<InvoiceOutcome> {
+  if (event.status === 'EXPIRED') {
+    // D122: hanya invoice yang cocok dan masih PENDING. Order tidak disentuh, T6 tetap tugas cron.
+    const { count } = await tx.payment.updateMany({ where: { xenditInvoiceId: event.id, status: 'PENDING' }, data: { status: 'EXPIRED' } });
+    return count === 1 ? { status: 'PROCESSED' } : { status: 'IGNORED', message: 'Tidak ada payment PENDING dengan invoice ini (D122)' };
+  }
+  // Usulan D127: SETTLED lewat jalur yang sama dengan PAID.
+  if (event.status !== 'PAID' && event.status !== 'SETTLED') {
+    return { status: 'IGNORED', message: `Status invoice ${event.status} tidak diproses` };
+  }
+
+  // D125: invoice id dulu, lalu external_id untuk invoice yatim.
+  const byInvoice = await tx.payment.findUnique({ where: { xenditInvoiceId: event.id }, select: { id: true, orderId: true } });
+  const found = byInvoice ?? (await tx.payment.findUnique({ where: { xenditExternalId: event.external_id }, select: { id: true, orderId: true } }));
+  const log = { invoice_id: event.id, order_id: found?.orderId, payment_id: found?.id };
+  if (!found) {
+    logger.warn(log, 'Webhook invoice dengan external_id tidak dikenal (D125 no. 3)');
+    return { status: 'IGNORED', message: 'external_id tidak dikenal (D125 no. 3)' };
+  }
+
+  // Order dulu baru payment, urutan kunci yang sama dengan T4, T6, dan T7. Payment ikut
+  // dikunci: `issueInvoice` tidak memegang kunci order, dan tanpa ini invoice yang ia isi di
+  // sela baca dan tulis D125 no. 1 akan tertimpa tanpa di-expire.
+  const order = await lockOrder(tx, found.orderId);
+  await tx.$queryRaw`SELECT id FROM payments WHERE id = ${found.id}::uuid FOR UPDATE`;
+  const payment = await tx.payment.findUniqueOrThrow({ where: { id: found.id } });
+
+  // Urutan ini wajib: SETTLED setelah PAID untuk invoice yang sama bukan bayar dobel.
+  if (byInvoice && payment.status === 'PAID') {
+    return { status: 'IGNORED', message: 'Pembayaran invoice ini sudah tercatat' };
+  }
+  if (await tx.payment.count({ where: { orderId: order.id, status: 'PAID' } })) {
+    logger.error(log, 'Bayar dobel: order sudah punya payment PAID, kasus refund H99 (D125 no. 2, usulan D126)');
+    return { status: 'FAILED', message: `DOUBLE_PAYMENT: order sudah punya payment PAID, invoice ${event.id} perlu di-refund (H99)` };
+  }
+
+  if (!byInvoice) {
+    // D125 no. 1: baris pindah ke invoice yang terbukti dibayar, invoice lama dimatikan.
+    await tx.payment.update({ where: { id: payment.id }, data: { xenditInvoiceId: event.id } });
+    const old = payment.xenditInvoiceId;
+    if (old) afterCommit(() => paymentGateway.expireInvoice(old));
+  }
+
+  // D120, H12: dibandingkan sebagai angka, 150000 sama dengan 150000.00.
+  const paidAmount = event.paid_amount === undefined ? null : new Prisma.Decimal(event.paid_amount);
+  if (!paidAmount?.equals(payment.amount)) {
+    if (paidAmount) await tx.payment.update({ where: { id: payment.id }, data: { paidAmount } });
+    logger.error({ ...log, paid_amount: event.paid_amount ?? null, amount: payment.amount.toString() }, 'Nominal dibayar berbeda dengan tagihan, diserahkan ke admin (D120)');
+    return { status: 'FAILED', message: `AMOUNT_MISMATCH: dibayar ${event.paid_amount ?? 'kosong'}, ditagih ${payment.amount.toString()} (D120)` };
+  }
+
+  const details: PaymentDetails = {
+    paidAmount,
+    ...(event.payment_method === undefined ? {} : { paymentMethod: event.payment_method }),
+    ...(event.payment_channel === undefined ? {} : { paymentChannel: event.payment_channel }),
+    ...(event.paid_at === undefined ? {} : { paidAt: new Date(event.paid_at) }),
+  };
+  if (order.status !== 'ACCEPTED') {
+    // D119: uangnya sudah masuk, dicatat jujur walaupun payment sudah EXPIRED oleh T6.
+    await tx.payment.update({ where: { id: payment.id }, data: paidData(details, payment.amount) });
+    logger.error({ ...log, order_status: order.status }, 'Pembayaran masuk untuk order yang tidak lagi ACCEPTED, kasus refund H99 (D119)');
+    return { status: 'PROCESSED', message: `Pembayaran telat, order ${order.status} (D119, H99)` };
+  }
+  await settlePaid(tx, afterCommit, order.id, payment.id, details);
+  return { status: 'PROCESSED' };
 }
 
 /** POST /dev/orders/:id/simulate-payment (D101 no. 4), hanya client order itu. */

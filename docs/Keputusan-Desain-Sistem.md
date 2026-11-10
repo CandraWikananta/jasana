@@ -4,9 +4,9 @@
 **Nama sistem:** Jasana
 **Penyusun:** I Nyoman Gede Candra Wikananta (2305551065)
 **Bidang Keahlian:** Sistem Informasi, Teknologi Informasi, Universitas Udayana
-**Versi:** 2.19
-**Terakhir diperbarui:** 10 November 2026 (versi 2.19)
-**Tahap saat ini:** Implementasi backend. Fase 0 sampai Fase 6 selesai, Fase 7 berjalan (sesi 7a selesai)
+**Versi:** 2.21
+**Terakhir diperbarui:** 10 November 2026 (versi 2.21)
+**Tahap saat ini:** Implementasi backend. Fase 0 sampai Fase 6 selesai, Fase 7 berjalan (sesi 7a dan 7b selesai)
 
 ---
 
@@ -37,7 +37,22 @@
 | Hasil audit hutang teknis (D117 sampai D118) | 2 | 0 |
 | Webhook pembayaran (D119 sampai D122) | 4 | 0 |
 | Endpoint dan invoice pembayaran (D123 sampai D124) | 2 | 0 |
+| Invoice yatim (D125) | 1 | 0 |
+| Webhook invoice (D126 sampai D128) | 3 | 0 |
 | Keputusan terbuka tanpa nomor D (Bagian 7) | | 0 |
+
+**Perubahan pada versi 2.21:**
+
+1. Definisi bayar dobel diperluas ke payment PAID di baris mana pun, dengan urutan pemeriksaan yang mencegah salah tanda (D126)
+2. Status SETTLED diproses seperti PAID (D127)
+3. Galat sebelum kunci event dibalas 5xx supaya Xendit mengirim ulang (D128)
+4. Catatan implementasi webhook dan urutan kunci di jalur uang
+5. H10 sampai H13 ditutup. Tanpa perubahan skema
+
+**Perubahan pada versi 2.20:**
+
+1. Perlakuan webhook PAID untuk invoice yatim dan pembayaran dobel (D125)
+2. H99 diperluas ke pembayaran dobel. Tanpa perubahan skema
 
 **Perubahan pada versi 2.19:**
 
@@ -186,7 +201,7 @@
 
 | Artefak | Versi | Keterangan |
 |---|---|---|
-| `PRD-Backend.md` | 2.13 | Sumber snapshot durasi di langkah pembuatan order (D100), Bagian 10 tanpa pertanyaan terbuka, kriteria milestone Fase 6 sampai 8, endpoint simulasi pembayaran dan env `PAYMENT_GATEWAY` (D101), endpoint `decline-offer` dan jumlah tabel (D102), status milestone Fase 0 sampai 5 selesai |
+| `PRD-Backend.md` | 2.15 | Sumber snapshot durasi di langkah pembuatan order (D100), Bagian 10 tanpa pertanyaan terbuka, kriteria milestone Fase 6 sampai 8, endpoint simulasi pembayaran dan env `PAYMENT_GATEWAY` (D101), endpoint `decline-offer` dan jumlah tabel (D102), status milestone Fase 0 sampai 5 selesai |
 | `CLAUDE.md` | | Rujukan D1 sampai D101, jebakan nomor 7 menyebut `PaymentGateway`, jebakan nomor 13 menyebut durasi opsi |
 | `skema-database-final.dbml`, `schema.prisma` | 2.12 | Tabel `order_offers` beserta relasi baliknya (D102). `docs/schema.prisma` sekaligus disamakan dengan kode, termasuk `idx_provider_base_geo` dari Fase 5 |
 | `Panduan-Struktur-Database.md` | 2.9 | **Belum disinkronkan**, penjelasan tabel `order_offers` menyusul |
@@ -1209,6 +1224,32 @@ Keduanya muncul di sesi 7a dan sudah diterapkan di kode. Tidak ada perubahan ske
 - Invoice Rp10.000 dengan durasi 10 menit berhasil dibuat dan di-expire. Batas minimum nominal dan durasi Xendit tidak menjadi masalah untuk rentang harga di Lampiran B
 - **Xendit menerima `external_id` ganda dan memberi invoice id yang berbeda.** Akibatnya, setelah T1 timeout bisa ada dua invoice hidup untuk satu payment. Webhook PAID di sesi 7b wajib dicocokkan lewat `xendit_invoice_id`, bukan `external_id`. Perlakuan untuk invoice yatim yang ternyata dibayar diputuskan di awal sesi 7b
 
+## 4O. Keputusan Versi 2.20 (D125)
+
+Diputuskan sebelum sesi 7b, berdasarkan hasil uji sandbox di Bagian 4N. Tidak ada perubahan skema.
+
+| # | Keputusan | Alasan |
+|---|---|---|
+| D125 | **Webhook PAID mencari payment lewat `xendit_invoice_id` lebih dulu, lalu lewat `external_id` kalau tidak ketemu.** Yang ketemu lewat `external_id` adalah invoice yatim, yaitu invoice yang dibuat Xendit saat T1 timeout tapi tidak tercatat di baris payment. (1) Kalau payment-nya belum PAID: baris payment dipindahkan ke invoice yang dibayar (`xendit_invoice_id` diganti), invoice yang tadinya tercatat di-expire lewat `afterCommit`, lalu diproses seperti PAID biasa, yaitu T5 atau D119, dengan D120 tetap berlaku. (2) Kalau payment-nya sudah PAID (client membayar dua kali): tidak dibuat baris baru, event dicatat dengan penanda bayar dobel, ditulis ke log sebagai error, dan menjadi kasus H99. (3) Kalau `external_id` tidak dikenal sama sekali: event dicatat, tidak ada yang diubah, dan dibalas 200. Satu-satunya pengecualian D124: baris payment boleh berganti invoice, tapi hanya ke invoice yang sudah terbukti dibayar | Uji sandbox membuktikan Xendit menerima `external_id` ganda dan memberi invoice id berbeda, sehingga setelah T1 timeout bisa ada dua invoice hidup untuk satu payment. Client bisa membayar invoice yatim karena Xendit dapat mengirim tautannya ke email client. Skema membatasi pilihannya: `xendit_external_id` bersifat unique sehingga invoice yatim tidak bisa jadi baris baru, dan `uniq_payment_paid_per_order` hanya membolehkan satu payment PAID per order sehingga pembayaran kedua tidak bisa dicatat sebagai PAID. Catatan pembayaran mengikuti uang yang benar-benar masuk |
+
+## 4P. Keputusan Versi 2.21 (D126 sampai D128)
+
+Ketiganya muncul saat menyusun rencana sesi 7b dan sudah diterapkan di kode. Tidak ada perubahan skema.
+
+| # | Keputusan | Alasan |
+|---|---|---|
+| D126 | **Bayar dobel berarti order sudah punya payment PAID di baris mana pun**, baik payment yang ditemukan lewat invoice id maupun lewat jalur invoice yatim. Event dicatat FAILED dengan penanda `DOUBLE_PAYMENT`, tidak diproses ulang, ditulis ke log sebagai error, dan menjadi kasus H99. Pemeriksaan ini dijalankan **setelah** pemeriksaan "invoice yang sama sudah PAID di baris yang sama", yang berakhir IGNORED. Memperluas D125 nomor 2 | Rumusan D125 nomor 2 hanya menangkap "baris yang ditemukan sudah PAID". Ada kasus yang lolos: payment lama di-expire lewat D122, client membayar payment baru, lalu juga membayar invoice yatim milik payment lama. Tanpa perluasan ini, event-nya menabrak `uniq_payment_paid_per_order`, diulang tiga kali oleh cron, lalu berakhir FAILED tanpa penanda, sehingga uang yang masuk dua kali tidak terlihat sebagai kasus refund. Urutan pemeriksaan mencegah SETTLED setelah PAID salah ditandai bayar dobel |
+| D127 | **Webhook invoice berstatus SETTLED diproses lewat jalur yang sama dengan PAID.** Kalau PAID untuk invoice yang sama sudah tercatat, event SETTLED berakhir IGNORED. Status selain PAID, SETTLED, dan EXPIRED dicatat IGNORED | Xendit bisa mengirim SETTLED, dan untuk sebagian metode bisa datang tanpa PAID lebih dulu. Mengabaikannya berisiko kehilangan pembayaran. Jalur PAID sudah idempoten di level payment, jadi aman diproses dua kali |
+| D128 | **Galat sebelum kunci event diambil dibalas 5xx** lewat error handler, supaya Xendit mengirim ulang. Galat yang dimaksud terjadi di transaksi 1 atau saat UPDATE kunci. Setelah kunci diambil, balasannya selalu 200 dan kegagalan ditangani kolom FAILED serta cron (D121). Memperjelas PRD 4.4 langkah 6 | Aturan "selalu balas 200" ditujukan untuk kegagalan bisnis yang sudah tercatat dan bisa dipulihkan cron. Sebelum event tercatat, tidak ada apa pun di basis data yang bisa dipulihkan, sehingga pengiriman ulang dari Xendit adalah satu-satunya jalan. Event yang terkirim dua kali tetap aman karena `event_id` unique |
+
+**Catatan implementasi sesi 7b tanpa nomor D:**
+
+- **T5 hanya punya satu implementasi**, `settlePaid`, yang dipakai webhook dan simulate-payment. Keduanya menulis `ESCROW_HOLD`. Saldo wallet dinaikkan lewat satu UPDATE dengan increment, yang mengunci baris wallet dan mengembalikan saldo sesudahnya untuk kolom `balance_*_after`
+- **Urutan kunci di jalur uang: order, lalu payment, lalu wallet.** Kunci `webhook_events` diambil lewat UPDATE bersyarat yang commit sendiri, jadi tidak dipegang selama transaksi 2. Settlement T18 di sesi 7c wajib mengikuti urutan yang sama
+- **Kasus D119 bisa dicari di log basis data**: event berstatus PROCESSED dengan pesan pembayaran telat di `error_message`
+- **Seluruh jalur PAID dan SETTLED mengunci baris payment dengan `FOR UPDATE` setelah order dikunci.** Tanpa kunci ini, pemindahan invoice yatim (D125 nomor 1) bisa menimpa invoice baru dari jalur renew yang terisi bersamaan tanpa meng-expire-nya. Dibuktikan dengan test balapan yang deterministik dan uji mutasi: tanpa `FOR UPDATE`, test gagal 3 dari 3 kali
+- **Webhook ikut kena batas global 100 request per menit per IP.** Aman di skala penelitian, tapi stress test k6 untuk webhook harus memperhitungkannya (H91)
+
 ---
 
 ## 5. Alur Sistem End-to-End
@@ -1749,15 +1790,15 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 
 ### 8.3 Integrasi Eksternal
 
-- [ ] **H10** Handler webhook pakai dua transaksi terpisah
-- [ ] **H11** Pengambilan lock pakai UPDATE bersyarat atomik, sediakan pemulihan baris PROCESSING yang macet
-- [ ] **H12** Simpan `paid_amount` dari callback terpisah dari `amount` yang ditagih
-- [ ] **H13** Verifikasi header `x-callback-token` pada setiap webhook
+- [x] **H10** **(ditutup di sesi 7b)** Handler webhook pakai dua transaksi terpisah
+- [x] **H11** **(ditutup di sesi 7b)** Pengambilan lock pakai UPDATE bersyarat atomik, sediakan pemulihan baris PROCESSING yang macet
+- [x] **H12** **(ditutup di sesi 7b)** Simpan `paid_amount` dari callback terpisah dari `amount` yang ditagih
+- [x] **H13** **(ditutup di sesi 7b)** Verifikasi header `x-callback-token` pada setiap webhook
 - [ ] **H14** Gemini dipanggil dengan structured output atau function calling
 - [ ] **H19** **Prioritas tinggi setelah D77.** Rate limiting chatbot tiga lapis: per `guest_token`, per alamat IP, dan rem global harian. Tanpa identitas login, endpoint chatbot terbuka untuk siapa saja sedangkan tiap pesan memanggil Gemini yang ada biayanya
 - [ ] **H37** Pengiriman email dilakukan setelah commit, bukan di dalam transaksi **(baru, D58)**. Cron mengirim ulang baris FAILED maksimal tiga kali **(bagian pertama selesai di sesi perapian 10 November 2026: SMTP gagal tidak membatalkan operasi dan baris tercatat FAILED, dijaga test; bagian cron butuh keputusan skema di awal Fase 10, lihat catatan Bagian 4L)**
 - [x] **H96** **(ditutup di sesi 7a: timeout 10 detik di setiap panggilan gateway)** Tugas `afterCommit` dijalankan berurutan sebelum respons dikirim. Saat Xendit dipasang di Fase 7, setiap panggilan `PaymentGateway` wajib punya timeout, supaya Xendit yang lambat tidak menahan respons transisi **(baru, sesi 6b)**
-- [ ] **H99** Pembayaran yang masuk setelah order tidak lagi ACCEPTED (D119) di-refund otomatis lewat Refund API, dikerjakan di Fase 8 bersama refund lainnya. Sampai saat itu, kasusnya tercatat sebagai payment PAID pada order yang sudah mati dan harus terlihat di log **(baru, D119)**
+- [ ] **H99** Pembayaran yang masuk setelah order tidak lagi ACCEPTED (D119) di-refund otomatis lewat Refund API, dikerjakan di Fase 8 bersama refund lainnya. Sampai saat itu, kasusnya tercatat sebagai payment PAID pada order yang sudah mati dan harus terlihat di log. Mencakup juga pembayaran dobel dari invoice yatim (D125), yang tidak bisa dicatat sebagai payment PAID kedua; cara mencatat refund-nya diputuskan di Fase 8 **(baru, D119, diperluas D125)**
 
 ### 8.4 Logika Service Layer yang Tidak Bisa Dijaga Database
 
@@ -1899,6 +1940,8 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 | 2.17 | 9 November 2026 | Dua keputusan dari audit hutang teknis: `TRUST_PROXY` dari env (D117) dan batas `forgot-password` per email (D118). H di 8.1 dan H yang lulus audit dicentang, rumusan H55 diselaraskan, H93 dibuka kembali, catatan desain retry H37. Tanpa perubahan skema |
 | 2.18 | 10 November 2026 | Empat keputusan webhook pembayaran sebelum Fase 7: pembayaran telat (D119), selisih nominal (D120), pemrosesan ulang event FAILED (D121), dan webhook EXPIRED (D122). H99. Pembagian Fase 7 dalam tiga sesi. Tanpa perubahan skema |
 | 2.19 | 10 November 2026 | Dua keputusan dari sesi 7a: aturan endpoint pembayaran (D123) dan satu payment satu invoice (D124). Catatan adapter Xendit dan hasil uji sandbox. H96 ditutup. Tanpa perubahan skema |
+| 2.20 | 10 November 2026 | Perlakuan webhook PAID untuk invoice yatim dan pembayaran dobel (D125). H99 diperluas. Tanpa perubahan skema |
+| 2.21 | 10 November 2026 | Tiga keputusan dari sesi 7b: bayar dobel di baris mana pun (D126), SETTLED seperti PAID (D127), dan 5xx sebelum kunci event (D128). Catatan implementasi webhook dan urutan kunci. H10 sampai H13 ditutup. Tanpa perubahan skema |
 
 ---
 

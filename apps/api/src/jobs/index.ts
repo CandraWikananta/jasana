@@ -9,6 +9,7 @@
 import { schedule } from 'node-cron';
 import { logger } from '../lib/logger';
 import { sweepPaymentDeadlines, sweepResponseDeadlines } from '../modules/orders/order-expiry.service';
+import { recoverWebhookEvents } from '../modules/webhooks/webhooks.service';
 import { cleanOrphanListingPhotos } from './orphan-listing-photos';
 import { sweepStalePresence } from './presence-sweep';
 
@@ -34,5 +35,7 @@ export function startJobs(): void {
   register('payment-deadline-sweep', '* * * * *', sweepPaymentDeadlines);
   // Tiap 2 menit (H40).
   register('presence-sweep', '*/2 * * * *', sweepStalePresence);
+  // Tiap 5 menit (PRD 7.1, D121).
+  register('webhook-recovery', '*/5 * * * *', recoverWebhookEvents);
   logger.info('Cron terdaftar');
 }

@@ -35,6 +35,9 @@ if (!hasTestDatabase) {
 export async function resetDatabase(): Promise<void> {
   await prisma.$transaction([
     prisma.notification.deleteMany(),
+    // wallet_transactions.wallet_id restrict, jadi ledger dihapus sebelum wallet (7b).
+    prisma.walletTransaction.deleteMany(),
+    prisma.webhookEvent.deleteMany(),
     // Order merujuk listing, pekerja, dan user. Fase 5 membuatnya langsung untuk uji in-flight.
     // payments.order_id restrict, jadi dihapus sebelum order (Fase 6).
     prisma.payment.deleteMany(),

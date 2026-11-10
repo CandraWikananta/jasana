@@ -55,6 +55,10 @@ export const STORAGE_TIMEOUT_MS = 15_000;
  */
 export const PAYMENT_GATEWAY_TIMEOUT_MS = 10_000;
 
+/** PRD 7.1, D121: event PROCESSING lebih lama dari ini dianggap macet, FAILED diulang maksimal sekian kali. */
+export const WEBHOOK_STUCK_MINUTES = 5;
+export const WEBHOOK_MAX_RETRIES = 3;
+
 /**
  * Bucket Supabase Storage untuk foto listing (D80).
  *
