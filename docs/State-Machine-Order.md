@@ -2,7 +2,7 @@
 
 **Artefak desain 3 dari 8**
 Platform Jasana, Tugas Akhir I Nyoman Gede Candra Wikananta (2305551065)
-**Versi 2.11**, 9 November 2026
+**Versi 2.12**, 10 November 2026
 
 Dokumen ini mendefinisikan seluruh kondisi yang boleh dialami sebuah order, perpindahan yang diizinkan di antaranya, dan efek samping yang wajib terjadi pada setiap perpindahan.
 
@@ -103,7 +103,7 @@ Kolom Aktor memakai singkatan: **C** client, **O** pemilik provider, **W** peker
 | T2 | `now() < response_deadline_at` | Set `cancelled_at`, `cancelled_by = PROVIDER`; notifikasi client |
 | T3 | `response_deadline_at < now()`, atau seluruh baris `order_offers` order itu sudah terisi `declined_at` (D102) | Notifikasi kedua pihak; untuk `AVAILABLE_NOW` yang lewat deadline, isi `sla_missed_at` untuk **penerima yang belum menolak** dan **matikan toggle `is_available`** mereka (D57, D102). Penerima yang menolak tidak kena catatan. Pekerja yang terkena SLA miss diberi notifikasi bahwa toggle-nya dimatikan (D116) |
 | T4 | Belum ada `payments` berstatus `PAID` | Set `cancelled_at`, `cancelled_by = CLIENT` |
-| T5 | Signature `x-callback-token` valid; `event_id` belum pernah diproses; belum ada `payments` lain berstatus `PAID` untuk order ini | Set `paid_at`; **ledger `ESCROW_HOLD`: `pending += provider_earning`**; kunci slot pekerja jadi **pasti** (D43); notifikasi pemilik, pekerja, dan client |
+| T5 | Signature `x-callback-token` valid; `event_id` belum pernah diproses; belum ada `payments` lain berstatus `PAID` untuk order ini; order masih `ACCEPTED`, kalau tidak, payment dicatat PAID tanpa transisi (D119); `paid_amount` sama dengan `amount` (D120) | Set `paid_at`; **ledger `ESCROW_HOLD`: `pending += provider_earning`**; kunci slot pekerja jadi **pasti** (D43); notifikasi pemilik, pekerja, dan client |
 | T6 | `payment_deadline_at < now()`; tidak ada payment `PAID` | Expire invoice di Xendit; **lepas kunci slot tentatif** pekerja dan seluruh pendampingnya (D43, H26) |
 | T7 | Belum ada payment `PAID` | Set `cancelled_at`, `cancelled_by`; expire invoice; lepas kunci slot |
 | T8 | Ada payment `PAID`; pemanggil adalah `assigned_worker_id`; untuk mode `SCHEDULED`, `now() >= scheduled_at - 60 menit` | Set `started_at`; **bekukan daftar pendamping** (tidak bisa diubah lagi); mulai pembaruan lokasi pekerja via Socket.IO |
@@ -529,6 +529,7 @@ Diagram ASCII di atas hanya untuk orientasi cepat. Gunakan versi Mermaid untuk l
 | Versi | Tanggal | Perubahan |
 |---|---|---|
 | 1.0 | 17 September 2026 | Versi awal. 15 state, 22 transisi, guard dan efek samping, tiga aturan alur uang |
+| 2.12 | 10 November 2026 | Guard T5 ditambah pembayaran telat (D119) dan kesamaan nominal (D120) |
 | 2.11 | 9 November 2026 | Penolakan tawaran ditolak setelah deadline (D115), satu fungsi T3 untuk cron dan penolakan terakhir, dan notifikasi SLA miss pada efek samping T3 (D116) |
 | 2.10 | 9 November 2026 | Guard T10 memakai parameter `geolocation_radius_meters`, guard T16 mengikuti D110 dan D114, dan Bagian 4.3 baru untuk pembaruan kode verifikasi (D111). Bagian pesan dalam order menjadi 4.4 |
 | 2.9 | 8 November 2026 | Kasus silang antar mode di Bagian 3.1 menghitung order Scheduled ACCEPTED dan PAID (D108) |

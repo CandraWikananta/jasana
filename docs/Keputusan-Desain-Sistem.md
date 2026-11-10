@@ -4,8 +4,8 @@
 **Nama sistem:** Jasana
 **Penyusun:** I Nyoman Gede Candra Wikananta (2305551065)
 **Bidang Keahlian:** Sistem Informasi, Teknologi Informasi, Universitas Udayana
-**Versi:** 2.17
-**Terakhir diperbarui:** 9 November 2026 (versi 2.17)
+**Versi:** 2.18
+**Terakhir diperbarui:** 10 November 2026 (versi 2.18)
 **Tahap saat ini:** Implementasi backend. Fase 0 sampai Fase 6 selesai, berikutnya Fase 7 (pembayaran)
 
 ---
@@ -35,7 +35,16 @@
 | Pelaksanaan dan kode verifikasi (D110 sampai D114) | 5 | 0 |
 | Cron deadline (D115 sampai D116) | 2 | 0 |
 | Hasil audit hutang teknis (D117 sampai D118) | 2 | 0 |
+| Webhook pembayaran (D119 sampai D122) | 4 | 0 |
 | Keputusan terbuka tanpa nomor D (Bagian 7) | | 0 |
+
+**Perubahan pada versi 2.18:**
+
+1. Pembayaran yang telat dicatat tanpa menghidupkan kembali order, dan di-refund di Fase 8 (D119, H99)
+2. T5 hanya jalan kalau nominal yang dibayar sama dengan tagihan (D120)
+3. Event webhook FAILED diproses ulang maksimal 3 kali (D121)
+4. Webhook EXPIRED hanya mengubah payment dengan invoice id yang cocok (D122)
+5. Pembagian Fase 7 dalam tiga sesi. Tanpa perubahan skema
 
 **Perubahan pada versi 2.17:**
 
@@ -169,11 +178,11 @@
 
 | Artefak | Versi | Keterangan |
 |---|---|---|
-| `PRD-Backend.md` | 2.10 | Sumber snapshot durasi di langkah pembuatan order (D100), Bagian 10 tanpa pertanyaan terbuka, kriteria milestone Fase 6 sampai 8, endpoint simulasi pembayaran dan env `PAYMENT_GATEWAY` (D101), endpoint `decline-offer` dan jumlah tabel (D102), status milestone Fase 0 sampai 5 selesai |
+| `PRD-Backend.md` | 2.12 | Sumber snapshot durasi di langkah pembuatan order (D100), Bagian 10 tanpa pertanyaan terbuka, kriteria milestone Fase 6 sampai 8, endpoint simulasi pembayaran dan env `PAYMENT_GATEWAY` (D101), endpoint `decline-offer` dan jumlah tabel (D102), status milestone Fase 0 sampai 5 selesai |
 | `CLAUDE.md` | | Rujukan D1 sampai D101, jebakan nomor 7 menyebut `PaymentGateway`, jebakan nomor 13 menyebut durasi opsi |
 | `skema-database-final.dbml`, `schema.prisma` | 2.12 | Tabel `order_offers` beserta relasi baliknya (D102). `docs/schema.prisma` sekaligus disamakan dengan kode, termasuk `idx_provider_base_geo` dari Fase 5 |
 | `Panduan-Struktur-Database.md` | 2.9 | **Belum disinkronkan**, penjelasan tabel `order_offers` menyusul |
-| `State-Machine-Order.md` | 2.11 | T2 hanya pemilik, T3 juga terpicu saat seluruh penerima menolak, guard klaim memeriksa `order_offers` (D102). Contoh `transitionOrder()` di Bagian 8 disamakan dengan implementasi sesi 6b. Kasus silang antar mode menghitung ACCEPTED dan PAID (D108) |
+| `State-Machine-Order.md` | 2.12 | T2 hanya pemilik, T3 juga terpicu saat seluruh penerima menolak, guard klaim memeriksa `order_offers` (D102). Contoh `transitionOrder()` di Bagian 8 disamakan dengan implementasi sesi 6b. Kasus silang antar mode menghitung ACCEPTED dan PAID (D108) |
 | `migration-constraints.sql` | 2.6 | Constraint `order_offers` ditambahkan di sesi 6d (H94) |
 | Kode Fase 0 sampai 5 | | Fase 5 selesai (commit `a3c6cc5`). D100 dan D103 diterapkan di kode katalog pada sesi 6a (357 test lulus). Sesi 6b: `transitionOrder()`, port `PaymentGateway`, dan H89 (427 test lulus). Sesi 6c: order Scheduled sampai PAID, D104 sampai D106 (477 test lulus, Postman Fase 6 lulus). Sesi 6d: Available Now, Socket.IO, dan `order_offers`, D107 sampai D109 (503 test lulus). Sesi 6e: pelaksanaan di lokasi dan kode verifikasi, D110 sampai D114 (526 test lulus). Sesi 6f: cron deadline T3 dan T6, D115 dan D116 (561 test lulus, Postman Fase 6 84 request). **Fase 6 selesai.** Tabel `order_offers` dimigrasikan di sesi 6d (D102) |
 | Usulan ide (Tabel Aktor Sistem) | | Tidak direvisi (A7) |
@@ -1159,6 +1168,19 @@ Keduanya muncul dari audit hutang teknis sebelum Fase 7 (9 November 2026), dan d
 - **H93 dibuka kembali.** Cabang "listing tanpa atribut berdurasi memakai kolom listing" ternyata tidak punya integration test, karena fixture order selalu memakai atribut berdurasi. Satu test yang sama menutup H85 dan H93
 - **Desain retry email H37 belum bisa dibangun dengan skema sekarang.** Tabel `notifications` tidak punya kolom hitungan percobaan, dan isi email non-token tidak disimpan lengkap. Diputuskan di awal Fase 10: kolom `email_attempts` ditambah penyimpanan isi email lengkap, atau render ulang dari `reference_type` dan `reference_id`
 
+## 4M. Keputusan Versi 2.18 (D119 sampai D122)
+
+Diputuskan sebelum Fase 7, untuk empat kasus webhook pembayaran yang tidak diatur dokumen. Tidak ada perubahan skema.
+
+| # | Keputusan | Alasan |
+|---|---|---|
+| D119 | **Pembayaran yang masuk setelah order tidak lagi ACCEPTED** (sudah PAYMENT_EXPIRED atau CANCELLED) dicatat apa adanya: `payments` ditandai PAID beserta `paid_amount` dan `paid_at`. Order tidak ditransisikan, ledger `ESCROW_HOLD` tidak ditulis, dan kasusnya ditandai untuk refund otomatis di Fase 8 (H99) | Uangnya memang sudah masuk, jadi catatan pembayaran harus jujur. Menghidupkan kembali order yang sudah mati akan membongkar slot pekerja yang sudah dilepas dan bisa sudah dipakai order lain. Kasus ini bisa terjadi kalau panggilan expire invoice ke Xendit gagal atau terlambat |
+| D120 | **T5 hanya dijalankan kalau `paid_amount` sama dengan `amount`.** Kalau berbeda, payment tetap PENDING, `paid_amount` tetap disimpan, event dicatat FAILED dengan pesan selisih nominal, dan diserahkan ke admin. Event seperti ini tidak diproses ulang otomatis oleh D121 | Menjaga H12. Pada Invoice API selisih nominal hampir mustahil, tapi kalau terjadi, menerima pembayaran kurang sebagai lunas berarti escrow berisi uang yang tidak ada. Memproses ulang otomatis tidak ada gunanya, karena hasilnya akan sama |
+| D121 | **Cron pemulihan webhook juga memproses ulang event FAILED dari payload yang tersimpan**, maksimal 3 kali lewat kolom `retry_count`, selain mengembalikan event PROCESSING yang macet lebih dari 5 menit ke FAILED. Event yang ditandai tidak boleh diulang, seperti D120, dilewati | Handler selalu membalas 200 (PRD 4.4 langkah 6), jadi Xendit tidak akan mengirim ulang event yang gagal karena error sementara, misalnya koneksi basis data putus sebentar. Tanpa pemrosesan ulang, pembayaran yang sah bisa tidak pernah tercatat |
+| D122 | **Webhook invoice berstatus EXPIRED hanya mengubah payment yang `xendit_invoice_id`-nya cocok, dan hanya kalau masih PENDING.** Order tidak pernah ditransisikan dari webhook ini | T6 tetap tugas cron, sehingga jalur kedaluwarsa order hanya satu. Pencocokan lewat invoice id mencegah callback EXPIRED untuk invoice lama mematikan payment baru, setelah client membuat ulang invoice lewat `POST /orders/:id/payment` (D104) |
+
+**Pembagian Fase 7 dalam tiga sesi:** 7a adapter Xendit, timeout gateway (H96), dan endpoint pembayaran; 7b webhook invoice, T5 lewat webhook dengan `ESCROW_HOLD`, D119 sampai D122, dan cron pemulihan webhook; 7c settlement T18 dengan `ESCROW_RELEASE`, uji rekonsiliasi V1, collection Postman Fase 7, uji end-to-end ke sandbox lewat tunnel, dan penutupan Fase 7.
+
 ---
 
 ## 5. Alur Sistem End-to-End
@@ -1707,6 +1729,7 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 - [ ] **H19** **Prioritas tinggi setelah D77.** Rate limiting chatbot tiga lapis: per `guest_token`, per alamat IP, dan rem global harian. Tanpa identitas login, endpoint chatbot terbuka untuk siapa saja sedangkan tiap pesan memanggil Gemini yang ada biayanya
 - [ ] **H37** Pengiriman email dilakukan setelah commit, bukan di dalam transaksi **(baru, D58)**. Cron mengirim ulang baris FAILED maksimal tiga kali **(bagian pertama selesai di sesi perapian 10 November 2026: SMTP gagal tidak membatalkan operasi dan baris tercatat FAILED, dijaga test; bagian cron butuh keputusan skema di awal Fase 10, lihat catatan Bagian 4L)**
 - [ ] **H96** Tugas `afterCommit` dijalankan berurutan sebelum respons dikirim. Saat Xendit dipasang di Fase 7, setiap panggilan `PaymentGateway` wajib punya timeout, supaya Xendit yang lambat tidak menahan respons transisi **(baru, sesi 6b)**
+- [ ] **H99** Pembayaran yang masuk setelah order tidak lagi ACCEPTED (D119) di-refund otomatis lewat Refund API, dikerjakan di Fase 8 bersama refund lainnya. Sampai saat itu, kasusnya tercatat sebagai payment PAID pada order yang sudah mati dan harus terlihat di log **(baru, D119)**
 
 ### 8.4 Logika Service Layer yang Tidak Bisa Dijaga Database
 
@@ -1846,6 +1869,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 | 2.15 | 9 November 2026 | Lima usulan dari sesi 6e: reset percobaan setelah lockout (D110), kode baru oleh client (D111), relay lokasi tanpa tulis basis data (D112), kode error tiga guard waktu (D113), dan kode kedaluwarsa tidak dihitung sebagai percobaan (D114). Catatan pola catat lalu commit baru tolak, penamaan radius, dan `requireAssignedWorker`. H7 sampai H9 ditutup. Tanpa perubahan skema |
 | 2.16 | 9 November 2026 | Dua usulan dari sesi 6f: penolakan tawaran ditolak setelah deadline (D115) dan notifikasi SLA miss untuk pekerja (D116). Catatan implementasi cron. Fase 6 ditutup dengan seluruh kriteria PRD Bagian 9 terpenuhi. H95 ditutup penuh, H4, H46, dan H49 dicentang. Tanpa perubahan skema |
 | 2.17 | 9 November 2026 | Dua keputusan dari audit hutang teknis: `TRUST_PROXY` dari env (D117) dan batas `forgot-password` per email (D118). H di 8.1 dan H yang lulus audit dicentang, rumusan H55 diselaraskan, H93 dibuka kembali, catatan desain retry H37. Tanpa perubahan skema |
+| 2.18 | 10 November 2026 | Empat keputusan webhook pembayaran sebelum Fase 7: pembayaran telat (D119), selisih nominal (D120), pemrosesan ulang event FAILED (D121), dan webhook EXPIRED (D122). H99. Pembagian Fase 7 dalam tiga sesi. Tanpa perubahan skema |
 
 ---
 

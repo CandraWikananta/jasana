@@ -4,16 +4,16 @@
 
 | | |
 |---|---|
-| Versi | 2.11 |
+| Versi | 2.12 |
 | Penyusun | I Nyoman Gede Candra Wikananta (2305551065) |
 | Program Studi | Teknologi Informasi, Universitas Udayana |
 | Bidang Keahlian | Sistem Informasi |
 | Pembimbing 1 | Dr. Ir. Ni Kadek Ayu Wirdiani, S.T., M.T., IPU |
 | Pembimbing 2 | Dr. Ir. Anak Agung Kompiang Oka Sudana, S.Kom., M.T., IPM |
-| Tanggal | 9 November 2026 |
+| Tanggal | 10 November 2026 |
 | Cakupan dokumen | **Backend saja** (Express.js REST API, basis data, integrasi eksternal, cron). Frontend dan UI/UX di luar cakupan dokumen ini |
 
-**Dokumen rujukan:** `Keputusan-Desain-Sistem.md` (register keputusan D1 sampai D118, versi 2.17), `State-Machine-Order.md` (artefak desain 3), `skema-database-final.dbml` (35 tabel, 35 enum), `schema.prisma`, `migration-constraints.sql`, `Panduan-Struktur-Database.md`.
+**Dokumen rujukan:** `Keputusan-Desain-Sistem.md` (register keputusan D1 sampai D122, versi 2.18), `State-Machine-Order.md` (artefak desain 3), `skema-database-final.dbml` (35 tabel, 35 enum), `schema.prisma`, `migration-constraints.sql`, `Panduan-Struktur-Database.md`.
 
 **Catatan versi.** Dokumen ini menggantikan PRD versi 1.x sepenuhnya, bukan merevisinya. Implementasi dimulai ulang dari nol mengikuti milestone di Bagian 9. Perubahan terbesar sejak versi 1.x adalah masuknya entitas tenaga kerja (D31 sampai D53) atas arahan Pembimbing 1, yang memindahkan pelaksanaan order dari akun provider ke pekerja.
 
@@ -979,6 +979,10 @@ dilempar setelah commit, bukan dilempar di dalam transaksi.
    balas 200 tanpa melakukan apa-apa
 5. TRANSAKSI 2: proses bisnisnya, transisi ACCEPTED -> PAID,
    tulis ledger ESCROW_HOLD
+   Status PAID: T5 hanya kalau order masih ACCEPTED (D119) dan
+   paid_amount sama dengan amount (D120). Status EXPIRED: hanya
+   payment dengan xendit_invoice_id yang cocok dan masih PENDING,
+   order tidak ditransisikan (D122)
 6. Balas 200 apapun hasilnya, supaya Xendit tidak retry
    untuk kegagalan yang bukan salah jaringan
 ```
@@ -1281,7 +1285,7 @@ Ringkasan aturan yang tidak boleh dilanggar implementasi mana pun:
 | Sweep payment deadline | tiap 1 menit | Order `ACCEPTED` yang `payment_deadline_at` lewat menjadi `PAYMENT_EXPIRED`, invoice di-expire di Xendit, **kunci slot tentatif pekerja dan pendamping dilepas** |
 | Sweep settlement | tiap 5 menit | Order `COMPLETED` yang `settlement_due_at` lewat dan tidak punya dispute `OPEN` atau `UNDER_REVIEW` menjadi `SETTLED` beserta `ESCROW_RELEASE`. Jalur pesan jadi read-only |
 | Sweep presence pekerja | tiap 2 menit | Pekerja yang koneksi Socket.IO-nya putus lebih dari `worker_presence_timeout_minutes` dimatikan `is_available`-nya, supaya tampilan dashboard jujur |
-| Pemulihan webhook macet | tiap 5 menit | `webhook_events` berstatus `PROCESSING` dengan `locked_at` lebih dari 5 menit dikembalikan ke `FAILED` supaya bisa diproses ulang |
+| Pemulihan webhook macet | tiap 5 menit | `webhook_events` berstatus `PROCESSING` dengan `locked_at` lebih dari 5 menit dikembalikan ke `FAILED`, lalu event `FAILED` diproses ulang dari payload tersimpan maksimal 3 kali lewat `retry_count` (D121). Event selisih nominal (D120) tidak diulang |
 | Percobaan ulang email | tiap 5 menit | `notifications` dengan `email_status = FAILED` dan percobaan kurang dari `email_retry_max_attempts` dikirim ulang |
 | Pembersihan sesi tamu | tiap 1 jam | `chat_sessions` tamu yang `expires_at` lewat ditandai `ENDED`. Datanya tidak dihapus, karena jadi bahan pengukuran Bab IV |
 | Pembersihan token kedaluwarsa | tiap 1 hari | `verification_tokens` dan `refresh_tokens` yang sudah lewat masa berlaku dihapus |
@@ -1507,3 +1511,4 @@ Tidak menyangkut aturan bisnis, dibentuk oleh middleware bersama pada Fase 0.
 | 2.9 | 9 November 2026 | Sinkron dengan register keputusan versi 2.15. Langkah verify di Bagian 4.4 mengikuti D110 dan D114, endpoint `POST /orders/:id/verification-code` (D111), relay lokasi (D112), dan nama parameter radius check-in `geolocation_radius_meters` |
 | 2.10 | 9 November 2026 | Sinkron dengan register keputusan versi 2.16. Fase 0 sampai 6 selesai. Guard deadline pada `decline-offer` (D115), notifikasi SLA miss (D116) di cron, dan dua endpoint pemicu cron di router dev |
 | 2.11 | 9 November 2026 | Sinkron dengan register keputusan versi 2.17. Batas `forgot-password` per email (D118) di Bagian 5.5 dan env `TRUST_PROXY` (D117) di Bagian 5.6 |
+| 2.12 | 10 November 2026 | Sinkron dengan register keputusan versi 2.18. Perilaku webhook invoice untuk pembayaran telat, selisih nominal, dan EXPIRED (D119, D120, D122), serta pemrosesan ulang event FAILED di cron pemulihan (D121) |
