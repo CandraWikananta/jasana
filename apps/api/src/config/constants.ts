@@ -49,6 +49,13 @@ export const KYC_SIGNED_URL_TTL_SECONDS = 10 * 60;
 export const STORAGE_TIMEOUT_MS = 15_000;
 
 /**
+ * Batas satu panggilan PaymentGateway (H96). Tugas afterCommit T1 ditunggu
+ * sebelum respons accept dikirim, jadi Xendit yang lambat tidak boleh
+ * menahannya lebih lama dari ini.
+ */
+export const PAYMENT_GATEWAY_TIMEOUT_MS = 10_000;
+
+/**
  * Bucket Supabase Storage untuk foto listing (D80).
  *
  * PUBLIK, dan diunggah langsung oleh frontend lewat signed URL, jadi API

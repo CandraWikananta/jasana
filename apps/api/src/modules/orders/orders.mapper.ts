@@ -6,20 +6,28 @@
 import type { OrderStatusHistory, Prisma } from '@jasana/database';
 import type { PricedLine } from './order-pricing';
 
+export const PAYMENT_SELECT = { status: true, amount: true, invoiceUrl: true, expiresAt: true, paidAt: true } as const satisfies Prisma.PaymentSelect;
+
 export const ORDER_INCLUDE = {
   providerProfile: { select: { id: true, businessName: true } },
   crew: { select: { worker: { select: { id: true, displayName: true } } }, orderBy: { createdAt: 'asc' } },
-  payments: {
-    select: { status: true, amount: true, invoiceUrl: true, expiresAt: true, paidAt: true },
-    orderBy: { createdAt: 'desc' },
-    take: 1,
-  },
+  payments: { select: PAYMENT_SELECT, orderBy: { createdAt: 'desc' }, take: 1 },
 } as const satisfies Prisma.OrderInclude;
 
 export type OrderRow = Prisma.OrderGetPayload<{ include: typeof ORDER_INCLUDE }>;
 
 const iso = (date: Date | null) => date?.toISOString() ?? null;
 const rupiah = (value: Prisma.Decimal) => value.toNumber();
+
+export function toPaymentDto(payment: Prisma.PaymentGetPayload<{ select: typeof PAYMENT_SELECT }>) {
+  return {
+    status: payment.status,
+    amount: rupiah(payment.amount),
+    invoice_url: payment.invoiceUrl,
+    expires_at: iso(payment.expiresAt),
+    paid_at: iso(payment.paidAt),
+  };
+}
 
 export function toOrderDto(row: OrderRow) {
   const payment = row.payments[0];
@@ -54,15 +62,7 @@ export function toOrderDto(row: OrderRow) {
     },
     response_deadline_at: iso(row.responseDeadlineAt),
     payment_deadline_at: iso(row.paymentDeadlineAt),
-    payment: payment
-      ? {
-          status: payment.status,
-          amount: rupiah(payment.amount),
-          invoice_url: payment.invoiceUrl,
-          expires_at: iso(payment.expiresAt),
-          paid_at: iso(payment.paidAt),
-        }
-      : null,
+    payment: payment ? toPaymentDto(payment) : null,
     accepted_at: iso(row.acceptedAt),
     paid_at: iso(row.paidAt),
     started_at: iso(row.startedAt),

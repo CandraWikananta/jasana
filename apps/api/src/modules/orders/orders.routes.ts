@@ -4,6 +4,7 @@
  *
  *   /orders                     C, buat dan daftar sesuai peran
  *   /orders/:id/depart ... verify  lima transisi pelaksanaan, + requireAssignedWorker (6e)
+ *   /orders/:id/payment         C, invoice aktif dan pembuatan ulang (D104, 7a)
  *   /dev/orders/:id/simulate-payment
  *   /dev/workers/presence       hanya terdaftar saat PAYMENT_GATEWAY=fake (D101, H92)
  *   /dev/orders/:id/deadline, /dev/jobs/:job/run   pemicu sweep T3 dan T6 untuk Postman (6f)
@@ -57,6 +58,8 @@ export function createOrdersRouter(): Router {
   router.post('/:id/verify', ...assignee, validate({ body: verifySchema }), controller.verify);
   router.get('/:id/verification-code', ...participant(), controller.verificationCode);
   router.post('/:id/verification-code', ...participant(), controller.renewVerificationCode);
+  router.get('/:id/payment', ...participant(), controller.payment);
+  router.post('/:id/payment', ...participant(), controller.renewPayment);
 
   return router;
 }

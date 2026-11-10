@@ -9,7 +9,7 @@ import { currentOrderAccess } from '../../middlewares/rbac';
 import * as actions from './order-actions.service';
 import * as execution from './order-execution.service';
 import * as expiry from './order-expiry.service';
-import { simulatePayment as simulate } from './order-payment.service';
+import { getPayment, renewInvoice, simulatePayment as simulate } from './order-payment.service';
 import { presence } from '../../realtime/presence';
 import type { ListOrdersQuery } from './orders.schema';
 import * as service from './orders.service';
@@ -82,6 +82,14 @@ export const verificationCode = asyncHandler(async (req, res) => {
 
 export const renewVerificationCode = asyncHandler(async (req, res) => {
   sendOk(res, await execution.renewVerificationCode(currentOrderAccess(req)));
+});
+
+export const payment = asyncHandler(async (req, res) => {
+  sendOk(res, await getPayment(currentOrderAccess(req)));
+});
+
+export const renewPayment = asyncHandler(async (req, res) => {
+  sendOk(res, await renewInvoice(currentOrderAccess(req)));
 });
 
 /** D101 no. 4. Hanya client order itu, memanggil fungsi yang sama dengan webhook Fase 7. */

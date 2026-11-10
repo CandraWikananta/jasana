@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| Versi | 2.12 |
+| Versi | 2.13 |
 | Penyusun | I Nyoman Gede Candra Wikananta (2305551065) |
 | Program Studi | Teknologi Informasi, Universitas Udayana |
 | Bidang Keahlian | Sistem Informasi |
@@ -13,7 +13,7 @@
 | Tanggal | 10 November 2026 |
 | Cakupan dokumen | **Backend saja** (Express.js REST API, basis data, integrasi eksternal, cron). Frontend dan UI/UX di luar cakupan dokumen ini |
 
-**Dokumen rujukan:** `Keputusan-Desain-Sistem.md` (register keputusan D1 sampai D122, versi 2.18), `State-Machine-Order.md` (artefak desain 3), `skema-database-final.dbml` (35 tabel, 35 enum), `schema.prisma`, `migration-constraints.sql`, `Panduan-Struktur-Database.md`.
+**Dokumen rujukan:** `Keputusan-Desain-Sistem.md` (register keputusan D1 sampai D124, versi 2.19), `State-Machine-Order.md` (artefak desain 3), `skema-database-final.dbml` (35 tabel, 35 enum), `schema.prisma`, `migration-constraints.sql`, `Panduan-Struktur-Database.md`.
 
 **Catatan versi.** Dokumen ini menggantikan PRD versi 1.x sepenuhnya, bukan merevisinya. Implementasi dimulai ulang dari nol mengikuti milestone di Bagian 9. Perubahan terbesar sejak versi 1.x adalah masuknya entitas tenaga kerja (D31 sampai D53) atas arahan Pembimbing 1, yang memindahkan pelaksanaan order dari akun provider ke pekerja.
 
@@ -779,8 +779,8 @@ Query parameter `GET /listings`:
 
 | Method | Path | Akses | Fungsi |
 |---|---|---|---|
-| GET | `/orders/:id/payment` | C | Invoice aktif beserta `invoice_url` |
-| POST | `/orders/:id/payment` | C | Buat ulang invoice bila yang lama kedaluwarsa dan order masih `ACCEPTED` |
+| GET | `/orders/:id/payment` | C | Payment terbaru beserta `invoice_url`, apa pun statusnya. 404 kalau order belum punya payment (D123) |
+| POST | `/orders/:id/payment` | C | Buat invoice untuk payment PENDING yang belum punya invoice, atau payment PENDING baru kalau tidak ada. Invoice yang masih berlaku dikembalikan apa adanya. Hanya saat `ACCEPTED` dan sebelum `payment_deadline_at` (D123, D124) |
 | POST | `/webhooks/xendit/invoice` | S | Callback status pembayaran |
 | POST | `/webhooks/xendit/payout` | S | Callback status pencairan |
 | POST | `/webhooks/xendit/refund` | S | Callback status refund |
@@ -1512,3 +1512,4 @@ Tidak menyangkut aturan bisnis, dibentuk oleh middleware bersama pada Fase 0.
 | 2.10 | 9 November 2026 | Sinkron dengan register keputusan versi 2.16. Fase 0 sampai 6 selesai. Guard deadline pada `decline-offer` (D115), notifikasi SLA miss (D116) di cron, dan dua endpoint pemicu cron di router dev |
 | 2.11 | 9 November 2026 | Sinkron dengan register keputusan versi 2.17. Batas `forgot-password` per email (D118) di Bagian 5.5 dan env `TRUST_PROXY` (D117) di Bagian 5.6 |
 | 2.12 | 10 November 2026 | Sinkron dengan register keputusan versi 2.18. Perilaku webhook invoice untuk pembayaran telat, selisih nominal, dan EXPIRED (D119, D120, D122), serta pemrosesan ulang event FAILED di cron pemulihan (D121) |
+| 2.13 | 10 November 2026 | Sinkron dengan register keputusan versi 2.19. Aturan `GET` dan `POST /orders/:id/payment` (D123, D124) |
