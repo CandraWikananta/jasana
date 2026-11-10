@@ -176,3 +176,29 @@ export async function paidScheduledOrder(
   if (paid.status !== 200) throw new Error(`pay ${paid.status}: ${JSON.stringify(paid.body)}`);
   return { id };
 }
+
+/** Order berstatus COMPLETED lewat API (T8 sampai T16 oleh penanggung jawab). */
+export async function completedOrder(
+  app: Parameters<typeof request>[0],
+  w: World,
+  options: { assigned?: Worker; scheduledAt?: Date } = {},
+): Promise<{ id: string }> {
+  const { id } = await paidScheduledOrder(app, w, options);
+  await runExecution(app, w, id, options.assigned ?? w.w2);
+  return { id };
+}
+
+/** Depart sampai verify untuk order yang sudah PAID. */
+export async function runExecution(app: Parameters<typeof request>[0], w: World, id: string, assignee: Worker): Promise<void> {
+  const step = async (action: string, body: object = {}) => {
+    const res = await request(app).post(`/api/v1/orders/${id}/${action}`).set(...auth(assignee)).send(body);
+    if (res.status !== 200) throw new Error(`${action} ${res.status}: ${JSON.stringify(res.body)}`);
+  };
+  await step('depart');
+  await step('check-in', { latitude: RENON.lat, longitude: RENON.lng });
+  await step('start');
+  await step('finish');
+  const code = await request(app).get(`/api/v1/orders/${id}/verification-code`).set(...auth(w.client));
+  if (code.status !== 200) throw new Error(`code ${code.status}: ${JSON.stringify(code.body)}`);
+  await step('verify', { code: code.body.data.code });
+}

@@ -4,13 +4,13 @@
 
 | | |
 |---|---|
-| Versi | 2.15 |
+| Versi | 2.16 |
 | Penyusun | I Nyoman Gede Candra Wikananta (2305551065) |
 | Program Studi | Teknologi Informasi, Universitas Udayana |
 | Bidang Keahlian | Sistem Informasi |
 | Pembimbing 1 | Dr. Ir. Ni Kadek Ayu Wirdiani, S.T., M.T., IPU |
 | Pembimbing 2 | Dr. Ir. Anak Agung Kompiang Oka Sudana, S.Kom., M.T., IPM |
-| Tanggal | 10 November 2026 |
+| Tanggal | 11 November 2026 |
 | Cakupan dokumen | **Backend saja** (Express.js REST API, basis data, integrasi eksternal, cron). Frontend dan UI/UX di luar cakupan dokumen ini |
 
 **Dokumen rujukan:** `Keputusan-Desain-Sistem.md` (register keputusan D1 sampai D128, versi 2.21), `State-Machine-Order.md` (artefak desain 3), `skema-database-final.dbml` (35 tabel, 35 enum), `schema.prisma`, `migration-constraints.sql`, `Panduan-Struktur-Database.md`.
@@ -769,8 +769,8 @@ Query parameter `GET /listings`:
 | POST | `/orders/:id/verify` | W | T16 `-> COMPLETED` |
 | POST | `/dev/orders/:id/simulate-payment` | C | T5 lewat gateway palsu. Hanya terdaftar saat `PAYMENT_GATEWAY=fake`, tidak pernah di produksi (D101) |
 | POST | `/dev/workers/presence` | auth | Menandai pekerja online untuk pengujian (H92). Hanya terdaftar saat `PAYMENT_GATEWAY=fake`, kedaluwarsa per `worker_presence_timeout_minutes` |
-| PATCH | `/dev/orders/:id/deadline` | C/PR/W | Memundurkan `response_deadline_at` atau `payment_deadline_at` untuk pengujian cron. Hanya saat `PAYMENT_GATEWAY=fake` |
-| POST | `/dev/jobs/:job/run` | auth | Menjalankan sweep `response-deadline` atau `payment-deadline` yang sama dengan cron. Hanya saat `PAYMENT_GATEWAY=fake` |
+| PATCH | `/dev/orders/:id/deadline` | C/PR/W | Memundurkan `response_deadline_at`, `payment_deadline_at`, atau `settlement_due_at` (order COMPLETED) untuk pengujian cron. Hanya saat `PAYMENT_GATEWAY=fake` |
+| POST | `/dev/jobs/:job/run` | auth | Menjalankan job `response-deadline`, `payment-deadline`, `settlement`, atau `webhook-recovery`, fungsi yang sama dengan cron. Hanya saat `PAYMENT_GATEWAY=fake` |
 | GET | `/orders/:id/messages` | C/PR/W/A | Riwayat pesan, terpaginasi. Admin membaca saja |
 | POST | `/orders/:id/messages` | C/PR/W | Kirim pesan, hanya selama masa aktif |
 | PATCH | `/orders/:id/messages/read` | C/PR/W | Tandai pesan sisi lawan sudah dibaca |
@@ -789,8 +789,8 @@ Query parameter `GET /listings`:
 
 | Method | Path | Akses | Fungsi |
 |---|---|---|---|
-| GET | `/providers/me/wallet` | PR | Saldo available dan pending |
-| GET | `/providers/me/wallet/transactions` | PR | Riwayat ledger, terpaginasi |
+| GET | `/providers/me/wallet` | PR | Saldo available dan pending. Tersedia sejak Fase 7 (D129) |
+| GET | `/providers/me/wallet/transactions` | PR | Riwayat ledger, terpaginasi, terbaru dulu. Tersedia sejak Fase 7 (D129) |
 | POST | `/providers/me/withdrawals` | PR | Ajukan pencairan, saldo langsung didebit |
 | GET | `/providers/me/withdrawals` | PR | Riwayat pengajuan |
 | GET | `/admin/withdrawals` | A | Antrean pengajuan |
@@ -1391,7 +1391,7 @@ Data seed harus menyertakan kombinasi yang memungkinkan skenario di atas dijalan
 
 ## 9. Milestone Implementasi
 
-Status per 9 November 2026: **Fase 0 sampai Fase 6 selesai**, sisanya belum dikerjakan. Urutan mengikuti dependency tree, bukan urutan tabel jadwal pada usulan ide.
+Status per 11 November 2026: **Fase 0 sampai Fase 7 selesai**, sisanya belum dikerjakan. Urutan mengikuti dependency tree, bukan urutan tabel jadwal pada usulan ide.
 
 | Fase | Keluaran backend | Kriteria selesai |
 |---|---|---|
@@ -1521,3 +1521,4 @@ Tidak menyangkut aturan bisnis, dibentuk oleh middleware bersama pada Fase 0.
 | 2.13 | 10 November 2026 | Sinkron dengan register keputusan versi 2.19. Aturan `GET` dan `POST /orders/:id/payment` (D123, D124) |
 | 2.14 | 10 November 2026 | Sinkron dengan register keputusan versi 2.20. Pencarian payment untuk invoice yatim di webhook (D125) |
 | 2.15 | 10 November 2026 | Sinkron dengan register keputusan versi 2.21. Langkah webhook invoice untuk SETTLED (D127), bayar dobel (D126), dan balasan 5xx sebelum kunci (D128) |
+| 2.16 | 11 November 2026 | Sinkron dengan register keputusan versi 2.22. Fase 0 sampai 7 selesai. Endpoint wallet dimajukan ke Fase 7 (D129), dan router dev menerima `settlement_due_at` serta job `settlement` dan `webhook-recovery` |

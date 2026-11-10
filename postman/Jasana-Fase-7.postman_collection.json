@@ -1,0 +1,2824 @@
+{
+  "info": {
+    "name": "Jasana Backend - Fase 7 (Pembayaran)",
+    "description": "Sesi 7c: T5 lewat webhook invoice dengan ESCROW_HOLD, webhook duplikat, token salah (H13), pembayaran telat (D119), selisih nominal (D120),\nEXPIRED (D122), lalu T8 sampai T18 dengan ESCROW_RELEASE dan saldo wallet (usulan D129).\n\n## Setiap putaran\n1. `npm run postman:seed:fase-7` di akar repo.\n2. Dev server dengan `PAYMENT_GATEWAY=fake` dan `XENDIT_CALLBACK_TOKEN` SAMA dengan `xendit_callback_token` di environment.\n   Nilai di environment adalah token palsu khusus pengujian. Token asli tidak pernah ditulis ke repo.\n3. Jalankan folder berurutan dari 00.\n\n## Akun\n| Akun | Peran |\n|---|---|\n| eowner | Pemilik Kilau Kuta Dokumentasi |\n| efoto1 | Penanggung jawab order A (T1 sampai T18) |\n| efoto2 | Penanggung jawab order B dan C |\n| eklien | Client, alamat Renon |\n\nOrder A dijadwalkan 30 menit setelah request Health supaya boleh berangkat (State Machine 7). B dan C beberapa hari lagi.\nInvoice id dan external_id diturunkan dari invoice_url gateway palsu, karena API tidak mengembalikannya.\nCron server tetap berjalan, jadi hasil sweep manual hanya dicek failed = 0; status order yang jadi penentu.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "00. Persiapan (jalankan npm run postman:seed:fase-7 dulu)",
+      "item": [
+        {
+          "name": "Health",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.environment.set('f7_at_a', new Date(Date.now() + 30 * 60000).toISOString());",
+                  "var t = new Date(Math.ceil((Date.now() + 2 * 86400000) / 3600000) * 3600000);",
+                  "pm.environment.set('f7_at_b', t.toISOString());",
+                  "pm.environment.set('f7_at_c', new Date(t.getTime() + 24 * 3600000).toISOString());",
+                  "pm.environment.set('f7_paid_at', new Date().toISOString());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login eowner",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code === 401) console.warn('Akun demo belum ada. Jalankan: npm run postman:seed:fase-7');",
+                  "pm.environment.set('eowner_token', pm.response.json().data.access_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"eowner@postman.jasana.test\",\n  \"password\": \"{{seed_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login efoto1",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code === 401) console.warn('Akun demo belum ada. Jalankan: npm run postman:seed:fase-7');",
+                  "pm.environment.set('efoto1_token', pm.response.json().data.access_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"efoto1@postman.jasana.test\",\n  \"password\": \"{{seed_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login eklien",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code === 401) console.warn('Akun demo belum ada. Jalankan: npm run postman:seed:fase-7');",
+                  "pm.environment.set('eklien_token', pm.response.json().data.access_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"eklien@postman.jasana.test\",\n  \"password\": \"{{seed_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Listing dan pekerja milik eowner",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "var listing = pm.response.json().data.find(function (x) { return x.title === 'Liputan Acara Kilau Kuta'; });",
+                  "pm.environment.set('f7_listing_id', listing.id);",
+                  "listing.workers.forEach(function (w) { if (w.display_name === 'Gede Fotografer') pm.environment.set('f7_efoto1_id', w.id); if (w.display_name === 'Putu Videografer') pm.environment.set('f7_efoto2_id', w.id); });",
+                  "pm.test('Dua pekerja terpetakan', function () { pm.expect(pm.environment.get('f7_efoto1_id')).to.be.a('string'); pm.expect(pm.environment.get('f7_efoto2_id')).to.be.a('string'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{eowner_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/providers/me/listings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "listings"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Alamat eklien",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.environment.set('f7_address_id', pm.response.json().data[0].id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{eklien_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/users/me/addresses",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "me",
+                "addresses"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Wallet awal kosong (usulan D129)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "var w = pm.response.json().data, e = pm.environment.get('f7_earning');",
+                  "pm.test('available 0, pending 0', function () { pm.expect(w.balance_available).to.eql(0); pm.expect(w.balance_pending).to.eql(0); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{eowner_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/providers/me/wallet",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "wallet"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Pekerja bukan pemilik membaca wallet: 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 403', function () { pm.response.to.have.status(403); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{efoto1_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/providers/me/wallet",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "wallet"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "01. KRITERIA: T5 lewat webhook, duplikat menghasilkan satu ESCROW_HOLD",
+      "item": [
+        {
+          "name": "Buat order A",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', function () { pm.response.to.have.status(201); });",
+                  "var order = pm.response.json().data;",
+                  "pm.environment.set('f7_order_a', order.id);",
+                  "pm.environment.set('f7_earning', order.price.provider_earning);",
+                  "pm.test('Total 1.500.000, earning 1.350.000', function () { pm.expect(order.price.total_amount).to.eql(1500000); pm.expect(order.price.provider_earning).to.eql(1350000); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{eklien_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"listing_id\": \"{{f7_listing_id}}\",\n  \"booking_mode\": \"SCHEDULED\",\n  \"scheduled_at\": \"{{f7_at_a}}\",\n  \"location_source\": \"SAVED_ADDRESS\",\n  \"address_id\": \"{{f7_address_id}}\",\n  \"selected_options\": {\n    \"jenis_acara\": \"Seminar\",\n    \"durasi_liputan\": \"2 Jam\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Pemilik menerima A, penanggung jawab efoto1 (T1)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('ACCEPTED', function () { pm.expect(pm.response.json().data.status).to.eql('ACCEPTED'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{eowner_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{f7_order_a}}/accept",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{f7_order_a}}",
+                "accept"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"assigned_worker_id\": \"{{f7_efoto1_id}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Invoice A: simpan id dari invoice_url gateway palsu",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "var p = pm.response.json().data;",
+                  "pm.test('PENDING dengan invoice_url', function () { pm.expect(p.status).to.eql('PENDING'); pm.expect(p.invoice_url).to.be.a('string'); });",
+                  "// Gateway palsu: .../invoices/fake-inv-<external_id>. Dengan PAYMENT_GATEWAY=xendit tes ini gagal, itu wajar.",
+                  "var inv = p.invoice_url.split('/').pop();",
+                  "pm.test('Invoice gateway palsu', function () { pm.expect(inv).to.match(/^fake-inv-PAY-/); });",
+                  "pm.environment.set('f7_a_invoice', inv);",
+                  "pm.environment.set('f7_a_external', inv.replace(/^fake-inv-/, ''));",
+                  "pm.environment.set('f7_a_amount', p.amount);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{eklien_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{f7_order_a}}/payment",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{f7_order_a}}",
+                "payment"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Token salah: 401 (H13)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401', function () { pm.response.to.have.status(401); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-callback-token",
+                "value": "token-salah"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/webhooks/xendit/invoice",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "webhooks",
+                "xendit",
+                "invoice"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"{{f7_a_invoice}}\",\n  \"external_id\": \"{{f7_a_external}}\",\n  \"status\": \"PAID\",\n  \"paid_amount\": {{f7_a_amount}},\n  \"payment_method\": \"BANK_TRANSFER\",\n  \"payment_channel\": \"BCA\",\n  \"paid_at\": \"{{f7_paid_at}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Tanpa token: 401 (H13)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401', function () { pm.response.to.have.status(401); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/webhooks/xendit/invoice",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "webhooks",
+                "xendit",
+                "invoice"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"{{f7_a_invoice}}\",\n  \"external_id\": \"{{f7_a_external}}\",\n  \"status\": \"PAID\",\n  \"paid_amount\": {{f7_a_amount}},\n  \"payment_method\": \"BANK_TRANSFER\",\n  \"payment_channel\": \"BCA\",\n  \"paid_at\": \"{{f7_paid_at}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Order A masih ACCEPTED setelah token ditolak",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('ACCEPTED', function () { pm.expect(pm.response.json().data.status).to.eql('ACCEPTED'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{eklien_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{f7_order_a}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{f7_order_a}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Webhook PAID (T5)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('received', function () { pm.expect(pm.response.json().data.received).to.eql(true); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-callback-token",
+                "value": "{{xendit_callback_token}}"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/webhooks/xendit/invoice",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "webhooks",
+                "xendit",
+                "invoice"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"{{f7_a_invoice}}\",\n  \"external_id\": \"{{f7_a_external}}\",\n  \"status\": \"PAID\",\n  \"paid_amount\": {{f7_a_amount}},\n  \"payment_method\": \"BANK_TRANSFER\",\n  \"payment_channel\": \"BCA\",\n  \"paid_at\": \"{{f7_paid_at}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Order A PAID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('PAID', function () { pm.expect(pm.response.json().data.status).to.eql('PAID'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{eklien_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{f7_order_a}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{f7_order_a}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Payment A PAID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Payment PAID', function () { pm.expect(pm.response.json().data.status).to.eql('PAID'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{eklien_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{f7_order_a}}/payment",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{f7_order_a}}",
+                "payment"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Wallet: pending = provider_earning",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "var w = pm.response.json().data, e = pm.environment.get('f7_earning');",
+                  "pm.test('available 0, pending earning', function () { pm.expect(w.balance_available).to.eql(0); pm.expect(w.balance_pending).to.eql(e); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{eowner_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/providers/me/wallet",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "wallet"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Webhook PAID yang sama dikirim ulang: 200 tanpa efek",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-callback-token",
+                "value": "{{xendit_callback_token}}"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/webhooks/xendit/invoice",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "webhooks",
+                "xendit",
+                "invoice"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"{{f7_a_invoice}}\",\n  \"external_id\": \"{{f7_a_external}}\",\n  \"status\": \"PAID\",\n  \"paid_amount\": {{f7_a_amount}},\n  \"payment_method\": \"BANK_TRANSFER\",\n  \"payment_channel\": \"BCA\",\n  \"paid_at\": \"{{f7_paid_at}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Tepat satu ESCROW_HOLD (PRD 8.2 no. 1)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "var rows = pm.response.json().data;",
+                  "pm.test('Ledger terbaru dulu: ESCROW_HOLD', function () { pm.expect(rows.map(function (r) { return r.type; })).to.eql([\"ESCROW_HOLD\"]); });",
+                  "pm.test('Semua baris milik order A', function () { rows.forEach(function (r) { pm.expect(r.order_id).to.eql(pm.environment.get('f7_order_a')); }); });",
+                  "pm.test('meta.total 1', function () { pm.expect(pm.response.json().meta.total).to.eql(1); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{eowner_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/providers/me/wallet/transactions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "wallet",
+                "transactions"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Wallet tidak berubah setelah duplikat",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "var w = pm.response.json().data, e = pm.environment.get('f7_earning');",
+                  "pm.test('available 0, pending earning', function () { pm.expect(w.balance_available).to.eql(0); pm.expect(w.balance_pending).to.eql(e); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{eowner_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/providers/me/wallet",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "wallet"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "02. D119: pembayaran masuk setelah order PAYMENT_EXPIRED",
+      "item": [
+        {
+          "name": "Buat order B",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', function () { pm.response.to.have.status(201); });",
+                  "var order = pm.response.json().data;",
+                  "pm.environment.set('f7_order_b', order.id);",
+                  "pm.environment.set('f7_earning', order.price.provider_earning);",
+                  "pm.test('Total 1.500.000, earning 1.350.000', function () { pm.expect(order.price.total_amount).to.eql(1500000); pm.expect(order.price.provider_earning).to.eql(1350000); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{eklien_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"listing_id\": \"{{f7_listing_id}}\",\n  \"booking_mode\": \"SCHEDULED\",\n  \"scheduled_at\": \"{{f7_at_b}}\",\n  \"location_source\": \"SAVED_ADDRESS\",\n  \"address_id\": \"{{f7_address_id}}\",\n  \"selected_options\": {\n    \"jenis_acara\": \"Seminar\",\n    \"durasi_liputan\": \"2 Jam\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Pemilik menerima B, penanggung jawab efoto2 (T1)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('ACCEPTED', function () { pm.expect(pm.response.json().data.status).to.eql('ACCEPTED'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{eowner_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{f7_order_b}}/accept",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{f7_order_b}}",
+                "accept"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"assigned_worker_id\": \"{{f7_efoto2_id}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Invoice B: simpan id dari invoice_url gateway palsu",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "var p = pm.response.json().data;",
+                  "pm.test('PENDING dengan invoice_url', function () { pm.expect(p.status).to.eql('PENDING'); pm.expect(p.invoice_url).to.be.a('string'); });",
+                  "// Gateway palsu: .../invoices/fake-inv-<external_id>. Dengan PAYMENT_GATEWAY=xendit tes ini gagal, itu wajar.",
+                  "var inv = p.invoice_url.split('/').pop();",
+                  "pm.test('Invoice gateway palsu', function () { pm.expect(inv).to.match(/^fake-inv-PAY-/); });",
+                  "pm.environment.set('f7_b_invoice', inv);",
+                  "pm.environment.set('f7_b_external', inv.replace(/^fake-inv-/, ''));",
+                  "pm.environment.set('f7_b_amount', p.amount);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{eklien_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{f7_order_b}}/payment",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{f7_order_b}}",
+                "payment"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Mundurkan payment_deadline_at order B",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{eklien_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/dev/orders/{{f7_order_b}}/deadline",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "dev",
+                "orders",
+                "{{f7_order_b}}",
+                "deadline"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"field\": \"payment_deadline_at\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Jalankan sweep payment-deadline",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "var r = pm.response.json().data;",
+                  "pm.test('Tidak ada yang gagal', function () { pm.expect(r.failed).to.eql(0); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{eklien_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/dev/jobs/payment-deadline/run",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "dev",
+                "jobs",
+                "payment-deadline",
+                "run"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Order B PAYMENT_EXPIRED (T6)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('PAYMENT_EXPIRED', function () { pm.expect(pm.response.json().data.status).to.eql('PAYMENT_EXPIRED'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{eklien_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{f7_order_b}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{f7_order_b}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Webhook PAID untuk B: 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-callback-token",
+                "value": "{{xendit_callback_token}}"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/webhooks/xendit/invoice",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "webhooks",
+                "xendit",
+                "invoice"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"{{f7_b_invoice}}\",\n  \"external_id\": \"{{f7_b_external}}\",\n  \"status\": \"PAID\",\n  \"paid_amount\": {{f7_b_amount}},\n  \"payment_method\": \"BANK_TRANSFER\",\n  \"payment_channel\": \"BCA\",\n  \"paid_at\": \"{{f7_paid_at}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Order B tetap PAYMENT_EXPIRED",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('PAYMENT_EXPIRED', function () { pm.expect(pm.response.json().data.status).to.eql('PAYMENT_EXPIRED'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{eklien_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{f7_order_b}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{f7_order_b}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Payment B PAID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Payment PAID', function () { pm.expect(pm.response.json().data.status).to.eql('PAID'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{eklien_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{f7_order_b}}/payment",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{f7_order_b}}",
+                "payment"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Ledger tetap satu baris, tanpa ESCROW_HOLD untuk B",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "var rows = pm.response.json().data;",
+                  "pm.test('Ledger terbaru dulu: ESCROW_HOLD', function () { pm.expect(rows.map(function (r) { return r.type; })).to.eql([\"ESCROW_HOLD\"]); });",
+                  "pm.test('Semua baris milik order A', function () { rows.forEach(function (r) { pm.expect(r.order_id).to.eql(pm.environment.get('f7_order_a')); }); });",
+                  "pm.test('meta.total 1', function () { pm.expect(pm.response.json().meta.total).to.eql(1); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{eowner_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/providers/me/wallet/transactions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "wallet",
+                "transactions"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "03. D120: nominal dibayar berbeda",
+      "item": [
+        {
+          "name": "Buat order C",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', function () { pm.response.to.have.status(201); });",
+                  "var order = pm.response.json().data;",
+                  "pm.environment.set('f7_order_c', order.id);",
+                  "pm.environment.set('f7_earning', order.price.provider_earning);",
+                  "pm.test('Total 1.500.000, earning 1.350.000', function () { pm.expect(order.price.total_amount).to.eql(1500000); pm.expect(order.price.provider_earning).to.eql(1350000); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{eklien_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"listing_id\": \"{{f7_listing_id}}\",\n  \"booking_mode\": \"SCHEDULED\",\n  \"scheduled_at\": \"{{f7_at_c}}\",\n  \"location_source\": \"SAVED_ADDRESS\",\n  \"address_id\": \"{{f7_address_id}}\",\n  \"selected_options\": {\n    \"jenis_acara\": \"Seminar\",\n    \"durasi_liputan\": \"2 Jam\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Pemilik menerima C, penanggung jawab efoto2 (T1)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('ACCEPTED', function () { pm.expect(pm.response.json().data.status).to.eql('ACCEPTED'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{eowner_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{f7_order_c}}/accept",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{f7_order_c}}",
+                "accept"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"assigned_worker_id\": \"{{f7_efoto2_id}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Invoice C: simpan id dari invoice_url gateway palsu",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "var p = pm.response.json().data;",
+                  "pm.test('PENDING dengan invoice_url', function () { pm.expect(p.status).to.eql('PENDING'); pm.expect(p.invoice_url).to.be.a('string'); });",
+                  "// Gateway palsu: .../invoices/fake-inv-<external_id>. Dengan PAYMENT_GATEWAY=xendit tes ini gagal, itu wajar.",
+                  "var inv = p.invoice_url.split('/').pop();",
+                  "pm.test('Invoice gateway palsu', function () { pm.expect(inv).to.match(/^fake-inv-PAY-/); });",
+                  "pm.environment.set('f7_c_invoice', inv);",
+                  "pm.environment.set('f7_c_external', inv.replace(/^fake-inv-/, ''));",
+                  "pm.environment.set('f7_c_amount', p.amount);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{eklien_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{f7_order_c}}/payment",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{f7_order_c}}",
+                "payment"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Webhook PAID kurang 1.000: 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-callback-token",
+                "value": "{{xendit_callback_token}}"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/webhooks/xendit/invoice",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "webhooks",
+                "xendit",
+                "invoice"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"{{f7_c_invoice}}\",\n  \"external_id\": \"{{f7_c_external}}\",\n  \"status\": \"PAID\",\n  \"paid_amount\": 1499000,\n  \"payment_method\": \"BANK_TRANSFER\",\n  \"payment_channel\": \"BCA\",\n  \"paid_at\": \"{{f7_paid_at}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Order C tetap ACCEPTED",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('ACCEPTED', function () { pm.expect(pm.response.json().data.status).to.eql('ACCEPTED'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{eklien_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{f7_order_c}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{f7_order_c}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Payment C PENDING",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Payment PENDING', function () { pm.expect(pm.response.json().data.status).to.eql('PENDING'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{eklien_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{f7_order_c}}/payment",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{f7_order_c}}",
+                "payment"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Ledger tetap satu baris",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "var rows = pm.response.json().data;",
+                  "pm.test('Ledger terbaru dulu: ESCROW_HOLD', function () { pm.expect(rows.map(function (r) { return r.type; })).to.eql([\"ESCROW_HOLD\"]); });",
+                  "pm.test('Semua baris milik order A', function () { rows.forEach(function (r) { pm.expect(r.order_id).to.eql(pm.environment.get('f7_order_a')); }); });",
+                  "pm.test('meta.total 1', function () { pm.expect(pm.response.json().meta.total).to.eql(1); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{eowner_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/providers/me/wallet/transactions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "wallet",
+                "transactions"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "04. D122: webhook EXPIRED",
+      "item": [
+        {
+          "name": "Webhook EXPIRED untuk invoice C: 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-callback-token",
+                "value": "{{xendit_callback_token}}"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/webhooks/xendit/invoice",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "webhooks",
+                "xendit",
+                "invoice"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"{{f7_c_invoice}}\",\n  \"external_id\": \"{{f7_c_external}}\",\n  \"status\": \"EXPIRED\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Payment C EXPIRED",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Payment EXPIRED', function () { pm.expect(pm.response.json().data.status).to.eql('EXPIRED'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{eklien_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{f7_order_c}}/payment",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{f7_order_c}}",
+                "payment"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Order C tetap ACCEPTED, T6 tetap tugas cron",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('ACCEPTED', function () { pm.expect(pm.response.json().data.status).to.eql('ACCEPTED'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{eklien_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{f7_order_c}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{f7_order_c}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "05. KRITERIA: T8 sampai T18, ESCROW_RELEASE",
+      "item": [
+        {
+          "name": "depart oleh efoto1",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('ON_THE_WAY', function () { pm.expect(pm.response.json().data.status).to.eql('ON_THE_WAY'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{efoto1_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{f7_order_a}}/depart",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{f7_order_a}}",
+                "depart"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "check-in oleh efoto1",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('ARRIVED', function () { pm.expect(pm.response.json().data.status).to.eql('ARRIVED'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{efoto1_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{f7_order_a}}/check-in",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{f7_order_a}}",
+                "check-in"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"latitude\": {{renon_lat}},\n  \"longitude\": {{renon_lng}},\n  \"accuracy_meters\": 8\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "start oleh efoto1",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('IN_PROGRESS', function () { pm.expect(pm.response.json().data.status).to.eql('IN_PROGRESS'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{efoto1_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{f7_order_a}}/start",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{f7_order_a}}",
+                "start"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "finish oleh efoto1",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('AWAITING_VERIFICATION', function () { pm.expect(pm.response.json().data.status).to.eql('AWAITING_VERIFICATION'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{efoto1_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{f7_order_a}}/finish",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{f7_order_a}}",
+                "finish"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Kode verifikasi dibaca eklien",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.environment.set('f7_code', pm.response.json().data.code);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{eklien_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{f7_order_a}}/verification-code",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{f7_order_a}}",
+                "verification-code"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Verify (T16)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('COMPLETED', function () { pm.expect(pm.response.json().data.status).to.eql('COMPLETED'); });",
+                  "pm.test('settlement_due_at terisi', function () { pm.expect(pm.response.json().data.settlement_due_at).to.be.a('string'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{efoto1_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{f7_order_a}}/verify",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{f7_order_a}}",
+                "verify"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"{{f7_code}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Sweep settlement sebelum holding window lewat",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "var r = pm.response.json().data;",
+                  "pm.test('Tidak ada yang gagal', function () { pm.expect(r.failed).to.eql(0); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{eklien_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/dev/jobs/settlement/run",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "dev",
+                "jobs",
+                "settlement",
+                "run"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Holding window belum lewat: order A tetap COMPLETED",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('COMPLETED', function () { pm.expect(pm.response.json().data.status).to.eql('COMPLETED'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{eklien_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{f7_order_a}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{f7_order_a}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Mundurkan settlement_due_at order A",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{eklien_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/dev/orders/{{f7_order_a}}/deadline",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "dev",
+                "orders",
+                "{{f7_order_a}}",
+                "deadline"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"field\": \"settlement_due_at\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Jalankan sweep settlement",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "var r = pm.response.json().data;",
+                  "pm.test('Tidak ada yang gagal', function () { pm.expect(r.failed).to.eql(0); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{eklien_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/dev/jobs/settlement/run",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "dev",
+                "jobs",
+                "settlement",
+                "run"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Order A SETTLED (T18)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('SETTLED', function () { pm.expect(pm.response.json().data.status).to.eql('SETTLED'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{eklien_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{f7_order_a}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{f7_order_a}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Wallet: available = provider_earning, pending 0",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "var w = pm.response.json().data, e = pm.environment.get('f7_earning');",
+                  "pm.test('available earning, pending 0', function () { pm.expect(w.balance_available).to.eql(e); pm.expect(w.balance_pending).to.eql(0); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{eowner_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/providers/me/wallet",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "wallet"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "ESCROW_HOLD lalu ESCROW_RELEASE, masing-masing satu",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "var rows = pm.response.json().data;",
+                  "pm.test('Ledger terbaru dulu: ESCROW_RELEASE, ESCROW_HOLD', function () { pm.expect(rows.map(function (r) { return r.type; })).to.eql([\"ESCROW_RELEASE\", \"ESCROW_HOLD\"]); });",
+                  "pm.test('Semua baris milik order A', function () { rows.forEach(function (r) { pm.expect(r.order_id).to.eql(pm.environment.get('f7_order_a')); }); });",
+                  "pm.test('meta.total 2', function () { pm.expect(pm.response.json().meta.total).to.eql(2); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{eowner_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/providers/me/wallet/transactions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "wallet",
+                "transactions"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delta ESCROW_RELEASE",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "var r = pm.response.json().data[0], e = pm.environment.get('f7_earning');",
+                  "pm.test('available +earning, pending -earning, saldo sesudahnya', function () { pm.expect(r.type).to.eql('ESCROW_RELEASE'); pm.expect(r.amount_available_delta).to.eql(e); pm.expect(r.amount_pending_delta).to.eql(-e); pm.expect(r.balance_available_after).to.eql(e); pm.expect(r.balance_pending_after).to.eql(0); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{eowner_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/providers/me/wallet/transactions?limit=1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "wallet",
+                "transactions"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "1"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Sweep diulang: tidak ada yang tersisa",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "var r = pm.response.json().data;",
+                  "pm.test('Tidak ada yang gagal', function () { pm.expect(r.failed).to.eql(0); });",
+                  "pm.test('candidates 0', function () { pm.expect(r.candidates).to.eql(0); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{eklien_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/dev/jobs/settlement/run",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "dev",
+                "jobs",
+                "settlement",
+                "run"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Mundurkan settlement_due_at order A: 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 409', function () { pm.response.to.have.status(409); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{eklien_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/dev/orders/{{f7_order_a}}/deadline",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "dev",
+                "orders",
+                "{{f7_order_a}}",
+                "deadline"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"field\": \"settlement_due_at\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Jalankan pemulihan webhook (D121)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "var r = pm.response.json().data;",
+                  "pm.test('Tidak ada yang gagal', function () { pm.expect(r.failed).to.eql(0); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{eklien_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/dev/jobs/webhook-recovery/run",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "dev",
+                "jobs",
+                "webhook-recovery",
+                "run"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

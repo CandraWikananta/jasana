@@ -7,7 +7,7 @@
  *   /orders/:id/payment         C, invoice aktif dan pembuatan ulang (D104, 7a)
  *   /dev/orders/:id/simulate-payment
  *   /dev/workers/presence       hanya terdaftar saat PAYMENT_GATEWAY=fake (D101, H92)
- *   /dev/orders/:id/deadline, /dev/jobs/:job/run   pemicu sweep T3 dan T6 untuk Postman (6f)
+ *   /dev/orders/:id/deadline, /dev/jobs/:job/run   pemicu sweep T3, T6, T18, dan pemulihan webhook untuk Postman (6f, 7c)
  */
 
 import { Router, type RequestHandler } from 'express';

@@ -1,8 +1,9 @@
 /**
- * Kedaluwarsa order oleh sistem (PRD 7.1, State Machine 3):
+ * Transisi order oleh sistem lewat sweep (PRD 7.1, State Machine 3):
  *
  *   expireUnanswered   T3, satu-satunya. Dipanggil penolakan terakhir (D102)
  *                      dan sweep response deadline
+ *   sweepSettlements   T18 beserta ESCROW_RELEASE, cron tiap 5 menit (7c)
  *   sweep*Deadlines    cron tiap 1 menit. Kandidat dibaca tanpa kunci, lalu
  *                      tiap order diproses di transaksinya sendiri dengan
  *                      FOR UPDATE SKIP LOCKED, supaya satu order yang gagal
@@ -16,8 +17,9 @@ import { AppError } from '../../lib/errors';
 import { logger } from '../../lib/logger';
 import { emit } from '../../realtime/socket';
 import { dispatchEmails } from '../notifications/email-outbox';
+import { recoverWebhookEvents } from '../webhooks/webhooks.service';
 import { notifyUsers, parties } from './order-notify';
-import { expireInvoices, expirePendingPayments } from './order-payment.service';
+import { expireInvoices, expirePendingPayments, writeEscrow } from './order-payment.service';
 import { lockWorkers } from './order-schedule';
 import { transitionOrder, withOrderTransaction, type AfterCommitTask } from './order-transition.service';
 
@@ -109,6 +111,38 @@ async function expireUnpaid(tx: Tx, afterCommit: AfterCommit, orderId: string): 
   });
 }
 
+/** Dispute yang menahan settlement (State Machine 3, T18). */
+const HOLDING_DISPUTES = ['OPEN', 'UNDER_REVIEW'] as const;
+
+/**
+ * T18 COMPLETED -> SETTLED. Kunci order (transitionOrder) lalu wallet (UPDATE di
+ * writeEscrow), urutan yang sama dengan T5 (register Bagian 4P).
+ */
+async function settleOrder(tx: Tx, afterCommit: AfterCommit, orderId: string): Promise<void> {
+  await transitionOrder(tx, {
+    orderId,
+    afterCommit,
+    toStatus: 'SETTLED',
+    actor: 'SYSTEM',
+    reason: 'Holding window lewat',
+    guard: async (tx, order) => {
+      if (!order.settlementDueAt || order.settlementDueAt >= new Date()) {
+        throw new AppError('ORDER_TRANSITION_NOT_ALLOWED', 'Holding window belum lewat');
+      }
+      if (await tx.dispute.count({ where: { orderId, status: { in: [...HOLDING_DISPUTES] } } })) {
+        throw new AppError('ORDER_TRANSITION_NOT_ALLOWED', 'Order sedang dalam sengketa');
+      }
+    },
+    effects: async (tx, order) => {
+      await writeEscrow(tx, order, 'ESCROW_RELEASE');
+      const who = await parties(tx, orderId);
+      const emails = await notifyUsers(tx, [who.providerProfile.userId], order, 'Dana order cair',
+        'Holding window sudah lewat, pendapatan order ini dipindahkan ke saldo yang bisa ditarik.');
+      afterCommit(() => void dispatchEmails(emails));
+    },
+  });
+}
+
 export interface SweepResult {
   candidates: number;
   expired: number;
@@ -121,6 +155,7 @@ async function sweep(
   job: string,
   candidates: { id: string }[],
   one: (orderId: string) => Promise<number | null>,
+  outcome: 'expired' | 'settled' = 'expired',
 ): Promise<SweepResult> {
   const result: SweepResult = { candidates: candidates.length, expired: 0, failed: 0, sla_missed: 0 };
   for (const { id } of candidates) {
@@ -135,11 +170,16 @@ async function sweep(
       logger.error({ err: error, job, order_id: id }, 'Sweep gagal untuk satu order, order lain tetap diproses');
     }
   }
-  logger.info({ job, ...result }, 'Sweep deadline selesai');
+  // Hanya nama kunci di log yang ikut `outcome`; SweepResult tetap, karena Postman Fase 6 membacanya.
+  const { candidates: total, expired, failed, sla_missed } = result;
+  logger.info(
+    { job, candidates: total, failed, ...(outcome === 'settled' ? { settled: expired } : { expired, sla_missed }) },
+    'Sweep deadline selesai',
+  );
   return result;
 }
 
-// shortcut: satu batch 100 per menit; order yang gagal permanen di kepala antrean bisa menahan sisanya kalau jumlahnya >= 100, ganti ke kursor keyset kalau itu terjadi.
+// shortcut: satu batch 100 per jalan (T3, T6, T18); order yang gagal permanen di kepala antrean bisa menahan sisanya kalau jumlahnya >= 100, ganti ke kursor keyset kalau itu terjadi.
 export async function sweepResponseDeadlines(): Promise<SweepResult> {
   const candidates = await prisma.order.findMany({
     where: { status: 'PENDING_ACCEPTANCE', responseDeadlineAt: { lt: new Date() } },
@@ -185,22 +225,61 @@ export async function sweepPaymentDeadlines(): Promise<SweepResult> {
   );
 }
 
+export async function sweepSettlements(): Promise<{ candidates: number; settled: number; failed: number }> {
+  const candidates = await prisma.order.findMany({
+    where: {
+      status: 'COMPLETED',
+      settlementDueAt: { lt: new Date() },
+      // Disaring di sini supaya order bersengketa tidak menyumbat kepala antrean. Guard tetap memeriksa ulang.
+      OR: [{ dispute: null }, { dispute: { status: { notIn: [...HOLDING_DISPUTES] } } }],
+    },
+    orderBy: { settlementDueAt: 'asc' },
+    take: BATCH,
+    select: { id: true },
+  });
+  const { expired: settled, failed } = await sweep('settlement-sweep', candidates, (orderId) =>
+    withOrderTransaction(async (tx, afterCommit) => {
+      const locked = await tx.$queryRaw<{ id: string }[]>`
+        SELECT id FROM orders
+        WHERE id = ${orderId}::uuid AND status = 'COMPLETED' AND settlement_due_at < now()
+        FOR UPDATE SKIP LOCKED
+      `;
+      if (locked.length === 0) return null;
+      await settleOrder(tx, afterCommit, orderId);
+      return 0;
+    }),
+    'settled',
+  );
+  return { candidates: candidates.length, settled, failed };
+}
+
 /** Router /dev: job yang bisa dipicu manual, fungsi yang sama dengan cron. */
 export const DEV_JOBS = {
   'response-deadline': sweepResponseDeadlines,
   'payment-deadline': sweepPaymentDeadlines,
+  settlement: sweepSettlements,
+  'webhook-recovery': recoverWebhookEvents,
 } as const;
 export type DevJob = keyof typeof DEV_JOBS;
 
-const DEADLINE_STATUS = { response_deadline_at: 'PENDING_ACCEPTANCE', payment_deadline_at: 'ACCEPTED' } as const;
+const DEADLINE_STATUS = {
+  response_deadline_at: 'PENDING_ACCEPTANCE',
+  payment_deadline_at: 'ACCEPTED',
+  settlement_due_at: 'COMPLETED',
+} as const;
 export type DeadlineField = keyof typeof DEADLINE_STATUS;
+const DEADLINE_COLUMN = {
+  response_deadline_at: 'responseDeadlineAt',
+  payment_deadline_at: 'paymentDeadlineAt',
+  settlement_due_at: 'settlementDueAt',
+} as const;
 
 /** Router /dev: memundurkan deadline ke masa lalu supaya sweep bisa diuji tanpa menunggu. */
 export async function backdateDeadline(orderId: string, field: DeadlineField) {
   const at = new Date(Date.now() - 1000);
   const { count } = await prisma.order.updateMany({
     where: { id: orderId, status: DEADLINE_STATUS[field] },
-    data: field === 'response_deadline_at' ? { responseDeadlineAt: at } : { paymentDeadlineAt: at },
+    data: { [DEADLINE_COLUMN[field]]: at },
   });
   if (count === 0) {
     throw new AppError('ORDER_TRANSITION_NOT_ALLOWED', `${field} hanya bisa dimundurkan saat order ${DEADLINE_STATUS[field]}`);

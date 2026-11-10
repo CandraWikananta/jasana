@@ -4,9 +4,9 @@
 **Nama sistem:** Jasana
 **Penyusun:** I Nyoman Gede Candra Wikananta (2305551065)
 **Bidang Keahlian:** Sistem Informasi, Teknologi Informasi, Universitas Udayana
-**Versi:** 2.21
-**Terakhir diperbarui:** 10 November 2026 (versi 2.21)
-**Tahap saat ini:** Implementasi backend. Fase 0 sampai Fase 6 selesai, Fase 7 berjalan (sesi 7a dan 7b selesai)
+**Versi:** 2.22
+**Terakhir diperbarui:** 11 November 2026 (versi 2.22)
+**Tahap saat ini:** Implementasi backend. Fase 0 sampai Fase 7 selesai
 
 ---
 
@@ -1252,6 +1252,39 @@ Ketiganya muncul saat menyusun rencana sesi 7b dan sudah diterapkan di kode. Tid
 
 ---
 
+## 4Q. Keputusan Versi 2.22 (D129 dan D130)
+
+Keduanya diusulkan di sesi 7c dan sudah diterapkan di kode. Tidak ada perubahan skema.
+
+| # | Keputusan | Alasan |
+|---|---|---|
+| D129 | **`GET /providers/me/wallet` dan `GET /providers/me/wallet/transactions` dimajukan dari Fase 8 ke Fase 7.** Keduanya hanya membaca dan hanya untuk pemilik usaha (`requireProvider`). Riwayat transaksi dipaginasi sesuai PRD 4.1, urut terbaru dulu, nominal dalam rupiah bulat. Withdrawal tetap di Fase 8 | Kriteria Fase 7 (satu `ESCROW_HOLD`, saldo available bertambah setelah T18) harus bisa dibuktikan lewat API di Postman, bukan hanya lewat kueri basis data. Endpoint baca tidak mengubah alur uang, jadi memajukannya tidak menggeser lingkup Fase 8 |
+| D130 | **Seed demo Fase 6 dan Fase 7 menghapus `wallet_transactions` milik wallet akun demo** sebelum menghapus akun itu. Akun demo dikenali dari email yang persis tercantum di daftar `ACTORS`. Seed menolak jalan saat `NODE_ENV=production`. Ini satu-satunya pengecualian aturan ledger append-only (CLAUDE.md aturan 3), dan kodenya diberi komentar yang menyebut itu | Sejak 7b, simulate-payment menulis ledger. Menghapus akun demo ikut menghapus wallet lewat cascade, sedangkan `wallet_transactions` memakai RESTRICT, sehingga seed tidak bisa dijalankan dua kali. Data yang dihapus adalah data buatan tanpa nilai audit, dan cakupannya dibatasi ke email yang dikenal persis. Terbukti di sesi 7c: seed dijalankan ulang setelah newman, ledger demo kembali 0, dan baris lain tidak tersentuh |
+
+**Catatan implementasi sesi 7c tanpa nomor D:**
+
+- **T18 dijalankan `settleOrder` lewat `sweepSettlements`, cron tiap 5 menit.** Kunci order diambil dulu, lalu wallet lewat `writeEscrow`, sesuai urutan di Bagian 4P. `holdEscrow` diganti `writeEscrow(tx, order, 'ESCROW_HOLD' | 'ESCROW_RELEASE')`, tetap satu UPDATE increment sehingga kolom `balance_*_after` tetap benar
+- **Order dengan dispute OPEN atau UNDER_REVIEW disaring sejak pemilihan kandidat**, supaya tidak menyumbat kepala antrean, lalu diperiksa ulang oleh guard di dalam transaksi
+- Satu order yang gagal tidak menghentikan order lain di batch yang sama. Log sweep settlement menyebut `settled`, bukan `expired`. Bentuk `SweepResult` tidak berubah karena Postman Fase 6 membacanya
+- Router dev: `PATCH /dev/orders/:id/deadline` menerima `settlement_due_at` untuk order COMPLETED, dan `POST /dev/jobs/:job/run` menerima `settlement` serta `webhook-recovery`. Hasil job settlement berbentuk `{candidates, settled, failed}`
+- `settled_at` belum ada di DTO order, jadi Postman memeriksa status SETTLED saja
+- Masa aktif pesan diturunkan dari `settlement_due_at`, jadi T18 tidak butuh kode tambahan untuk itu. Penegakannya tetap di modul pesan Fase 10 (H70)
+- **H3 kini terbukti lewat perilaku untuk sisi `ESCROW_RELEASE`**: dua sweep bersamaan menghasilkan satu RELEASE, dan RELEASE ganda ditolak `uniq_escrow_event_per_order`
+- **Guard dispute di dalam `settleOrder` belum punya test**, karena jalur pembuka sengketa (T19) baru dibangun di Fase 8. Dicatat sebagai H100 supaya tidak terlupa
+
+**Penutupan Fase 7 (11 November 2026).** Seluruh kriteria PRD Bagian 9 dan D101 nomor 5 terpenuhi di `jasana_test`. Typecheck bersih, 627 test di 34 file lulus. Postman Fase 7: 58 request dan 113 assertion tanpa gagal, diulang sekali di server baru. Regresi Postman Fase 1 sampai 6, masing-masing dengan seed sendiri: 391 request dan 997 assertion tanpa gagal.
+
+| Kriteria | Bukti | Status |
+|---|---|---|
+| Webhook duplikat menghasilkan satu `ESCROW_HOLD` | Test duplikat paralel di 7b dan Postman Fase 7 folder 01 (dikirim ulang, ledger tetap satu baris) | Lulus |
+| V1 tetap 0 baris | `afterEach` di test webhook dan settlement, ditambah `db:verify` saat ledger berisi HOLD dan RELEASE. V1, V5 sampai V8, V11, dan V12 semuanya 0 baris | Lulus |
+| T5 lewat webhook, end-to-end | Test alur T1 sampai T18 lewat endpoint webhook dan Postman folder 01 | Lulus. Uji dengan webhook dari sandbox Xendit sungguhan dijalankan terpisah oleh penyusun |
+| T18 end-to-end | Test alur lengkap dan Postman folder 05: saldo available sama dengan earning, pending 0 | Lulus |
+| D119, D120, D122 lewat API | Postman folder 02 sampai 04 | Lulus |
+| D101 nomor 5 | T5 lewat webhook dan T18 terpasang. T9, T11, T13, T15, T17, dan T19 sampai T22 tetap di Fase 8 | Sesuai |
+
+---
+
 ## 5. Alur Sistem End-to-End
 
 ### 5.1 Onboarding
@@ -1760,7 +1793,7 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 
 - [x] **H1** **(terpasang, diverifikasi db:check-constraints 8 November 2026)** Saldo wallet tidak boleh negatif
 - [x] **H2** **(terpasang, diverifikasi db:check-constraints 8 November 2026)** Satu order satu pembayaran lunas dan satu invoice aktif
-- [x] **H3** **(terpasang, diverifikasi db:check-constraints 8 November 2026)** Satu order satu ESCROW_HOLD dan satu ESCROW_RELEASE, selamanya
+- [x] **H3** **(terpasang, diverifikasi db:check-constraints 8 November 2026; sisi ESCROW_HOLD terbukti lewat perilaku di sesi 7b dan sisi ESCROW_RELEASE di sesi 7c)** Satu order satu ESCROW_HOLD dan satu ESCROW_RELEASE, selamanya
 - [x] **H4** **(diverifikasi di Fase 6: index terpasang menurut db:check-constraints, diuji lewat PRD 8.2 nomor 3 dan T8)** Satu pekerja tidak boleh punya dua order in-flight **(direvisi, D40)**
 - [x] **H5** **(terpasang, diverifikasi db:check-constraints 8 November 2026)** Konsistensi nominal order dan batas fee yang dikembalikan
 - [x] **H6** **(terpasang, diverifikasi db:check-constraints 8 November 2026)** Ledger harus bergerak, rating 1 sampai 5, jarak check-in tidak negatif
@@ -1833,6 +1866,7 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 - [x] **H95** **(ditutup: klaim, pilihan pemilik, dan penolakan terakhir di sesi 6d; SLA miss pada cron T3 di sesi 6f)** Aturan `order_offers` di service layer (D102): klaim pekerja dan pilihan pemilik hanya dari baris yang belum menolak, penolakan terakhir langsung memicu T3 di transaksi yang sama, dan cron T3 tidak memberi SLA miss ke penerima yang sudah menolak. Wajib punya test untuk ketiganya, termasuk penolakan terakhir yang bersamaan dengan klaim pekerja lain **(baru)**
 - [ ] **H97** Pemeriksaan D105 tidak memakai kunci, sehingga order yang dibuat tepat bersamaan dengan penghapusan listing bisa lolos. Order seperti itu tidak bisa di-accept karena listing sudah terhapus, lalu kedaluwarsa sendiri. Diterima sebagai batasan **(baru, sesi 6c)**
 - [ ] **H98** `order_number` acak bisa kembar dengan peluang sangat kecil, dan saat ini berakhir 500. Ditandai `shortcut:`. Ganti dengan retry atau sequence kalau order per hari mencapai ribuan **(baru, sesi 6c)**
+- [ ] **H100** Test balapan pembukaan sengketa T19 dengan sweep T18 di sekitar `settlement_due_at`. Hasilnya harus tepat satu transisi yang berhasil, dan kalau DISPUTED yang menang tidak ada `ESCROW_RELEASE`. Guard dispute di `settleOrder` dibuktikan dengan uji mutasi. **Wajib di Fase 8** **(baru, sesi 7c)**
 
 ### 8.5 Persiapan Data Pengujian
 
@@ -1881,8 +1915,8 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 |---|---|---|---|
 | 1 | Skema basis data (DBML) | Selesai, versi 2.12 | 35 tabel, 35 enum |
 | 2 | `schema.prisma` dan `migration-constraints.sql` | Selesai, versi 2.9 dan 2.6 | |
-| 3 | State machine order | Selesai, versi 2.6 | Tidak terdampak versi 2.8 |
-| 4 | Kontrak REST API (PRD) | Selesai, versi 2.3 | |
+| 3 | State machine order | Selesai, versi 2.13 | |
+| 4 | Kontrak REST API (PRD) | Selesai, versi 2.16 | |
 | 5 | Diagram UML | Belum | Aktor jadi empat |
 | 6 | Diagram Konteks dan DFD | Belum | Aktor jadi empat, tambah entitas eksternal layanan email |
 | 7 | Conversation flow dan system prompt chatbot | Belum | |
@@ -1907,8 +1941,8 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 
 ## 11. Langkah Berikutnya
 
-1. Fase 7 (pembayaran): invoice dan webhook Xendit sungguhan di balik `PaymentGateway`, ledger `ESCROW_HOLD`, settlement T18, dan timeout gateway (H96)
-2. Selesai: audit hutang teknis (9 November 2026) dan sesi perapian (10 November 2026) yang menerapkan D117 dan D118 serta menutup H35, H85, H93, dan bagian pertama H37 (571 test lulus) (antara lain H10 sampai H21, H27, H39, H48, H55 sampai H57, H70, dan H85), karena sebagian kemungkinan sudah selesai tapi belum dicentang
+1. Fase 8 (uang lanjutan): withdrawal dengan minimum dan admin fee (D84, H83), payout, refund termasuk pembayaran telat dan dobel (H99), dispute beserta bukti dengan pola unggah multipart (H78, H79), webhook payout dan refund, transisi T9, T11, T13, T15, T17, dan T19 sampai T22, serta test wajib H100
+2. Selesai: Fase 7 (11 November 2026, 627 test lulus), sebelumnya audit hutang teknis (9 November 2026) dan sesi perapian (10 November 2026). Uji dengan webhook dari sandbox Xendit sungguhan dijalankan penyusun sebelum Fase 8 dimulai
 3. Susun data simulasi untuk dua belas sub-kategori di Lampiran B, termasuk skenario perebutan Available Now dan pendamping pada dokumentasi acara
 4. Riset ringan rentang harga pasaran untuk dua belas sub-kategori tersebut, catat sumbernya
 5. Paralel sejak sekarang: kumpulkan H15 sedikit demi sedikit setiap minggu, dan siapkan instrumen UAT (H84)
@@ -1942,6 +1976,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 | 2.19 | 10 November 2026 | Dua keputusan dari sesi 7a: aturan endpoint pembayaran (D123) dan satu payment satu invoice (D124). Catatan adapter Xendit dan hasil uji sandbox. H96 ditutup. Tanpa perubahan skema |
 | 2.20 | 10 November 2026 | Perlakuan webhook PAID untuk invoice yatim dan pembayaran dobel (D125). H99 diperluas. Tanpa perubahan skema |
 | 2.21 | 10 November 2026 | Tiga keputusan dari sesi 7b: bayar dobel di baris mana pun (D126), SETTLED seperti PAID (D127), dan 5xx sebelum kunci event (D128). Catatan implementasi webhook dan urutan kunci. H10 sampai H13 ditutup. Tanpa perubahan skema |
+| 2.22 | 11 November 2026 | Dua keputusan dari sesi 7c: endpoint wallet dimajukan ke Fase 7 (D129) dan pengecualian ledger append-only untuk seed demo (D130). Catatan implementasi T18. Fase 7 ditutup dengan seluruh kriteria PRD Bagian 9 terpenuhi. H3 terbukti lewat perilaku, H100 baru. Status artefak 3 dan 4 diselaraskan. Tanpa perubahan skema |
 
 ---
 

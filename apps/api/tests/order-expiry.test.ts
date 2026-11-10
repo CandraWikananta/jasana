@@ -297,7 +297,7 @@ describe.skipIf(!hasTestDatabase)('sweep deadline T3 dan T6 (6f)', () => {
       expect((await patch(order.id, w.client, 'payment_deadline_at')).status).toBe(409);
       expect((await patch(order.id, await newUser(), 'response_deadline_at')).status).toBe(403);
       expect((await patch(order.id, w.client, 'scheduled_at')).status).toBe(422);
-      expect((await run('settlement')).status).toBe(422);
+      expect((await run('tidak-ada')).status).toBe(422);
 
       expect((await patch(order.id, w.client, 'response_deadline_at')).status).toBe(200);
       const res = await run('response-deadline');

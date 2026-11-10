@@ -141,25 +141,31 @@ const paidData = (details: PaymentDetails, billed: Prisma.Decimal) => ({
 });
 
 /**
- * Ledger ESCROW_HOLD (PRD 3.2): pending += provider_earning pada wallet usaha.
+ * Ledger escrow (PRD 3.2) pada wallet usaha:
+ *   ESCROW_HOLD     pending += provider_earning                       (T5)
+ *   ESCROW_RELEASE  available += provider_earning, pending -= sama    (T18)
  * UPDATE dengan increment mengunci baris wallet dan mengembalikan saldo
  * sesudahnya, jadi `balance_*_after` tidak tertukar dengan transaksi lain.
  */
-async function holdEscrow(tx: Tx, order: Order): Promise<void> {
+export async function writeEscrow(tx: Tx, order: Order, type: 'ESCROW_HOLD' | 'ESCROW_RELEASE'): Promise<void> {
+  const earning = order.providerEarning;
+  const availableDelta = type === 'ESCROW_RELEASE' ? earning : new Prisma.Decimal(0);
+  const pendingDelta = type === 'ESCROW_RELEASE' ? earning.negated() : earning;
   const wallet = await tx.wallet.update({
     where: { providerProfileId: order.providerProfileId },
-    data: { balancePending: { increment: order.providerEarning } },
+    data: { balanceAvailable: { increment: availableDelta }, balancePending: { increment: pendingDelta } },
     select: { id: true, balanceAvailable: true, balancePending: true },
   });
   await tx.walletTransaction.create({
     data: {
       walletId: wallet.id,
       orderId: order.id,
-      type: 'ESCROW_HOLD',
-      amountPendingDelta: order.providerEarning,
+      type,
+      amountAvailableDelta: availableDelta,
+      amountPendingDelta: pendingDelta,
       balanceAvailableAfter: wallet.balanceAvailable,
       balancePendingAfter: wallet.balancePending,
-      description: `Escrow order ${order.orderNumber}`,
+      description: `${type === 'ESCROW_HOLD' ? 'Escrow' : 'Pencairan escrow'} order ${order.orderNumber}`,
     },
   });
 }
@@ -185,7 +191,7 @@ async function settlePaid(tx: Tx, afterCommit: AfterCommit, orderId: string, pay
       const target = paymentId ?? (await tx.payment.findFirst({ where: { orderId, status: 'PENDING' }, select: { id: true } }))?.id;
       if (target) await tx.payment.update({ where: { id: target }, data: paid });
       else await tx.payment.create({ data: { orderId, xenditExternalId: `PAY-${randomUUID()}`, amount: order.totalAmount, ...paid } });
-      await holdEscrow(tx, order);
+      await writeEscrow(tx, order, 'ESCROW_HOLD');
 
       const parties = await tx.order.findUniqueOrThrow({
         where: { id: orderId },

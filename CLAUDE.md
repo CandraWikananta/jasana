@@ -6,7 +6,7 @@ Marketplace jasa on-demand berbasis web. Ini kode untuk Tugas Akhir, jadi **doku
 
 | Berkas | Isi |
 |---|---|
-| `docs/Keputusan-Desain-Sistem.md` | Register keputusan D1 sampai D102 (versi 2.12) beserta alasannya. **Baca ini kalau ragu kenapa sesuatu dirancang begitu** |
+| `docs/Keputusan-Desain-Sistem.md` | Register keputusan D1 sampai D130 (versi 2.22) beserta alasannya. **Baca ini kalau ragu kenapa sesuatu dirancang begitu** |
 | `docs/State-Machine-Order.md` | 15 status, 22 transisi, guard, efek samping, dan kode `ALLOWED_TRANSITIONS` |
 | `docs/PRD-Backend.md` | Kontrak endpoint, NFR, cron, Socket.IO, milestone |
 | `packages/database/prisma/schema.prisma` | 35 model, 35 enum (`order_offers` masuk di sesi 6d, D102) |
@@ -58,7 +58,7 @@ Proyek ini diindeks oleh codebase-memory-mcp. Pakai tool graph-nya untuk pertany
 
 1. `orders.status` hanya berubah lewat `transitionOrder()`. Satu-satunya pengecualian adalah klaim atomik Available Now, yang tetap menjalankan seluruh guard di transaksi yang sama
 2. Transisi pelaksanaan hanya boleh oleh `orders.assigned_worker_id`, **bukan sembarang pekerja di usaha yang sama**
-3. Baris `wallet_transactions` tidak pernah di-UPDATE atau dihapus. Koreksi lewat baris `ADJUSTMENT` berlawanan arah
+3. Baris `wallet_transactions` tidak pernah di-UPDATE atau dihapus. Koreksi lewat baris `ADJUSTMENT` berlawanan arah. Satu-satunya pengecualian adalah seed demo Fase 6 dan 7 yang menghapus ledger akun demo (D130), jangan ditiru di tempat lain
 4. Satu order hanya boleh punya satu `ESCROW_HOLD` dan satu `ESCROW_RELEASE`, selamanya
 5. Saldo didebit saat withdrawal **diajukan**, bukan saat selesai
 6. Refund selalu memotong `balance_pending`, tidak pernah `balance_available`

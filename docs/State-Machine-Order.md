@@ -2,13 +2,13 @@
 
 **Artefak desain 3 dari 8**
 Platform Jasana, Tugas Akhir I Nyoman Gede Candra Wikananta (2305551065)
-**Versi 2.12**, 10 November 2026
+**Versi 2.13**, 11 November 2026
 
 Dokumen ini mendefinisikan seluruh kondisi yang boleh dialami sebuah order, perpindahan yang diizinkan di antaranya, dan efek samping yang wajib terjadi pada setiap perpindahan.
 
 **Aturan tunggal yang mengikat seluruh kode:** tidak ada satu pun bagian sistem yang boleh menulis `orders.status` secara langsung. Semua perubahan status melewati satu fungsi `transitionOrder()`. Di luar fungsi itu, kolom `status` bersifat read-only.
 
-Rujukan keputusan lengkap ada di `Keputusan-Desain-Sistem.md` (D1 sampai D102). Nomor D di dokumen ini menunjuk ke sana.
+Rujukan keputusan lengkap ada di `Keputusan-Desain-Sistem.md` (D1 sampai D130). Nomor D di dokumen ini menunjuk ke sana.
 
 ---
 
@@ -114,7 +114,7 @@ Kolom Aktor memakai singkatan: **C** client, **O** pemilik provider, **W** peker
 | T13, T15, T17, T19 | `now() <= settlement_due_at` atau `settlement_due_at` belum diset; belum ada dispute untuk order ini | Buat baris `disputes` berstatus `OPEN`; **hentikan cron settlement untuk order ini**; **seluruh `order_messages` order itu otomatis jadi bukti** yang ditampilkan ke admin (D79); notifikasi admin |
 | T14 | Pemanggil adalah `assigned_worker_id` | **Generate kode 6 digit** dengan `crypto.randomInt`, simpan terenkripsi di `verification_code_encrypted`; set `verification_expires_at = now() + 60 menit`; reset `verification_attempts = 0`; tampilkan kode **di aplikasi client**, dan kirim email yang memberi tahu kode bisa dilihat di aplikasi **tanpa memuat kodenya** (D60) |
 | T16 | Pemanggil adalah `assigned_worker_id`; kode cocok; `now() < verification_expires_at`; `verification_attempts < verification_max_attempts`, dibaca sebelum kenaikan dan direset ke 0 kalau lockout sudah lewat (D110); `verification_locked_until` null atau sudah lewat. Kode kedaluwarsa ditolak tanpa menaikkan attempts (D114) | Set `verified_at`, `completed_at`; **set `settlement_due_at = now() + settlement_holding_hours`**; lepas kunci in-flight pekerja dan pendamping; naikkan `listings.order_count` dan `provider_profiles.completed_orders_count`; buka form review untuk client |
-| T18 | `settlement_due_at < now()`; tidak ada dispute berstatus `OPEN` atau `UNDER_REVIEW` | Set `settled_at`; **ledger `ESCROW_RELEASE`: `pending -= earning`, `available += earning`**; **jalur `order_messages` jadi read-only** (D79); notifikasi pemilik |
+| T18 | `settlement_due_at < now()`; tidak ada dispute berstatus `OPEN` atau `UNDER_REVIEW`. Keduanya diperiksa ulang setelah order dikunci, walau kandidat cron sudah disaring | Set `settled_at`; **ledger `ESCROW_RELEASE`: `pending -= earning`, `available += earning`**, kunci order lalu wallet (register Bagian 4P); **jalur `order_messages` jadi read-only** (D79); notifikasi pemilik |
 | T20 | Dispute berstatus `UNDER_REVIEW`; putusan `RESOLVED_RELEASE` atau `RESOLVED_PARTIAL` | Set `settled_at`; kalau parsial, buat baris `refunds` sebesar `refund_amount` dan isi `platform_fee_refunded`; **ledger `ESCROW_RELEASE` sebesar sisa** |
 | T21 | Dispute berstatus `UNDER_REVIEW`; putusan `RESOLVED_REFUND` | Buat baris `refunds` penuh; set `platform_fee_refunded = platform_fee`; **ledger `REFUND_DEDUCTION`: `pending -= earning`**; panggil Refund API Xendit |
 | T22 | Refund Xendit berstatus selesai | Set `refunds.completed_at`; **ledger `REFUND_DEDUCTION` kalau belum ditulis**; notifikasi client |
@@ -529,6 +529,7 @@ Diagram ASCII di atas hanya untuk orientasi cepat. Gunakan versi Mermaid untuk l
 | Versi | Tanggal | Perubahan |
 |---|---|---|
 | 1.0 | 17 September 2026 | Versi awal. 15 state, 22 transisi, guard dan efek samping, tiga aturan alur uang |
+| 2.13 | 11 November 2026 | T18 diimplementasikan di sesi 7c: guard diperiksa ulang setelah order dikunci, dan urutan kunci order lalu wallet |
 | 2.12 | 10 November 2026 | Guard T5 ditambah pembayaran telat (D119) dan kesamaan nominal (D120) |
 | 2.11 | 9 November 2026 | Penolakan tawaran ditolak setelah deadline (D115), satu fungsi T3 untuk cron dan penolakan terakhir, dan notifikasi SLA miss pada efek samping T3 (D116) |
 | 2.10 | 9 November 2026 | Guard T10 memakai parameter `geolocation_radius_meters`, guard T16 mengikuti D110 dan D114, dan Bagian 4.3 baru untuk pembaruan kode verifikasi (D111). Bagian pesan dalam order menjadi 4.4 |

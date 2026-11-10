@@ -108,6 +108,12 @@ async function main() {
       if (ids.length > 0) {
         const ownProviders = { providerProfile: { userId: { in: ids } } };
         const orders = { OR: [{ clientId: { in: ids } }, ownProviders] };
+        // D130: SATU-SATUNYA pengecualian aturan ledger append-only (CLAUDE.md aturan 3).
+        // Sejak 7b simulate-payment menulis ESCROW_HOLD, dan menghapus akun demo ikut menghapus
+        // wallet lewat cascade padahal wallet_transactions restrict, jadi seed tidak bisa diulang.
+        // Diizinkan karena yang dihapus hanya ledger wallet milik akun demo seed ini (email persis
+        // dari ACTORS), datanya buatan tanpa nilai audit, dan NODE_ENV=production sudah ditolak di atas.
+        await tx.walletTransaction.deleteMany({ where: { wallet: { providerProfile: { user: { email: { in: emails } } } } } });
         // payments.order_id dan refunds restrict, jadi dihapus sebelum order.
         await tx.payment.deleteMany({ where: { order: orders } });
         await tx.order.deleteMany({ where: orders });
