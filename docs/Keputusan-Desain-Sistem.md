@@ -4,8 +4,8 @@
 **Nama sistem:** Jasana
 **Penyusun:** I Nyoman Gede Candra Wikananta (2305551065)
 **Bidang Keahlian:** Sistem Informasi, Teknologi Informasi, Universitas Udayana
-**Versi:** 2.22
-**Terakhir diperbarui:** 11 November 2026 (versi 2.22)
+**Versi:** 2.23
+**Terakhir diperbarui:** 13 November 2026 (versi 2.23)
 **Tahap saat ini:** Implementasi backend. Fase 0 sampai Fase 7 selesai
 
 ---
@@ -1278,10 +1278,23 @@ Keduanya diusulkan di sesi 7c dan sudah diterapkan di kode. Tidak ada perubahan 
 |---|---|---|
 | Webhook duplikat menghasilkan satu `ESCROW_HOLD` | Test duplikat paralel di 7b dan Postman Fase 7 folder 01 (dikirim ulang, ledger tetap satu baris) | Lulus |
 | V1 tetap 0 baris | `afterEach` di test webhook dan settlement, ditambah `db:verify` saat ledger berisi HOLD dan RELEASE. V1, V5 sampai V8, V11, dan V12 semuanya 0 baris | Lulus |
-| T5 lewat webhook, end-to-end | Test alur T1 sampai T18 lewat endpoint webhook dan Postman folder 01 | Lulus. Uji dengan webhook dari sandbox Xendit sungguhan dijalankan terpisah oleh penyusun |
+| T5 lewat webhook, end-to-end | Test alur T1 sampai T18 lewat endpoint webhook dan Postman folder 01 | Lulus, termasuk dengan webhook dari sandbox Xendit sungguhan (lihat di bawah) |
 | T18 end-to-end | Test alur lengkap dan Postman folder 05: saldo available sama dengan earning, pending 0 | Lulus |
 | D119, D120, D122 lewat API | Postman folder 02 sampai 04 | Lulus |
 | D101 nomor 5 | T5 lewat webhook dan T18 terpasang. T9, T11, T13, T15, T17, dan T19 sampai T22 tetap di Fase 8 | Sesuai |
+
+**Uji sandbox Xendit (12 November 2026, dijalankan penyusun).** `PAYMENT_GATEWAY=xendit` dengan secret key dan verification token mode test, basis data Supabase dev, webhook diterima lewat tunnel ngrok. Quick tunnel cloudflared tidak bisa dipakai karena dashboard Xendit menolak menyimpan URL-nya dengan pesan URL mengandung IP privat atau lokal, padahal URL itu bisa diakses publik.
+
+| Langkah | Hasil |
+|---|---|
+| Order `ORD-20261112-176E38E0` dibuat lalu di-accept pemilik (T1) | Accept pukul 16:33:37 UTC, batas bayar 16:43:35, invoice di `checkout-staging.xendit.co` sebesar Rp1.500.000 |
+| Invoice dibayar di checkout mode test | Xendit mencatat `paid_at` 16:34:56 |
+| Webhook `invoice:6af5ea62a4105c5a534037b8:PAID` | Diterima 16:35:00.936, `signature_valid` true, PROCESSED pada 16:35:06.316, `error_message` kosong |
+| Order dan payment | Order PAID (`paid_at` 16:35:04), payment PAID |
+| Ledger | Tepat satu `ESCROW_HOLD`, pending +Rp1.350.000 (`provider_earning`, bukan total tagihan), available 0 |
+| `db:verify` di Supabase dev | V1, V5 sampai V8, V11, dan V12 nol baris |
+
+Tidak ada event SETTLED untuk invoice ini, jadi jalur D127 hanya terbukti lewat test. Jarak sekitar 5,4 detik antara `received_at` dan `processed_at` adalah waktu transaksi 2 yang bolak-balik dari mesin lokal ke Supabase dev. Xendit tetap menerima 200, tapi angka ini menjadi catatan untuk stress test: latensi jaringan ke basis data akan mendominasi kalau k6 dan API tidak dijalankan dekat dengan basis data (H91, H92)
 
 ---
 
@@ -1942,7 +1955,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 ## 11. Langkah Berikutnya
 
 1. Fase 8 (uang lanjutan): withdrawal dengan minimum dan admin fee (D84, H83), payout, refund termasuk pembayaran telat dan dobel (H99), dispute beserta bukti dengan pola unggah multipart (H78, H79), webhook payout dan refund, transisi T9, T11, T13, T15, T17, dan T19 sampai T22, serta test wajib H100
-2. Selesai: Fase 7 (11 November 2026, 627 test lulus), sebelumnya audit hutang teknis (9 November 2026) dan sesi perapian (10 November 2026). Uji dengan webhook dari sandbox Xendit sungguhan dijalankan penyusun sebelum Fase 8 dimulai
+2. Selesai: Fase 7 (11 November 2026, 627 test lulus) beserta uji sandbox Xendit sungguhan (12 November 2026), sebelumnya audit hutang teknis (9 November 2026) dan sesi perapian (10 November 2026)
 3. Susun data simulasi untuk dua belas sub-kategori di Lampiran B, termasuk skenario perebutan Available Now dan pendamping pada dokumentasi acara
 4. Riset ringan rentang harga pasaran untuk dua belas sub-kategori tersebut, catat sumbernya
 5. Paralel sejak sekarang: kumpulkan H15 sedikit demi sedikit setiap minggu, dan siapkan instrumen UAT (H84)
@@ -1977,6 +1990,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 | 2.20 | 10 November 2026 | Perlakuan webhook PAID untuk invoice yatim dan pembayaran dobel (D125). H99 diperluas. Tanpa perubahan skema |
 | 2.21 | 10 November 2026 | Tiga keputusan dari sesi 7b: bayar dobel di baris mana pun (D126), SETTLED seperti PAID (D127), dan 5xx sebelum kunci event (D128). Catatan implementasi webhook dan urutan kunci. H10 sampai H13 ditutup. Tanpa perubahan skema |
 | 2.22 | 11 November 2026 | Dua keputusan dari sesi 7c: endpoint wallet dimajukan ke Fase 7 (D129) dan pengecualian ledger append-only untuk seed demo (D130). Catatan implementasi T18. Fase 7 ditutup dengan seluruh kriteria PRD Bagian 9 terpenuhi. H3 terbukti lewat perilaku, H100 baru. Status artefak 3 dan 4 diselaraskan. Tanpa perubahan skema |
+| 2.23 | 13 November 2026 | Hasil uji sandbox Xendit sungguhan dicatat di penutupan Fase 7: webhook PAID dari Xendit diproses, satu `ESCROW_HOLD`, V1 nol baris. Catatan tunnel dan latensi transaksi webhook. Tanpa keputusan baru dan tanpa perubahan skema |
 
 ---
 
