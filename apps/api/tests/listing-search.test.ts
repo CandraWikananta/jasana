@@ -393,7 +393,7 @@ describe.skipIf(!hasTestDatabase)('pencarian listing', () => {
     expect(located.status).toBe(422);
     expect(located.body.error.details[0].path).toBe('attr.rahasia');
 
-    for (const bad of [{ rahasia: 'x' }, { warna: 'Merah' }, { jenis: 'Bus' }, { sumber_air: 'Sungai' }, { malam: 'ya' }]) {
+    for (const bad of [{ rahasia: 'x' }, { warna: 'Merah' }, { jenis: 'Bus' }, { sumber_air: 'Sungai' }, { malam: 'ya' }] as Record<string, string>[]) {
       const res = await search(attr(bad));
       expect(res.status, JSON.stringify(bad)).toBe(422);
       expect(res.body.error.details[0].path).toBe(`attr.${Object.keys(bad)[0]}`);

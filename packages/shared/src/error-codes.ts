@@ -51,6 +51,10 @@ export const BUSINESS_ERROR_STATUS = {
   VERIFICATION_CODE_EXPIRED: 422,
   VERIFICATION_LOCKED: 429,
   INSUFFICIENT_BALANCE: 422,
+  WITHDRAWAL_BELOW_MINIMUM: 422,
+  // Sesi 8b, belum tercatat di Lampiran A. Withdrawal yang statusnya tidak
+  // cocok untuk aksi admin (reject selain REQUESTED, approve setelah DISBURSING).
+  WITHDRAWAL_STATE_CONFLICT: 409,
   TOKEN_INVALID: 422,
   TOKEN_EXPIRED: 422,
   TOKEN_ALREADY_USED: 422,

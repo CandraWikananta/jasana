@@ -235,7 +235,7 @@ describe.skipIf(!hasTestDatabase)('order Available Now (6d)', () => {
       const order = await createOrder();
 
       // Baris order dipegang test, jadi kedua klaim tertahan di UPDATE bersyarat yang sama.
-      let both!: Promise<request.Response[]>;
+      let both!: Promise<[request.Response, request.Response]>;
       await prisma.$transaction(
         async (tx) => {
           await tx.$queryRaw`SELECT id FROM orders WHERE id = ${order.id}::uuid FOR UPDATE`;
@@ -276,7 +276,7 @@ describe.skipIf(!hasTestDatabase)('order Available Now (6d)', () => {
       const order = await createOrder();
       await decline(order.id, w.w3).expect(200);
 
-      let both!: Promise<request.Response[]>;
+      let both!: Promise<[request.Response, request.Response]>;
       await prisma.$transaction(
         async (tx) => {
           await tx.$queryRaw`SELECT id FROM orders WHERE id = ${order.id}::uuid FOR UPDATE`;

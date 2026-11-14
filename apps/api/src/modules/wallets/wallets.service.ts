@@ -31,6 +31,7 @@ export async function listTransactions(provider: ProviderContext, query: WalletT
     items: rows.map((row) => ({
       id: row.id.toString(),
       order_id: row.orderId,
+      withdrawal_id: row.withdrawalId,
       type: row.type,
       amount_available_delta: rupiah(row.amountAvailableDelta),
       amount_pending_delta: rupiah(row.amountPendingDelta),

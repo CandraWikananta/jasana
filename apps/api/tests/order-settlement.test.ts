@@ -57,7 +57,7 @@ describe.skipIf(!hasTestDatabase)('settlement T18 (7c)', () => {
 
     const rows = await ledger(id);
     expect(rows.map((r) => r.type)).toEqual(['ESCROW_HOLD', 'ESCROW_RELEASE']);
-    const release = rows[1];
+    const release = rows[1]!;
     expect(release.amountAvailableDelta.equals(earning)).toBe(true);
     expect(release.amountPendingDelta.equals(earning.negated())).toBe(true);
     expect(release.balanceAvailableAfter.equals(earning)).toBe(true);

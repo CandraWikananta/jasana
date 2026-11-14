@@ -201,9 +201,9 @@ async function main() {
   online.forEach(({ id }) => presence.touch(id));
   console.log(`Pekerja online: ${online.length}`);
 
-  const [{ id: subId }] = await prisma.$queryRaw<{ id: string }[]>(Prisma.sql`SELECT md5('bench-sub-1')::uuid::text AS id`);
+  const [{ id: subId }] = await prisma.$queryRaw<[{ id: string }]>(Prisma.sql`SELECT md5('bench-sub-1')::uuid::text AS id`);
   for (const scenario of SCENARIOS) {
-    if ('subcategory_id' in scenario.query) scenario.query.subcategory_id = subId!;
+    if ('subcategory_id' in scenario.query) scenario.query.subcategory_id = subId;
     const sql = await buildSearchSql(parsed(scenario.query));
     const plan = await prisma.$queryRaw<{ 'QUERY PLAN': string }[]>(Prisma.sql`EXPLAIN (ANALYZE, BUFFERS) ${sql.page}`);
     const text = plan.map((row) => row['QUERY PLAN']).join('\n');

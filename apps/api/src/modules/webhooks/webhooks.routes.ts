@@ -3,7 +3,7 @@
  *
  *   /webhooks/xendit/invoice   token callback dulu, baru validasi body (H13)
  *   /webhooks/xendit/refund    stub sesi 8a, dicatat IGNORED
- *   /webhooks/xendit/payout    stub sesi 8a, dicatat IGNORED
+ *   /webhooks/xendit/payout    sesi 8b, dicocokkan lewat data.reference_id (D137)
  */
 
 import { timingSafeEqual } from 'node:crypto';
@@ -13,7 +13,7 @@ import { hashToken } from '../../lib/crypto';
 import { Errors } from '../../lib/errors';
 import { validate } from '../../middlewares/validate';
 import * as controller from './webhooks.controller';
-import { invoiceCallbackSchema } from './webhooks.schema';
+import { invoiceCallbackSchema, payoutCallbackSchema } from './webhooks.schema';
 
 /**
  * H13. Gagal tertutup kalau token di env atau header kosong. Yang dibandingkan
@@ -33,6 +33,6 @@ export function createWebhooksRouter(): Router {
   router.post('/xendit/invoice', requireCallbackToken, validate({ body: invoiceCallbackSchema }), controller.invoice);
   // Stub sesi 8a: tanpa validate, payload apa pun dicatat setelah token lolos.
   router.post('/xendit/refund', requireCallbackToken, controller.refund);
-  router.post('/xendit/payout', requireCallbackToken, controller.payout);
+  router.post('/xendit/payout', requireCallbackToken, validate({ body: payoutCallbackSchema }), controller.payout);
   return router;
 }

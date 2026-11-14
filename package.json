@@ -32,7 +32,8 @@
     "postman:seed:fase-4": "node scripts/postman-seed-fase-4.mjs",
     "postman:seed:fase-5": "node scripts/postman-seed-fase-5.mjs",
     "postman:seed:fase-6": "node scripts/postman-seed-fase-6.mjs",
-    "postman:seed:fase-7": "node scripts/postman-seed-fase-7.mjs"
+    "postman:seed:fase-7": "node scripts/postman-seed-fase-7.mjs",
+    "postman:seed:fase-8": "node scripts/postman-seed-fase-8.mjs"
   },
   "devDependencies": {
     "typescript": "5.6.3"

@@ -10,6 +10,7 @@ import { randomInt } from 'node:crypto';
 import request from 'supertest';
 import { prisma } from '@jasana/database';
 import { signAccessToken } from '../../src/lib/jwt';
+import { sweepSettlements } from '../../src/modules/orders/order-expiry.service';
 
 /** Puputan Renon, Denpasar. */
 export const RENON = { lat: -8.6725, lng: 115.234 };
@@ -137,7 +138,7 @@ export type World = Awaited<ReturnType<typeof newWorld>>;
 /** Menunggu sampai `count` sesi basis data tertahan kunci (pola balapan 6c). */
 export async function waitForLockWaiters(count: number): Promise<void> {
   for (let i = 0; i < 100; i += 1) {
-    const [{ waiting }] = await prisma.$queryRaw<{ waiting: number }[]>`
+    const [{ waiting }] = await prisma.$queryRaw<[{ waiting: number }]>`
       SELECT count(*)::int AS waiting FROM pg_stat_activity
       WHERE datname = current_database() AND wait_event_type = 'Lock'
     `;
@@ -201,4 +202,16 @@ export async function runExecution(app: Parameters<typeof request>[0], w: World,
   const code = await request(app).get(`/api/v1/orders/${id}/verification-code`).set(...auth(w.client));
   if (code.status !== 200) throw new Error(`code ${code.status}: ${JSON.stringify(code.body)}`);
   await step('verify', { code: code.body.data.code });
+}
+
+/**
+ * Saldo available usaha w sebesar provider_earning satu order, seluruhnya lewat
+ * kode produksi: T1 sampai T16, lalu T18 oleh sweep settlement (sesi 8b).
+ */
+export async function fundWallet(app: Parameters<typeof request>[0], w: World): Promise<number> {
+  const { id } = await completedOrder(app, w);
+  await prisma.order.update({ where: { id }, data: { settlementDueAt: new Date(Date.now() - 1000) } });
+  const swept = await sweepSettlements();
+  if (swept.settled !== 1) throw new Error(`settlement ${JSON.stringify(swept)}`);
+  return (await prisma.order.findUniqueOrThrow({ where: { id } })).providerEarning.toNumber();
 }

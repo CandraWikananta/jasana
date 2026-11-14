@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| Versi | 2.18 |
+| Versi | 2.19 |
 | Penyusun | I Nyoman Gede Candra Wikananta (2305551065) |
 | Program Studi | Teknologi Informasi, Universitas Udayana |
 | Bidang Keahlian | Sistem Informasi |
@@ -794,7 +794,7 @@ Query parameter `GET /listings`:
 | POST | `/providers/me/withdrawals` | PR | Ajukan pencairan, saldo langsung didebit |
 | GET | `/providers/me/withdrawals` | PR | Riwayat pengajuan |
 | GET | `/admin/withdrawals` | A | Antrean pengajuan |
-| POST | `/admin/withdrawals/:id/approve` | A | Setujui, memanggil Xendit Payout |
+| POST | `/admin/withdrawals/:id/approve` | A | Setujui, memanggil Xendit Payout setelah commit. Gagal sementara dibalas 502 dan withdrawal tetap APPROVED untuk dicoba ulang, penolakan final dibalas 200 dengan status FAILED (D138, D139) |
 | POST | `/admin/withdrawals/:id/reject` | A | Tolak, memicu `WITHDRAWAL_REVERSAL` |
 
 #### Dispute dan review
@@ -1473,7 +1473,8 @@ Yang sudah ditutup di register keputusan versi 2.8:
 | `VERIFICATION_CODE_EXPIRED` | 422 | Kode kedaluwarsa |
 | `VERIFICATION_LOCKED` | 429 | Terkunci setelah percobaan melebihi batas |
 | `INSUFFICIENT_BALANCE` | 422 | Saldo available tidak cukup |
-| `WITHDRAWAL_BELOW_MINIMUM` | 422 | Nominal withdrawal di bawah `withdrawal_min_amount` (D84) |
+| `WITHDRAWAL_BELOW_MINIMUM` | 422 | Nominal withdrawal di bawah `withdrawal_min_amount`, atau `net_amount` tidak positif (D84) |
+| `WITHDRAWAL_STATE_CONFLICT` | 409 | Reject selain dari REQUESTED, atau approve dari status selain REQUESTED dan APPROVED |
 | `TOKEN_INVALID` | 422 | Token verifikasi tidak dikenali |
 | `TOKEN_EXPIRED` | 422 | Token verifikasi kedaluwarsa |
 | `TOKEN_ALREADY_USED` | 422 | Token verifikasi sudah dipakai |
@@ -1526,3 +1527,4 @@ Tidak menyangkut aturan bisnis, dibentuk oleh middleware bersama pada Fase 0.
 | 2.16 | 11 November 2026 | Sinkron dengan register keputusan versi 2.22. Fase 0 sampai 7 selesai. Endpoint wallet dimajukan ke Fase 7 (D129), dan router dev menerima `settlement_due_at` serta job `settlement` dan `webhook-recovery` |
 | 2.17 | 13 November 2026 | Sinkron dengan register keputusan versi 2.24. Uang bergerak di enam transisi (D132), dan pembalikan withdrawal beserta idempotency payout (D134) |
 | 2.18 | 14 November 2026 | Sinkron dengan register keputusan versi 2.25. Pencocokan webhook refund dan payout lewat `reference_id` (D136, D137) |
+| 2.19 | 14 November 2026 | Sinkron dengan register keputusan versi 2.26. Respons approve withdrawal (D138, D139) dan kode error `WITHDRAWAL_STATE_CONFLICT` |

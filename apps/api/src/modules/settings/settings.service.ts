@@ -30,15 +30,17 @@ export const NUMERIC_SETTING_DEFAULTS = {
   settlement_holding_hours: 24,
   verification_max_attempts: 5,
   verification_lockout_minutes: 15,
+  withdrawal_min_amount: 50000,
+  withdrawal_admin_fee: 6500,
 } as const;
 
 export type NumericSettingKey = keyof typeof NUMERIC_SETTING_DEFAULTS;
 
 /**
- * H89. Kunci yang nol-nya bermakna (tanpa jeda). Kunci lain tetap wajib > 0:
+ * H89. Kunci yang nol-nya bermakna (tanpa jeda, tanpa admin fee). Kunci lain tetap wajib > 0:
  * misalnya `orphan_upload_cleanup_hours = 0` akan menghapus unggahan yang baru masuk.
  */
-const ZERO_ALLOWED = new Set<NumericSettingKey>(['schedule_conflict_buffer_minutes']);
+const ZERO_ALLOWED = new Set<NumericSettingKey>(['schedule_conflict_buffer_minutes', 'withdrawal_admin_fee']);
 
 /** JSONB boleh berisi angka mentah atau string angka. */
 function asValidNumber(value: unknown, allowZero: boolean): number | null {

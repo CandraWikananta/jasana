@@ -37,6 +37,8 @@ export async function resetDatabase(): Promise<void> {
     prisma.notification.deleteMany(),
     // wallet_transactions.wallet_id restrict, jadi ledger dihapus sebelum wallet (7b).
     prisma.walletTransaction.deleteMany(),
+    // withdrawals.wallet_id restrict (8b).
+    prisma.withdrawal.deleteMany(),
     prisma.webhookEvent.deleteMany(),
     // Order merujuk listing, pekerja, dan user. Fase 5 membuatnya langsung untuk uji in-flight.
     // payments.order_id dan disputes.order_id restrict, jadi dihapus sebelum order (Fase 6, 7c).
@@ -52,7 +54,7 @@ export async function resetDatabase(): Promise<void> {
     prisma.kycDocument.deleteMany(),
     prisma.providerProfile.deleteMany(),
     prisma.platformSetting.deleteMany({
-      where: { key: { in: ['kyc_document_max_size_mb', 'listing_faq_max_items', 'orphan_upload_cleanup_hours', 'schedule_conflict_buffer_minutes', 'platform_fee_percentage', 'available_now_offer_limit', 'geolocation_radius_meters'] } },
+      where: { key: { in: ['kyc_document_max_size_mb', 'listing_faq_max_items', 'orphan_upload_cleanup_hours', 'schedule_conflict_buffer_minutes', 'platform_fee_percentage', 'available_now_offer_limit', 'geolocation_radius_meters', 'withdrawal_min_amount', 'withdrawal_admin_fee'] } },
     }),
     prisma.refreshToken.deleteMany(),
     prisma.verificationToken.deleteMany(),

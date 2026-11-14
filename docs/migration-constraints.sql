@@ -4,7 +4,8 @@
 -- Platform Marketplace Jasa On-Demand "Jasana"
 -- I Nyoman Gede Candra Wikananta - 2305551065
 --
--- VERSI 2.6. Menyesuaikan keputusan D31 sampai D80.
+-- VERSI 2.7. Menambah index H102 (D134) di bagian 3a, sesi 8b.
+-- Versi 2.6 menyesuaikan keputusan D31 sampai D80.
 -- D80 tidak menambah constraint basis data: validasi unggahan berkas
 -- dilakukan service layer (H78, H79) dan pembersihan berkas yatim lewat cron (H80).
 -- Rujukan lengkap: Keputusan-Desain-Sistem.md
@@ -78,6 +79,21 @@ CREATE UNIQUE INDEX uniq_escrow_event_per_order
   ON wallet_transactions (order_id, type)
   WHERE order_id IS NOT NULL
     AND type IN ('ESCROW_HOLD', 'ESCROW_RELEASE');
+
+
+-- ------------------------------------------------------------
+-- 3a. Satu withdrawal hanya boleh punya satu WITHDRAWAL dan
+--     satu WITHDRAWAL_REVERSAL                            [H102]
+-- ------------------------------------------------------------
+-- D134. Pasangan H3 untuk withdrawal. Tanpa ini, webhook FAILED yang
+-- dikirim ulang Xendit atau bug di kode bisa mengembalikan saldo dua
+-- kali. Dipasang lewat migrasi 20261114170000_add_withdrawal_ledger_index
+-- (sesi 8b).
+
+CREATE UNIQUE INDEX uniq_withdrawal_event_per_withdrawal
+  ON wallet_transactions (withdrawal_id, type)
+  WHERE withdrawal_id IS NOT NULL
+    AND type IN ('WITHDRAWAL', 'WITHDRAWAL_REVERSAL');
 
 
 -- ------------------------------------------------------------

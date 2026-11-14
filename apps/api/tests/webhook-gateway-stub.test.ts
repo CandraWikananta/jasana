@@ -1,6 +1,7 @@
 /**
- * Sesi 8a: stub POST /webhooks/xendit/refund dan /webhooks/xendit/payout.
- * Hanya mencatat ke webhook_events dengan status IGNORED. Pemrosesannya di 8b dan 8c.
+ * Sesi 8a: stub POST /webhooks/xendit/refund. Hanya mencatat ke webhook_events
+ * dengan status IGNORED, pemrosesannya di 8c. Payout diproses sejak 8b
+ * (tests/webhook-payout.test.ts).
  *
  *   H13   token callback, gagal tertutup, tanpa baris
  *   stub  payload apa pun dengan token valid dicatat utuh dan dibalas 200
@@ -28,20 +29,9 @@ const ROUTES = [
       data: { id: 'rfd-samaran-1', invoice_id: 'inv-samaran-1', reference_id: 'ref-samaran-1', status: 'SUCCEEDED', amount: 20000, currency: 'IDR' },
     },
   },
-  {
-    domain: 'PAYOUT' as const,
-    path: '/api/v1/webhooks/xendit/payout',
-    prefix: 'payout',
-    body: {
-      event: 'payout.succeeded',
-      business_id: 'bisnis-samaran',
-      created: '2026-11-14T03:00:00.000Z',
-      data: { id: 'disb-samaran-1', reference_id: 'wd-samaran-1', status: 'SUCCEEDED', amount: 10000, channel_code: 'ID_BCA' },
-    },
-  },
 ];
 
-describe.skipIf(!hasTestDatabase)('stub webhook refund dan payout (8a)', () => {
+describe.skipIf(!hasTestDatabase)('stub webhook refund (8a)', () => {
   let app: Express;
   const send = (path: string, body: unknown, token: string | null = env.XENDIT_CALLBACK_TOKEN) => {
     const req = request(app).post(path);

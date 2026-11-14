@@ -4,9 +4,9 @@
 **Nama sistem:** Jasana
 **Penyusun:** I Nyoman Gede Candra Wikananta (2305551065)
 **Bidang Keahlian:** Sistem Informasi, Teknologi Informasi, Universitas Udayana
-**Versi:** 2.25
-**Terakhir diperbarui:** 14 November 2026 (versi 2.25)
-**Tahap saat ini:** Implementasi backend. Fase 0 sampai Fase 7 selesai, Fase 8 berjalan (sesi 8a selesai)
+**Versi:** 2.26
+**Terakhir diperbarui:** 14 November 2026 (versi 2.26)
+**Tahap saat ini:** Implementasi backend. Fase 0 sampai Fase 7 selesai, Fase 8 berjalan (sesi 8a dan 8b selesai)
 
 ---
 
@@ -42,7 +42,14 @@
 | Penutupan Fase 7 (D129 sampai D130) | 2 | 0 |
 | Uang lanjutan (D131 sampai D135) | 5 | 0 |
 | Refund dan payout dari sandbox (D136 sampai D137) | 2 | 0 |
+| Approve withdrawal (D138 sampai D139) | 2 | 0 |
 | Keputusan terbuka tanpa nomor D (Bagian 7) | | 0 |
+
+**Perubahan pada versi 2.26:**
+
+1. Aturan approve withdrawal untuk payout diterima, gagal sementara, dan ditolak final (D138)
+2. Xendit 409 diperlakukan sebagai galat sementara (D139)
+3. Catatan implementasi dan hasil sesi 8b. H83, H102, dan H105 ditutup
 
 **Perubahan pada versi 2.25:**
 
@@ -1379,6 +1386,33 @@ Berdasarkan uji sandbox sesi 8a (14 November 2026). D136 menutup keputusan terbu
 
 ---
 
+## 4T. Keputusan Versi 2.26 (D138 sampai D139)
+
+Dari sesi 8b. D138 ditetapkan sebelum sesi berdasarkan hasil sandbox 8a, D139 muncul saat menyusun rencana. Satu partial unique index baru (H102), tanpa tabel atau kolom baru.
+
+| # | Keputusan | Alasan |
+|---|---|---|
+| D138 | **Aturan approve withdrawal.** (1) REQUESTED menjadi APPROVED lalu commit, baru payout dipanggil sebesar `net_amount` dengan Idempotency-key id withdrawal dan payload yang seluruhnya dibentuk dari baris withdrawal, termasuk deskripsi, sehingga setiap percobaan ulang identik. (2) Xendit menerima: DISBURSING, `xendit_payout_id` dan status mentah diisi. (3) Timeout, galat jaringan, 5xx, atau balasan yang tidak dikenali: tetap APPROVED, `failure_code` dicatat, dibalas 502 `PAYMENT_GATEWAY_ERROR`. Approve pada status APPROVED berarti coba ulang dengan key yang sama. (4) Ditolak 4xx: FAILED dan `WITHDRAWAL_REVERSAL` di satu transaksi, dibalas 200 dengan status FAILED. Reversal hanya ditulis kalau UPDATE bersyarat dari APPROVED mengenai tepat satu baris, sehingga webhook yang mendahului tidak menghasilkan reversal kedua. (5) Webhook SUCCEEDED, FAILED, dan CANCELLED diterima dari APPROVED maupun DISBURSING, karena webhook bisa datang sebelum respons API diproses | Sandbox 8a membuktikan respons awal payout selalu ACCEPTED, termasuk untuk payout yang nanti gagal, dan Idempotency-key yang sama dengan payload sama tidak membuat payout kedua. Timeout berarti status payout tidak diketahui, sehingga mengembalikan saldo berisiko membayar dua kali, sedangkan mencoba ulang aman. Penolakan 4xx berarti payout pasti tidak dibuat, sehingga saldo harus langsung kembali. Kode HTTP memberi tahu admin apakah hasilnya final (200) atau harus dicoba lagi (502), sama seperti pembuatan ulang invoice di Fase 7 |
+| D139 | **Xendit 409 dikecualikan dari D138 nomor 4.** 409 berarti Idempotency-key sudah dipakai payout lain dengan payload berbeda. Diperlakukan seperti galat sementara: tetap APPROVED, `failure_code` dicatat, tanpa reversal, dan admin memeriksa di dashboard Xendit. Webhook payout untuk key itu tetap dicocokkan lewat `reference_id` dan menyelesaikan statusnya | Payout dengan key itu sudah ada di Xendit, jadi uangnya mungkin sudah atau sedang keluar. Menjadikannya FAILED dengan reversal bisa membuat penyedia menarik dana yang sama dua kali. Karena payload dibentuk deterministik dari baris withdrawal (D138 nomor 1), 409 seharusnya tidak pernah muncul, dan kalau muncul itu tanda ada yang salah sehingga perlu diperiksa manusia |
+
+**Catatan implementasi sesi 8b tanpa nomor D:**
+
+- **Debit saldo pengajuan lewat satu UPDATE bersyarat** (`balance_available >= amount`), bukan baca lalu cek. Dua pengajuan paralel yang jumlahnya melebihi saldo menghasilkan tepat satu yang berhasil, dibuktikan test yang menahan kunci wallet sampai kedua request benar-benar menunggu
+- **Urutan kunci:** pengajuan hanya mengunci wallet. Seluruh jalur reversal (reject, payout 4xx, webhook FAILED atau CANCELLED, dan REVERSED) mengunci withdrawal dulu, baru wallet
+- Webhook invoice dan payout memakai satu fungsi penerima dengan peta handler per domain. Cron pemulihan D121 ikut memproses domain PAYOUT. Event yang IGNORED tidak menimpa `xendit_payout_status`. Stub refund dari 8a tetap sampai sesi 8c
+- Kode galat baru `WITHDRAWAL_STATE_CONFLICT` (409) untuk reject selain dari REQUESTED dan approve dari status selain REQUESTED atau APPROVED
+- `withdrawal_admin_fee` boleh bernilai 0, yang berarti gratis. Pengajuan dengan `net_amount` nol atau negatif ditolak `WITHDRAWAL_BELOW_MINIMUM`, yang hanya mungkin terjadi kalau minimum disetel di bawah fee
+- Pemilik usaha diberi notifikasi saat withdrawal REJECTED (beserta alasan), COMPLETED, FAILED, dan REVERSED. Untuk FAILED dan REVERSED disebutkan bahwa saldo sudah dikembalikan. Nomor rekening hanya ditampilkan empat digit terakhir
+- DTO `/providers/me/wallet/transactions` kini memuat `withdrawal_id`
+- **Saldo demo Postman Fase 8 dibuat lewat alur API sungguhan** (T1 sampai T18 di folder 00), bukan ditulis seed. Seed Fase 8 hanya membuat akun, sehingga seluruh baris ledger dihasilkan kode produksi
+- Withdrawal yang macet di APPROVED setelah timeout hanya dicoba ulang kalau admin menekan approve lagi. Antrean admin bisa disaring per status untuk menemukannya
+- H105 menemukan 12 galat tipe di 7 berkas test dan skrip yang selama ini lolos. Semuanya diperbaiki tanpa `any` atau `@ts-ignore`
+- Satu `shortcut:` baru: filter status antrean admin belum punya index sendiri. Tambahkan `@@index([status, createdAt])` kalau antrean membesar
+
+**Hasil sesi 8b:** typecheck bersih termasuk test dan skrip, 680 test lulus di 37 berkas, 21 dari 21 mutan mati. Postman Fase 8: 49 request dan 83 assertion tanpa gagal. Regresi Postman Fase 1 sampai 7 hijau. `db:verify` dan `db:check-constraints` lulus di `jasana_test`, termasuk index H102.
+
+---
+
 ## 5. Alur Sistem End-to-End
 
 ### 5.1 Onboarding
@@ -1911,8 +1945,8 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 - [x] **H63** **(terpasang, diverifikasi db:check-constraints 8 November 2026)** `chk_chat_session_identity` pada `chat_sessions` **(baru, D77)**
 - [x] **H69** **(terpasang, diverifikasi db:check-constraints 8 November 2026)** `chk_order_message_sender_role` dan `chk_order_message_content_length` **(baru, D79)**
 - [ ] **H101** Partial unique index satu `REFUND_DEDUCTION` per order, dipasang di sesi 8c. Wajib punya test yang menulis deduction kedua dan memastikan ditolak **(baru, D132)**
-- [ ] **H102** Partial unique index satu `WITHDRAWAL_REVERSAL` per withdrawal, dipasang di sesi 8b. Wajib punya test webhook FAILED yang dikirim dua kali **(baru, D134)**
-- [ ] **H105** `npm run typecheck` hanya memeriksa `src`, karena `tsconfig.json` di `apps/api` mengecualikan `tests` dan skrip. Vitest juga tidak memeriksa tipe, jadi galat tipe di test dan skrip lolos tanpa ketahuan. Tambahkan tsconfig untuk test dan skrip, lalu masukkan ke script typecheck. Dikerjakan di awal sesi 8b **(baru, ditemukan di sesi 8a)**
+- [x] **H102** **(ditutup di sesi 8b: `uniq_withdrawal_event_per_withdrawal`, juga mencakup satu WITHDRAWAL per withdrawal, dibuktikan webhook FAILED ganda dan sisipan langsung yang ditolak)** Partial unique index satu `WITHDRAWAL_REVERSAL` per withdrawal, dipasang di sesi 8b. Wajib punya test webhook FAILED yang dikirim dua kali **(baru, D134)**
+- [x] **H105** **(ditutup di sesi 8b: `tsconfig.test.json`, 12 galat di 7 berkas diperbaiki)** `npm run typecheck` hanya memeriksa `src`, karena `tsconfig.json` di `apps/api` mengecualikan `tests` dan skrip. Vitest juga tidak memeriksa tipe, jadi galat tipe di test dan skrip lolos tanpa ketahuan. Tambahkan tsconfig untuk test dan skrip, lalu masukkan ke script typecheck. Dikerjakan di awal sesi 8b **(baru, ditemukan di sesi 8a)**
 - [x] **H94** **(ditutup di sesi 6d)** `chk_order_offer_outcome` pada `order_offers`: `declined_at` dan `sla_missed_at` tidak boleh terisi bersamaan **(baru, D102)**
 
 ### 8.2 Keamanan Kode Verifikasi dan Token
@@ -1966,7 +2000,7 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 - [x] **H88** **(ditutup di sesi 6c oleh D105)** Perilaku hapus listing (soft delete) saat masih ada order yang belum selesai **diputuskan di Fase 6**, karena order baru ada di fase itu. Saat ini hapus listing tidak memeriksa order
 - [x] **H89** **(ditutup di sesi 6b: `schedule_conflict_buffer_minutes` boleh 0, kunci lain tetap wajib lebih dari 0)** `getNumberSetting` menganggap nilai 0 tidak sah dan memakai default. Sesuaikan sebelum `schedule_conflict_buffer_minutes` (Fase 6) atau `withdrawal_admin_fee` (Fase 8) boleh bernilai 0
 - [x] **H85** **(ditutup di sesi perapian 10 November 2026, dibuktikan dengan uji mutasi)** Validasi `listings.estimated_duration_minutes` wajib terisi dan berada di rentang 15 sampai 720 menit saat listing dibuat atau diubah, dan `orders.snapshot_duration_minutes` selalu disalin dari kolom ini, bukan dari `listings.attributes` **(baru, D90)**
-- [ ] **H83** Validasi pengajuan withdrawal **(baru, D84)**: `amount` minimal `withdrawal_min_amount`, `admin_fee` diambil dari `withdrawal_admin_fee` saat pengajuan, dan `net_amount` dihitung di server. Request tidak pernah memuat nominal fee
+- [x] **H83** **(ditutup di sesi 8b, dijaga test dan uji mutasi)** Validasi pengajuan withdrawal **(baru, D84)**: `amount` minimal `withdrawal_min_amount`, `admin_fee` diambil dari `withdrawal_admin_fee` saat pengajuan, dan `net_amount` dihitung di server. Request tidak pernah memuat nominal fee
 - [x] **H93** **(dibuka kembali pada audit 9 November 2026, ditutup di sesi perapian 10 November 2026 dengan integration test untuk listing tanpa atribut berdurasi)** `snapshot_duration_minutes` dihitung server dari definisi opsi saat order dibuat, tidak pernah dari input client. Wajib punya test: order B.6 dengan opsi "8 Jam" mengunci 480 menit plus buffer, termasuk ketersediaan pendamping di `order_crew`, dan listing tanpa atribut berdurasi tetap memakai kolom listing **(baru, D100)**
 - [x] **H95** **(ditutup: klaim, pilihan pemilik, dan penolakan terakhir di sesi 6d; SLA miss pada cron T3 di sesi 6f)** Aturan `order_offers` di service layer (D102): klaim pekerja dan pilihan pemilik hanya dari baris yang belum menolak, penolakan terakhir langsung memicu T3 di transaksi yang sama, dan cron T3 tidak memberi SLA miss ke penerima yang sudah menolak. Wajib punya test untuk ketiganya, termasuk penolakan terakhir yang bersamaan dengan klaim pekerja lain **(baru)**
 - [ ] **H97** Pemeriksaan D105 tidak memakai kunci, sehingga order yang dibuat tepat bersamaan dengan penghapusan listing bisa lolos. Order seperti itu tidak bisa di-accept karena listing sudah terhapus, lalu kedaluwarsa sendiri. Diterima sebagai batasan **(baru, sesi 6c)**
@@ -2048,7 +2082,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 
 ## 11. Langkah Berikutnya
 
-1. Fase 8 (uang lanjutan) dalam empat sesi menurut Bagian 4R. Sesi 8a selesai (14 November 2026) dan menghasilkan D136 serta D137. Berikutnya 8b withdrawal, 8c pembatalan berbayar dan refund, lalu 8d dispute dan penutupan
+1. Fase 8 (uang lanjutan) dalam empat sesi menurut Bagian 4R. Sesi 8a dan 8b selesai (14 November 2026), menghasilkan D136 sampai D139. Berikutnya 8c pembatalan berbayar dan refund, lalu 8d dispute dan penutupan
 2. Selesai: Fase 7 (11 November 2026, 627 test lulus) beserta uji sandbox Xendit sungguhan (12 November 2026), sebelumnya audit hutang teknis (9 November 2026) dan sesi perapian (10 November 2026)
 3. Susun data simulasi untuk dua belas sub-kategori di Lampiran B, termasuk skenario perebutan Available Now dan pendamping pada dokumentasi acara
 4. Riset ringan rentang harga pasaran untuk dua belas sub-kategori tersebut, catat sumbernya
@@ -2087,6 +2121,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 | 2.23 | 13 November 2026 | Hasil uji sandbox Xendit sungguhan dicatat di penutupan Fase 7: webhook PAID dari Xendit diproses, satu `ESCROW_HOLD`, V1 nol baris. Catatan tunnel dan latensi transaksi webhook. Tanpa keputusan baru dan tanpa perubahan skema |
 | 2.24 | 13 November 2026 | Lima keputusan uang sebelum Fase 8: refund pembatalan penuh (D131), `REFUND_DEDUCTION` di transisi pemicu (D132), rumus PARTIAL (D133), pembalikan withdrawal (D134), dan refund pembayaran telat (D135). Keputusan terbuka nomor 6 soal jalur eksekusi refund. Pembagian Fase 8. H99 dirinci, H101 sampai H104. Tanpa tabel atau kolom baru, dua partial unique index menyusul di 8b dan 8c |
 | 2.25 | 14 November 2026 | Dua keputusan dari uji sandbox sesi 8a: refund dua jalur dipilih dari metode pembayaran (D136, menutup keputusan terbuka nomor 6) dan payout v2 dengan status akhir dari webhook (D137). Hasil sandbox dan fixture payload sungguhan. H105. Tanpa perubahan skema |
+| 2.26 | 14 November 2026 | Dua keputusan dari sesi 8b: aturan approve withdrawal (D138) dan pengecualian 409 (D139). Catatan implementasi withdrawal, payout, dan webhook payout. H83, H102, dan H105 ditutup. Satu partial unique index baru |
 
 ---
 

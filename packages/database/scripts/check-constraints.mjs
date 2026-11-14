@@ -51,6 +51,7 @@ const EXPECTED_INDEXES = [
   ['uniq_payment_paid_per_order', true, 'H2  satu pembayaran lunas per order'],
   ['uniq_payment_pending_per_order', true, 'H2  satu invoice aktif per order'],
   ['uniq_escrow_event_per_order', true, 'H3  satu HOLD dan satu RELEASE per order'],
+  ['uniq_withdrawal_event_per_withdrawal', true, 'H102 satu WITHDRAWAL dan satu REVERSAL'],
   ['uniq_inflight_order_per_worker', true, 'H4  satu pekerja satu order in-flight'],
   ['uniq_active_worker_membership', true, 'H23 eksklusivitas keanggotaan pekerja'],
   ['uniq_listing_option_price_null_value', true, 'H54 opsi ber-nilai NULL tetap unik'],
@@ -136,6 +137,7 @@ async function main() {
       'uniq_inflight_order_per_worker',
       'uniq_active_worker_membership',
       'uniq_escrow_event_per_order',
+      'uniq_withdrawal_event_per_withdrawal',
     ]) {
       const def = indexByName.get(name);
       if (!def) continue;
@@ -155,7 +157,7 @@ async function main() {
       );
       process.exit(1);
     }
-    console.log('Seluruh pengaman terpasang, termasuk keenam partial unique index.\n');
+    console.log('Seluruh pengaman terpasang, termasuk ketujuh partial unique index.\n');
   } finally {
     await prisma.$disconnect();
   }

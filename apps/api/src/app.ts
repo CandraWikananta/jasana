@@ -31,7 +31,7 @@ import { healthRouter } from './modules/health/health.routes';
 import { createAuthRouter } from './modules/auth/auth.routes';
 import { createUsersRouter } from './modules/users/users.routes';
 import { createProvidersRouter } from './modules/providers/providers.routes';
-import { createWalletRouter } from './modules/wallets/wallets.routes';
+import { createWalletRouter, createWithdrawalRouter } from './modules/wallets/wallets.routes';
 import { createWorkersRouter } from './modules/workers/workers.routes';
 import { createAdminRouter } from './modules/admin/admin.routes';
 import { createCatalogRouter } from './modules/catalog/catalog.routes';
@@ -92,9 +92,10 @@ export function createApp(): Express {
 
   app.use(`${API_PREFIX}/auth`, createAuthRouter());
   app.use(`${API_PREFIX}/users`, createUsersRouter());
-  // Sebelum /providers, supaya /providers/me/listings dan /me/wallet tidak jatuh ke router itu.
+  // Sebelum /providers, supaya /providers/me/listings, /me/wallet, dan /me/withdrawals tidak jatuh ke router itu.
   app.use(`${API_PREFIX}/providers/me/listings`, createProviderListingsRouter());
   app.use(`${API_PREFIX}/providers/me/wallet`, createWalletRouter());
+  app.use(`${API_PREFIX}/providers/me/withdrawals`, createWithdrawalRouter());
   app.use(`${API_PREFIX}/providers`, createProvidersRouter());
   app.use(`${API_PREFIX}/listings`, createPublicListingsRouter());
   app.use(`${API_PREFIX}/uploads`, createUploadsRouter());

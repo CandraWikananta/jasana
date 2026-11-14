@@ -12,7 +12,7 @@ import { randomInt } from 'node:crypto';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
 import type { Express } from 'express';
-import { prisma } from '@jasana/database';
+import { prisma, type Prisma } from '@jasana/database';
 import { createApp } from '../src/app';
 import { validateSpecAttributes } from '../src/modules/catalog/attribute-rules';
 import { captureEmails, hasTestDatabase, resetDatabase } from './helpers/integration';
@@ -342,7 +342,7 @@ describe.skipIf(!hasTestDatabase)('katalog', () => {
       providerId = (await approvedProvider(app, admin)).providerId;
     });
 
-    const listing = (attributes: Record<string, unknown>, extra: Record<string, unknown> = {}) =>
+    const listing = (attributes: Prisma.InputJsonObject, extra: Record<string, unknown> = {}) =>
       prisma.listing.create({
         data: { providerProfileId: providerId, subcategoryId, title: 'Listing lama', price: 100000, attributes, ...extra },
       });

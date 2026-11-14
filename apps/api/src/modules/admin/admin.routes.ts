@@ -1,6 +1,6 @@
 /**
  * Rute `/admin` (PRD 4.3). Fase 2: pengajuan provider dan perubahan tipe.
- * Fase 3: katalog dan usulan taksonomi.
+ * Fase 3: katalog dan usulan taksonomi. Sesi 8b: antrean withdrawal.
  *
  * `GET /admin/provider-applications/:id` tidak ada di daftar endpoint PRD,
  * tapi dibutuhkan D80: bucket e-KYC private, jadi admin hanya bisa membuka
@@ -36,6 +36,8 @@ import {
   decisionSchema,
   requestParamsSchema,
 } from '../taxonomy/taxonomy.schema';
+import * as wallets from '../wallets/wallets.controller';
+import { adminWithdrawalsQuerySchema, rejectWithdrawalSchema, withdrawalParamsSchema } from '../wallets/wallets.schema';
 
 export function createAdminRouter(): Router {
   const router = Router();
@@ -113,6 +115,11 @@ export function createAdminRouter(): Router {
     validate({ params: requestParamsSchema, body: decisionSchema }),
     taxonomy.decide,
   );
+
+  // Sesi 8b: withdrawal (D134, usulan D138 dan D139)
+  router.get('/withdrawals', validate({ query: adminWithdrawalsQuerySchema }), wallets.listWithdrawalsForAdmin);
+  router.post('/withdrawals/:id/approve', validate({ params: withdrawalParamsSchema }), wallets.approveWithdrawal);
+  router.post('/withdrawals/:id/reject', validate({ params: withdrawalParamsSchema, body: rejectWithdrawalSchema }), wallets.rejectWithdrawal);
 
   return router;
 }
