@@ -4,13 +4,13 @@
 
 | | |
 |---|---|
-| Versi | 2.17 |
+| Versi | 2.18 |
 | Penyusun | I Nyoman Gede Candra Wikananta (2305551065) |
 | Program Studi | Teknologi Informasi, Universitas Udayana |
 | Bidang Keahlian | Sistem Informasi |
 | Pembimbing 1 | Dr. Ir. Ni Kadek Ayu Wirdiani, S.T., M.T., IPU |
 | Pembimbing 2 | Dr. Ir. Anak Agung Kompiang Oka Sudana, S.Kom., M.T., IPM |
-| Tanggal | 13 November 2026 |
+| Tanggal | 14 November 2026 |
 | Cakupan dokumen | **Backend saja** (Express.js REST API, basis data, integrasi eksternal, cron). Frontend dan UI/UX di luar cakupan dokumen ini |
 
 **Dokumen rujukan:** `Keputusan-Desain-Sistem.md` (register keputusan D1 sampai D128, versi 2.21), `State-Machine-Order.md` (artefak desain 3), `skema-database-final.dbml` (35 tabel, 35 enum), `schema.prisma`, `migration-constraints.sql`, `Panduan-Struktur-Database.md`.
@@ -782,8 +782,8 @@ Query parameter `GET /listings`:
 | GET | `/orders/:id/payment` | C | Payment terbaru beserta `invoice_url`, apa pun statusnya. 404 kalau order belum punya payment (D123) |
 | POST | `/orders/:id/payment` | C | Buat invoice untuk payment PENDING yang belum punya invoice, atau payment PENDING baru kalau tidak ada. Invoice yang masih berlaku dikembalikan apa adanya. Hanya saat `ACCEPTED` dan sebelum `payment_deadline_at` (D123, D124) |
 | POST | `/webhooks/xendit/invoice` | S | Callback status pembayaran |
-| POST | `/webhooks/xendit/payout` | S | Callback status pencairan |
-| POST | `/webhooks/xendit/refund` | S | Callback status refund |
+| POST | `/webhooks/xendit/payout` | S | Callback status pencairan. Dicocokkan lewat `data.reference_id` = id withdrawal, dan satu-satunya penentu COMPLETED atau FAILED (D137) |
+| POST | `/webhooks/xendit/refund` | S | Callback status refund. Dicocokkan lewat `data.reference_id` = id refund (D136) |
 
 #### Wallet dan withdrawal
 
@@ -1525,3 +1525,4 @@ Tidak menyangkut aturan bisnis, dibentuk oleh middleware bersama pada Fase 0.
 | 2.15 | 10 November 2026 | Sinkron dengan register keputusan versi 2.21. Langkah webhook invoice untuk SETTLED (D127), bayar dobel (D126), dan balasan 5xx sebelum kunci (D128) |
 | 2.16 | 11 November 2026 | Sinkron dengan register keputusan versi 2.22. Fase 0 sampai 7 selesai. Endpoint wallet dimajukan ke Fase 7 (D129), dan router dev menerima `settlement_due_at` serta job `settlement` dan `webhook-recovery` |
 | 2.17 | 13 November 2026 | Sinkron dengan register keputusan versi 2.24. Uang bergerak di enam transisi (D132), dan pembalikan withdrawal beserta idempotency payout (D134) |
+| 2.18 | 14 November 2026 | Sinkron dengan register keputusan versi 2.25. Pencocokan webhook refund dan payout lewat `reference_id` (D136, D137) |

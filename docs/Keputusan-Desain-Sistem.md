@@ -4,9 +4,9 @@
 **Nama sistem:** Jasana
 **Penyusun:** I Nyoman Gede Candra Wikananta (2305551065)
 **Bidang Keahlian:** Sistem Informasi, Teknologi Informasi, Universitas Udayana
-**Versi:** 2.24
-**Terakhir diperbarui:** 13 November 2026 (versi 2.24)
-**Tahap saat ini:** Implementasi backend. Fase 0 sampai Fase 7 selesai, Fase 8 dimulai
+**Versi:** 2.25
+**Terakhir diperbarui:** 14 November 2026 (versi 2.25)
+**Tahap saat ini:** Implementasi backend. Fase 0 sampai Fase 7 selesai, Fase 8 berjalan (sesi 8a selesai)
 
 ---
 
@@ -41,7 +41,14 @@
 | Webhook invoice (D126 sampai D128) | 3 | 0 |
 | Penutupan Fase 7 (D129 sampai D130) | 2 | 0 |
 | Uang lanjutan (D131 sampai D135) | 5 | 0 |
-| Keputusan terbuka tanpa nomor D (Bagian 7) | | 1 |
+| Refund dan payout dari sandbox (D136 sampai D137) | 2 | 0 |
+| Keputusan terbuka tanpa nomor D (Bagian 7) | | 0 |
+
+**Perubahan pada versi 2.25:**
+
+1. Refund dua jalur dipilih dari metode pembayaran, menutup keputusan terbuka nomor 6 (D136)
+2. Payout v2 dengan status akhir hanya dari webhook (D137)
+3. Hasil uji sandbox sesi 8a dan fixture payload sungguhan. H105 baru
 
 **Perubahan pada versi 2.24:**
 
@@ -1341,6 +1348,37 @@ Urutannya sengaja withdrawal dulu karena modul itu paling mandiri dan tidak meny
 
 ---
 
+## 4S. Keputusan Versi 2.25 (D136 sampai D137)
+
+Berdasarkan uji sandbox sesi 8a (14 November 2026). D136 menutup keputusan terbuka nomor 6. Tidak ada perubahan skema.
+
+| # | Keputusan | Alasan |
+|---|---|---|
+| D136 | **Refund memakai dua jalur, dipilih dari `payments.payment_method`.** (1) Pembayaran `EWALLET` di-refund lewat `POST /refunds` dengan `invoice_id`, `reference_id` berisi `refunds.id`, dan header idempotency berisi nilai yang sama. Baris `refunds` menjadi PROCESSING dengan `xendit_refund_id` terisi. (2) Metode lain, termasuk Virtual Account, tidak memanggil API: baris `refunds` tetap REQUESTED, admin mentransfer di luar sistem, lalu menandainya selesai lewat endpoint admin. (3) Kalau jalur API ditolak dengan galat 4xx apa pun, refund jatuh ke jalur manual. Jalur tidak pernah ditentukan dari `error_code`. (4) Webhook refund dicocokkan lewat `data.reference_id` = `refunds.id`. `refund.succeeded` menjadikan refund COMPLETED, yang untuk order batal memicu T22. `refund.failed` menjadikan refund FAILED, lalu admin menyelesaikannya lewat jalur manual. Ledger tidak tersentuh di sini, karena sudah ditulis saat transisi (D132) | Sandbox membuktikan refund e-wallet lewat `invoice_id` diterima penuh maupun parsial, dengan respons PENDING lalu webhook SUCCEEDED. Refund VA ditolak dengan dua kode berbeda (`REFUND_NOT_SUPPORTED` dan `TRANSACTION_NOT_FOUND`), jadi kode galat tidak bisa dijadikan penentu jalur. `payment_method` sudah tersimpan dari webhook PAID sejak Fase 7. Mencocokkan lewat id kita sendiri membuat webhook tetap bisa diproses walaupun panggilan API timeout sebelum `xendit_refund_id` tersimpan, celah yang sama dengan invoice yatim di Fase 7 (D125) |
+| D137 | **Payout memakai `POST /v2/payouts`.** `withdrawals.bank_code` menyimpan kode channel Xendit (misalnya `ID_BCA`), dan nominal payout adalah `net_amount`. Respons awal Xendit selalu ACCEPTED, termasuk untuk payout yang nanti gagal, sehingga setelah API menerima withdrawal berpindah ke DISBURSING, dan COMPLETED atau FAILED hanya ditentukan webhook. Webhook payout dicocokkan lewat `data.reference_id` = `withdrawals.id`. `xendit_payout_status` menyimpan status mentah dan `failure_code` disalin apa adanya (D18). FAILED memicu reversal menurut D134 | Sandbox membuktikan respons awal untuk rekening pemicu gagal (999999 dan 121212) tetap ACCEPTED, lalu `payout.failed` datang sekitar 1,5 menit kemudian dengan `REJECTED_BY_CHANNEL` dan `INVALID_DESTINATION`. Payout kedua dengan Idempotency-key dan payload sama mengembalikan id yang sama di tiga percobaan, jadi D134 terbukti. `reference_id` dan `idempotency_key` di webhook sama dengan id yang kita kirim |
+
+**Hasil uji sandbox sesi 8a (14 November 2026, dijalankan penyusun di Supabase dev):**
+
+| Uji | Hasil |
+|---|---|
+| Refund penuh e-wallet GoPay, dua invoice | Diterima PENDING, webhook `refund.succeeded` sekitar 1 sampai 2 detik kemudian |
+| Refund parsial e-wallet Rp5.000 dari Rp20.000 | Diterima PENDING, webhook `refund.succeeded` |
+| Refund VA BNI | Ditolak 400 `REFUND_NOT_SUPPORTED` |
+| Refund VA Permata | Ditolak 400 `TRANSACTION_NOT_FOUND` |
+| Payout Rp10.000 ke rekening uji | ACCEPTED, `payout.succeeded` sekitar 5 detik kemudian |
+| Payout dengan Idempotency-key dan payload sama | Id sama, Xendit tidak membuat payout kedua |
+| Payout ke 999999 dan 121212 | ACCEPTED, lalu `payout.failed` dengan `REJECTED_BY_CHANNEL` dan `INVALID_DESTINATION` |
+| Invoice dari skrip dibayar | Webhook PAID tercatat IGNORED karena `external_id` tidak dikenal, membuktikan D125 nomor 3 dengan webhook sungguhan |
+
+**Catatan sesi 8a tanpa nomor D:**
+
+- Payload webhook invoice PAID untuk e-wallet memuat `payment_id` (awalan `ewc_`), sedangkan untuk VA tidak. Kalau refund legacy suatu saat dimatikan, migrasi ke `POST /v3/refunds` bisa memakai `payment_id` dari payload yang sudah tersimpan tanpa perubahan skema. Payouts v3 juga sudah tersedia. Keduanya hanya menyentuh `payment-gateway.ts`, karena service lain hanya mengenal port `PaymentGateway`
+- Tombol "Test and save" di dashboard mengirim event contoh sungguhan. Event itu ikut tercatat di `webhook_events` sebagai IGNORED dan tidak perlu dihapus
+- Payload sungguhan disimpan sebagai fixture di `apps/api/tests/fixtures/xendit-sandbox-8a.json` dengan `business_id` disamarkan
+- Di dashboard, URL refund dipasang di kolom Unified Refunds (succeeded dan failed), dan URL payout di kolom Payouts v2
+
+---
+
 ## 5. Alur Sistem End-to-End
 
 ### 5.1 Onboarding
@@ -1812,7 +1850,11 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 
 ## 7. Keputusan Terbuka
 
-**Satu keputusan terbuka per versi 2.24:**
+**Tidak ada keputusan terbuka per versi 2.25.**
+
+**Ditutup pada versi 2.25:** nomor 6 (jalur eksekusi refund) oleh D136, yaitu dua jalur yang dipilih dari metode pembayaran.
+
+**Rumusan nomor 6 (versi 2.24), disimpan sebagai jejak:**
 
 | # | Pertanyaan | Dampak |
 |---|---|---|
@@ -1870,6 +1912,7 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 - [x] **H69** **(terpasang, diverifikasi db:check-constraints 8 November 2026)** `chk_order_message_sender_role` dan `chk_order_message_content_length` **(baru, D79)**
 - [ ] **H101** Partial unique index satu `REFUND_DEDUCTION` per order, dipasang di sesi 8c. Wajib punya test yang menulis deduction kedua dan memastikan ditolak **(baru, D132)**
 - [ ] **H102** Partial unique index satu `WITHDRAWAL_REVERSAL` per withdrawal, dipasang di sesi 8b. Wajib punya test webhook FAILED yang dikirim dua kali **(baru, D134)**
+- [ ] **H105** `npm run typecheck` hanya memeriksa `src`, karena `tsconfig.json` di `apps/api` mengecualikan `tests` dan skrip. Vitest juga tidak memeriksa tipe, jadi galat tipe di test dan skrip lolos tanpa ketahuan. Tambahkan tsconfig untuk test dan skrip, lalu masukkan ke script typecheck. Dikerjakan di awal sesi 8b **(baru, ditemukan di sesi 8a)**
 - [x] **H94** **(ditutup di sesi 6d)** `chk_order_offer_outcome` pada `order_offers`: `declined_at` dan `sla_missed_at` tidak boleh terisi bersamaan **(baru, D102)**
 
 ### 8.2 Keamanan Kode Verifikasi dan Token
@@ -2005,7 +2048,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 
 ## 11. Langkah Berikutnya
 
-1. Fase 8 (uang lanjutan) dalam empat sesi menurut Bagian 4R: 8a adapter refund dan payout serta smoke sandbox, 8b withdrawal, 8c pembatalan berbayar dan refund, 8d dispute dan penutupan. Keputusan terbuka nomor 6 ditutup di antara 8a dan 8c
+1. Fase 8 (uang lanjutan) dalam empat sesi menurut Bagian 4R. Sesi 8a selesai (14 November 2026) dan menghasilkan D136 serta D137. Berikutnya 8b withdrawal, 8c pembatalan berbayar dan refund, lalu 8d dispute dan penutupan
 2. Selesai: Fase 7 (11 November 2026, 627 test lulus) beserta uji sandbox Xendit sungguhan (12 November 2026), sebelumnya audit hutang teknis (9 November 2026) dan sesi perapian (10 November 2026)
 3. Susun data simulasi untuk dua belas sub-kategori di Lampiran B, termasuk skenario perebutan Available Now dan pendamping pada dokumentasi acara
 4. Riset ringan rentang harga pasaran untuk dua belas sub-kategori tersebut, catat sumbernya
@@ -2043,6 +2086,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 | 2.22 | 11 November 2026 | Dua keputusan dari sesi 7c: endpoint wallet dimajukan ke Fase 7 (D129) dan pengecualian ledger append-only untuk seed demo (D130). Catatan implementasi T18. Fase 7 ditutup dengan seluruh kriteria PRD Bagian 9 terpenuhi. H3 terbukti lewat perilaku, H100 baru. Status artefak 3 dan 4 diselaraskan. Tanpa perubahan skema |
 | 2.23 | 13 November 2026 | Hasil uji sandbox Xendit sungguhan dicatat di penutupan Fase 7: webhook PAID dari Xendit diproses, satu `ESCROW_HOLD`, V1 nol baris. Catatan tunnel dan latensi transaksi webhook. Tanpa keputusan baru dan tanpa perubahan skema |
 | 2.24 | 13 November 2026 | Lima keputusan uang sebelum Fase 8: refund pembatalan penuh (D131), `REFUND_DEDUCTION` di transisi pemicu (D132), rumus PARTIAL (D133), pembalikan withdrawal (D134), dan refund pembayaran telat (D135). Keputusan terbuka nomor 6 soal jalur eksekusi refund. Pembagian Fase 8. H99 dirinci, H101 sampai H104. Tanpa tabel atau kolom baru, dua partial unique index menyusul di 8b dan 8c |
+| 2.25 | 14 November 2026 | Dua keputusan dari uji sandbox sesi 8a: refund dua jalur dipilih dari metode pembayaran (D136, menutup keputusan terbuka nomor 6) dan payout v2 dengan status akhir dari webhook (D137). Hasil sandbox dan fixture payload sungguhan. H105. Tanpa perubahan skema |
 
 ---
 

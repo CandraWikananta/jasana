@@ -1,0 +1,100 @@
+{
+  "_keterangan": "Payload webhook sungguhan dari sandbox Xendit mode test, sesi 8a (14 November 2026). business_id disamarkan. Dipakai sebagai fixture test webhook refund (8c) dan payout (8b). reference_id refund = reference_id yang dikirim adapter (nanti refunds.id), reference_id payout = Idempotency-key (nanti withdrawals.id).",
+  "refund_succeeded_ewallet": {
+    "data": {
+      "id": "rfd-4deb05c9-9e72-4c82-84c2-8e861185dd2c",
+      "amount": 20000,
+      "reason": "CANCELLATION",
+      "status": "SUCCEEDED",
+      "actions": null,
+      "country": "ID",
+      "created": "2026-11-14T14:32:27.867314Z",
+      "updated": "2026-11-14T14:32:27.867314Z",
+      "currency": "IDR",
+      "metadata": {},
+      "invoice_id": "6af8709f0464d7814bd84f68",
+      "payment_id": "",
+      "channel_code": "GOPAY",
+      "failure_code": null,
+      "reference_id": "41c597a1-7799-4497-b381-8d2a05b3104b",
+      "refund_method": "DIRECT",
+      "refund_fee_amount": null,
+      "payment_request_id": "",
+      "payment_method_type": "EWALLET",
+      "payout_link_properties": null
+    },
+    "event": "refund.succeeded",
+    "created": "2026-11-14T14:32:28.887Z",
+    "api_version": null,
+    "business_id": "biz-disamarkan"
+  },
+  "payout_succeeded": {
+    "data": {
+      "id": "disb-46991932-a0e8-4a47-b8c7-384d273f26b7",
+      "amount": 10000,
+      "status": "SUCCEEDED",
+      "created": "2026-11-14T14:45:06.157Z",
+      "updated": "2026-11-14T14:45:11.055Z",
+      "currency": "IDR",
+      "description": "Jasana smoke test sesi 8a",
+      "channel_code": "ID_BCA",
+      "reference_id": "5a567efa-d1d1-40d0-9ffb-35b3763a9b9a",
+      "account_number": "1234567890",
+      "idempotency_key": "5a567efa-d1d1-40d0-9ffb-35b3763a9b9a",
+      "channel_category": "BANK",
+      "account_holder_name": "Jasana Uji",
+      "connector_reference": "SIMULATED_CONNECTOR_REFERENCE_1794667510738_4",
+      "estimated_arrival_time": "2026-11-14T15:00:06.154Z"
+    },
+    "event": "payout.succeeded",
+    "created": "2026-11-14T14:45:11.242Z",
+    "api_version": "v2",
+    "business_id": "biz-disamarkan"
+  },
+  "payout_failed_invalid_destination": {
+    "data": {
+      "id": "disb-18f7b5b6-97ff-4cbf-ba54-da13a39e5b1a",
+      "amount": 10000,
+      "status": "FAILED",
+      "created": "2026-11-14T14:45:36.806Z",
+      "updated": "2026-11-14T14:46:53.062Z",
+      "currency": "IDR",
+      "description": "Jasana smoke test sesi 8a",
+      "channel_code": "ID_BCA",
+      "failure_code": "INVALID_DESTINATION",
+      "reference_id": "b3a092c5-db4d-4b75-a1c2-068acf620f2f",
+      "account_number": "121212",
+      "idempotency_key": "b3a092c5-db4d-4b75-a1c2-068acf620f2f",
+      "channel_category": "BANK",
+      "account_holder_name": "Jasana Uji",
+      "estimated_arrival_time": "2026-11-14T15:00:36.804Z"
+    },
+    "event": "payout.failed",
+    "created": "2026-11-14T14:46:53.864Z",
+    "api_version": "v2",
+    "business_id": "biz-disamarkan"
+  },
+  "payout_failed_rejected_by_channel": {
+    "data": {
+      "id": "disb-180e3f5a-b55a-427e-90c1-94e935e822f0",
+      "amount": 10000,
+      "status": "FAILED",
+      "created": "2026-11-14T14:45:23.508Z",
+      "updated": "2026-11-14T14:47:15.787Z",
+      "currency": "IDR",
+      "description": "Jasana smoke test sesi 8a",
+      "channel_code": "ID_BCA",
+      "failure_code": "REJECTED_BY_CHANNEL",
+      "reference_id": "e97f8de7-cda0-4804-b9e3-adc15f964349",
+      "account_number": "999999",
+      "idempotency_key": "e97f8de7-cda0-4804-b9e3-adc15f964349",
+      "channel_category": "BANK",
+      "account_holder_name": "Jasana Uji",
+      "estimated_arrival_time": "2026-11-14T15:00:23.506Z"
+    },
+    "event": "payout.failed",
+    "created": "2026-11-14T14:47:16.512Z",
+    "api_version": "v2",
+    "business_id": "biz-disamarkan"
+  }
+}
