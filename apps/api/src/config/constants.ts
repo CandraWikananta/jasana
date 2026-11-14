@@ -72,3 +72,11 @@ export const WEBHOOK_MAX_RETRIES = 3;
  * `POST /providers/me/listings/:id/photos` bisa menolak berkas milik orang lain.
  */
 export const LISTING_PHOTO_BUCKET = 'listing-photos';
+
+/**
+ * Batas transaksi interaktif Prisma: timeout 15 detik, maxWait 5 detik. Alasannya
+ * latensi jaringan ke basis data jarak jauh (Supabase dev, P2028 di 5123 ms pada
+ * accept Scheduled), bukan pekerjaan berat. Dipasang global di PrismaClient
+ * (`packages/database/src/index.ts`), tempat nilainya didefinisikan.
+ */
+export { TRANSACTION_MAX_WAIT_MS, TRANSACTION_TIMEOUT_MS } from '@jasana/database';

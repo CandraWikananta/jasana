@@ -23,8 +23,22 @@ const globalForPrisma = globalThis as unknown as {
   __jasanaPrisma?: PrismaClient;
 };
 
+/**
+ * Batas transaksi interaktif (`prisma.$transaction(async (tx) => ...)`) untuk
+ * seluruh aplikasi. Bawaan Prisma 5000 ms tidak cukup saat API lokal terhubung
+ * ke basis data jarak jauh (Supabase dev): accept Scheduled kena P2028 di 5123 ms.
+ * Waktunya habis di latensi jaringan per kueri, bukan pekerjaan berat, jadi yang
+ * dinaikkan batasnya, logika transaksi tidak diubah. Diekspor ulang lewat
+ * `apps/api/src/config/constants.ts`; nilainya di sini karena paket ini tidak
+ * boleh bergantung pada aplikasi.
+ */
+export const TRANSACTION_TIMEOUT_MS = 15_000;
+/** Lama menunggu koneksi dari pool sebelum transaksi dimulai. */
+export const TRANSACTION_MAX_WAIT_MS = 5_000;
+
 function createPrismaClient(): PrismaClient {
   return new PrismaClient({
+    transactionOptions: { timeout: TRANSACTION_TIMEOUT_MS, maxWait: TRANSACTION_MAX_WAIT_MS },
     log:
       process.env.NODE_ENV === 'development'
         ? [

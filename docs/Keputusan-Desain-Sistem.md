@@ -53,6 +53,7 @@
 3. Sinkronisasi hanya lewat aksi admin, beserta aturannya (D143 sampai D145)
 4. Penanda order batal setelah bayar dan payment tanpa invoice id (D146, D147)
 5. H99 bagian pembayaran telat, H101, dan H106 ditutup. H107 dan H108 baru
+6. Hasil uji sandbox 8c dan H109 (batas waktu transaksi) ditutup lewat perbaikan susulan
 
 **Perubahan pada versi 2.26:**
 
@@ -1453,6 +1454,17 @@ Dari sesi 8c. D140 ditetapkan sebelum sesi lalu diperbaiki saat review rencana, 
 
 **Hasil sesi 8c:** typecheck bersih, 721 test di 38 berkas lulus, 31 dari 31 mutan mati termasuk mutan basis data H101. Postman Fase 8: 85 request dan 151 assertion tanpa gagal. Regresi Fase 1 sampai 7: 449 request dan 1.110 assertion tanpa gagal. `db:verify` dan `db:check-constraints` lulus di `jasana_test`.
 
+**Uji sandbox sesi 8c (15 November 2026, dijalankan penyusun di Supabase dev dengan gateway xendit):**
+
+| Uji | Hasil |
+|---|---|
+| Sync withdrawal `ed913010...` yang tertahan sejak uji 8b | `GET /v2/payouts/{id}` ke Xendit sungguhan berhasil dalam 2 detik. Xendit menjawab ACCEPTED, sehingga sync tidak mengubah apa pun dan withdrawal tetap DISBURSING, sesuai keadaan di Xendit |
+| T9 jalur API, order `ORD-20261114-EA462DA4` dibayar GoPay | Client membatalkan pukul 17:53:08 UTC, refund FULL Rp1.500.000 termasuk platform fee dibuat dan dikirim setelah commit (17:53:10), webhook `refund.succeeded` diproses pukul 17:53:16, dan order REFUNDED lewat T22 pukul 17:53:17. Sembilan detik dari pembatalan sampai dana kembali. Refund terlalu cepat untuk tertangkap di antrean PROCESSING |
+| T11 jalur manual, order `ORD-20261114-FAE89950` dibayar VA | Pemilik membatalkan saat perjalanan, refund FULL tercatat REQUESTED dengan `payment_method` BANK_TRANSFER tanpa panggilan ke Xendit. Admin menandai selesai dengan catatan transfer, `completed_by` dan `completion_note` terisi, dan order REFUNDED lewat T22 |
+| `db:verify` di Supabase dev | V1, V5 sampai V8, V11, dan V12 nol baris |
+
+Percobaan pertama accept order C gagal 500 (P2028): transaksi interaktif Prisma melewati batas bawaan 5000 ms (5123 ms) karena setiap kueri bolak-balik ke Supabase dev. Seluruh transaksi di-rollback, order tetap PENDING_ACCEPTANCE, dan tidak ada invoice yang dibuat karena `afterCommit` tidak berjalan, yang menjadi bukti atomisitas transaksi. Diperbaiki saat itu juga lewat H109. Percobaan ulang yang berhasil sempat membuat order itu PAYMENT_EXPIRED karena batas bayar 10 menit lewat selama perbaikan, sehingga uji dilanjutkan dengan order C baru.
+
 ---
 
 ## 5. Alur Sistem End-to-End
@@ -1989,8 +2001,9 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 - [x] **H101** **(ditutup di sesi 8c: `uniq_refund_deduction_per_order`, dibuktikan sisipan langsung dan mutan basis data)** Partial unique index satu `REFUND_DEDUCTION` per order, dipasang di sesi 8c. Wajib punya test yang menulis deduction kedua dan memastikan ditolak **(baru, D132)**
 - [x] **H102** **(ditutup di sesi 8b: `uniq_withdrawal_event_per_withdrawal`, juga mencakup satu WITHDRAWAL per withdrawal, dibuktikan webhook FAILED ganda dan sisipan langsung yang ditolak)** Partial unique index satu `WITHDRAWAL_REVERSAL` per withdrawal, dipasang di sesi 8b. Wajib punya test webhook FAILED yang dikirim dua kali **(baru, D134)**
 - [x] **H105** **(ditutup di sesi 8b: `tsconfig.test.json`, 12 galat di 7 berkas diperbaiki)** `npm run typecheck` hanya memeriksa `src`, karena `tsconfig.json` di `apps/api` mengecualikan `tests` dan skrip. Vitest juga tidak memeriksa tipe, jadi galat tipe di test dan skrip lolos tanpa ketahuan. Tambahkan tsconfig untuk test dan skrip, lalu masukkan ke script typecheck. Dikerjakan di awal sesi 8b **(baru, ditemukan di sesi 8a)**
-- [x] **H106** **(ditutup di sisi kode di sesi 8c lewat D143 sampai D145; bukti dengan Xendit sungguhan menunggu uji sandbox 8c)** Rekonsiliasi status payout dan refund ke Xendit. Status akhir withdrawal (D137) dan refund (D136) hanya ditentukan webhook, sehingga kalau webhook tidak pernah datang, withdrawal tertahan di DISBURSING dan refund di PROCESSING tanpa jalan keluar. Sediakan aksi admin dan atau cron yang menanyakan status langsung ke Xendit (`GET /v2/payouts/{id}` dan endpoint refund yang setara), lalu menerapkannya lewat aturan yang sama dengan webhook. Dikerjakan di sesi 8c. Withdrawal `ed913010...` dari uji sandbox 8b bisa dipakai sebagai kasus uji kalau masih tertahan **(baru, ditemukan di uji sandbox 8b)**
+- [x] **H106** **(ditutup di sesi 8c lewat D143 sampai D145, dibuktikan dengan Xendit sungguhan pada uji sandbox 8c)** Rekonsiliasi status payout dan refund ke Xendit. Status akhir withdrawal (D137) dan refund (D136) hanya ditentukan webhook, sehingga kalau webhook tidak pernah datang, withdrawal tertahan di DISBURSING dan refund di PROCESSING tanpa jalan keluar. Sediakan aksi admin dan atau cron yang menanyakan status langsung ke Xendit (`GET /v2/payouts/{id}` dan endpoint refund yang setara), lalu menerapkannya lewat aturan yang sama dengan webhook. Dikerjakan di sesi 8c. Withdrawal `ed913010...` dari uji sandbox 8b bisa dipakai sebagai kasus uji kalau masih tertahan **(baru, ditemukan di uji sandbox 8b)**
 - [ ] **H108** Refund PROCESSING tanpa `xendit_refund_id` yang tidak ditemukan Xendit saat sync harus dieksekusi ulang dengan key yang sama, sama seperti sync dari REQUESTED (D140 nomor 6). Sekarang sync hanya melaporkan NOT_FOUND, sehingga refund yang panggilannya timeout sebelum sampai ke Xendit tertahan, karena jalur manual juga ditolak. Dikerjakan di awal sesi 8d **(baru, sesi 8c)**
+- [x] **H109** **(ditutup sebagai perbaikan susulan sesi 8c: `transactionOptions` global di PrismaClient, timeout 15000 ms dan maxWait 5000 ms, didefinisikan di `packages/database` dan diekspor ulang lewat `config/constants.ts`)** Batas waktu transaksi interaktif Prisma bawaan 5000 ms tidak memperhitungkan latensi basis data jarak jauh, sehingga transaksi accept ke Supabase dev gagal P2028. Stress test k6 wajib memperhitungkan batas ini **(baru, ditemukan di uji sandbox 8c)**
 - [x] **H94** **(ditutup di sesi 6d)** `chk_order_offer_outcome` pada `order_offers`: `declined_at` dan `sla_missed_at` tidak boleh terisi bersamaan **(baru, D102)**
 
 ### 8.2 Keamanan Kode Verifikasi dan Token
