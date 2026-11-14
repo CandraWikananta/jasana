@@ -4,13 +4,13 @@
 
 | | |
 |---|---|
-| Versi | 2.16 |
+| Versi | 2.17 |
 | Penyusun | I Nyoman Gede Candra Wikananta (2305551065) |
 | Program Studi | Teknologi Informasi, Universitas Udayana |
 | Bidang Keahlian | Sistem Informasi |
 | Pembimbing 1 | Dr. Ir. Ni Kadek Ayu Wirdiani, S.T., M.T., IPU |
 | Pembimbing 2 | Dr. Ir. Anak Agung Kompiang Oka Sudana, S.Kom., M.T., IPM |
-| Tanggal | 11 November 2026 |
+| Tanggal | 13 November 2026 |
 | Cakupan dokumen | **Backend saja** (Express.js REST API, basis data, integrasi eksternal, cron). Frontend dan UI/UX di luar cakupan dokumen ini |
 
 **Dokumen rujukan:** `Keputusan-Desain-Sistem.md` (register keputusan D1 sampai D128, versi 2.21), `State-Machine-Order.md` (artefak desain 3), `skema-database-final.dbml` (35 tabel, 35 enum), `schema.prisma`, `migration-constraints.sql`, `Panduan-Struktur-Database.md`.
@@ -543,7 +543,7 @@ CANCELLED          -> REFUNDED*          (hanya jika sudah ada pembayaran lunas)
 
 Tiga sifat yang membuat alur dana mudah dibuktikan:
 
-1. **Uang hanya bergerak di empat transisi:** `ACCEPTED -> PAID`, `COMPLETED -> SETTLED`, `DISPUTED -> SETTLED`, `DISPUTED -> REFUNDED`. Audit cukup memeriksa empat jalur, bukan dua puluh dua
+1. **Uang hanya bergerak di enam transisi:** `ACCEPTED -> PAID`, `PAID -> CANCELLED`, `ON_THE_WAY -> CANCELLED`, `COMPLETED -> SETTLED`, `DISPUTED -> SETTLED`, `DISPUTED -> REFUNDED`. `REFUND_DEDUCTION` ditulis saat pembatalan atau putusan, bukan saat refund Xendit selesai (D132). Audit cukup memeriksa enam jalur, bukan dua puluh dua
 2. **`ESCROW_RELEASE` hanya terjadi satu kali di satu pintu**, karena semua jalur sukses bermuara ke `SETTLED` yang bersifat terminal
 3. **Refund selalu memotong `balance_pending`, tidak pernah `balance_available`**, karena refund hanya mungkin dari `CANCELLED` atau `DISPUTED`
 
@@ -1086,6 +1086,8 @@ Efek samping: kirim lewat Socket.IO ke room `order:<order_id>`, lalu notifikasi 
 
 Saldo didebit saat **pengajuan**, bukan saat selesai, supaya penyedia tidak bisa mengajukan berkali-kali melebihi saldonya. Yang didebit `amount` penuh, sedangkan yang dikirim ke rekening `net_amount`. Request hanya memuat `amount` dan rekening tujuan, tidak pernah memuat nominal fee (D84, H83). Rincian admin fee dan `net_amount` ditampilkan ke penyedia sebelum konfirmasi.
 
+**Pembalikan (D134).** Saldo dikembalikan lewat satu `WITHDRAWAL_REVERSAL` sebesar `amount` penuh, termasuk admin fee, kalau admin menolak pengajuan, payout berakhir FAILED, atau payout yang sudah SUCCEEDED berubah REVERSED. Satu withdrawal paling banyak punya satu reversal. Payout dikirim dengan idempotency key berupa id withdrawal.
+
 ---
 
 ## 5. Security dan Compliance
@@ -1243,7 +1245,7 @@ Tabel di atas adalah **beban normal dengan kriteria lulus** (D85). Stress testin
 | Kegagalan | Perilaku |
 |---|---|
 | Xendit tidak merespons saat membuat invoice di T1 | Accept tetap 200 dengan `invoice_url = null`, order tetap `ACCEPTED`, dan errornya dicatat (D104). Client memicu pembuatan ulang lewat `POST /orders/:id/payment`, dan endpoint itulah yang membalas 502 kalau Xendit tetap gagal |
-| Xendit gagal saat payout | Withdrawal tetap `APPROVED`, `failure_code` dicatat, admin bisa mencoba ulang |
+| Xendit gagal saat payout | Withdrawal tetap `APPROVED`, `failure_code` dicatat, admin bisa mencoba ulang. Idempotency key berupa id withdrawal mencegah uang terkirim dua kali (D134) |
 | Gemini timeout atau over quota | 502 dengan pesan ramah. Sesi chat tetap tersimpan, pesan user tetap direkam |
 | SMTP gagal | `email_status = FAILED`, cron mencoba ulang maksimal 3 kali. **Tidak pernah membatalkan transisi order** |
 | Supabase Storage gagal | Unggahan gagal tanpa membuat baris dokumen setengah jadi |
@@ -1522,3 +1524,4 @@ Tidak menyangkut aturan bisnis, dibentuk oleh middleware bersama pada Fase 0.
 | 2.14 | 10 November 2026 | Sinkron dengan register keputusan versi 2.20. Pencarian payment untuk invoice yatim di webhook (D125) |
 | 2.15 | 10 November 2026 | Sinkron dengan register keputusan versi 2.21. Langkah webhook invoice untuk SETTLED (D127), bayar dobel (D126), dan balasan 5xx sebelum kunci (D128) |
 | 2.16 | 11 November 2026 | Sinkron dengan register keputusan versi 2.22. Fase 0 sampai 7 selesai. Endpoint wallet dimajukan ke Fase 7 (D129), dan router dev menerima `settlement_due_at` serta job `settlement` dan `webhook-recovery` |
+| 2.17 | 13 November 2026 | Sinkron dengan register keputusan versi 2.24. Uang bergerak di enam transisi (D132), dan pembalikan withdrawal beserta idempotency payout (D134) |

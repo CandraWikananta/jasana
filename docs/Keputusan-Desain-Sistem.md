@@ -4,9 +4,9 @@
 **Nama sistem:** Jasana
 **Penyusun:** I Nyoman Gede Candra Wikananta (2305551065)
 **Bidang Keahlian:** Sistem Informasi, Teknologi Informasi, Universitas Udayana
-**Versi:** 2.23
-**Terakhir diperbarui:** 13 November 2026 (versi 2.23)
-**Tahap saat ini:** Implementasi backend. Fase 0 sampai Fase 7 selesai
+**Versi:** 2.24
+**Terakhir diperbarui:** 13 November 2026 (versi 2.24)
+**Tahap saat ini:** Implementasi backend. Fase 0 sampai Fase 7 selesai, Fase 8 dimulai
 
 ---
 
@@ -39,7 +39,27 @@
 | Endpoint dan invoice pembayaran (D123 sampai D124) | 2 | 0 |
 | Invoice yatim (D125) | 1 | 0 |
 | Webhook invoice (D126 sampai D128) | 3 | 0 |
-| Keputusan terbuka tanpa nomor D (Bagian 7) | | 0 |
+| Penutupan Fase 7 (D129 sampai D130) | 2 | 0 |
+| Uang lanjutan (D131 sampai D135) | 5 | 0 |
+| Keputusan terbuka tanpa nomor D (Bagian 7) | | 1 |
+
+**Perubahan pada versi 2.24:**
+
+1. Refund pembatalan setelah bayar selalu penuh termasuk platform fee (D131)
+2. `REFUND_DEDUCTION` ditulis di transisi pemicu refund, uang bergerak di enam transisi (D132)
+3. Rumus putusan PARTIAL (D133)
+4. Tiga kejadian pembalikan withdrawal dan idempotency payout (D134)
+5. Refund pembayaran telat otomatis, pembayaran dobel ditangani admin (D135)
+6. Keputusan terbuka nomor 6 soal jalur eksekusi refund, ditutup setelah sesi 8a. Pembagian Fase 8 dalam empat sesi. H99 diperbarui, H101 sampai H104 baru
+
+**Perubahan pada versi 2.23:**
+
+1. Hasil uji sandbox Xendit sungguhan dicatat di penutupan Fase 7
+
+**Perubahan pada versi 2.22:**
+
+1. Endpoint wallet dimajukan ke Fase 7 (D129) dan pengecualian ledger append-only untuk seed demo (D130)
+2. Catatan implementasi T18 dan penutupan Fase 7. H3 terbukti lewat perilaku, H100 baru
 
 **Perubahan pada versi 2.21:**
 
@@ -1298,6 +1318,29 @@ Tidak ada event SETTLED untuk invoice ini, jadi jalur D127 hanya terbukti lewat 
 
 ---
 
+## 4R. Keputusan Versi 2.24 (D131 sampai D135)
+
+Diputuskan sebelum Fase 8, untuk aturan uang yang belum diatur dokumen. Sebagian dipicu temuan bahwa Refund API Xendit tidak mendukung Virtual Account. Tidak ada tabel atau kolom baru, hanya dua partial unique index (H101, H102).
+
+| # | Keputusan | Alasan |
+|---|---|---|
+| D131 | **Refund pembatalan setelah bayar (T9, T11) selalu penuh**, sebesar `total_amount` termasuk platform fee (`platform_fee_refunded = platform_fee`), siapa pun yang membatalkan: client, pemilik, atau admin. Tidak ada biaya pembatalan. Memperluas D29, yang hanya mengatur refund akibat kesalahan provider | Sistem tidak punya mekanisme kompensasi untuk pekerja yang sudah berangkat, jadi potongan dari client tidak punya tujuan yang jelas di alur dana. Biaya pembatalan berjenjang menambah aturan yang harus dipertahankan tanpa menambah apa pun pada mekanisme escrow yang diteliti. Dicatat sebagai batasan (H103) |
+| D132 | **`REFUND_DEDUCTION` ditulis di transisi yang memicu refund, di transaksi yang sama**: T9 dan T11 (`pending -= provider_earning`), T20 parsial (bagian provider menurut D133), dan T21 (`pending -= provider_earning`). T22 hanya mengubah status order dan baris `refunds`, tidak menulis ledger. Satu order paling banyak punya satu `REFUND_DEDUCTION` (H101). Akibatnya uang bergerak di **enam** transisi: T5, T9, T11, T18, T20, dan T21 | Begitu order batal atau diputus refund, dana escrow bukan lagi hak penyedia, terlepas dari kapan uangnya sampai ke client. Menunda pencatatan sampai webhook refund membuat ledger bergantung pada pihak luar yang bisa lambat, gagal, atau untuk Virtual Account tidak ada sama sekali. Rumusan lama T22 "kalau belum ditulis" membuka dua tempat penulisan untuk kejadian yang sama |
+| D133 | **Rumus putusan PARTIAL (T20).** Admin mengisi `refund_amount` dalam rupiah bulat dengan 0 < `refund_amount` < `total_amount`. `platform_fee_refunded = round(platform_fee × refund_amount / total_amount)`. Bagian provider `= refund_amount − platform_fee_refunded`, ditulis sebagai `REFUND_DEDUCTION`. `ESCROW_RELEASE = provider_earning − bagian provider`. Kedua baris ledger ditulis di transaksi yang sama. Putusan REFUND penuh mengembalikan platform fee penuh (D29), putusan RELEASE melepas `provider_earning` penuh | Platform fee dikembalikan sebanding dengan porsi refund, sehingga platform tidak untung dari layanan yang dinilai cacat sebagian. Bagian provider dihitung sebagai selisih, bukan dibulatkan sendiri, jadi `refund_amount` selalu terbagi habis tanpa rupiah yang hilang. Karena `refund_amount < total_amount`, bagian provider selalu lebih kecil dari earning sehingga `ESCROW_RELEASE` tetap positif dan saldo pending tidak pernah negatif |
+| D134 | **Pembalikan withdrawal.** `WITHDRAWAL_REVERSAL` sebesar `amount` penuh, termasuk admin fee, ditulis pada tiga kejadian: admin menolak pengajuan (REJECTED), payout berakhir FAILED, dan payout yang sudah SUCCEEDED berubah REVERSED. Satu withdrawal paling banyak punya satu reversal (H102). Payout dikirim dengan idempotency key berupa id withdrawal, sehingga percobaan ulang admin setelah panggilan gagal atau timeout tidak mengirim uang dua kali | Saldo didebit saat pengajuan (D15), jadi setiap jalan buntu wajib mengembalikannya, kalau tidak saldo penyedia hilang tanpa uang yang keluar. Admin fee hanya sah kalau payout benar-benar terjadi. Tanpa constraint, webhook FAILED yang dikirim ulang Xendit bisa mengembalikan saldo dua kali |
+| D135 | **Refund untuk pembayaran yang tidak menghidupkan order (H99).** Pembayaran telat (D119) di-refund otomatis penuh: dibuat baris `refunds` FULL untuk payment itu tanpa menulis ledger, karena `ESCROW_HOLD` tidak pernah ditulis. Status order tidak berubah, karena T22 hanya untuk order yang batal lewat T9 atau T11. Pembayaran dobel (D125 nomor 2, D126) tidak dicatat di `refunds`, karena invoice-nya tidak punya baris payment, dan ditangani admin di luar sistem berdasarkan event `webhook_events` bertanda `DOUBLE_PAYMENT` (H104) | Kasus D119 punya semua data yang dibutuhkan refund. Kasus bayar dobel sangat jarang dan butuh kolom invoice baru di `refunds` hanya untuk dirinya |
+
+**Pembagian Fase 8 dalam empat sesi:**
+
+- **8a.** Adapter `PaymentGateway.refund()` dan `.payout()` beserta timeout dan implementasi fake, lalu skrip smoke ke sandbox: refund invoice e-wallet, refund invoice VA, dan payout ke rekening uji. Payload webhook refund dan payout dicatat. Hasilnya menutup keputusan terbuka nomor 6, sama seperti 7a menghasilkan D123 dan D124
+- **8b.** Withdrawal: pengajuan (H83), approve dan reject admin, payout setelah commit, webhook payout (`payout:<id>:<status>`), reversal (D134), dan H102
+- **8c.** Pembatalan berbayar T9 dan T11, refund sesuai keputusan nomor 6, webhook refund, T22, refund pembayaran telat (D135), dan H101
+- **8d.** Dispute T13, T15, T17, dan T19, unggah bukti multipart (H78, H79), review dan putusan admin T20 dan T21 (D133), test wajib H100, lalu Postman Fase 8, regresi, audit, uji sandbox, dan penutupan Fase 8
+
+Urutannya sengaja withdrawal dulu karena modul itu paling mandiri dan tidak menyentuh state machine order. Dispute di akhir karena T20 dan T21 memakai fungsi refund dari 8c.
+
+---
+
 ## 5. Alur Sistem End-to-End
 
 ### 5.1 Onboarding
@@ -1769,7 +1812,11 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 
 ## 7. Keputusan Terbuka
 
-**Tidak ada keputusan terbuka per versi 2.12.**
+**Satu keputusan terbuka per versi 2.24:**
+
+| # | Pertanyaan | Dampak |
+|---|---|---|
+| 6 | **Jalur eksekusi refund.** Refund API Xendit mendukung e-wallet, kartu, dan sebagian penerbit QRIS, tapi tidak Virtual Account, yang untuk refund-nya Xendit menyarankan transfer lewat fitur disbursement. Usulan: dua jalur, yaitu Refund API untuk metode yang didukung dan penyelesaian manual oleh admin lewat endpoint "tandai selesai" untuk sisanya, dengan pencatatan ledger dan status yang sama (D132) | Harus diputuskan **setelah sesi 8a** membuktikan di sandbox metode mana yang bisa di-refund di mode test, dan **sebelum sesi 8c**. Menentukan bentuk `PaymentGateway.refund()`, endpoint admin refund, dan isi bagian refund di Bab IV |
 
 **Ditutup pada versi 2.12:**
 
@@ -1821,6 +1868,8 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 - [x] **H62** **(terpasang, diverifikasi db:check-constraints 8 November 2026)** Unique pada `refresh_tokens.token_hash` **(baru, D76)**
 - [x] **H63** **(terpasang, diverifikasi db:check-constraints 8 November 2026)** `chk_chat_session_identity` pada `chat_sessions` **(baru, D77)**
 - [x] **H69** **(terpasang, diverifikasi db:check-constraints 8 November 2026)** `chk_order_message_sender_role` dan `chk_order_message_content_length` **(baru, D79)**
+- [ ] **H101** Partial unique index satu `REFUND_DEDUCTION` per order, dipasang di sesi 8c. Wajib punya test yang menulis deduction kedua dan memastikan ditolak **(baru, D132)**
+- [ ] **H102** Partial unique index satu `WITHDRAWAL_REVERSAL` per withdrawal, dipasang di sesi 8b. Wajib punya test webhook FAILED yang dikirim dua kali **(baru, D134)**
 - [x] **H94** **(ditutup di sesi 6d)** `chk_order_offer_outcome` pada `order_offers`: `declined_at` dan `sla_missed_at` tidak boleh terisi bersamaan **(baru, D102)**
 
 ### 8.2 Keamanan Kode Verifikasi dan Token
@@ -1844,7 +1893,7 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 - [ ] **H19** **Prioritas tinggi setelah D77.** Rate limiting chatbot tiga lapis: per `guest_token`, per alamat IP, dan rem global harian. Tanpa identitas login, endpoint chatbot terbuka untuk siapa saja sedangkan tiap pesan memanggil Gemini yang ada biayanya
 - [ ] **H37** Pengiriman email dilakukan setelah commit, bukan di dalam transaksi **(baru, D58)**. Cron mengirim ulang baris FAILED maksimal tiga kali **(bagian pertama selesai di sesi perapian 10 November 2026: SMTP gagal tidak membatalkan operasi dan baris tercatat FAILED, dijaga test; bagian cron butuh keputusan skema di awal Fase 10, lihat catatan Bagian 4L)**
 - [x] **H96** **(ditutup di sesi 7a: timeout 10 detik di setiap panggilan gateway)** Tugas `afterCommit` dijalankan berurutan sebelum respons dikirim. Saat Xendit dipasang di Fase 7, setiap panggilan `PaymentGateway` wajib punya timeout, supaya Xendit yang lambat tidak menahan respons transisi **(baru, sesi 6b)**
-- [ ] **H99** Pembayaran yang masuk setelah order tidak lagi ACCEPTED (D119) di-refund otomatis lewat Refund API, dikerjakan di Fase 8 bersama refund lainnya. Sampai saat itu, kasusnya tercatat sebagai payment PAID pada order yang sudah mati dan harus terlihat di log. Mencakup juga pembayaran dobel dari invoice yatim (D125), yang tidak bisa dicatat sebagai payment PAID kedua; cara mencatat refund-nya diputuskan di Fase 8 **(baru, D119, diperluas D125)**
+- [ ] **H99** **(dirinci D135: pembayaran telat di-refund otomatis di sesi 8c, pembayaran dobel menjadi H104)** Pembayaran yang masuk setelah order tidak lagi ACCEPTED (D119) di-refund otomatis lewat Refund API, dikerjakan di Fase 8 bersama refund lainnya. Sampai saat itu, kasusnya tercatat sebagai payment PAID pada order yang sudah mati dan harus terlihat di log. Mencakup juga pembayaran dobel dari invoice yatim (D125), yang tidak bisa dicatat sebagai payment PAID kedua; cara mencatat refund-nya diputuskan di Fase 8 **(baru, D119, diperluas D125)**
 
 ### 8.4 Logika Service Layer yang Tidak Bisa Dijaga Database
 
@@ -1918,6 +1967,8 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 - [ ] **H86** Regex pada `validation_rule` ditulis admin dan tidak dijaga dari pola yang sangat lambat dievaluasi (ReDoS) **(baru)**. Admin dianggap pihak tepercaya, dan dua belas sub-kategori contoh tidak memakai atribut TEXT
 - [ ] **H90** Foto listing yang dihapus hanya menghapus barisnya. Berkasnya masih bisa diakses lewat URL publik sampai cron pembersih harian berjalan **(baru)**
 - [ ] **H87** Batas durasi listing berlaku umum 15 sampai 720 menit, tidak per sub-kategori **(baru, D90)**
+- [ ] **H103** Pembatalan setelah bayar tidak dikenai biaya pembatalan, dan pekerja yang sudah berangkat tidak mendapat kompensasi **(baru, D131)**. Biaya pembatalan berjenjang masuk saran pengembangan
+- [ ] **H104** Pembayaran dobel lewat invoice yatim di-refund admin di luar sistem, bukan lewat alur refund otomatis **(baru, D135)**. Kasusnya bisa dicari lewat `webhook_events` bertanda `DOUBLE_PAYMENT`
 - [ ] **H82** Admin fee withdrawal berupa nilai flat yang mengikuti perkiraan biaya payout Xendit **(baru, D84)**. Untuk nominal di atas Rp250.000 biaya sebenarnya sedikit lebih besar dan selisihnya ditanggung platform
 
 ---
@@ -1954,7 +2005,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 
 ## 11. Langkah Berikutnya
 
-1. Fase 8 (uang lanjutan): withdrawal dengan minimum dan admin fee (D84, H83), payout, refund termasuk pembayaran telat dan dobel (H99), dispute beserta bukti dengan pola unggah multipart (H78, H79), webhook payout dan refund, transisi T9, T11, T13, T15, T17, dan T19 sampai T22, serta test wajib H100
+1. Fase 8 (uang lanjutan) dalam empat sesi menurut Bagian 4R: 8a adapter refund dan payout serta smoke sandbox, 8b withdrawal, 8c pembatalan berbayar dan refund, 8d dispute dan penutupan. Keputusan terbuka nomor 6 ditutup di antara 8a dan 8c
 2. Selesai: Fase 7 (11 November 2026, 627 test lulus) beserta uji sandbox Xendit sungguhan (12 November 2026), sebelumnya audit hutang teknis (9 November 2026) dan sesi perapian (10 November 2026)
 3. Susun data simulasi untuk dua belas sub-kategori di Lampiran B, termasuk skenario perebutan Available Now dan pendamping pada dokumentasi acara
 4. Riset ringan rentang harga pasaran untuk dua belas sub-kategori tersebut, catat sumbernya
@@ -1991,6 +2042,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 | 2.21 | 10 November 2026 | Tiga keputusan dari sesi 7b: bayar dobel di baris mana pun (D126), SETTLED seperti PAID (D127), dan 5xx sebelum kunci event (D128). Catatan implementasi webhook dan urutan kunci. H10 sampai H13 ditutup. Tanpa perubahan skema |
 | 2.22 | 11 November 2026 | Dua keputusan dari sesi 7c: endpoint wallet dimajukan ke Fase 7 (D129) dan pengecualian ledger append-only untuk seed demo (D130). Catatan implementasi T18. Fase 7 ditutup dengan seluruh kriteria PRD Bagian 9 terpenuhi. H3 terbukti lewat perilaku, H100 baru. Status artefak 3 dan 4 diselaraskan. Tanpa perubahan skema |
 | 2.23 | 13 November 2026 | Hasil uji sandbox Xendit sungguhan dicatat di penutupan Fase 7: webhook PAID dari Xendit diproses, satu `ESCROW_HOLD`, V1 nol baris. Catatan tunnel dan latensi transaksi webhook. Tanpa keputusan baru dan tanpa perubahan skema |
+| 2.24 | 13 November 2026 | Lima keputusan uang sebelum Fase 8: refund pembatalan penuh (D131), `REFUND_DEDUCTION` di transisi pemicu (D132), rumus PARTIAL (D133), pembalikan withdrawal (D134), dan refund pembayaran telat (D135). Keputusan terbuka nomor 6 soal jalur eksekusi refund. Pembagian Fase 8. H99 dirinci, H101 sampai H104. Tanpa tabel atau kolom baru, dua partial unique index menyusul di 8b dan 8c |
 
 ---
 

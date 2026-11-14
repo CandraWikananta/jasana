@@ -2,13 +2,13 @@
 
 **Artefak desain 3 dari 8**
 Platform Jasana, Tugas Akhir I Nyoman Gede Candra Wikananta (2305551065)
-**Versi 2.13**, 11 November 2026
+**Versi 2.14**, 13 November 2026
 
 Dokumen ini mendefinisikan seluruh kondisi yang boleh dialami sebuah order, perpindahan yang diizinkan di antaranya, dan efek samping yang wajib terjadi pada setiap perpindahan.
 
 **Aturan tunggal yang mengikat seluruh kode:** tidak ada satu pun bagian sistem yang boleh menulis `orders.status` secara langsung. Semua perubahan status melewati satu fungsi `transitionOrder()`. Di luar fungsi itu, kolom `status` bersifat read-only.
 
-Rujukan keputusan lengkap ada di `Keputusan-Desain-Sistem.md` (D1 sampai D130). Nomor D di dokumen ini menunjuk ke sana.
+Rujukan keputusan lengkap ada di `Keputusan-Desain-Sistem.md` (D1 sampai D135). Nomor D di dokumen ini menunjuk ke sana.
 
 ---
 
@@ -107,7 +107,7 @@ Kolom Aktor memakai singkatan: **C** client, **O** pemilik provider, **W** peker
 | T6 | `payment_deadline_at < now()`; tidak ada payment `PAID` | Expire invoice di Xendit; **lepas kunci slot tentatif** pekerja dan seluruh pendampingnya (D43, H26) |
 | T7 | Belum ada payment `PAID` | Set `cancelled_at`, `cancelled_by`; expire invoice; lepas kunci slot |
 | T8 | Ada payment `PAID`; pemanggil adalah `assigned_worker_id`; untuk mode `SCHEDULED`, `now() >= scheduled_at - 60 menit` | Set `started_at`; **bekukan daftar pendamping** (tidak bisa diubah lagi); mulai pembaruan lokasi pekerja via Socket.IO |
-| T9 | Ada payment `PAID` | Set `cancelled_at`, `cancelled_by`; buat baris `refunds`; panggil Refund API Xendit; lepas kunci slot pekerja dan pendamping |
+| T9 | Ada payment `PAID` | Set `cancelled_at`, `cancelled_by`, `platform_fee_refunded = platform_fee`; buat baris `refunds` FULL sebesar `total_amount` (D131); **ledger `REFUND_DEDUCTION`: `pending -= provider_earning`** (D132); eksekusi refund setelah commit (keputusan terbuka nomor 6 di register); lepas kunci slot pekerja dan pendamping |
 | T10 | Pemanggil adalah `assigned_worker_id`; jarak Haversine ke `service_latitude`/`service_longitude` <= `geolocation_radius_meters` (disimpan sebagai snapshot di `order_checkins.radius_threshold_meters`) | Tulis baris `order_checkins` dengan `worker_id` dan `is_valid = true`; notifikasi client |
 | T11 | Ada payment `PAID` | Sama dengan T9 |
 | T12 | Pemanggil adalah `assigned_worker_id`; sudah ada check-in valid untuk order ini | Notifikasi client |
@@ -115,9 +115,9 @@ Kolom Aktor memakai singkatan: **C** client, **O** pemilik provider, **W** peker
 | T14 | Pemanggil adalah `assigned_worker_id` | **Generate kode 6 digit** dengan `crypto.randomInt`, simpan terenkripsi di `verification_code_encrypted`; set `verification_expires_at = now() + 60 menit`; reset `verification_attempts = 0`; tampilkan kode **di aplikasi client**, dan kirim email yang memberi tahu kode bisa dilihat di aplikasi **tanpa memuat kodenya** (D60) |
 | T16 | Pemanggil adalah `assigned_worker_id`; kode cocok; `now() < verification_expires_at`; `verification_attempts < verification_max_attempts`, dibaca sebelum kenaikan dan direset ke 0 kalau lockout sudah lewat (D110); `verification_locked_until` null atau sudah lewat. Kode kedaluwarsa ditolak tanpa menaikkan attempts (D114) | Set `verified_at`, `completed_at`; **set `settlement_due_at = now() + settlement_holding_hours`**; lepas kunci in-flight pekerja dan pendamping; naikkan `listings.order_count` dan `provider_profiles.completed_orders_count`; buka form review untuk client |
 | T18 | `settlement_due_at < now()`; tidak ada dispute berstatus `OPEN` atau `UNDER_REVIEW`. Keduanya diperiksa ulang setelah order dikunci, walau kandidat cron sudah disaring | Set `settled_at`; **ledger `ESCROW_RELEASE`: `pending -= earning`, `available += earning`**, kunci order lalu wallet (register Bagian 4P); **jalur `order_messages` jadi read-only** (D79); notifikasi pemilik |
-| T20 | Dispute berstatus `UNDER_REVIEW`; putusan `RESOLVED_RELEASE` atau `RESOLVED_PARTIAL` | Set `settled_at`; kalau parsial, buat baris `refunds` sebesar `refund_amount` dan isi `platform_fee_refunded`; **ledger `ESCROW_RELEASE` sebesar sisa** |
-| T21 | Dispute berstatus `UNDER_REVIEW`; putusan `RESOLVED_REFUND` | Buat baris `refunds` penuh; set `platform_fee_refunded = platform_fee`; **ledger `REFUND_DEDUCTION`: `pending -= earning`**; panggil Refund API Xendit |
-| T22 | Refund Xendit berstatus selesai | Set `refunds.completed_at`; **ledger `REFUND_DEDUCTION` kalau belum ditulis**; notifikasi client |
+| T20 | Dispute berstatus `UNDER_REVIEW`; putusan `RESOLVED_RELEASE` atau `RESOLVED_PARTIAL` | Set `settled_at`; kalau parsial, buat baris `refunds` PARTIAL sebesar `refund_amount`, isi `platform_fee_refunded` secara proporsional, tulis **ledger `REFUND_DEDUCTION` sebesar bagian provider** dan **`ESCROW_RELEASE` sebesar `provider_earning` dikurangi bagian provider** (D133); kalau RELEASE, **`ESCROW_RELEASE` sebesar `provider_earning`** |
+| T21 | Dispute berstatus `UNDER_REVIEW`; putusan `RESOLVED_REFUND` | Buat baris `refunds` penuh; set `platform_fee_refunded = platform_fee`; **ledger `REFUND_DEDUCTION`: `pending -= earning`** (D132); eksekusi refund setelah commit |
+| T22 | Refund berstatus selesai; order batal lewat T9 atau T11 | Set `refunds.completed_at`; **tidak menulis ledger**, karena `REFUND_DEDUCTION` sudah ditulis saat T9 atau T11 (D132); notifikasi client |
 
 Seluruh efek samping harus berada dalam **satu transaksi basis data** bersama perubahan status dan penulisan `order_status_histories`. Kalau salah satu gagal, semuanya batal.
 
@@ -240,7 +240,7 @@ Masa aktif dijaga service layer, bukan basis data, karena bergantung pada status
 
 Rancangan ini punya tiga sifat yang membuat pembuktian konsistensi dana jadi mudah. Ketiganya layak kamu tulis di bab pembahasan, dan **tidak satu pun berubah** oleh penambahan tenaga kerja.
 
-**Uang hanya bergerak di empat transisi.** Dari 22 transisi, hanya T5, T18, T20, dan T21 yang menyentuh ledger. Sisanya murni perubahan status. Artinya audit alur uang cukup memeriksa empat jalur, bukan dua puluh dua.
+**Uang hanya bergerak di enam transisi.** Dari 22 transisi, hanya T5, T9, T11, T18, T20, dan T21 yang menyentuh ledger (D132). Sisanya murni perubahan status, termasuk T22 yang hanya menandai refund selesai. Artinya audit alur uang cukup memeriksa enam jalur, bukan dua puluh dua.
 
 **Escrow release hanya terjadi satu kali, di satu pintu.** Semua jalur sukses bermuara ke `SETTLED`, dan `SETTLED` adalah terminal. Tidak ada cara mencapai `ESCROW_RELEASE` dua kali untuk order yang sama, dan constraint `uniq_escrow_event_per_order` menegakkannya di level basis data.
 
@@ -529,6 +529,7 @@ Diagram ASCII di atas hanya untuk orientasi cepat. Gunakan versi Mermaid untuk l
 | Versi | Tanggal | Perubahan |
 |---|---|---|
 | 1.0 | 17 September 2026 | Versi awal. 15 state, 22 transisi, guard dan efek samping, tiga aturan alur uang |
+| 2.14 | 13 November 2026 | Efek samping T9, T11, T20, T21, dan T22 mengikuti D131 sampai D133. `REFUND_DEDUCTION` ditulis di transisi pemicu refund, sehingga uang bergerak di enam transisi, bukan empat |
 | 2.13 | 11 November 2026 | T18 diimplementasikan di sesi 7c: guard diperiksa ulang setelah order dikunci, dan urutan kunci order lalu wallet |
 | 2.12 | 10 November 2026 | Guard T5 ditambah pembayaran telat (D119) dan kesamaan nominal (D120) |
 | 2.11 | 9 November 2026 | Penolakan tawaran ditolak setelah deadline (D115), satu fungsi T3 untuk cron dan penolakan terakhir, dan notifikasi SLA miss pada efek samping T3 (D116) |
