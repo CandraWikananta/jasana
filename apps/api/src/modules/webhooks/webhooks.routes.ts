@@ -2,6 +2,8 @@
  * Rute webhook Xendit (PRD 4.3 Pembayaran dan webhook).
  *
  *   /webhooks/xendit/invoice   token callback dulu, baru validasi body (H13)
+ *   /webhooks/xendit/refund    stub sesi 8a, dicatat IGNORED
+ *   /webhooks/xendit/payout    stub sesi 8a, dicatat IGNORED
  */
 
 import { timingSafeEqual } from 'node:crypto';
@@ -29,5 +31,8 @@ export const requireCallbackToken: RequestHandler = (req, _res, next) => {
 export function createWebhooksRouter(): Router {
   const router = Router();
   router.post('/xendit/invoice', requireCallbackToken, validate({ body: invoiceCallbackSchema }), controller.invoice);
+  // Stub sesi 8a: tanpa validate, payload apa pun dicatat setelah token lolos.
+  router.post('/xendit/refund', requireCallbackToken, controller.refund);
+  router.post('/xendit/payout', requireCallbackToken, controller.payout);
   return router;
 }

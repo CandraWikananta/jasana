@@ -19,3 +19,11 @@ export const invoiceCallbackSchema = z
   .passthrough();
 
 export type InvoiceCallback = z.infer<typeof invoiceCallbackSchema>;
+
+/**
+ * Bagian callback refund dan payout yang dipakai stub sesi 8a untuk `event_id`.
+ * Tidak dipasang lewat `validate`: payload yang tidak cocok tetap dicatat utuh.
+ */
+export const gatewayEventSchema = z.object({
+  data: z.object({ id: z.string().min(1).max(100), status: z.string().min(1).max(20) }),
+});

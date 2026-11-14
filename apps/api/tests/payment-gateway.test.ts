@@ -1,5 +1,5 @@
 /**
- * Sesi 7a: adapter Xendit (D101) dan timeout gateway (H96). Tanpa jaringan:
+ * Sesi 7a dan 8a: adapter Xendit (D101), refund dan payout, dan timeout gateway (H96). Tanpa jaringan:
  * `fetch` di-spy, sehingga yang diuji bentuk permintaan dan pemetaan galat.
  */
 
@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { env } from '../src/config/env';
 import { PAYMENT_GATEWAY_TIMEOUT_MS } from '../src/config/constants';
 import { AppError } from '../src/lib/errors';
-import { xenditGateway } from '../src/lib/payment-gateway';
+import { fakeGateway, xenditGateway } from '../src/lib/payment-gateway';
 
 const KEY = env.XENDIT_SECRET_KEY;
 const KEY_B64 = Buffer.from(`${KEY}:`).toString('base64');
@@ -108,5 +108,124 @@ describe('xenditGateway (sesi 7a)', () => {
     await expectSafeGatewayError(xenditGateway.createInvoice(input()));
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('<html>bukan json</html>', { status: 200 }));
     await expectSafeGatewayError(xenditGateway.createInvoice(input()));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Sesi 8a: refund dan payout
+// ---------------------------------------------------------------------------
+
+const refundInput = {
+  referenceId: '6a3f2c1e-0000-4000-8000-000000000001',
+  invoiceId: 'inv-1',
+  amount: 150000,
+  reason: 'CANCELLATION' as const,
+};
+
+const payoutInput = {
+  withdrawalId: '6a3f2c1e-0000-4000-8000-000000000002',
+  channelCode: 'ID_BCA',
+  accountNumber: '1234567890',
+  accountHolderName: 'Penyedia Uji',
+  amount: 95000,
+  description: 'Withdrawal Jasana',
+};
+
+describe('xenditGateway refund dan payout (sesi 8a)', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it('refund: POST /refunds dengan invoice_id, reference_id, dan idempotency-key id referensi kita', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      json(200, { id: 'rfd-1', invoice_id: 'inv-1', reference_id: refundInput.referenceId, status: 'PENDING', amount: 150000 }),
+    );
+
+    const result = await xenditGateway.refund(refundInput);
+
+    const [url, init] = fetchSpy.mock.calls[0]!;
+    expect(url).toBe('https://api.xendit.co/refunds');
+    expect(init).toMatchObject({
+      method: 'POST',
+      headers: { Authorization: `Basic ${KEY_B64}`, 'Content-Type': 'application/json', 'idempotency-key': refundInput.referenceId },
+    });
+    expect(init!.signal).toBeInstanceOf(AbortSignal);
+    expect(JSON.parse(init!.body as string)).toEqual({
+      invoice_id: 'inv-1',
+      reference_id: refundInput.referenceId,
+      amount: 150000,
+      currency: 'IDR',
+      reason: 'CANCELLATION',
+    });
+    expect(result).toMatchObject({ refundId: 'rfd-1', status: 'PENDING' });
+  });
+
+  it('payout: POST /v2/payouts dengan Idempotency-key id withdrawal dan channel_properties (D134)', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      json(200, { id: 'disb-1', reference_id: payoutInput.withdrawalId, status: 'ACCEPTED', amount: 95000 }),
+    );
+
+    const result = await xenditGateway.payout(payoutInput);
+
+    const [url, init] = fetchSpy.mock.calls[0]!;
+    expect(url).toBe('https://api.xendit.co/v2/payouts');
+    expect(init).toMatchObject({
+      method: 'POST',
+      headers: { Authorization: `Basic ${KEY_B64}`, 'Content-Type': 'application/json', 'Idempotency-key': payoutInput.withdrawalId },
+    });
+    expect(init!.signal).toBeInstanceOf(AbortSignal);
+    expect(JSON.parse(init!.body as string)).toEqual({
+      reference_id: payoutInput.withdrawalId,
+      channel_code: 'ID_BCA',
+      channel_properties: { account_holder_name: 'Penyedia Uji', account_number: '1234567890' },
+      amount: 95000,
+      currency: 'IDR',
+      description: 'Withdrawal Jasana',
+    });
+    expect(result).toMatchObject({ payoutId: 'disb-1', status: 'ACCEPTED' });
+  });
+
+  it.each([
+    ['refund', () => xenditGateway.refund(refundInput), 400, 'REFUND_NOT_SUPPORTED'],
+    ['refund', () => xenditGateway.refund(refundInput), 403, 'PARTIAL_REFUND_NOT_SUPPORTED'],
+    ['payout', () => xenditGateway.payout(payoutInput), 409, 'DUPLICATE_ERROR'],
+  ] as const)('%s respons %i %s jadi PAYMENT_GATEWAY_ERROR tanpa isi balasan mentah', async (operation, call, status, code) => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      json(status, { error_code: code, message: `key ${KEY} rekening 1234567890 a.n. Penyedia Uji` }),
+    );
+    const error = await expectSafeGatewayError(call());
+    expect(error.context).toEqual({ gateway_operation: operation, gateway_status: status, gateway_error_code: code });
+    expect(`${error.message} ${JSON.stringify(error.context)}`).not.toMatch(/1234567890|Penyedia Uji/);
+  });
+
+  it.each([
+    ['refund', () => xenditGateway.refund(refundInput)],
+    ['payout', () => xenditGateway.payout(payoutInput)],
+  ] as const)('%s: timeout memakai PAYMENT_GATEWAY_TIMEOUT_MS (H96)', async (operation, call) => {
+    const timeout = vi.spyOn(AbortSignal, 'timeout');
+    vi.spyOn(globalThis, 'fetch').mockRejectedValue(new DOMException('The operation was aborted due to timeout', 'TimeoutError'));
+    const error = await expectSafeGatewayError(call());
+    expect(timeout).toHaveBeenCalledWith(PAYMENT_GATEWAY_TIMEOUT_MS);
+    expect(error.context).toMatchObject({ gateway_operation: operation, gateway_timeout: true });
+  });
+
+  it.each([
+    ['refund tanpa status', () => xenditGateway.refund(refundInput), { id: 'rfd-1' }],
+    ['refund tanpa id', () => xenditGateway.refund(refundInput), { status: 'PENDING' }],
+    ['payout tanpa status', () => xenditGateway.payout(payoutInput), { id: 'disb-1' }],
+    ['payout tanpa id', () => xenditGateway.payout(payoutInput), { status: 'ACCEPTED' }],
+  ] as const)('balasan 200 %s ditolak', async (_label, call, body) => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(json(200, body));
+    await expectSafeGatewayError(call());
+  });
+});
+
+describe('fakeGateway refund dan payout (sesi 8a)', () => {
+  it('deterministik dan tanpa jaringan', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    expect(await fakeGateway.refund(refundInput)).toMatchObject({ refundId: `fake-ref-${refundInput.referenceId}`, status: 'PENDING' });
+    expect(await fakeGateway.refund(refundInput)).toEqual(await fakeGateway.refund(refundInput));
+    expect(await fakeGateway.payout(payoutInput)).toMatchObject({ payoutId: `fake-payout-${payoutInput.withdrawalId}`, status: 'ACCEPTED' });
+    expect(await fakeGateway.payout(payoutInput)).toEqual(await fakeGateway.payout(payoutInput));
+    expect(fetchSpy).not.toHaveBeenCalled();
+    fetchSpy.mockRestore();
   });
 });

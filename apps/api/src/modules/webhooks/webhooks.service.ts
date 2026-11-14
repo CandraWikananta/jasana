@@ -9,12 +9,13 @@
  * Bisnisnya ada di `applyInvoiceEvent` (modul orders). Di sini hanya mesin event.
  */
 
+import { randomUUID } from 'node:crypto';
 import { prisma, type Prisma } from '@jasana/database';
 import { WEBHOOK_MAX_RETRIES, WEBHOOK_STUCK_MINUTES } from '../../config/constants';
 import { logger } from '../../lib/logger';
 import { applyInvoiceEvent, NO_RETRY_MARKERS, type InvoiceOutcome } from '../orders/order-payment.service';
 import { withOrderTransaction } from '../orders/order-transition.service';
-import { invoiceCallbackSchema, type InvoiceCallback } from './webhooks.schema';
+import { gatewayEventSchema, invoiceCallbackSchema, type InvoiceCallback } from './webhooks.schema';
 
 const BATCH = 100;
 
@@ -65,6 +66,33 @@ async function processEvent(eventId: string, payload: unknown): Promise<InvoiceO
       .catch((markError: unknown) => logger.error({ err: markError, event_id: eventId }, 'Gagal menandai webhook FAILED'));
     return 'ERROR';
   }
+}
+
+/**
+ * Stub sesi 8a untuk webhook refund dan payout: hanya mencatat, tidak memproses
+ * (8b dan 8c). Payload yang bentuknya lain tetap disimpan dengan event_id
+ * cadangan, karena tujuan stub ini merekam payload sungguhan dari sandbox.
+ */
+export async function recordIgnoredEvent(domain: 'REFUND' | 'PAYOUT', payload: unknown): Promise<void> {
+  const parsed = gatewayEventSchema.safeParse(payload);
+  const prefix = domain.toLowerCase();
+  const known = parsed.success ? parsed.data.data : null;
+  await prisma.webhookEvent.createMany({
+    data: [
+      {
+        domain,
+        eventId: known ? `${prefix}:${known.id}:${known.status}` : `${prefix}:raw:${randomUUID()}`,
+        eventType: known?.status ?? null,
+        referenceId: known?.id ?? null,
+        payload: (payload ?? {}) as Prisma.InputJsonValue,
+        signatureValid: true,
+        processingStatus: 'IGNORED',
+        errorMessage: known ? 'Belum diproses, stub sesi 8a' : 'Bentuk payload tidak dikenali, stub sesi 8a',
+        processedAt: new Date(),
+      },
+    ],
+    skipDuplicates: true,
+  });
 }
 
 export interface RecoveryResult {

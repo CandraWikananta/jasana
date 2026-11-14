@@ -12,3 +12,14 @@ export const invoice = asyncHandler(async (req, res) => {
   await service.receiveInvoiceEvent(req.body as InvoiceCallback);
   sendOk(res, { received: true });
 });
+
+/** Stub sesi 8a: dicatat IGNORED, selalu 200 setelah token lolos. */
+export const refund = asyncHandler(async (req, res) => {
+  await service.recordIgnoredEvent('REFUND', req.body);
+  sendOk(res, { received: true });
+});
+
+export const payout = asyncHandler(async (req, res) => {
+  await service.recordIgnoredEvent('PAYOUT', req.body);
+  sendOk(res, { received: true });
+});

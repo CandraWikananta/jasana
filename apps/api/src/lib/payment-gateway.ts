@@ -27,15 +27,41 @@ export interface Invoice {
   raw: unknown;
 }
 
+/** Nilai `reason` yang diterima Refund API Xendit. */
+export type RefundReason = 'FRAUDULENT' | 'DUPLICATE' | 'REQUESTED_BY_CUSTOMER' | 'CANCELLATION' | 'OTHERS';
+
 export interface RefundInput {
+  /** Id referensi kita (nanti `refunds.id`), dipakai sebagai `reference_id` dan idempotency key. */
+  referenceId: string;
   invoiceId: string;
   /** Rupiah utuh. */
   amount: number;
-  reason: string;
+  reason: RefundReason;
 }
 
 export interface RefundResult {
   refundId: string;
+  /** Salinan mentah status Xendit (PENDING, SUCCEEDED, FAILED). */
+  status: string;
+  raw: unknown;
+}
+
+export interface PayoutInput {
+  /** `withdrawals.id`, dipakai sebagai `reference_id` dan Idempotency-key (D134). */
+  withdrawalId: string;
+  /** Kode channel payout Xendit, misalnya ID_BCA. */
+  channelCode: string;
+  accountNumber: string;
+  accountHolderName: string;
+  /** Rupiah utuh. */
+  amount: number;
+  description: string;
+}
+
+export interface PayoutResult {
+  payoutId: string;
+  /** Salinan mentah status Xendit (ACCEPTED, REQUESTED, SUCCEEDED, FAILED, ...). */
+  status: string;
   raw: unknown;
 }
 
@@ -43,6 +69,7 @@ export interface PaymentGateway {
   createInvoice(input: CreateInvoiceInput): Promise<Invoice>;
   expireInvoice(invoiceId: string): Promise<void>;
   refund(input: RefundInput): Promise<RefundResult>;
+  payout(input: PayoutInput): Promise<PayoutResult>;
 }
 
 /** Tanpa jaringan dan deterministik. T5 dipicu lewat endpoint simulasi (D101 no. 4). */
@@ -58,7 +85,10 @@ export const fakeGateway: PaymentGateway = {
   },
   async expireInvoice() {},
   async refund(input) {
-    return { refundId: `fake-ref-${input.invoiceId}`, raw: { gateway: 'fake', ...input } };
+    return { refundId: `fake-ref-${input.referenceId}`, status: 'PENDING', raw: { gateway: 'fake', ...input } };
+  },
+  async payout(input) {
+    return { payoutId: `fake-payout-${input.withdrawalId}`, status: 'ACCEPTED', raw: { gateway: 'fake', ...input } };
   },
 };
 
@@ -72,12 +102,18 @@ const gatewayError = (message: string, context: Record<string, unknown>) =>
  * pernah diteruskan: pesan fetch bisa memuat URL atau header, dan isi balasan
  * Xendit bisa memuat data pembayar. Yang dicatat hanya status dan `error_code`.
  */
-async function callXendit(path: string, operation: string, body?: unknown): Promise<Record<string, unknown>> {
+async function callXendit(
+  path: string,
+  operation: string,
+  body?: unknown,
+  headers: Record<string, string> = {},
+): Promise<Record<string, unknown>> {
   let response: Response;
   try {
     response = await fetch(`${XENDIT_BASE_URL}${path}`, {
       method: 'POST',
       headers: {
+        ...headers,
         Authorization: `Basic ${Buffer.from(`${env.XENDIT_SECRET_KEY}:`).toString('base64')}`,
         'Content-Type': 'application/json',
       },
@@ -104,9 +140,14 @@ async function callXendit(path: string, operation: string, body?: unknown): Prom
   return payload;
 }
 
-const notInstalled = (): never => {
-  throw new AppError('PAYMENT_GATEWAY_ERROR', 'Refund Xendit belum dipasang (Fase 8)');
-};
+/** `id` dan `status` wajib ada, karena keduanya yang dicocokkan dengan webhook. */
+function idAndStatus(payload: Record<string, unknown>, operation: string) {
+  const { id, status } = payload;
+  if (typeof id !== 'string' || typeof status !== 'string') {
+    throw gatewayError('Balasan gateway pembayaran tidak dikenali', { gateway_operation: operation });
+  }
+  return { id, status };
+}
 
 /** Invoice API Xendit lewat fetch langsung, sama polanya dengan lib/supabase.ts. */
 export const xenditGateway: PaymentGateway = {
@@ -128,7 +169,35 @@ export const xenditGateway: PaymentGateway = {
   async expireInvoice(invoiceId) {
     await callXendit(`/invoices/${encodeURIComponent(invoiceId)}/expire!`, 'expire_invoice');
   },
-  refund: async () => notInstalled(),
+  /** Refund API legacy berbasis invoice_id. Metode yang didukung baru dipastikan di sandbox 8a. */
+  async refund(input) {
+    const payload = await callXendit(
+      '/refunds',
+      'refund',
+      { invoice_id: input.invoiceId, reference_id: input.referenceId, amount: input.amount, currency: 'IDR', reason: input.reason },
+      { 'idempotency-key': input.referenceId },
+    );
+    const { id, status } = idAndStatus(payload, 'refund');
+    return { refundId: id, status, raw: payload };
+  },
+  /** Payouts API v2. Key yang sama dengan payload yang sama mengembalikan payout yang sama (D134). */
+  async payout(input) {
+    const payload = await callXendit(
+      '/v2/payouts',
+      'payout',
+      {
+        reference_id: input.withdrawalId,
+        channel_code: input.channelCode,
+        channel_properties: { account_holder_name: input.accountHolderName, account_number: input.accountNumber },
+        amount: input.amount,
+        currency: 'IDR',
+        description: input.description,
+      },
+      { 'Idempotency-key': input.withdrawalId },
+    );
+    const { id, status } = idAndStatus(payload, 'payout');
+    return { payoutId: id, status, raw: payload };
+  },
 };
 
 export const paymentGateway: PaymentGateway =
