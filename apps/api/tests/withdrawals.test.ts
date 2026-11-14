@@ -6,6 +6,7 @@
  *   D134        reject dan payout yang ditolak menulis tepat satu WITHDRAWAL_REVERSAL
  *   usulan D138 timeout tetap APPROVED lalu dicoba ulang dengan key yang sama, 4xx FAILED
  *   usulan D139 409 diperlakukan sementara, bukan FAILED
+ *   H106        sync status payout lewat applyPayoutEvent yang sama dengan webhook (8c)
  *   V1          ledger dan cache saldo tetap rekonsiliasi setelah tiap test
  *
  * Saldo awal dibuat lewat kode produksi (`fundWallet`): order selesai lalu T18.
@@ -310,5 +311,71 @@ describe.skipIf(!hasTestDatabase)('withdrawal (8b)', () => {
     expect(res.body.data).toMatchObject({ status: 'FAILED', failure_code: 'INVALID_DESTINATION' });
     expect(await available()).toBe(earning);
     expect((await ledgerOf(id)).map((r) => r.type)).toEqual(['WITHDRAWAL', 'WITHDRAWAL_REVERSAL']);
+  });
+
+  // -------------------------------------------------------------------------
+  // Sync (H106, sesi 8c)
+  // -------------------------------------------------------------------------
+
+  describe('POST /admin/withdrawals/:id/sync', () => {
+    const sync = (id: string) => request(app).post(`/api/v1/admin/withdrawals/${id}/sync`).set(...auth(admin));
+    const record = (id: string, status: string, failure_code: string | null = null) => ({ id: `disb-${id}`, status, reference_id: id, failure_code });
+
+    it('DISBURSING dengan id: dibaca lewat id payout, SUCCEEDED menjadi COMPLETED seperti webhook', async () => {
+      const id = await created(100000);
+      await approve(id);
+      const get = vi.spyOn(paymentGateway, 'getPayout');
+      const res = await sync(id);
+      expect(res.status, JSON.stringify(res.body)).toBe(200);
+      expect(get).toHaveBeenCalledWith({ payoutId: `fake-payout-${id}`, referenceId: id });
+      expect(res.body.data.sync).toMatchObject({ gateway_status: 'SUCCEEDED', outcome: 'PROCESSED' });
+      expect(res.body.data.withdrawal).toMatchObject({ status: 'COMPLETED', xendit_payout_status: 'SUCCEEDED' });
+      expect(await available()).toBe(earning - 100000);
+      expect(await prisma.notification.count({ where: { referenceId: id, type: 'WITHDRAWAL' } })).toBe(1);
+    });
+
+    it('APPROVED tanpa id (timeout saat approve): dicari lewat reference_id, FAILED dengan tepat satu reversal', async () => {
+      const id = await created(100000);
+      vi.spyOn(paymentGateway, 'payout').mockRejectedValueOnce(gatewayError({ gateway_timeout: true }));
+      expect((await approve(id)).status).toBe(502);
+      const get = vi.spyOn(paymentGateway, 'getPayout').mockResolvedValueOnce(record(id, 'FAILED', 'INVALID_DESTINATION'));
+
+      const res = await sync(id);
+      expect(res.status, JSON.stringify(res.body)).toBe(200);
+      expect(get).toHaveBeenCalledWith({ payoutId: null, referenceId: id });
+      expect(res.body.data.withdrawal).toMatchObject({ status: 'FAILED', failure_code: 'INVALID_DESTINATION', xendit_payout_id: `disb-${id}` });
+      expect(await available()).toBe(earning);
+      expect((await ledgerOf(id)).map((r) => r.type)).toEqual(['WITHDRAWAL', 'WITHDRAWAL_REVERSAL']);
+
+      // Sync kedua pada FAILED ditolak, reversal tidak bertambah.
+      expect((await sync(id)).status).toBe(409);
+      expect((await ledgerOf(id)).map((r) => r.type)).toEqual(['WITHDRAWAL', 'WITHDRAWAL_REVERSAL']);
+    });
+
+    it('tidak ditemukan di Xendit: tanpa perubahan; status yang masih belum pasti di Xendit: IGNORED', async () => {
+      const id = await created(100000);
+      vi.spyOn(paymentGateway, 'payout').mockRejectedValueOnce(gatewayError({ gateway_timeout: true }));
+      await approve(id);
+      vi.spyOn(paymentGateway, 'getPayout').mockResolvedValueOnce(null).mockResolvedValueOnce(record(id, 'ACCEPTED'));
+
+      const missing = await sync(id);
+      expect(missing.body.data.sync).toMatchObject({ outcome: 'NOT_FOUND', gateway_status: null });
+      expect(missing.body.data.withdrawal.status).toBe('APPROVED');
+      const pending = await sync(id);
+      expect(pending.body.data.sync).toMatchObject({ outcome: 'IGNORED', gateway_status: 'ACCEPTED' });
+      expect(pending.body.data.withdrawal.status).toBe('APPROVED');
+    });
+
+    it('REQUESTED dan REJECTED ditolak 409, galat gateway jadi 502, hanya admin', async () => {
+      const id = await created(100000);
+      expect((await sync(id)).body.error.code).toBe('WITHDRAWAL_STATE_CONFLICT');
+      await approve(id);
+      vi.spyOn(paymentGateway, 'getPayout').mockRejectedValueOnce(gatewayError({ gateway_status: 503 }));
+      expect((await sync(id)).status).toBe(502);
+      expect((await request(app).post(`/api/v1/admin/withdrawals/${id}/sync`).set(...auth(w.owner))).status).toBe(403);
+      const other = await created(50000);
+      await reject(other, 'Rekening tidak sesuai');
+      expect((await sync(other)).status).toBe(409);
+    });
   });
 });

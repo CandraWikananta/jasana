@@ -225,6 +225,43 @@ describe.skipIf(!hasTestDatabase)('webhook invoice Xendit (7b)', () => {
     expect((await event(`invoice:${payment.xenditInvoiceId}:PAID`)).processingStatus).toBe('PROCESSED');
   });
 
+  it('D135, H99: pembayaran telat VA di-refund penuh lewat jalur manual, tanpa ledger, tanpa transisi, initiated_by null', async () => {
+    const { id, payment } = await acceptedOrder();
+    await prisma.order.update({ where: { id }, data: { paymentDeadlineAt: new Date(Date.now() - 1000) } });
+    await sweepPaymentDeadlines();
+    const refundApi = vi.spyOn(paymentGateway, 'refund');
+
+    expect((await send(paid(payment))).status).toBe(200);
+
+    const refunds = await prisma.refund.findMany({ where: { orderId: id } });
+    expect(refunds).toHaveLength(1);
+    expect(refunds[0]).toMatchObject({ paymentId: payment.id, type: 'FULL', status: 'REQUESTED', includesPlatformFee: true, initiatedBy: null, xenditRefundId: null });
+    expect(refunds[0]!.amount.toNumber()).toBe(500000);
+    // BANK_TRANSFER: jalur manual, API tidak dipanggil (D136 no. 2).
+    expect(refundApi).not.toHaveBeenCalled();
+    expect(await orderStatus(id)).toBe('PAYMENT_EXPIRED');
+    expect(await prisma.walletTransaction.count({ where: { orderId: id } })).toBe(0);
+    expect((await event(`invoice:${payment.xenditInvoiceId}:PAID`)).errorMessage).toContain(refunds[0]!.id);
+  });
+
+  it('D135: pembayaran telat e-wallet untuk order yang dibatalkan (T7) di-refund lewat API setelah commit, sebesar paid_amount', async () => {
+    const { id, payment } = await acceptedOrder();
+    expect((await request(app).post(`/api/v1/orders/${id}/cancel`).set(...auth(w.client)).send({})).status).toBe(200);
+    const refundApi = vi.spyOn(paymentGateway, 'refund').mockImplementationOnce(async (input) => {
+      // Setelah commit: baris refund sudah terlihat dari koneksi lain.
+      expect(await prisma.refund.count({ where: { id: input.referenceId } })).toBe(1);
+      return { refundId: `rfd-${input.referenceId}`, status: 'PENDING', raw: {} };
+    });
+
+    expect((await send(paid(payment, { payment_method: 'EWALLET', payment_channel: 'GOPAY' }))).status).toBe(200);
+
+    const refund = await prisma.refund.findFirstOrThrow({ where: { orderId: id } });
+    expect(refundApi).toHaveBeenCalledWith({ referenceId: refund.id, invoiceId: payment.xenditInvoiceId, amount: 500000, reason: 'CANCELLATION' });
+    expect(refund).toMatchObject({ status: 'PROCESSING', xenditRefundId: `rfd-${refund.id}`, initiatedBy: null });
+    expect(await orderStatus(id)).toBe('CANCELLED');
+    expect(await prisma.walletTransaction.count({ where: { orderId: id } })).toBe(0);
+  });
+
   describe('D120: nominal dibandingkan sebagai angka', () => {
     async function orderAt150k() {
       await prisma.listing.update({ where: { id: w.listingId }, data: { price: 150000 } });

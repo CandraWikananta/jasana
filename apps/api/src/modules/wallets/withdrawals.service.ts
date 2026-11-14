@@ -4,7 +4,7 @@
  *   requestWithdrawal   debit lewat UPDATE bersyarat, baris REQUESTED, ledger WITHDRAWAL (H83)
  *   rejectWithdrawal    REQUESTED -> REJECTED beserta WITHDRAWAL_REVERSAL
  *   approveWithdrawal   REQUESTED -> APPROVED, commit, lalu payout di luar transaksi
- *   applyPayoutEvent    transaksi 2 webhook payout
+ *   applyPayoutEvent    transaksi 2 webhook payout, dipakai juga syncWithdrawal (H106)
  *
  * Urutan kunci di setiap jalur: withdrawal dulu, lalu wallet. Notifikasi ke
  * pemilik usaha dicatat di transaksi dan dikirim setelah commit (jebakan 7).
@@ -13,6 +13,7 @@
 import { prisma, Prisma, type TransactionCreator, type Withdrawal, type WithdrawalStatus } from '@jasana/database';
 import type { ProviderContext } from '../access/access.service';
 import { AppError, Errors } from '../../lib/errors';
+import { logger } from '../../lib/logger';
 import { pageMeta, skipTake, type Page, type Paginated } from '../../lib/pagination';
 import { paymentGateway, type PayoutResult } from '../../lib/payment-gateway';
 import { dispatchEmails, recordEmail, type OutgoingEmail } from '../notifications/email-outbox';
@@ -299,7 +300,7 @@ function nextStatus(current: WithdrawalStatus, payout: string): 'COMPLETED' | 'F
 }
 
 /** Transaksi 2 webhook payout. Dicocokkan lewat `reference_id` = id withdrawal (D137). */
-export async function applyPayoutEvent(tx: Tx, afterCommit: AfterCommit, event: PayoutCallback): Promise<PayoutOutcome> {
+export async function applyPayoutEvent(tx: Tx, afterCommit: AfterCommit, event: Pick<PayoutCallback, 'data'>): Promise<PayoutOutcome> {
   const { id: payoutId, status, reference_id: referenceId, failure_code: failureCode } = event.data;
   if (!UUID.test(referenceId)) return { status: 'IGNORED', message: `reference_id ${referenceId} bukan id withdrawal (D137)` };
   const current = await lockWithdrawal(tx, referenceId);
@@ -333,4 +334,34 @@ export async function applyPayoutEvent(tx: Tx, afterCommit: AfterCommit, event: 
     await notifyOwner(tx, afterCommit, updated, target === 'FAILED' ? 'Withdrawal gagal' : 'Withdrawal dikembalikan bank', detail);
   }
   return { status: 'PROCESSED' };
+}
+
+// ---------------------------------------------------------------------------
+// Sinkronisasi (H106)
+// ---------------------------------------------------------------------------
+
+/** Status yang mungkin masih berubah di Xendit. COMPLETED ikut karena bisa REVERSED. */
+const SYNCABLE: ReadonlySet<WithdrawalStatus> = new Set(['APPROVED', 'DISBURSING', 'COMPLETED']);
+
+/**
+ * POST /admin/withdrawals/:id/sync. Status ditanyakan ke Xendit lewat id payout,
+ * atau lewat `reference_id` kalau id belum tersimpan (timeout saat approve), lalu
+ * diterapkan lewat `applyPayoutEvent` yang sama dengan webhook.
+ * shortcut: tidak ada cron sync otomatis (usulan D143), tambahkan kalau admin sering lupa menekan sync.
+ */
+export async function syncWithdrawal(id: string) {
+  const current = await prisma.withdrawal.findUnique({ where: { id } });
+  if (!current) throw Errors.notFound('Withdrawal tidak ditemukan');
+  if (!SYNCABLE.has(current.status)) throw stateConflict(current, 'disinkronkan');
+
+  // Di luar transaksi (jebakan 7). Galat gateway diteruskan jadi 502.
+  const record = await paymentGateway.getPayout({ payoutId: current.xenditPayoutId, referenceId: id });
+  const result = record ? await withOrderTransaction((tx, afterCommit) => applyPayoutEvent(tx, afterCommit, { data: record })) : null;
+  const sync = {
+    gateway_status: record?.status ?? null,
+    outcome: result?.status ?? 'NOT_FOUND',
+    message: result ? (result.message ?? null) : 'Payout tidak ditemukan di Xendit',
+  };
+  logger.info({ withdrawal_id: id, ...sync }, 'Sinkronisasi withdrawal');
+  return { withdrawal: await getDto(id), sync };
 }

@@ -39,3 +39,7 @@ export const approveWithdrawal = asyncHandler(async (req, res) => {
 export const rejectWithdrawal = asyncHandler(async (req, res) => {
   sendOk(res, await withdrawals.rejectWithdrawal(currentUser(req).id, req.params.id!, req.body.rejection_reason));
 });
+
+export const syncWithdrawal = asyncHandler(async (req, res) => {
+  sendOk(res, await withdrawals.syncWithdrawal(req.params.id!));
+});

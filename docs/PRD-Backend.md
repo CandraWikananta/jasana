@@ -4,13 +4,13 @@
 
 | | |
 |---|---|
-| Versi | 2.19 |
+| Versi | 2.20 |
 | Penyusun | I Nyoman Gede Candra Wikananta (2305551065) |
 | Program Studi | Teknologi Informasi, Universitas Udayana |
 | Bidang Keahlian | Sistem Informasi |
 | Pembimbing 1 | Dr. Ir. Ni Kadek Ayu Wirdiani, S.T., M.T., IPU |
 | Pembimbing 2 | Dr. Ir. Anak Agung Kompiang Oka Sudana, S.Kom., M.T., IPM |
-| Tanggal | 14 November 2026 |
+| Tanggal | 15 November 2026 |
 | Cakupan dokumen | **Backend saja** (Express.js REST API, basis data, integrasi eksternal, cron). Frontend dan UI/UX di luar cakupan dokumen ini |
 
 **Dokumen rujukan:** `Keputusan-Desain-Sistem.md` (register keputusan D1 sampai D128, versi 2.21), `State-Machine-Order.md` (artefak desain 3), `skema-database-final.dbml` (35 tabel, 35 enum), `schema.prisma`, `migration-constraints.sql`, `Panduan-Struktur-Database.md`.
@@ -796,6 +796,10 @@ Query parameter `GET /listings`:
 | GET | `/admin/withdrawals` | A | Antrean pengajuan |
 | POST | `/admin/withdrawals/:id/approve` | A | Setujui, memanggil Xendit Payout setelah commit. Gagal sementara dibalas 502 dan withdrawal tetap APPROVED untuk dicoba ulang, penolakan final dibalas 200 dengan status FAILED (D138, D139) |
 | POST | `/admin/withdrawals/:id/reject` | A | Tolak, memicu `WITHDRAWAL_REVERSAL` |
+| POST | `/admin/withdrawals/:id/sync` | A | Tanya status payout ke Xendit dan terapkan lewat aturan webhook (H106, D145) |
+| GET | `/admin/refunds` | A | Antrean refund, bisa disaring per status |
+| POST | `/admin/refunds/:id/complete` | A | Tandai selesai lewat jalur manual dengan catatan transfer wajib. Hanya dari FAILED, atau dari REQUESTED untuk metode non-API (D140, D142) |
+| POST | `/admin/refunds/:id/sync` | A | Tanya status refund ke Xendit dan terapkan lewat aturan webhook (H106, D145) |
 
 #### Dispute dan review
 
@@ -1474,6 +1478,7 @@ Yang sudah ditutup di register keputusan versi 2.8:
 | `VERIFICATION_LOCKED` | 429 | Terkunci setelah percobaan melebihi batas |
 | `INSUFFICIENT_BALANCE` | 422 | Saldo available tidak cukup |
 | `WITHDRAWAL_BELOW_MINIMUM` | 422 | Nominal withdrawal di bawah `withdrawal_min_amount`, atau `net_amount` tidak positif (D84) |
+| `REFUND_STATE_CONFLICT` | 409 | Refund tidak bisa diselesaikan manual atau disinkronkan dari statusnya sekarang (D140, D145) |
 | `WITHDRAWAL_STATE_CONFLICT` | 409 | Reject selain dari REQUESTED, atau approve dari status selain REQUESTED dan APPROVED |
 | `TOKEN_INVALID` | 422 | Token verifikasi tidak dikenali |
 | `TOKEN_EXPIRED` | 422 | Token verifikasi kedaluwarsa |
@@ -1528,3 +1533,4 @@ Tidak menyangkut aturan bisnis, dibentuk oleh middleware bersama pada Fase 0.
 | 2.17 | 13 November 2026 | Sinkron dengan register keputusan versi 2.24. Uang bergerak di enam transisi (D132), dan pembalikan withdrawal beserta idempotency payout (D134) |
 | 2.18 | 14 November 2026 | Sinkron dengan register keputusan versi 2.25. Pencocokan webhook refund dan payout lewat `reference_id` (D136, D137) |
 | 2.19 | 14 November 2026 | Sinkron dengan register keputusan versi 2.26. Respons approve withdrawal (D138, D139) dan kode error `WITHDRAWAL_STATE_CONFLICT` |
+| 2.20 | 15 November 2026 | Sinkron dengan register keputusan versi 2.27. Endpoint admin refund dan sync (D140, D142, D145), dan kode error `REFUND_STATE_CONFLICT` |

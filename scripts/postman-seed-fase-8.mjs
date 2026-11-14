@@ -1,5 +1,6 @@
 /**
- * Menyiapkan data demo untuk collection Postman Fase 8 (withdrawal, sesi 8b).
+ * Menyiapkan data demo untuk collection Postman Fase 8 (withdrawal sesi 8b,
+ * pembatalan berbayar dan refund sesi 8c).
  *
  *   npm run postman:seed:fase-8
  *
@@ -13,11 +14,11 @@
  *   ffoto1   pekerja, terpetakan ke listing (penanggung jawab order pengisi saldo)
  *   ffoto2   pekerja, terpetakan ke listing
  *   fklien   client, alamat tersimpan di Renon
- *   fadmin   role ADMIN, menyetujui dan menolak withdrawal
+ *   fadmin   role ADMIN, menyetujui dan menolak withdrawal, menyelesaikan refund manual
  *
  * Akunnya @postman.jasana.test berawalan `f`, berbeda dari seed fase lain.
- * Setiap kali dijalankan, akun beserta listing, order, payment, withdrawal, dan
- * ledger-nya dihapus lalu dibuat ulang. Katalog Lampiran B dipastikan ada lewat seedCatalog.
+ * Setiap kali dijalankan, akun beserta listing, order, payment, refund, withdrawal,
+ * dan ledger-nya dihapus lalu dibuat ulang. Katalog Lampiran B dipastikan ada lewat seedCatalog.
  *
  * Basis data tujuannya DATABASE_URL (dari shell, atau dari .env).
  */
@@ -110,6 +111,8 @@ async function main() {
         await tx.walletTransaction.deleteMany({ where: { wallet: { providerProfile: { user: { email: { in: emails } } } } } });
         // withdrawals.wallet_id restrict, jadi dihapus sebelum wallet ikut terhapus lewat cascade.
         await tx.withdrawal.deleteMany({ where: { wallet: { providerProfile: { user: { email: { in: emails } } } } } });
+        // refunds.order_id, payment_id, dan initiated_by restrict (8c), jadi dihapus sebelum payment.
+        await tx.refund.deleteMany({ where: { OR: [{ order: orders }, { initiatedBy: { in: ids } }] } });
         // payments.order_id restrict, jadi dihapus sebelum order.
         await tx.payment.deleteMany({ where: { order: orders } });
         await tx.order.deleteMany({ where: orders });

@@ -3,33 +3,43 @@
  *
  *   receiveInvoiceEvent   event_id `invoice:<id>:<status>`
  *   receivePayoutEvent    event_id `payout:<data.id>:<data.status>` (sesi 8b)
+ *   receiveRefundEvent    event_id `refund:<data.id>:<data.status>` (sesi 8c)
  *                         keduanya: transaksi 1 mencatat event, kunci lewat UPDATE
  *                         bersyarat atomik, lalu transaksi 2 lewat `processEvent`
  *   recoverWebhookEvents  PROCESSING macet jadi FAILED, lalu FAILED diulang dari
  *                         payload tersimpan maksimal WEBHOOK_MAX_RETRIES kali
  *
- * Bisnisnya ada di `applyInvoiceEvent` (modul orders) dan `applyPayoutEvent`
- * (modul wallets). Di sini hanya mesin event.
+ * Bisnisnya ada di `applyInvoiceEvent` (modul orders), `applyPayoutEvent`
+ * (modul wallets), dan `applyRefundEvent` (modul refunds). Di sini hanya mesin event.
  */
 
-import { randomUUID } from 'node:crypto';
 import { prisma, type Prisma } from '@jasana/database';
 import { WEBHOOK_MAX_RETRIES, WEBHOOK_STUCK_MINUTES } from '../../config/constants';
 import { logger } from '../../lib/logger';
 import { applyInvoiceEvent, NO_RETRY_MARKERS, type InvoiceOutcome } from '../orders/order-payment.service';
 import { withOrderTransaction, type AfterCommitTask } from '../orders/order-transition.service';
+import { applyRefundEvent } from '../refunds/refunds.service';
 import { applyPayoutEvent } from '../wallets/withdrawals.service';
-import { gatewayEventSchema, invoiceCallbackSchema, payoutCallbackSchema, type InvoiceCallback, type PayoutCallback } from './webhooks.schema';
+import {
+  invoiceCallbackSchema,
+  payoutCallbackSchema,
+  refundCallbackSchema,
+  type InvoiceCallback,
+  type PayoutCallback,
+  type RefundCallback,
+} from './webhooks.schema';
 
 const BATCH = 100;
 
-type ProcessedDomain = 'PAYMENT' | 'PAYOUT';
+type ProcessedDomain = 'PAYMENT' | 'PAYOUT' | 'REFUND';
+const DOMAINS: ProcessedDomain[] = ['PAYMENT', 'PAYOUT', 'REFUND'];
 type Handler = (tx: Prisma.TransactionClient, afterCommit: (task: AfterCommitTask) => void, payload: unknown) => Promise<InvoiceOutcome>;
 
 /** Transaksi 2 per domain. Payload di-parse ulang karena cron mengulang dari `webhook_events`. */
 const HANDLERS: Record<ProcessedDomain, Handler> = {
   PAYMENT: (tx, afterCommit, payload) => applyInvoiceEvent(tx, afterCommit, invoiceCallbackSchema.parse(payload)),
   PAYOUT: (tx, afterCommit, payload) => applyPayoutEvent(tx, afterCommit, payoutCallbackSchema.parse(payload)),
+  REFUND: (tx, afterCommit, payload) => applyRefundEvent(tx, afterCommit, refundCallbackSchema.parse(payload)),
 };
 
 export const receiveInvoiceEvent = (payload: InvoiceCallback) =>
@@ -37,6 +47,9 @@ export const receiveInvoiceEvent = (payload: InvoiceCallback) =>
 
 export const receivePayoutEvent = (payload: PayoutCallback) =>
   receiveEvent('PAYOUT', `payout:${payload.data.id}:${payload.data.status}`, payload.data.status, payload.data.id, payload);
+
+export const receiveRefundEvent = (payload: RefundCallback) =>
+  receiveEvent('REFUND', `refund:${payload.data.id}:${payload.data.status}`, payload.data.status, payload.data.id, payload);
 
 /**
  * Galat sebelum kunci diambil dilempar dan dibalas 5xx supaya Xendit mengirim
@@ -84,33 +97,6 @@ async function processEvent(eventId: string, domain: ProcessedDomain, payload: u
   }
 }
 
-/**
- * Stub sesi 8a untuk webhook refund: hanya mencatat, tidak memproses (8c).
- * Payload yang bentuknya lain tetap disimpan dengan event_id cadangan, karena
- * tujuan stub ini merekam payload sungguhan dari sandbox.
- */
-export async function recordIgnoredEvent(domain: 'REFUND', payload: unknown): Promise<void> {
-  const parsed = gatewayEventSchema.safeParse(payload);
-  const prefix = domain.toLowerCase();
-  const known = parsed.success ? parsed.data.data : null;
-  await prisma.webhookEvent.createMany({
-    data: [
-      {
-        domain,
-        eventId: known ? `${prefix}:${known.id}:${known.status}` : `${prefix}:raw:${randomUUID()}`,
-        eventType: known?.status ?? null,
-        referenceId: known?.id ?? null,
-        payload: (payload ?? {}) as Prisma.InputJsonValue,
-        signatureValid: true,
-        processingStatus: 'IGNORED',
-        errorMessage: known ? 'Belum diproses, stub sesi 8a' : 'Bentuk payload tidak dikenali, stub sesi 8a',
-        processedAt: new Date(),
-      },
-    ],
-    skipDuplicates: true,
-  });
-}
-
 export interface RecoveryResult {
   stuck: number;
   retried: number;
@@ -127,7 +113,7 @@ export async function recoverWebhookEvents(): Promise<RecoveryResult> {
 
   const candidates = await prisma.webhookEvent.findMany({
     where: {
-      domain: { in: ['PAYMENT', 'PAYOUT'] },
+      domain: { in: DOMAINS },
       processingStatus: 'FAILED',
       retryCount: { lt: WEBHOOK_MAX_RETRIES },
       // D120 dan bayar dobel tidak diulang: hasilnya akan selalu sama.

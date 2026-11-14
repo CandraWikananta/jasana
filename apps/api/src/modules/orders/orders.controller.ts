@@ -95,7 +95,7 @@ export const renewPayment = asyncHandler(async (req, res) => {
 /** D101 no. 4. Hanya client order itu, memanggil fungsi yang sama dengan webhook Fase 7. */
 export const simulatePayment = asyncHandler(async (req, res) => {
   const access = currentOrderAccess(req);
-  await simulate(access);
+  await simulate(access, (req.body as { payment_method: string }).payment_method);
   sendOk(res, await service.getOrder(access.orderId));
 });
 

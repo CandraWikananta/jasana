@@ -4,7 +4,8 @@
 -- Platform Marketplace Jasa On-Demand "Jasana"
 -- I Nyoman Gede Candra Wikananta - 2305551065
 --
--- VERSI 2.7. Menambah index H102 (D134) di bagian 3a, sesi 8b.
+-- VERSI 2.8. Menambah index H101 (D132) di bagian 3b, sesi 8c.
+-- Versi 2.7 menambah index H102 (D134) di bagian 3a, sesi 8b.
 -- Versi 2.6 menyesuaikan keputusan D31 sampai D80.
 -- D80 tidak menambah constraint basis data: validasi unggahan berkas
 -- dilakukan service layer (H78, H79) dan pembersihan berkas yatim lewat cron (H80).
@@ -94,6 +95,20 @@ CREATE UNIQUE INDEX uniq_withdrawal_event_per_withdrawal
   ON wallet_transactions (withdrawal_id, type)
   WHERE withdrawal_id IS NOT NULL
     AND type IN ('WITHDRAWAL', 'WITHDRAWAL_REVERSAL');
+
+
+-- ------------------------------------------------------------
+-- 3b. Satu order hanya boleh punya satu REFUND_DEDUCTION     [H101]
+-- ------------------------------------------------------------
+-- D132. Ditulis di transisi pemicu refund (T9, T11, T20 parsial, T21),
+-- paling banyak sekali per order. Tanpa ini, bug atau pemanggilan ganda
+-- bisa memotong saldo pending dua kali. Dipasang lewat migrasi
+-- 20261115120000_refunds_8c (sesi 8c).
+
+CREATE UNIQUE INDEX uniq_refund_deduction_per_order
+  ON wallet_transactions (order_id)
+  WHERE order_id IS NOT NULL
+    AND type = 'REFUND_DEDUCTION';
 
 
 -- ------------------------------------------------------------

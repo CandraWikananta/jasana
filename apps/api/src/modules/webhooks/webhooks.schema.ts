@@ -42,9 +42,9 @@ export const payoutCallbackSchema = z
 export type PayoutCallback = z.infer<typeof payoutCallbackSchema>;
 
 /**
- * Bagian callback refund yang dipakai stub sesi 8a untuk `event_id`.
- * Tidak dipasang lewat `validate`: payload yang tidak cocok tetap dicatat utuh.
+ * Callback refund (D136, fixture sandbox 8a), bentuknya sama dengan payout.
+ * `reference_id` tidak dibatasi uuid: nilai asing tetap dicatat lalu IGNORED.
  */
-export const gatewayEventSchema = z.object({
-  data: z.object({ id: z.string().min(1).max(100), status: z.string().min(1).max(20) }),
-});
+export const refundCallbackSchema = payoutCallbackSchema;
+
+export type RefundCallback = z.infer<typeof refundCallbackSchema>;

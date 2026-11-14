@@ -29,6 +29,8 @@ export interface TransitionInput {
   /** Wajib untuk aktor manusia. Lapis 3 memakainya untuk mencocokkan identitas. */
   actorUserId?: string;
   reason?: string;
+  /** Ikut ke `order_status_history.metadata`, misalnya admin yang memicu T22 manual (sesi 8c). */
+  metadata?: Prisma.InputJsonValue;
   /** Kolom tambahan yang ikut di UPDATE yang sama, misalnya `paymentDeadlineAt`. */
   data?: Prisma.OrderUncheckedUpdateManyInput;
   /** Kolom Guard Bagian 3. Melempar untuk menolak, transaksi ikut rollback. */
@@ -46,6 +48,7 @@ export interface TransitionRecord {
   actor: OrderActorType;
   actorUserId?: string | undefined;
   reason?: string | undefined;
+  metadata?: Prisma.InputJsonValue | undefined;
 }
 
 /**
@@ -61,6 +64,7 @@ export async function recordTransition(tx: Tx, afterCommit: (task: AfterCommitTa
       actor: record.actor,
       changedByUserId: record.actorUserId ?? null,
       reason: record.reason ?? null,
+      ...(record.metadata === undefined ? {} : { metadata: record.metadata }),
     },
     select: { createdAt: true },
   });
@@ -188,6 +192,7 @@ export async function transitionOrder(tx: Tx, input: TransitionInput): Promise<{
     actor,
     actorUserId,
     reason: input.reason,
+    metadata: input.metadata,
   });
 
   await input.effects?.(tx, order);

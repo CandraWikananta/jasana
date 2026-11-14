@@ -4,7 +4,7 @@
 
 import { asyncHandler } from '../../lib/async-handler';
 import { sendOk } from '../../lib/envelope';
-import type { InvoiceCallback, PayoutCallback } from './webhooks.schema';
+import type { InvoiceCallback, PayoutCallback, RefundCallback } from './webhooks.schema';
 import * as service from './webhooks.service';
 
 /** PRD 4.4 langkah 6: 200 apa pun hasil bisnisnya, supaya Xendit tidak retry. */
@@ -13,9 +13,9 @@ export const invoice = asyncHandler(async (req, res) => {
   sendOk(res, { received: true });
 });
 
-/** Stub sesi 8a sampai 8c: dicatat IGNORED, selalu 200 setelah token lolos. */
+/** Sama dengan invoice: 200 apa pun hasil bisnisnya (D136). */
 export const refund = asyncHandler(async (req, res) => {
-  await service.recordIgnoredEvent('REFUND', req.body);
+  await service.receiveRefundEvent(req.body as RefundCallback);
   sendOk(res, { received: true });
 });
 

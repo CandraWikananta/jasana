@@ -148,11 +148,8 @@ export async function waitForLockWaiters(count: number): Promise<void> {
   throw new Error(`Tidak ada ${count} sesi yang tertahan kunci`);
 }
 
-/**
- * Order Scheduled berstatus PAID lewat API (create, accept, simulate-payment),
- * dijadwalkan 30 menit lagi supaya sudah boleh berangkat (State Machine 7).
- */
-export async function paidScheduledOrder(
+/** Order Scheduled berstatus ACCEPTED lewat API (create, accept), dijadwalkan 30 menit lagi. */
+export async function acceptedScheduledOrder(
   app: Parameters<typeof request>[0],
   w: World,
   options: { assigned?: Worker; crew?: Worker[]; scheduledAt?: Date } = {},
@@ -173,7 +170,24 @@ export async function paidScheduledOrder(
     crew_worker_ids: (options.crew ?? []).map((c) => c.workerId),
   });
   if (accepted.status !== 200) throw new Error(`accept ${accepted.status}: ${JSON.stringify(accepted.body)}`);
-  const paid = await request(app).post(`/api/v1/dev/orders/${id}/simulate-payment`).set(...auth(w.client));
+  return { id };
+}
+
+/**
+ * Order Scheduled berstatus PAID lewat API (create, accept, simulate-payment),
+ * dijadwalkan 30 menit lagi supaya sudah boleh berangkat (State Machine 7).
+ * `paymentMethod` memilih jalur refund (D136), bawaannya FAKE.
+ */
+export async function paidScheduledOrder(
+  app: Parameters<typeof request>[0],
+  w: World,
+  options: { assigned?: Worker; crew?: Worker[]; scheduledAt?: Date; paymentMethod?: string } = {},
+): Promise<{ id: string }> {
+  const { id } = await acceptedScheduledOrder(app, w, options);
+  const paid = await request(app)
+    .post(`/api/v1/dev/orders/${id}/simulate-payment`)
+    .set(...auth(w.client))
+    .send(options.paymentMethod ? { payment_method: options.paymentMethod } : {});
   if (paid.status !== 200) throw new Error(`pay ${paid.status}: ${JSON.stringify(paid.body)}`);
   return { id };
 }

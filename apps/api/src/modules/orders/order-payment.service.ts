@@ -7,7 +7,8 @@
  *   getPayment, renewInvoice   GET dan POST /orders/:id/payment (sesi 7a)
  *   confirmPayment    T5 untuk simulate-payment (D101 no. 4)
  *   applyInvoiceEvent transaksi 2 webhook invoice: T5 beserta ESCROW_HOLD,
- *                     D119, D120, D122, dan D125 (sesi 7b)
+ *                     D119, D120, D122, dan D125 (sesi 7b). D119 membuat refund
+ *                     otomatis tanpa ledger dan tanpa transisi (D135, sesi 8c)
  */
 
 import { randomUUID } from 'node:crypto';
@@ -17,6 +18,7 @@ import { actorFrom, type OrderAccess } from '../access/access.service';
 import { logger } from '../../lib/logger';
 import { paymentGateway } from '../../lib/payment-gateway';
 import { dispatchEmails } from '../notifications/email-outbox';
+import { createRefund } from '../refunds/refunds.service';
 import { notifyUsers } from './order-notify';
 import { PAYMENT_SELECT, toPaymentDto } from './orders.mapper';
 import type { InvoiceCallback } from '../webhooks/webhooks.schema';
@@ -142,15 +144,19 @@ const paidData = (details: PaymentDetails, billed: Prisma.Decimal) => ({
 
 /**
  * Ledger escrow (PRD 3.2) pada wallet usaha:
- *   ESCROW_HOLD     pending += provider_earning                       (T5)
- *   ESCROW_RELEASE  available += provider_earning, pending -= sama    (T18)
+ *   ESCROW_HOLD       pending += provider_earning                       (T5)
+ *   ESCROW_RELEASE    available += provider_earning, pending -= sama    (T18)
+ *   REFUND_DEDUCTION  pending -= provider_earning                       (T9, T11, D132)
  * UPDATE dengan increment mengunci baris wallet dan mengembalikan saldo
  * sesudahnya, jadi `balance_*_after` tidak tertukar dengan transaksi lain.
  */
-export async function writeEscrow(tx: Tx, order: Order, type: 'ESCROW_HOLD' | 'ESCROW_RELEASE'): Promise<void> {
+const ESCROW_DESCRIPTION = { ESCROW_HOLD: 'Escrow', ESCROW_RELEASE: 'Pencairan escrow', REFUND_DEDUCTION: 'Refund' } as const;
+
+export async function writeEscrow(tx: Tx, order: Order, type: keyof typeof ESCROW_DESCRIPTION): Promise<void> {
   const earning = order.providerEarning;
   const availableDelta = type === 'ESCROW_RELEASE' ? earning : new Prisma.Decimal(0);
-  const pendingDelta = type === 'ESCROW_RELEASE' ? earning.negated() : earning;
+  // Aturan 6: refund hanya memotong pending.
+  const pendingDelta = type === 'ESCROW_HOLD' ? earning : earning.negated();
   const wallet = await tx.wallet.update({
     where: { providerProfileId: order.providerProfileId },
     data: { balanceAvailable: { increment: availableDelta }, balancePending: { increment: pendingDelta } },
@@ -165,7 +171,7 @@ export async function writeEscrow(tx: Tx, order: Order, type: 'ESCROW_HOLD' | 'E
       amountPendingDelta: pendingDelta,
       balanceAvailableAfter: wallet.balanceAvailable,
       balancePendingAfter: wallet.balancePending,
-      description: `${type === 'ESCROW_HOLD' ? 'Escrow' : 'Pencairan escrow'} order ${order.orderNumber}`,
+      description: `${ESCROW_DESCRIPTION[type]} order ${order.orderNumber}`,
     },
   });
 }
@@ -285,16 +291,22 @@ export async function applyInvoiceEvent(tx: Tx, afterCommit: AfterCommit, event:
   };
   if (order.status !== 'ACCEPTED') {
     // D119: uangnya sudah masuk, dicatat jujur walaupun payment sudah EXPIRED oleh T6.
-    await tx.payment.update({ where: { id: payment.id }, data: paidData(details, payment.amount) });
-    logger.error({ ...log, order_status: order.status }, 'Pembayaran masuk untuk order yang tidak lagi ACCEPTED, kasus refund H99 (D119)');
-    return { status: 'PROCESSED', message: `Pembayaran telat, order ${order.status} (D119, H99)` };
+    const paid = await tx.payment.update({ where: { id: payment.id }, data: paidData(details, payment.amount) });
+    // D135: refund otomatis penuh. Tanpa ledger (ESCROW_HOLD tidak pernah ditulis) dan tanpa transisi.
+    // Usulan D141: initiated_by null karena pemicunya webhook.
+    const refund = await createRefund(tx, afterCommit, { orderId: order.id, payment: paid, initiatedBy: null, reason: 'Pembayaran telat (D119)' });
+    logger.error({ ...log, order_status: order.status, refund_id: refund.id }, 'Pembayaran masuk untuk order yang tidak lagi ACCEPTED, di-refund otomatis (D119, D135)');
+    return { status: 'PROCESSED', message: `Pembayaran telat, order ${order.status}, refund ${refund.id} (D119, D135)` };
   }
   await settlePaid(tx, afterCommit, order.id, payment.id, details);
   return { status: 'PROCESSED' };
 }
 
-/** POST /dev/orders/:id/simulate-payment (D101 no. 4), hanya client order itu. */
-export async function simulatePayment(access: OrderAccess): Promise<void> {
+/**
+ * POST /dev/orders/:id/simulate-payment (D101 no. 4), hanya client order itu.
+ * `paymentMethod` memilih jalur refund (D136): FAKE dan EWALLET lewat API, lainnya manual.
+ */
+export async function simulatePayment(access: OrderAccess, paymentMethod = 'FAKE'): Promise<void> {
   actorFrom(access, ['CLIENT']);
-  await confirmPayment(access.orderId, { paymentMethod: 'FAKE' });
+  await confirmPayment(access.orderId, { paymentMethod });
 }

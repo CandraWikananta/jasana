@@ -415,14 +415,6 @@ describe.skipIf(!hasTestDatabase)('order Scheduled (6c)', () => {
         xenditInvoiceId: `fake-inv-${payment.xenditExternalId}`,
       });
     });
-
-    it('order PAID belum bisa dibatalkan sampai Fase 8 (D101)', async () => {
-      const order = await acceptedOrder(0, w.w2.workerId);
-      await request(app).post(`/api/v1/dev/orders/${order.id}/simulate-payment`).set(...auth(w.client)).expect(200);
-      const res = await post(`/${order.id}/cancel`, w.client);
-      expect(res.status).toBe(409);
-      expect(res.body.error.code).toBe('ORDER_TRANSITION_NOT_ALLOWED');
-    });
   });
 
   // -------------------------------------------------------------------------

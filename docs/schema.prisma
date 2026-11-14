@@ -2,7 +2,9 @@
 // Platform Marketplace Jasa On-Demand "Jasana"
 // I Nyoman Gede Candra Wikananta - 2305551065
 //
-// VERSI 2.12. 35 model, 35 enum. Versi 2.12 menambah OrderOffer (D102).
+// VERSI 2.13. 35 model, 35 enum. Versi 2.13 membuat refunds.initiated_by nullable
+// dan menambah completion_note serta completed_by (D141, D142). Versi 2.12
+// menambah OrderOffer (D102).
 // Rujukan keputusan lengkap: Keputusan-Desain-Sistem.md (D1 sampai D90)
 //
 // Lokasi yang disarankan pada monorepo:
@@ -456,7 +458,8 @@ model User {
   sentOrderMessages   OrderMessage[]
   statusChanges       OrderStatusHistory[]
   reviewedWithdrawals Withdrawal[]
-  initiatedRefunds    Refund[]
+  initiatedRefunds    Refund[]             @relation("RefundInitiator")
+  completedRefunds    Refund[]             @relation("RefundCompleter")
   raisedDisputes      Dispute[]            @relation("DisputeRaiser")
   resolvedDisputes    Dispute[]            @relation("DisputeResolver")
   disputeEvidences    DisputeEvidence[]
@@ -1569,13 +1572,18 @@ model Refund {
   reason              String?
   status              RefundStatus @default(REQUESTED)
   xenditRefundId      String?      @map("xendit_refund_id") @db.VarChar(100)
-  initiatedBy         String       @map("initiated_by") @db.Uuid
+  /// Null berarti dipicu sistem, yaitu webhook pembayaran telat (D119, usulan D141).
+  initiatedBy         String?      @map("initiated_by") @db.Uuid
+  /// Jalur manual (D136 no. 2, usulan D142): catatan transfer dan admin yang menandai selesai.
+  completionNote      String?      @map("completion_note")
+  completedBy         String?      @map("completed_by") @db.Uuid
   createdAt           DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
   completedAt         DateTime?    @map("completed_at") @db.Timestamptz(6)
 
   order     Order   @relation(fields: [orderId], references: [id], onDelete: Restrict)
   payment   Payment @relation(fields: [paymentId], references: [id], onDelete: Restrict)
-  initiator User    @relation(fields: [initiatedBy], references: [id], onDelete: Restrict)
+  initiator User?   @relation("RefundInitiator", fields: [initiatedBy], references: [id], onDelete: Restrict)
+  completer User?   @relation("RefundCompleter", fields: [completedBy], references: [id], onDelete: SetNull)
 
   @@index([orderId])
   @@map("refunds")

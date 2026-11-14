@@ -55,6 +55,9 @@ export const BUSINESS_ERROR_STATUS = {
   // Sesi 8b, belum tercatat di Lampiran A. Withdrawal yang statusnya tidak
   // cocok untuk aksi admin (reject selain REQUESTED, approve setelah DISBURSING).
   WITHDRAWAL_STATE_CONFLICT: 409,
+  // Sesi 8c, belum tercatat di Lampiran A. Refund yang statusnya tidak cocok untuk
+  // complete manual atau sync (usulan D140, D144).
+  REFUND_STATE_CONFLICT: 409,
   TOKEN_INVALID: 422,
   TOKEN_EXPIRED: 422,
   TOKEN_ALREADY_USED: 422,

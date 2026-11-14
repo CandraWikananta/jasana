@@ -1295,15 +1295,15 @@
           "response": []
         },
         {
-          "name": "Batal setelah bayar belum tersedia: 409 (D101)",
+          "name": "Pekerja penanggung jawab membatalkan A setelah bayar: 403 (T9 hanya C/O/A)",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Status 409', function () { pm.response.to.have.status(409); });",
-                  "pm.test('Kode ORDER_TRANSITION_NOT_ALLOWED', function () { pm.expect(pm.response.json().error.code).to.eql('ORDER_TRANSITION_NOT_ALLOWED'); });"
+                  "pm.test('Status 403', function () { pm.response.to.have.status(403); });",
+                  "pm.test('Kode FORBIDDEN_ACTOR', function () { pm.expect(pm.response.json().error.code).to.eql('FORBIDDEN_ACTOR'); });"
                 ]
               }
             }
@@ -1321,7 +1321,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{dklien_token}}",
+                  "value": "{{dfoto2_token}}",
                   "type": "string"
                 }
               ]

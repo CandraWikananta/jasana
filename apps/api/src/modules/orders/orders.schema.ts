@@ -76,6 +76,11 @@ export const verifySchema = z.object({ code: z.string().regex(/^\d{6}$/, 'code h
 export const devPresenceSchema = z.object({ worker_ids: z.array(uuid('worker_ids berisi id')).min(1).max(20_000) });
 
 /** Sesi 6f dan 7c, hanya di router /dev. */
+/** Router dev (sesi 8c): metode pembayaran simulasi, menentukan jalur refund (D136). Nilai Xendit, ditambah FAKE. */
+export const devSimulatePaymentSchema = z.object({
+  payment_method: z.enum(['FAKE', 'EWALLET', 'BANK_TRANSFER', 'CREDIT_CARD', 'RETAIL_OUTLET', 'QR_CODE']).default('FAKE'),
+});
+
 export const devDeadlineSchema = z.object({ field: z.enum(['response_deadline_at', 'payment_deadline_at', 'settlement_due_at']) });
 const devJobs = Object.keys(DEV_JOBS) as [DevJob, ...DevJob[]];
 export const devJobParamsSchema = z.object({ job: z.enum(devJobs) });

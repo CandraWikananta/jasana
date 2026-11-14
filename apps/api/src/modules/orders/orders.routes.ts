@@ -22,6 +22,7 @@ import {
   createOrderSchema,
   crewSchema,
   devDeadlineSchema,
+  devSimulatePaymentSchema,
   devJobParamsSchema,
   devPresenceSchema,
   listOrdersQuerySchema,
@@ -66,7 +67,7 @@ export function createOrdersRouter(): Router {
 
 export function createDevRouter(): Router {
   const router = Router();
-  router.post('/orders/:id/simulate-payment', ...participant(), controller.simulatePayment);
+  router.post('/orders/:id/simulate-payment', ...participant(), validate({ body: devSimulatePaymentSchema }), controller.simulatePayment);
   router.post('/workers/presence', requireAuth, validate({ body: devPresenceSchema }), controller.devPresence);
   router.patch('/orders/:id/deadline', ...participant(), validate({ body: devDeadlineSchema }), controller.devBackdate);
   router.post('/jobs/:job/run', requireAuth, validate({ params: devJobParamsSchema }), controller.devRunJob);

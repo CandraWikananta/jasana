@@ -1,6 +1,6 @@
 /**
  * Aksi pada satu order (PRD 4.3): accept (T1, termasuk klaim Available Now),
- * decline-offer, reject (T2), cancel (T4, T7),
+ * decline-offer, reject (T2), cancel (T4, T7, dan sejak 8c T9, T11),
  * ganti penanggung jawab (D44) dan pendamping (D69). Seluruhnya di belakang
  * requireOrderParticipant.
  *
@@ -9,7 +9,7 @@
  * harus bertindak sebagai WORKER, sedangkan di sini sebagai PROVIDER.
  */
 
-import { prisma, type Order, type Prisma } from '@jasana/database';
+import { prisma, type Order, type Payment, type Prisma } from '@jasana/database';
 import { AppError, Errors } from '../../lib/errors';
 import { emit, leaveRoom } from '../../realtime/socket';
 import { actorFrom, type OrderAccess } from '../access/access.service';
@@ -17,7 +17,8 @@ import { dispatchEmails } from '../notifications/email-outbox';
 import { getNumberSetting } from '../settings/settings.service';
 import { expireUnanswered } from './order-expiry.service';
 import { notifyUsers, parties } from './order-notify';
-import { createPendingPayment, expireInvoices, expirePendingPayments, issueInvoice } from './order-payment.service';
+import { createRefund } from '../refunds/refunds.service';
+import { createPendingPayment, expireInvoices, expirePendingPayments, issueInvoice, writeEscrow } from './order-payment.service';
 import { assertWorkersFree, lockWorkers, type Slot } from './order-schedule';
 import {
   lockOrder,
@@ -294,12 +295,20 @@ export async function rejectOrder(access: OrderAccess, orderId: string, body: Re
 }
 
 // ---------------------------------------------------------------------------
-// T4, T7
+// T4, T7, T9, T11
 // ---------------------------------------------------------------------------
 
+/**
+ * Satu endpoint untuk keempat pembatalan. Sebelum bayar (T4, T7) invoice
+ * di-expire. Setelah bayar (T9, T11): D131 refund penuh termasuk platform fee,
+ * D132 REFUND_DEDUCTION di transaksi yang sama, eksekusi refund setelah commit.
+ * Urutan kunci: order (transitionOrder), payment, wallet (writeEscrow).
+ * Slot pekerja dan pendamping lepas sendiri karena CANCELLED tidak dihitung lagi (H26).
+ */
 export async function cancelOrder(access: OrderAccess, orderId: string, body: ReasonBody): Promise<OrderDto> {
   const actor = actorFrom(access, ['CLIENT', 'PROVIDER', 'ADMIN']);
   await withOrderTransaction(async (tx, afterCommit) => {
+    let paid: Payment | null = null;
     await transitionOrder(tx, {
       orderId,
       afterCommit,
@@ -309,24 +318,33 @@ export async function cancelOrder(access: OrderAccess, orderId: string, body: Re
       reason: body.reason,
       data: { cancellationReason: body.reason ?? null },
       guard: async (tx, order) => {
-        // shortcut: T9 dan T11 (setelah bayar) menunggu refund Fase 8 (D101 no. 5).
-        if (order.status === 'PAID' || order.status === 'ON_THE_WAY') {
-          throw new AppError('ORDER_TRANSITION_NOT_ALLOWED', 'Pembatalan setelah pembayaran belum tersedia');
-        }
-        if (await tx.payment.count({ where: { orderId, status: 'PAID' } })) {
-          throw new AppError('ORDER_ALREADY_PAID', 'Order sudah dibayar');
-        }
+        const afterPayment = order.status === 'PAID' || order.status === 'ON_THE_WAY';
+        const [locked] = await tx.$queryRaw<{ id: string }[]>`
+          SELECT id FROM payments WHERE order_id = ${orderId}::uuid AND status = 'PAID' FOR UPDATE
+        `;
+        if (!afterPayment && locked) throw new AppError('ORDER_ALREADY_PAID', 'Order sudah dibayar');
+        if (afterPayment && !locked) throw new AppError('ORDER_TRANSITION_NOT_ALLOWED', 'Order ini tidak punya pembayaran lunas');
+        paid = locked ? await tx.payment.findUniqueOrThrow({ where: { id: locked.id } }) : null;
       },
       effects: async (tx, order) => {
-        // Slot pekerja dan pendamping lepas sendiri karena CANCELLED tidak dihitung lagi (H26).
-        const invoiceIds = await expirePendingPayments(tx, orderId);
         const who = await parties(tx, orderId);
         // Usulan D106 no. 3: pihak lawan diberi tahu.
-        const recipients = actor === 'CLIENT' ? [who.providerProfile.userId] : [order.clientId];
+        const recipients = actor === 'CLIENT' ? [who.providerProfile.userId] : actor === 'PROVIDER' ? [order.clientId] : [order.clientId, who.providerProfile.userId];
+        const by = actor === 'CLIENT' ? 'client' : actor === 'PROVIDER' ? 'penyedia' : 'admin';
+        let refundNote = '';
+        if (paid) {
+          // T9, T11. D131: platform fee ikut dikembalikan. Status order tidak disentuh di sini.
+          await tx.order.update({ where: { id: orderId }, data: { platformFeeRefunded: order.platformFee } });
+          await writeEscrow(tx, order, 'REFUND_DEDUCTION');
+          await createRefund(tx, afterCommit, { orderId, payment: paid, initiatedBy: access.userId, reason: body.reason ?? 'Pembatalan setelah pembayaran' });
+          refundNote = ' Pembayaran dikembalikan penuh ke client.';
+        } else {
+          const invoiceIds = await expirePendingPayments(tx, orderId);
+          if (invoiceIds.length > 0) afterCommit(() => expireInvoices(invoiceIds));
+        }
         const emails = await notifyUsers(tx, [...recipients, who.assignedWorker?.userId], order, 'Order dibatalkan',
-          `Order dibatalkan oleh ${actor === 'CLIENT' ? 'client' : 'penyedia'}.${body.reason ? ` Alasan: ${body.reason}` : ''}`);
+          `Order dibatalkan oleh ${by}.${body.reason ? ` Alasan: ${body.reason}` : ''}${refundNote}`);
         afterCommit(() => void dispatchEmails(emails));
-        if (invoiceIds.length > 0) afterCommit(() => expireInvoices(invoiceIds));
       },
     });
   });

@@ -65,11 +65,27 @@ export interface PayoutResult {
   raw: unknown;
 }
 
+/**
+ * Status payout atau refund yang dibaca langsung dari Xendit (H106). Bentuknya
+ * sama dengan `data` webhook, supaya bisa diterapkan lewat fungsi apply webhook.
+ */
+// type, bukan interface: harus bisa diberikan ke skema callback yang `passthrough`.
+export type GatewayRecord = {
+  id: string;
+  status: string;
+  reference_id: string;
+  failure_code: string | null;
+};
+
 export interface PaymentGateway {
   createInvoice(input: CreateInvoiceInput): Promise<Invoice>;
   expireInvoice(invoiceId: string): Promise<void>;
   refund(input: RefundInput): Promise<RefundResult>;
   payout(input: PayoutInput): Promise<PayoutResult>;
+  /** Lewat id Xendit kalau ada, kalau tidak lewat `reference_id` = `withdrawals.id`. Null kalau tidak ditemukan. */
+  getPayout(input: { payoutId: string | null; referenceId: string }): Promise<GatewayRecord | null>;
+  /** Lewat id Xendit kalau ada, kalau tidak lewat invoice lalu `reference_id` = `refunds.id`. Null kalau tidak ditemukan. */
+  getRefund(input: { refundId: string | null; invoiceId: string; referenceId: string }): Promise<GatewayRecord | null>;
 }
 
 /** Tanpa jaringan dan deterministik. T5 dipicu lewat endpoint simulasi (D101 no. 4). */
@@ -90,6 +106,13 @@ export const fakeGateway: PaymentGateway = {
   async payout(input) {
     return { payoutId: `fake-payout-${input.withdrawalId}`, status: 'ACCEPTED', raw: { gateway: 'fake', ...input } };
   },
+  // Usulan D144: gateway palsu menganggap setiap payout dan refund yang ditanyakan sudah berhasil.
+  async getPayout(input) {
+    return { id: input.payoutId ?? `fake-payout-${input.referenceId}`, status: 'SUCCEEDED', reference_id: input.referenceId, failure_code: null };
+  },
+  async getRefund(input) {
+    return { id: input.refundId ?? `fake-ref-${input.referenceId}`, status: 'SUCCEEDED', reference_id: input.referenceId, failure_code: null };
+  },
 };
 
 const XENDIT_BASE_URL = 'https://api.xendit.co';
@@ -107,11 +130,12 @@ async function callXendit(
   operation: string,
   body?: unknown,
   headers: Record<string, string> = {},
+  method: 'GET' | 'POST' = 'POST',
 ): Promise<Record<string, unknown>> {
   let response: Response;
   try {
     response = await fetch(`${XENDIT_BASE_URL}${path}`, {
-      method: 'POST',
+      method,
       headers: {
         ...headers,
         Authorization: `Basic ${Buffer.from(`${env.XENDIT_SECRET_KEY}:`).toString('base64')}`,
@@ -147,6 +171,33 @@ function idAndStatus(payload: Record<string, unknown>, operation: string) {
     throw gatewayError('Balasan gateway pembayaran tidak dikenali', { gateway_operation: operation });
   }
   return { id, status };
+}
+
+/** Objek payout atau refund Xendit menjadi `GatewayRecord`. `reference_id` wajib, karena itu kunci pencocokannya. */
+function toRecord(value: unknown, operation: string): GatewayRecord {
+  const item = (value ?? {}) as Record<string, unknown>;
+  const { id, status } = idAndStatus(item, operation);
+  if (typeof item.reference_id !== 'string') {
+    throw gatewayError('Balasan gateway pembayaran tidak dikenali', { gateway_operation: operation });
+  }
+  const failureCode = typeof item.failure_code === 'string' ? item.failure_code : null;
+  return { id, status, reference_id: item.reference_id, failure_code: failureCode };
+}
+
+/** Daftar Xendit berbentuk `{ data: [...] }`. Array telanjang ikut diterima, karena bentuknya belum dipastikan di sandbox. */
+function findByReference(payload: unknown, referenceId: string): unknown {
+  const list = Array.isArray(payload) ? payload : (payload as { data?: unknown }).data;
+  return Array.isArray(list) ? list.find((item) => (item as { reference_id?: unknown })?.reference_id === referenceId) : undefined;
+}
+
+/** 404 dari endpoint baca berarti memang tidak ada, bukan galat gateway. */
+async function orNotFound<T>(read: Promise<T>): Promise<T | null> {
+  try {
+    return await read;
+  } catch (error) {
+    if (error instanceof AppError && error.context?.gateway_status === 404) return null;
+    throw error;
+  }
 }
 
 /** Invoice API Xendit lewat fetch langsung, sama polanya dengan lib/supabase.ts. */
@@ -197,6 +248,28 @@ export const xenditGateway: PaymentGateway = {
     );
     const { id, status } = idAndStatus(payload, 'payout');
     return { payoutId: id, status, raw: payload };
+  },
+  /** H106. `GET /v2/payouts/{id}`, atau `GET /v2/payouts?reference_id=` kalau id belum tersimpan. */
+  async getPayout(input) {
+    if (input.payoutId) {
+      const payload = await orNotFound(callXendit(`/v2/payouts/${encodeURIComponent(input.payoutId)}`, 'get_payout', undefined, {}, 'GET'));
+      return payload && toRecord(payload, 'get_payout');
+    }
+    const payload = await callXendit(`/v2/payouts?reference_id=${encodeURIComponent(input.referenceId)}`, 'get_payout', undefined, {}, 'GET');
+    // Idempotency-key = reference_id (D134), jadi paling banyak satu payout yang cocok.
+    const found = findByReference(payload, input.referenceId);
+    return found === undefined ? null : toRecord(found, 'get_payout');
+  },
+  /** H106. `GET /refunds/{id}`, atau daftar refund invoice itu yang disaring `reference_id` di sisi kita. */
+  async getRefund(input) {
+    if (input.refundId) {
+      const payload = await orNotFound(callXendit(`/refunds/${encodeURIComponent(input.refundId)}`, 'get_refund', undefined, {}, 'GET'));
+      return payload && toRecord(payload, 'get_refund');
+    }
+    // shortcut: hanya halaman pertama daftar refund invoice itu, tambah paginasi after_id kalau satu invoice bisa punya banyak refund.
+    const payload = await callXendit(`/refunds?invoice_id=${encodeURIComponent(input.invoiceId)}`, 'get_refund', undefined, {}, 'GET');
+    const found = findByReference(payload, input.referenceId);
+    return found === undefined ? null : toRecord(found, 'get_refund');
   },
 };
 

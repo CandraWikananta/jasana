@@ -1,7 +1,7 @@
 {
   "info": {
-    "name": "Jasana Backend - Fase 8 (Withdrawal)",
-    "description": "Sesi 8b: pengajuan withdrawal dengan fee dari server (H83), minimum dan saldo kurang, reject dengan reversal (D134),\napprove dengan payout setelah commit (usulan D138), webhook payout SUCCEEDED dan FAILED (D137), dan kiriman ulang (H102).\n\n## Setiap putaran\n1. `npm run postman:seed:fase-8` di akar repo. Seed hanya membuat akun, wallet fowner kosong.\n2. Dev server dengan `PAYMENT_GATEWAY=fake` dan `XENDIT_CALLBACK_TOKEN` SAMA dengan `xendit_callback_token` di environment.\n   Nilai di environment adalah token palsu khusus pengujian. Token asli tidak pernah ditulis ke repo.\n3. Jalankan folder berurutan dari 00.\n\n## Akun\n| Akun | Peran |\n|---|---|\n| fowner | Pemilik Sinar Sanur Dokumentasi, pengaju withdrawal |\n| ffoto1 | Penanggung jawab order pengisi saldo |\n| fklien | Client order pengisi saldo |\n| fadmin | Admin, approve dan reject |\n\nFolder 00 mengisi saldo lewat alur sungguhan seperti folder 05 Fase 7: order, accept, simulate-payment, depart sampai verify,\nmundurkan settlement_due_at, lalu sweep settlement. Saldo available = provider_earning, jadi seluruh ledger ditulis kode produksi.\nWebhook payout dikirim langsung dengan token palsu, payout id diambil dari respons approve gateway palsu.",
+    "name": "Jasana Backend - Fase 8 (Withdrawal dan Refund)",
+    "description": "Sesi 8b: pengajuan withdrawal dengan fee dari server (H83), minimum dan saldo kurang, reject dengan reversal (D134),\napprove dengan payout setelah commit (usulan D138), webhook payout SUCCEEDED dan FAILED (D137), dan kiriman ulang (H102).\n\n## Setiap putaran\n1. `npm run postman:seed:fase-8` di akar repo. Seed hanya membuat akun, wallet fowner kosong.\n2. Dev server dengan `PAYMENT_GATEWAY=fake` dan `XENDIT_CALLBACK_TOKEN` SAMA dengan `xendit_callback_token` di environment.\n   Nilai di environment adalah token palsu khusus pengujian. Token asli tidak pernah ditulis ke repo.\n3. Jalankan folder berurutan dari 00.\n\n## Akun\n| Akun | Peran |\n|---|---|\n| fowner | Pemilik Sinar Sanur Dokumentasi, pengaju withdrawal |\n| ffoto1 | Penanggung jawab order pengisi saldo |\n| fklien | Client order pengisi saldo |\n| fadmin | Admin, approve dan reject |\n\nFolder 00 mengisi saldo lewat alur sungguhan seperti folder 05 Fase 7: order, accept, simulate-payment, depart sampai verify,\nmundurkan settlement_due_at, lalu sweep settlement. Saldo available = provider_earning, jadi seluruh ledger ditulis kode produksi.\nWebhook payout dikirim langsung dengan token palsu, payout id diambil dari respons approve gateway palsu.\n\nFolder 02 (sesi 8c): T9 jalur API (gateway palsu, payment FAKE), T11 jalur manual (simulate-payment dengan payment_method BANK_TRANSFER),\nwebhook refund dengan token palsu yang memicu T22, complete manual dari REQUESTED, complete dari PROCESSING ditolak 409,\nsync refund dan sync withdrawal (H106). Id gateway berawalan fake- hanya dicocokkan kalau id-nya memang dari gateway palsu.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -1759,7 +1759,7 @@
                   "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
                   "var wd = pm.response.json().data;",
                   "pm.environment.set('f8_payout_ok', wd.xendit_payout_id);",
-                  "pm.test('DISBURSING dengan payout id gateway palsu', function () { pm.expect(wd.status).to.eql('DISBURSING'); pm.expect(wd.xendit_payout_id).to.eql('fake-payout-' + pm.environment.get('f8_wd_ok')); pm.expect(wd.xendit_payout_status).to.eql('ACCEPTED'); });"
+                  "pm.test('DISBURSING dengan payout id terisi', function () { pm.expect(wd.status).to.eql('DISBURSING'); pm.expect(wd.xendit_payout_id).to.be.a('string').and.not.empty; if (wd.xendit_payout_id.indexOf('fake-') === 0) pm.expect(wd.xendit_payout_id).to.eql('fake-payout-' + pm.environment.get('f8_wd_ok')); pm.expect(wd.xendit_payout_status).to.eql('ACCEPTED'); });"
                 ]
               }
             }
@@ -2406,6 +2406,1828 @@
             }
           },
           "response": []
+        }
+      ]
+    },
+    {
+      "name": "02. KRITERIA: pembatalan berbayar, refund dua jalur, T22, sync (sesi 8c)",
+      "item": [
+        {
+          "name": "Buat order B",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.environment.set('f8_at_b', new Date(Date.now() + 60 * 60000).toISOString());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', function () { pm.response.to.have.status(201); });",
+                  "pm.environment.set('f8_order_b', pm.response.json().data.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{fklien_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"listing_id\": \"{{f8_listing_id}}\",\n  \"booking_mode\": \"SCHEDULED\",\n  \"scheduled_at\": \"{{f8_at_b}}\",\n  \"location_source\": \"SAVED_ADDRESS\",\n  \"address_id\": \"{{f8_address_id}}\",\n  \"selected_options\": {\n    \"jenis_acara\": \"Seminar\",\n    \"durasi_liputan\": \"2 Jam\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Pemilik menerima B, penanggung jawab ffoto1 (T1)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('ACCEPTED', function () { pm.expect(pm.response.json().data.status).to.eql('ACCEPTED'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{fowner_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{f8_order_b}}/accept",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{f8_order_b}}",
+                "accept"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"assigned_worker_id\": \"{{f8_ffoto1_id}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Simulate payment B dengan FAKE (T5)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('PAID', function () { pm.expect(pm.response.json().data.status).to.eql('PAID'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{fklien_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/dev/orders/{{f8_order_b}}/simulate-payment",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "dev",
+                "orders",
+                "{{f8_order_b}}",
+                "simulate-payment"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Pekerja membatalkan B: 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 403', function () { pm.response.to.have.status(403); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ffoto1_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{f8_order_b}}/cancel",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{f8_order_b}}",
+                "cancel"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Client membatalkan B setelah bayar (T9)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('CANCELLED', function () { pm.expect(pm.response.json().data.status).to.eql('CANCELLED'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{fklien_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{f8_order_b}}/cancel",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{f8_order_b}}",
+                "cancel"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Acara diundur\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Wallet: pending kembali 0, available tidak tersentuh (aturan 6)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "var w = pm.response.json().data, e = pm.environment.get('f8_earning');",
+                  "pm.test('pending 0, available earning - withdrawal kedua', function () { pm.expect(w.balance_pending).to.eql(0); pm.expect(w.balance_available).to.eql(e - 100000); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{fowner_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/providers/me/wallet",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "wallet"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Ledger B: satu ESCROW_HOLD dan satu REFUND_DEDUCTION (D132)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "var e = pm.environment.get('f8_earning');",
+                  "var rows = pm.response.json().data.filter(function (x) { return x.order_id === pm.environment.get('f8_order_b'); });",
+                  "pm.test('HOLD lalu DEDUCTION', function () { pm.expect(rows.map(function (x) { return x.type; })).to.eql(['REFUND_DEDUCTION', 'ESCROW_HOLD']); });",
+                  "pm.test('DEDUCTION memotong pending sebesar earning', function () { pm.expect(rows[0].amount_pending_delta).to.eql(-e); pm.expect(rows[0].amount_available_delta).to.eql(0); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{fowner_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/providers/me/wallet/transactions?limit=100",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "wallet",
+                "transactions"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "100"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Antrean refund PROCESSING: B lewat jalur API (D136)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "var r = pm.response.json().data.find(function (x) { return x.order_id === pm.environment.get('f8_order_b'); });",
+                  "pm.test('Refund order ada di antrean PROCESSING', function () { pm.expect(r).to.be.an('object'); });",
+                  "pm.environment.set('f8_refund_b', r && r.id);",
+                  "pm.test('FULL 1.500.000 termasuk platform fee (D131), order_number terisi', function () { pm.expect(r.type).to.eql('FULL'); pm.expect(r.amount).to.eql(1500000); pm.expect(r.includes_platform_fee).to.eql(true); pm.expect(r.order_number).to.match(/^ORD-/); });",
+                  "",
+                  "pm.environment.set('f8_xendit_refund_b', r && r.xendit_refund_id);",
+                  "pm.test('payment_method FAKE, xendit_refund_id terisi', function () { pm.expect(r.payment_method).to.eql('FAKE'); pm.expect(r.xendit_refund_id).to.be.a('string'); if (r.xendit_refund_id.indexOf('fake-') === 0) pm.expect(r.xendit_refund_id).to.eql('fake-ref-' + r.id); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{fadmin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/refunds?status=PROCESSING&limit=100",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "refunds"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "PROCESSING"
+                },
+                {
+                  "key": "limit",
+                  "value": "100"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Pemilik membuka antrean refund admin: 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 403', function () { pm.response.to.have.status(403); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{fowner_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/refunds",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "refunds"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Complete manual B dari PROCESSING: 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 409', function () { pm.response.to.have.status(409); });",
+                  "pm.test('REFUND_STATE_CONFLICT', function () { pm.expect(pm.response.json().error.code).to.eql('REFUND_STATE_CONFLICT'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{fadmin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/refunds/{{f8_refund_b}}/complete",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "refunds",
+                "{{f8_refund_b}}",
+                "complete"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"completion_note\": \"Transfer manual yang tidak boleh terjadi\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Webhook refund token salah: 401 (H13)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401', function () { pm.response.to.have.status(401); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-callback-token",
+                "value": "token-salah"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/webhooks/xendit/refund",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "webhooks",
+                "xendit",
+                "refund"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"event\": \"refund.succeeded\",\n  \"data\": {\n    \"id\": \"{{f8_xendit_refund_b}}\",\n    \"reference_id\": \"{{f8_refund_b}}\",\n    \"status\": \"SUCCEEDED\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Webhook refund.succeeded B (D136, T22)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-callback-token",
+                "value": "{{xendit_callback_token}}"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/webhooks/xendit/refund",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "webhooks",
+                "xendit",
+                "refund"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"event\": \"refund.succeeded\",\n  \"data\": {\n    \"id\": \"{{f8_xendit_refund_b}}\",\n    \"reference_id\": \"{{f8_refund_b}}\",\n    \"status\": \"SUCCEEDED\",\n    \"amount\": 1500000,\n    \"currency\": \"IDR\",\n    \"reason\": \"CANCELLATION\",\n    \"payment_method_type\": \"EWALLET\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Kirim ulang webhook refund.succeeded B: 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-callback-token",
+                "value": "{{xendit_callback_token}}"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/webhooks/xendit/refund",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "webhooks",
+                "xendit",
+                "refund"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"event\": \"refund.succeeded\",\n  \"data\": {\n    \"id\": \"{{f8_xendit_refund_b}}\",\n    \"reference_id\": \"{{f8_refund_b}}\",\n    \"status\": \"SUCCEEDED\",\n    \"amount\": 1500000,\n    \"currency\": \"IDR\",\n    \"reason\": \"CANCELLATION\",\n    \"payment_method_type\": \"EWALLET\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Order B REFUNDED",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('REFUNDED', function () { pm.expect(pm.response.json().data.status).to.eql('REFUNDED'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{fklien_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{f8_order_b}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{f8_order_b}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Histori B: tepat satu T22 beraktor SYSTEM",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "var t22 = pm.response.json().data.filter(function (x) { return x.from_status === 'CANCELLED' && x.to_status === 'REFUNDED'; });",
+                  "pm.test('Satu T22, aktor SYSTEM', function () { pm.expect(t22.length).to.eql(1); pm.expect(t22[0].actor).to.eql('SYSTEM'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{fklien_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{f8_order_b}}/history",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{f8_order_b}}",
+                "history"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Buat order C",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.environment.set('f8_at_c', new Date(Date.now() + 30 * 60000).toISOString());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', function () { pm.response.to.have.status(201); });",
+                  "pm.environment.set('f8_order_c', pm.response.json().data.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{fklien_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"listing_id\": \"{{f8_listing_id}}\",\n  \"booking_mode\": \"SCHEDULED\",\n  \"scheduled_at\": \"{{f8_at_c}}\",\n  \"location_source\": \"SAVED_ADDRESS\",\n  \"address_id\": \"{{f8_address_id}}\",\n  \"selected_options\": {\n    \"jenis_acara\": \"Seminar\",\n    \"durasi_liputan\": \"2 Jam\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Pemilik menerima C, penanggung jawab ffoto1 (T1)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('ACCEPTED', function () { pm.expect(pm.response.json().data.status).to.eql('ACCEPTED'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{fowner_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{f8_order_c}}/accept",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{f8_order_c}}",
+                "accept"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"assigned_worker_id\": \"{{f8_ffoto1_id}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Simulate payment C dengan BANK_TRANSFER (T5)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('PAID', function () { pm.expect(pm.response.json().data.status).to.eql('PAID'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{fklien_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/dev/orders/{{f8_order_c}}/simulate-payment",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "dev",
+                "orders",
+                "{{f8_order_c}}",
+                "simulate-payment"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"payment_method\": \"BANK_TRANSFER\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "depart C oleh ffoto1",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('ON_THE_WAY', function () { pm.expect(pm.response.json().data.status).to.eql('ON_THE_WAY'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ffoto1_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{f8_order_c}}/depart",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{f8_order_c}}",
+                "depart"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Pemilik membatalkan C saat perjalanan (T11)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('CANCELLED', function () { pm.expect(pm.response.json().data.status).to.eql('CANCELLED'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{fowner_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{f8_order_c}}/cancel",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{f8_order_c}}",
+                "cancel"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Kendaraan mogok\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Antrean refund REQUESTED: C jalur manual tanpa panggilan gateway",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "var r = pm.response.json().data.find(function (x) { return x.order_id === pm.environment.get('f8_order_c'); });",
+                  "pm.test('Refund order ada di antrean REQUESTED', function () { pm.expect(r).to.be.an('object'); });",
+                  "pm.environment.set('f8_refund_c', r && r.id);",
+                  "pm.test('FULL 1.500.000 termasuk platform fee (D131), order_number terisi', function () { pm.expect(r.type).to.eql('FULL'); pm.expect(r.amount).to.eql(1500000); pm.expect(r.includes_platform_fee).to.eql(true); pm.expect(r.order_number).to.match(/^ORD-/); });",
+                  "",
+                  "pm.test('BANK_TRANSFER, belum ada id Xendit', function () { pm.expect(r.payment_method).to.eql('BANK_TRANSFER'); pm.expect(r.xendit_refund_id).to.eql(null); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{fadmin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/refunds?status=REQUESTED&limit=100",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "refunds"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "REQUESTED"
+                },
+                {
+                  "key": "limit",
+                  "value": "100"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Complete C tanpa catatan transfer: 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () { pm.response.to.have.status(422); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{fadmin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/refunds/{{f8_refund_c}}/complete",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "refunds",
+                "{{f8_refund_c}}",
+                "complete"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Complete C lewat jalur manual (D136 no. 2)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "var r = pm.response.json().data;",
+                  "pm.test('COMPLETED dengan catatan dan admin', function () { pm.expect(r.status).to.eql('COMPLETED'); pm.expect(r.completion_note).to.eql('Transfer BCA ref TRX-8C-001'); pm.expect(r.completed_by).to.be.a('string'); pm.expect(r.completed_at).to.be.a('string'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{fadmin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/refunds/{{f8_refund_c}}/complete",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "refunds",
+                "{{f8_refund_c}}",
+                "complete"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"completion_note\": \"Transfer BCA ref TRX-8C-001\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Order C REFUNDED",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('REFUNDED', function () { pm.expect(pm.response.json().data.status).to.eql('REFUNDED'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{fklien_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{f8_order_c}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{f8_order_c}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Complete ulang C: 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 409', function () { pm.response.to.have.status(409); });",
+                  "pm.test('REFUND_STATE_CONFLICT', function () { pm.expect(pm.response.json().error.code).to.eql('REFUND_STATE_CONFLICT'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{fadmin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/refunds/{{f8_refund_c}}/complete",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "refunds",
+                "{{f8_refund_c}}",
+                "complete"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"completion_note\": \"Transfer kedua yang tidak boleh terjadi\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Buat order D",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.environment.set('f8_at_d', new Date(Date.now() + 90 * 60000).toISOString());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', function () { pm.response.to.have.status(201); });",
+                  "pm.environment.set('f8_order_d', pm.response.json().data.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{fklien_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"listing_id\": \"{{f8_listing_id}}\",\n  \"booking_mode\": \"SCHEDULED\",\n  \"scheduled_at\": \"{{f8_at_d}}\",\n  \"location_source\": \"SAVED_ADDRESS\",\n  \"address_id\": \"{{f8_address_id}}\",\n  \"selected_options\": {\n    \"jenis_acara\": \"Seminar\",\n    \"durasi_liputan\": \"2 Jam\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Pemilik menerima D, penanggung jawab ffoto1 (T1)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('ACCEPTED', function () { pm.expect(pm.response.json().data.status).to.eql('ACCEPTED'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{fowner_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{f8_order_d}}/accept",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{f8_order_d}}",
+                "accept"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"assigned_worker_id\": \"{{f8_ffoto1_id}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Simulate payment D dengan FAKE (T5)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('PAID', function () { pm.expect(pm.response.json().data.status).to.eql('PAID'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{fklien_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/dev/orders/{{f8_order_d}}/simulate-payment",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "dev",
+                "orders",
+                "{{f8_order_d}}",
+                "simulate-payment"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Admin membatalkan D setelah bayar (T9)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('CANCELLED oleh ADMIN', function () { var o = pm.response.json().data; pm.expect(o.status).to.eql('CANCELLED'); pm.expect(o.cancelled_by).to.eql('ADMIN'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{fadmin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{f8_order_d}}/cancel",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{f8_order_d}}",
+                "cancel"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Laporan penipuan\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Antrean refund PROCESSING: D",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "var r = pm.response.json().data.find(function (x) { return x.order_id === pm.environment.get('f8_order_d'); });",
+                  "pm.test('Refund order ada di antrean PROCESSING', function () { pm.expect(r).to.be.an('object'); });",
+                  "pm.environment.set('f8_refund_d', r && r.id);",
+                  "pm.test('FULL 1.500.000 termasuk platform fee (D131), order_number terisi', function () { pm.expect(r.type).to.eql('FULL'); pm.expect(r.amount).to.eql(1500000); pm.expect(r.includes_platform_fee).to.eql(true); pm.expect(r.order_number).to.match(/^ORD-/); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{fadmin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/refunds?status=PROCESSING&limit=100",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "refunds"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "PROCESSING"
+                },
+                {
+                  "key": "limit",
+                  "value": "100"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Sync refund D ke gateway (H106)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "var d = pm.response.json().data;",
+                  "pm.test('Status dari gateway diterapkan lewat fungsi apply webhook', function () { pm.expect(d.sync.outcome).to.eql('PROCESSED'); pm.expect(d.sync.gateway_status).to.eql('SUCCEEDED'); pm.expect(d.refund.status).to.eql('COMPLETED'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{fadmin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/refunds/{{f8_refund_d}}/sync",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "refunds",
+                "{{f8_refund_d}}",
+                "sync"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Order D REFUNDED",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('REFUNDED', function () { pm.expect(pm.response.json().data.status).to.eql('REFUNDED'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{fklien_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{f8_order_d}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{f8_order_d}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Ajukan keempat untuk sync",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', function () { pm.response.to.have.status(201); });",
+                  "pm.environment.set('f8_wd_sync', pm.response.json().data.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{fowner_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/providers/me/withdrawals",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "withdrawals"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 100000,\n  \"bank_code\": \"ID_BCA\",\n  \"bank_account_number\": \"1234567890\",\n  \"bank_account_name\": \"Nyoman Sinar\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Approve keempat: DISBURSING",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('DISBURSING', function () { pm.expect(pm.response.json().data.status).to.eql('DISBURSING'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{fadmin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/withdrawals/{{f8_wd_sync}}/approve",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "withdrawals",
+                "{{f8_wd_sync}}",
+                "approve"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Sync withdrawal keempat ke gateway (H106)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "var d = pm.response.json().data;",
+                  "pm.test('Payout SUCCEEDED diterapkan: COMPLETED', function () { pm.expect(d.sync.gateway_status).to.eql('SUCCEEDED'); pm.expect(d.withdrawal.status).to.eql('COMPLETED'); pm.expect(d.withdrawal.xendit_payout_status).to.eql('SUCCEEDED'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{fadmin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/withdrawals/{{f8_wd_sync}}/sync",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "withdrawals",
+                "{{f8_wd_sync}}",
+                "sync"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Wallet akhir: pending 0, available earning - dua withdrawal",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "var w = pm.response.json().data, e = pm.environment.get('f8_earning');",
+                  "pm.test('pending 0, available e - 200.000', function () { pm.expect(w.balance_pending).to.eql(0); pm.expect(w.balance_available).to.eql(e - 200000); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{fowner_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/providers/me/wallet",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "me",
+                "wallet"
+              ]
+            }
+          }
         }
       ]
     }

@@ -229,3 +229,71 @@ describe('fakeGateway refund dan payout (sesi 8a)', () => {
     fetchSpy.mockRestore();
   });
 });
+
+describe('xenditGateway getPayout dan getRefund (sesi 8c, H106)', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  const ref = '41c597a1-7799-4497-b381-8d2a05b3104b';
+  const item = (id: string, reference_id: string, extra: Record<string, unknown> = {}) => ({ id, status: 'SUCCEEDED', reference_id, ...extra });
+
+  it('getPayout lewat id: GET /v2/payouts/{id} tanpa body, kunci yang sama', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(json(200, item('disb-1', ref, { failure_code: null, amount: 93500 })));
+    expect(await xenditGateway.getPayout({ payoutId: 'disb-1', referenceId: ref })).toEqual({ id: 'disb-1', status: 'SUCCEEDED', reference_id: ref, failure_code: null });
+    const [url, init] = fetchSpy.mock.calls[0]!;
+    expect(url).toBe('https://api.xendit.co/v2/payouts/disb-1');
+    expect(init).toMatchObject({ method: 'GET', headers: { Authorization: `Basic ${KEY_B64}` } });
+    expect(init!.body).toBeUndefined();
+  });
+
+  it('getPayout tanpa id: GET /v2/payouts?reference_id=, memilih yang reference_id-nya cocok, kosong jadi null', async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(json(200, { data: [item('disb-lain', 'ref-lain'), item('disb-2', ref, { status: 'FAILED', failure_code: 'INVALID_DESTINATION' })], has_more: false }))
+      .mockResolvedValueOnce(json(200, [item('disb-3', ref)]))
+      .mockResolvedValueOnce(json(200, { data: [] }));
+    expect(await xenditGateway.getPayout({ payoutId: null, referenceId: ref })).toEqual({ id: 'disb-2', status: 'FAILED', reference_id: ref, failure_code: 'INVALID_DESTINATION' });
+    expect(fetchSpy.mock.calls[0]![0]).toBe(`https://api.xendit.co/v2/payouts?reference_id=${ref}`);
+    // Array telanjang ikut diterima, bentuk daftar baru dipastikan di sandbox.
+    expect((await xenditGateway.getPayout({ payoutId: null, referenceId: ref }))?.id).toBe('disb-3');
+    expect(await xenditGateway.getPayout({ payoutId: null, referenceId: ref })).toBeNull();
+  });
+
+  it('getRefund lewat id: GET /refunds/{id}; 404 jadi null, 5xx tetap galat', async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(json(200, item('rfd-1', ref)))
+      .mockResolvedValueOnce(json(404, { error_code: 'DATA_NOT_FOUND' }))
+      .mockResolvedValueOnce(json(503, { error_code: 'SERVER_ERROR' }));
+    expect(await xenditGateway.getRefund({ refundId: 'rfd-1', invoiceId: 'inv-1', referenceId: ref })).toMatchObject({ id: 'rfd-1', reference_id: ref });
+    expect(fetchSpy.mock.calls[0]![0]).toBe('https://api.xendit.co/refunds/rfd-1');
+    expect(fetchSpy.mock.calls[0]![1]).toMatchObject({ method: 'GET' });
+    expect(await xenditGateway.getRefund({ refundId: 'rfd-1', invoiceId: 'inv-1', referenceId: ref })).toBeNull();
+    const error = await expectSafeGatewayError(xenditGateway.getRefund({ refundId: 'rfd-1', invoiceId: 'inv-1', referenceId: ref }));
+    expect(error.context).toMatchObject({ gateway_operation: 'get_refund', gateway_status: 503 });
+  });
+
+  it('getRefund tanpa id: GET /refunds?invoice_id=, disaring reference_id di sisi kita', async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(json(200, { data: [{ id: 'rfd-dashboard', status: 'SUCCEEDED' }, item('rfd-2', ref)], has_more: false }))
+      .mockResolvedValueOnce(json(200, { data: [item('rfd-3', 'ref-lain')] }));
+    expect((await xenditGateway.getRefund({ refundId: null, invoiceId: 'inv-9', referenceId: ref }))?.id).toBe('rfd-2');
+    expect(fetchSpy.mock.calls[0]![0]).toBe('https://api.xendit.co/refunds?invoice_id=inv-9');
+    expect(await xenditGateway.getRefund({ refundId: null, invoiceId: 'inv-9', referenceId: ref })).toBeNull();
+  });
+
+  it('record tanpa reference_id menjadi PAYMENT_GATEWAY_ERROR', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(json(200, { id: 'rfd-1', status: 'SUCCEEDED' }));
+    await expectSafeGatewayError(xenditGateway.getRefund({ refundId: 'rfd-1', invoiceId: 'inv-1', referenceId: ref }));
+  });
+});
+
+describe('fakeGateway getPayout dan getRefund (sesi 8c, usulan D144)', () => {
+  it('selalu SUCCEEDED dengan id deterministik, tanpa jaringan', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    expect(await fakeGateway.getPayout({ payoutId: null, referenceId: 'w-1' })).toEqual({ id: 'fake-payout-w-1', status: 'SUCCEEDED', reference_id: 'w-1', failure_code: null });
+    expect(await fakeGateway.getRefund({ refundId: 'rfd-x', invoiceId: 'inv', referenceId: 'r-1' })).toMatchObject({ id: 'rfd-x', status: 'SUCCEEDED', reference_id: 'r-1' });
+    expect(fetchSpy).not.toHaveBeenCalled();
+    fetchSpy.mockRestore();
+  });
+});

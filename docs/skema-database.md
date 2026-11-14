@@ -5,7 +5,8 @@ Project jasana {
   yang Terintegrasi dengan Kecerdasan Buatan
   I Nyoman Gede Candra Wikananta - 2305551065
 
-  VERSI 2.12. 35 tabel, 35 enum. Versi 2.12 menambah order_offers (D102).
+  VERSI 2.13. 35 tabel, 35 enum. Versi 2.13 mengubah refunds (D141, D142).
+  Versi 2.12 menambah order_offers (D102).
   Rujukan lengkap: Keputusan-Desain-Sistem.md (D1 sampai D102)
 
   Keputusan yang mengunci rancangan ini:
@@ -1147,7 +1148,9 @@ Table refunds {
   reason                 text           [note: 'Alasan refund, biasanya salinan putusan admin']
   status                 refund_status  [not null, default: 'REQUESTED', note: 'Siklus hidup refund di Xendit, diperbarui lewat webhook']
   xendit_refund_id       varchar(100)   [note: 'ID refund di Xendit']
-  initiated_by           uuid           [not null, note: 'Siapa yang memulai, client, pemilik, atau admin']
+  initiated_by           uuid           [note: 'Siapa yang memulai: client, pemilik, atau admin. Null berarti sistem, yaitu refund pembayaran telat (D141)']
+  completion_note        text           [note: 'Catatan transfer jalur manual dari admin (D142)']
+  completed_by           uuid           [note: 'Admin yang menandai refund manual selesai (D142)']
   created_at             timestamptz    [not null, default: `now()`, note: 'Kapan refund diajukan']
   completed_at           timestamptz    [note: 'Kapan dana dinyatakan kembali oleh Xendit']
 }
@@ -1439,6 +1442,7 @@ Ref: withdrawals.reviewed_by > users.id [delete: set null]
 Ref: refunds.order_id > orders.id [delete: restrict]
 Ref: refunds.payment_id > payments.id [delete: restrict]
 Ref: refunds.initiated_by > users.id [delete: restrict]
+Ref: refunds.completed_by > users.id [delete: set null]
 
 Ref: disputes.order_id - orders.id [delete: restrict]
 Ref: disputes.raised_by_user_id > users.id [delete: restrict]

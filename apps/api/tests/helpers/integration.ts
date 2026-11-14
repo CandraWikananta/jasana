@@ -40,6 +40,8 @@ export async function resetDatabase(): Promise<void> {
     // withdrawals.wallet_id restrict (8b).
     prisma.withdrawal.deleteMany(),
     prisma.webhookEvent.deleteMany(),
+    // refunds.order_id, payment_id, dan initiated_by restrict (8c).
+    prisma.refund.deleteMany(),
     // Order merujuk listing, pekerja, dan user. Fase 5 membuatnya langsung untuk uji in-flight.
     // payments.order_id dan disputes.order_id restrict, jadi dihapus sebelum order (Fase 6, 7c).
     prisma.payment.deleteMany(),
