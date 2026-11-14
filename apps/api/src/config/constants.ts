@@ -80,3 +80,15 @@ export const LISTING_PHOTO_BUCKET = 'listing-photos';
  * (`packages/database/src/index.ts`), tempat nilainya didefinisikan.
  */
 export { TRANSACTION_MAX_WAIT_MS, TRANSACTION_TIMEOUT_MS } from '@jasana/database';
+
+/**
+ * Bucket Supabase Storage untuk bukti dispute (D80). PRIVATE seperti
+ * KYC_BUCKET, dibuat sekali di dashboard. Path objek `<dispute_id>/<uuid>.<ext>`.
+ */
+export const DISPUTE_EVIDENCE_BUCKET = 'dispute-evidences';
+
+/** Usulan D148: bukti per pihak (client atau pemilik) per dispute. */
+export const DISPUTE_EVIDENCE_MAX_PER_PARTY = 5;
+
+/** Umur signed URL bukti dispute, sama alasannya dengan KYC_SIGNED_URL_TTL_SECONDS. */
+export const DISPUTE_EVIDENCE_SIGNED_URL_TTL_SECONDS = 10 * 60;

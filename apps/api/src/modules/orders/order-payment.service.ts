@@ -146,14 +146,22 @@ const paidData = (details: PaymentDetails, billed: Prisma.Decimal) => ({
  * Ledger escrow (PRD 3.2) pada wallet usaha:
  *   ESCROW_HOLD       pending += provider_earning                       (T5)
  *   ESCROW_RELEASE    available += provider_earning, pending -= sama    (T18)
- *   REFUND_DEDUCTION  pending -= provider_earning                       (T9, T11, D132)
+ *   REFUND_DEDUCTION  pending -= provider_earning                       (T9, T11, T21, D132)
+ * T20 parsial memakai `amount` lain: bagian provider dan sisanya (D133).
  * UPDATE dengan increment mengunci baris wallet dan mengembalikan saldo
  * sesudahnya, jadi `balance_*_after` tidak tertukar dengan transaksi lain.
  */
 const ESCROW_DESCRIPTION = { ESCROW_HOLD: 'Escrow', ESCROW_RELEASE: 'Pencairan escrow', REFUND_DEDUCTION: 'Refund' } as const;
 
-export async function writeEscrow(tx: Tx, order: Order, type: keyof typeof ESCROW_DESCRIPTION): Promise<void> {
-  const earning = order.providerEarning;
+export async function writeEscrow(
+  tx: Tx,
+  order: Order,
+  type: keyof typeof ESCROW_DESCRIPTION,
+  amount: Prisma.Decimal = order.providerEarning,
+): Promise<void> {
+  // chk_wallet_tx_nonzero menolak baris nol. Hanya terjadi di T20 parsial kalau platform fee >= 50%.
+  if (amount.isZero()) return;
+  const earning = amount;
   const availableDelta = type === 'ESCROW_RELEASE' ? earning : new Prisma.Decimal(0);
   // Aturan 6: refund hanya memotong pending.
   const pendingDelta = type === 'ESCROW_HOLD' ? earning : earning.negated();

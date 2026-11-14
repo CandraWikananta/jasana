@@ -4,7 +4,7 @@
  * `afterCommit` (jebakan 7).
  */
 
-import type { Prisma } from '@jasana/database';
+import type { NotificationType, Prisma } from '@jasana/database';
 import { recordEmail, type OutgoingEmail } from '../notifications/email-outbox';
 
 /** Pihak-pihak order: client, pemilik usaha, dan penanggung jawab. */
@@ -20,6 +20,7 @@ export async function notifyUsers(
   order: { id: string; orderNumber: string },
   title: string,
   detail: string,
+  type: NotificationType = 'ORDER_STATUS',
 ): Promise<OutgoingEmail[]> {
   const ids = [...new Set(userIds.filter((id): id is string => Boolean(id)))];
   const users = await tx.user.findMany({ where: { id: { in: ids } }, select: { id: true, email: true, fullName: true } });
@@ -28,7 +29,7 @@ export async function notifyUsers(
       recordEmail(tx, {
         userId: user.id,
         to: user.email,
-        type: 'ORDER_STATUS',
+        type,
         title: `${title} (${order.orderNumber})`,
         body: detail,
         subject: `Jasana: ${title} ${order.orderNumber}`,

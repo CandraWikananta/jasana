@@ -344,6 +344,22 @@ describe.skipIf(!hasTestDatabase)('refund (8c)', () => {
       expect(refundApi).not.toHaveBeenCalled();
     });
 
+    it('H108: PROCESSING tanpa id (timeout) yang tidak ditemukan Xendit: kembali REQUESTED lalu dieksekusi ulang dengan key yang sama', async () => {
+      vi.spyOn(paymentGateway, 'refund').mockRejectedValueOnce(gatewayError({ gateway_timeout: true }));
+      const { refund } = await cancelledPaid();
+      expect(await refundOf(refund.orderId)).toMatchObject({ status: 'PROCESSING', xenditRefundId: null });
+      vi.spyOn(paymentGateway, 'getRefund').mockResolvedValueOnce(null);
+      const refundApi = vi.spyOn(paymentGateway, 'refund');
+      refundApi.mockClear();
+
+      const res = await sync(refund.id);
+      expect(res.status, JSON.stringify(res.body)).toBe(200);
+      expect(res.body.data.sync).toMatchObject({ outcome: 'RETRIED', gateway_status: null });
+      expect(refundApi).toHaveBeenCalledOnce();
+      expect(refundApi.mock.calls[0]![0].referenceId).toBe(refund.id);
+      expect(res.body.data.refund).toMatchObject({ status: 'PROCESSING', xendit_refund_id: `fake-ref-${refund.id}` });
+    });
+
     it('eksekusi setelah commit tidak pernah jalan (REQUESTED, metode API): tidak ditemukan, eksekusi diulang dengan key yang sama', async () => {
       const { refund } = await cancelledPaid();
       // Proses mati di antara commit T9 dan panggilan API.

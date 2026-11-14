@@ -2,6 +2,7 @@
  * Rute `/admin` (PRD 4.3). Fase 2: pengajuan provider dan perubahan tipe.
  * Fase 3: katalog dan usulan taksonomi. Sesi 8b: antrean withdrawal.
  * Sesi 8c: antrean refund, jalur manual, dan sinkronisasi status ke Xendit (H106).
+ * Sesi 8d: antrean sengketa, review, dan putusan T20/T21 (D133).
  *
  * `GET /admin/provider-applications/:id` tidak ada di daftar endpoint PRD,
  * tapi dibutuhkan D80: bucket e-KYC private, jadi admin hanya bisa membuka
@@ -40,6 +41,8 @@ import {
 import * as refunds from '../refunds/refunds.controller';
 import { adminRefundsQuerySchema, completeRefundSchema, refundParamsSchema } from '../refunds/refunds.schema';
 import * as wallets from '../wallets/wallets.controller';
+import * as disputes from '../disputes/disputes.controller';
+import { adminDisputesQuerySchema, disputeParamsSchema, resolveDisputeSchema } from '../disputes/disputes.schema';
 import { adminWithdrawalsQuerySchema, rejectWithdrawalSchema, withdrawalParamsSchema } from '../wallets/wallets.schema';
 
 export function createAdminRouter(): Router {
@@ -129,6 +132,11 @@ export function createAdminRouter(): Router {
   router.get('/refunds', validate({ query: adminRefundsQuerySchema }), refunds.list);
   router.post('/refunds/:id/complete', validate({ params: refundParamsSchema, body: completeRefundSchema }), refunds.complete);
   router.post('/refunds/:id/sync', validate({ params: refundParamsSchema }), refunds.sync);
+
+  // Sesi 8d: sengketa (D132, D133)
+  router.get('/disputes', validate({ query: adminDisputesQuerySchema }), disputes.list);
+  router.post('/disputes/:id/review', validate({ params: disputeParamsSchema }), disputes.review);
+  router.post('/disputes/:id/resolve', validate({ params: disputeParamsSchema, body: resolveDisputeSchema }), disputes.resolve);
 
   return router;
 }

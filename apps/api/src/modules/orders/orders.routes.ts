@@ -5,6 +5,7 @@
  *   /orders                     C, buat dan daftar sesuai peran
  *   /orders/:id/depart ... verify  lima transisi pelaksanaan, + requireAssignedWorker (6e)
  *   /orders/:id/payment         C, invoice aktif dan pembuatan ulang (D104, 7a)
+ *   /orders/:id/disputes        C/PR, buka sengketa T13, T15, T17, T19 (8d). Pekerja tidak berhak
  *   /dev/orders/:id/simulate-payment
  *   /dev/workers/presence       hanya terdaftar saat PAYMENT_GATEWAY=fake (D101, H92)
  *   /dev/orders/:id/deadline, /dev/jobs/:job/run   pemicu sweep T3, T6, T18, dan pemulihan webhook untuk Postman (6f, 7c)
@@ -15,6 +16,8 @@ import { requireAuth, requireEmailVerified } from '../../middlewares/auth';
 import { requireAssignedWorker, requireOrderParticipant } from '../../middlewares/rbac';
 import { validate } from '../../middlewares/validate';
 import * as controller from './orders.controller';
+import * as disputes from '../disputes/disputes.controller';
+import { openDisputeSchema } from '../disputes/disputes.schema';
 import {
   acceptOrderSchema,
   assignmentSchema,
@@ -61,6 +64,7 @@ export function createOrdersRouter(): Router {
   router.post('/:id/verification-code', ...participant(), controller.renewVerificationCode);
   router.get('/:id/payment', ...participant(), controller.payment);
   router.post('/:id/payment', ...participant(), controller.renewPayment);
+  router.post('/:id/disputes', ...participant(), validate({ body: openDisputeSchema }), disputes.open);
 
   return router;
 }

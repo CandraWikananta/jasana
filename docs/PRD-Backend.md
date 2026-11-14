@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| Versi | 2.20 |
+| Versi | 2.21 |
 | Penyusun | I Nyoman Gede Candra Wikananta (2305551065) |
 | Program Studi | Teknologi Informasi, Universitas Udayana |
 | Bidang Keahlian | Sistem Informasi |
@@ -1397,7 +1397,7 @@ Data seed harus menyertakan kombinasi yang memungkinkan skenario di atas dijalan
 
 ## 9. Milestone Implementasi
 
-Status per 11 November 2026: **Fase 0 sampai Fase 7 selesai**, sisanya belum dikerjakan. Urutan mengikuti dependency tree, bukan urutan tabel jadwal pada usulan ide.
+Status per 15 November 2026: **Fase 0 sampai Fase 8 selesai**, sisanya belum dikerjakan. Urutan mengikuti dependency tree, bukan urutan tabel jadwal pada usulan ide.
 
 | Fase | Keluaran backend | Kriteria selesai |
 |---|---|---|
@@ -1468,6 +1468,8 @@ Yang sudah ditutup di register keputusan versi 2.8:
 | `MESSAGE_WINDOW_CLOSED` | 409 | Di luar masa aktif pesan dalam order |
 | `DISPUTE_ALREADY_EXISTS` | 409 | Satu order hanya boleh punya satu dispute |
 | `DISPUTE_WINDOW_CLOSED` | 409 | Sudah melewati `settlement_due_at` |
+| `DISPUTE_STATE_CONFLICT` | 409 | Review bukan dari OPEN, putusan bukan dari UNDER_REVIEW, atau bukti untuk sengketa yang sudah diputus |
+| `DISPUTE_EVIDENCE_LIMIT_REACHED` | 409 | Pihak itu sudah mengunggah 5 bukti untuk sengketa ini (D148) |
 | `ATTRIBUTE_VALIDATION_FAILED` | 422 | Atribut listing tidak sesuai definisi sub-kategori |
 | `OPTION_NOT_OFFERED` | 422 | Opsi yang dipilih tidak dilayani penyedia ini |
 | `UNSUPPORTED_FILE_TYPE` | 422 | Berkas bukan JPEG, PNG, atau PDF menurut magic bytes |
@@ -1534,3 +1536,4 @@ Tidak menyangkut aturan bisnis, dibentuk oleh middleware bersama pada Fase 0.
 | 2.18 | 14 November 2026 | Sinkron dengan register keputusan versi 2.25. Pencocokan webhook refund dan payout lewat `reference_id` (D136, D137) |
 | 2.19 | 14 November 2026 | Sinkron dengan register keputusan versi 2.26. Respons approve withdrawal (D138, D139) dan kode error `WITHDRAWAL_STATE_CONFLICT` |
 | 2.20 | 15 November 2026 | Sinkron dengan register keputusan versi 2.27. Endpoint admin refund dan sync (D140, D142, D145), dan kode error `REFUND_STATE_CONFLICT` |
+| 2.21 | 15 November 2026 | Sinkron dengan register keputusan versi 2.28. Fase 0 sampai 8 selesai. Dua kode error sengketa (D148) |

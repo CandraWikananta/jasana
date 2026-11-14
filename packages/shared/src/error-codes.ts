@@ -58,6 +58,11 @@ export const BUSINESS_ERROR_STATUS = {
   // Sesi 8c, belum tercatat di Lampiran A. Refund yang statusnya tidak cocok untuk
   // complete manual atau sync (usulan D140, D144).
   REFUND_STATE_CONFLICT: 409,
+  // Sesi 8d, belum tercatat di Lampiran A. Review bukan dari OPEN, putusan bukan dari
+  // UNDER_REVIEW, atau bukti untuk dispute yang sudah diputus.
+  DISPUTE_STATE_CONFLICT: 409,
+  // Sesi 8d, usulan D148: lima bukti per pihak per dispute.
+  DISPUTE_EVIDENCE_LIMIT_REACHED: 409,
   TOKEN_INVALID: 422,
   TOKEN_EXPIRED: 422,
   TOKEN_ALREADY_USED: 422,

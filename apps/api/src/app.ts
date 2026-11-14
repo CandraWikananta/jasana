@@ -38,6 +38,7 @@ import { createCatalogRouter } from './modules/catalog/catalog.routes';
 import { createTaxonomyRouter } from './modules/taxonomy/taxonomy.routes';
 import { createDevRouter, createOrdersRouter } from './modules/orders/orders.routes';
 import { createWebhooksRouter } from './modules/webhooks/webhooks.routes';
+import { createDisputesRouter } from './modules/disputes/disputes.routes';
 import {
   createProviderListingsRouter,
   createPublicListingsRouter,
@@ -103,6 +104,7 @@ export function createApp(): Express {
   app.use(`${API_PREFIX}/admin`, createAdminRouter());
   app.use(`${API_PREFIX}/taxonomy-requests`, createTaxonomyRouter());
   app.use(`${API_PREFIX}/orders`, createOrdersRouter());
+  app.use(`${API_PREFIX}/disputes`, createDisputesRouter());
   app.use(`${API_PREFIX}/webhooks`, createWebhooksRouter());
   // D101: simulasi pembayaran tidak pernah ada di luar gateway palsu.
   if (env.PAYMENT_GATEWAY === 'fake') app.use(`${API_PREFIX}/dev`, createDevRouter());

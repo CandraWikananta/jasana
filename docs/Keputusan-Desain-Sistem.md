@@ -4,9 +4,9 @@
 **Nama sistem:** Jasana
 **Penyusun:** I Nyoman Gede Candra Wikananta (2305551065)
 **Bidang Keahlian:** Sistem Informasi, Teknologi Informasi, Universitas Udayana
-**Versi:** 2.27
-**Terakhir diperbarui:** 15 November 2026 (versi 2.27)
-**Tahap saat ini:** Implementasi backend. Fase 0 sampai Fase 7 selesai, Fase 8 berjalan (sesi 8a sampai 8c selesai)
+**Versi:** 2.28
+**Terakhir diperbarui:** 15 November 2026 (versi 2.28)
+**Tahap saat ini:** Implementasi backend. Fase 0 sampai Fase 8 selesai
 
 ---
 
@@ -44,7 +44,13 @@
 | Refund dan payout dari sandbox (D136 sampai D137) | 2 | 0 |
 | Approve withdrawal (D138 sampai D139) | 2 | 0 |
 | Refund dan rekonsiliasi (D140 sampai D147) | 8 | 0 |
+| Sengketa (D148 sampai D150) | 3 | 0 |
 | Keputusan terbuka tanpa nomor D (Bagian 7) | | 0 |
+
+**Perubahan pada versi 2.28:**
+
+1. Batas bukti 5 per pihak (D148), reason refund sengketa (D149), dan penghitung order hanya naik di T16 (D150)
+2. Catatan implementasi sengketa dan penutupan Fase 8. H100 dan H108 ditutup, H78 dan H79 berlaku untuk jalur bukti sengketa
 
 **Perubahan pada versi 2.27:**
 
@@ -1467,6 +1473,44 @@ Percobaan pertama accept order C gagal 500 (P2028): transaksi interaktif Prisma 
 
 ---
 
+## 4V. Keputusan Versi 2.28 (D148 sampai D150)
+
+Dari sesi 8d. Ketiganya dijawab sebelum atau saat review rencana. Tidak ada perubahan skema, hanya bucket Storage baru `dispute-evidences` (private).
+
+| # | Keputusan | Alasan |
+|---|---|---|
+| D148 | **Paling banyak 5 bukti per pihak per dispute**, dihitung per `uploaded_by_user_id` karena hanya client order dan pemilik usaha yang boleh mengunggah. Diperiksa sebelum unggah, lalu diperiksa ulang di bawah kunci baris dispute. Lewat batas ditolak 409 `DISPUTE_EVIDENCE_LIMIT_REACHED` | Kuota bersama, misalnya 10 per dispute, membuat pihak yang lebih dulu mengunggah bisa menghabiskan kuota dan membungkam pihak lawan. Dalam sengketa, kedua pihak harus punya kesempatan yang sama |
+| D149 | **Refund hasil putusan sengketa dikirim ke Xendit dengan reason `OTHERS`**, refund pembatalan tetap `CANCELLATION`. Dipilih dari ada tidaknya baris `disputes` untuk order itu | Pemilik usaha juga bisa membuka sengketa, misalnya CLIENT_NO_SHOW, sehingga `REQUESTED_BY_CUSTOMER` tidak selalu benar. `OTHERS` netral dan selalu benar. Pemilihan dari baris dispute aman karena sengketa baru boleh sejak ARRIVED, sedangkan pembatalan T9 dan T11 serta refund pembayaran telat tidak pernah sampai ARRIVED |
+| D150 | **`order_count` dan `completed_orders_count` hanya naik di T16.** Order yang diputus RELEASE atau PARTIAL sebelum COMPLETED menjadi SETTLED tanpa menaikkan kedua penghitung | Penghitung itu tampil sebagai reputasi dan berarti pekerjaan selesai yang dikonfirmasi client lewat kode verifikasi. Putusan sengketa adalah penilaian admin atas order yang bermasalah, sehingga menghitungnya bisa menaikkan reputasi dari order yang justru disengketakan |
+
+**Catatan implementasi sesi 8d tanpa nomor D:**
+
+- **Urutan kunci:** buka sengketa mengunci order lalu baris dispute, unggah bukti hanya mengunci dispute, dan putusan mengunci order, dispute, payment, lalu wallet. Webhook dan sync refund tetap order lalu refund (8c)
+- **Membuka sengketa melepas kunci in-flight** penanggung jawab dan pendamping, karena DISPUTED bukan in-flight (PRD 3.4). Ini sesuai prinsip bahwa sengketa tidak boleh melumpuhkan penghasilan penyedia. Pada T17, kode verifikasi tetap tersimpan terenkripsi, tetapi membaca maupun memasukkannya ditolak 409 karena status sudah bukan AWAITING_VERIFICATION
+- **Putusan REFUND (T21) langsung membuat order REFUNDED** saat putusan, walaupun dana masih diproses Xendit atau menunggu transfer manual, sesuai State Machine. Status dana dipantau di antrean refund, dan T22 tidak berlaku (D146)
+- Pengecekan dispute ganda dijalankan sebelum `transitionOrder`, supaya galatnya tetap `DISPUTE_ALREADY_EXISTS`. Unique `order_id` menjadi jaring terakhir
+- `writeEscrow` menerima nominal, dan baris bernilai nol dilewati karena `chk_wallet_tx_nonzero`. Pada PARTIAL ini hanya mungkin kalau platform fee 50 persen atau lebih
+- Kode galat baru `DISPUTE_STATE_CONFLICT` dan `DISPUTE_EVIDENCE_LIMIT_REACHED`, keduanya 409. Detail sengketa mengikuti PRD (C/PR/A), sehingga penanggung jawab mendapat 403
+- Dua mutan selamat karena pengaman berlapis: menambah WORKER ke aktor buka sengketa tetap ditolak `ALLOWED_ACTORS`, dan mematikan `FOR UPDATE` di `lockOrder` saja tetap ditolak UPDATE bersyarat status. Mematikan keduanya membuat test H100 gagal
+- Newman Fase 8 butuh `--delay-request 700` karena 156 request melewati batas global 100 per menit (H91)
+- Runner regresi sempat membaca kode keluar newman dengan salah sehingga terlihat hijau padahal tidak berjalan. Diperbaiki untuk menilai dari ringkasan newman, lalu regresi dijalankan ulang
+- `shortcut:` baru: filter status antrean dispute belum ber-index, dan seed tidak menghapus berkas bukti dari bucket (dua objek per run newman)
+
+**Penutupan Fase 8 (15 November 2026).** Seluruh kriteria PRD Bagian 9 dan D101 nomor 5 terpenuhi di `jasana_test`. Typecheck bersih termasuk test dan skrip, 751 test di 39 berkas lulus, dan 22 dari 24 mutan sesi 8d mati (dua sisanya dijelaskan di atas). Postman Fase 8: 156 request dan 296 assertion tanpa gagal. Regresi Fase 1 sampai 7: 449 request dan 1.110 assertion tanpa gagal.
+
+| Kriteria | Bukti | Status |
+|---|---|---|
+| Withdrawal dengan minimum dan admin fee (D84), serta payout | Test withdrawal dan webhook payout, Postman folder 01, sandbox 8a dan 8b | Lulus |
+| Refund | Test refund dan webhook refund, Postman folder 02, sandbox 8c untuk jalur API (T9) dan jalur manual (T11) | Lulus |
+| Dispute beserta bukti dan riwayat pesan | Test sengketa (pesan disisipkan langsung karena endpoint pesan baru ada di Fase 10), Postman folder 03 dengan unggahan ke bucket sungguhan | Lulus |
+| Rekonsiliasi ledger tetap 0 baris setelah seluruh skenario | V1 diperiksa `afterEach` di 9 berkas test, dan `db:verify` nol setelah folder 00 sampai 03 | Lulus |
+| T9 dan T11 end-to-end | Postman folder 02 (order B dan D untuk T9, order C untuk T11), sandbox 8c | Lulus |
+| T13, T15, T17, T19 end-to-end | Postman folder 03 (order E, F, G, H) | Lulus |
+| T20, T21, T22 end-to-end | T20: order E (RELEASE) dan F (PARTIAL). T21: order G. T22: order B (webhook), C (manual), D (sync) | Lulus. Refund PARTIAL ke Xendit sungguhan menunggu uji sandbox |
+| H100 | Tiga test: sweep menang, sengketa menang, dan guard di `settleOrder` dibuktikan mutan | Lulus |
+
+---
+
 ## 5. Alur Sistem End-to-End
 
 ### 5.1 Onboarding
@@ -2002,7 +2046,7 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 - [x] **H102** **(ditutup di sesi 8b: `uniq_withdrawal_event_per_withdrawal`, juga mencakup satu WITHDRAWAL per withdrawal, dibuktikan webhook FAILED ganda dan sisipan langsung yang ditolak)** Partial unique index satu `WITHDRAWAL_REVERSAL` per withdrawal, dipasang di sesi 8b. Wajib punya test webhook FAILED yang dikirim dua kali **(baru, D134)**
 - [x] **H105** **(ditutup di sesi 8b: `tsconfig.test.json`, 12 galat di 7 berkas diperbaiki)** `npm run typecheck` hanya memeriksa `src`, karena `tsconfig.json` di `apps/api` mengecualikan `tests` dan skrip. Vitest juga tidak memeriksa tipe, jadi galat tipe di test dan skrip lolos tanpa ketahuan. Tambahkan tsconfig untuk test dan skrip, lalu masukkan ke script typecheck. Dikerjakan di awal sesi 8b **(baru, ditemukan di sesi 8a)**
 - [x] **H106** **(ditutup di sesi 8c lewat D143 sampai D145, dibuktikan dengan Xendit sungguhan pada uji sandbox 8c)** Rekonsiliasi status payout dan refund ke Xendit. Status akhir withdrawal (D137) dan refund (D136) hanya ditentukan webhook, sehingga kalau webhook tidak pernah datang, withdrawal tertahan di DISBURSING dan refund di PROCESSING tanpa jalan keluar. Sediakan aksi admin dan atau cron yang menanyakan status langsung ke Xendit (`GET /v2/payouts/{id}` dan endpoint refund yang setara), lalu menerapkannya lewat aturan yang sama dengan webhook. Dikerjakan di sesi 8c. Withdrawal `ed913010...` dari uji sandbox 8b bisa dipakai sebagai kasus uji kalau masih tertahan **(baru, ditemukan di uji sandbox 8b)**
-- [ ] **H108** Refund PROCESSING tanpa `xendit_refund_id` yang tidak ditemukan Xendit saat sync harus dieksekusi ulang dengan key yang sama, sama seperti sync dari REQUESTED (D140 nomor 6). Sekarang sync hanya melaporkan NOT_FOUND, sehingga refund yang panggilannya timeout sebelum sampai ke Xendit tertahan, karena jalur manual juga ditolak. Dikerjakan di awal sesi 8d **(baru, sesi 8c)**
+- [x] **H108** **(ditutup di sesi 8d, dibuktikan test dan dua mutan)** Refund PROCESSING tanpa `xendit_refund_id` yang tidak ditemukan Xendit saat sync harus dieksekusi ulang dengan key yang sama, sama seperti sync dari REQUESTED (D140 nomor 6). Sekarang sync hanya melaporkan NOT_FOUND, sehingga refund yang panggilannya timeout sebelum sampai ke Xendit tertahan, karena jalur manual juga ditolak. Dikerjakan di awal sesi 8d **(baru, sesi 8c)**
 - [x] **H109** **(ditutup sebagai perbaikan susulan sesi 8c: `transactionOptions` global di PrismaClient, timeout 15000 ms dan maxWait 5000 ms, didefinisikan di `packages/database` dan diekspor ulang lewat `config/constants.ts`)** Batas waktu transaksi interaktif Prisma bawaan 5000 ms tidak memperhitungkan latensi basis data jarak jauh, sehingga transaksi accept ke Supabase dev gagal P2028. Stress test k6 wajib memperhitungkan batas ini **(baru, ditemukan di uji sandbox 8c)**
 - [x] **H94** **(ditutup di sesi 6d)** `chk_order_offer_outcome` pada `order_offers`: `declined_at` dan `sla_missed_at` tidak boleh terisi bersamaan **(baru, D102)**
 
@@ -2051,8 +2095,8 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 - [ ] **H71** Pengirim wajib peserta order itu **(baru, D79)**: client pemilik order, pemilik provider, atau `assigned_worker_id`. Pendamping dan pekerja lain di usaha yang sama DITOLAK, sama polanya dengan `ASSIGNEE_ONLY_TRANSITIONS` di state machine
 - [ ] **H72** Rate limit pengiriman pesan per pengirim **(baru, D79)**
 - [x] **H73** **(lulus audit 9 November 2026: perilaku ada di kode dan dijaga test)** Batas jumlah butir FAQ per listing **(baru, D78)**
-- [x] **H78** **(lulus audit 9 November 2026 untuk jalur e-KYC; unggahan bukti dispute di Fase 8 wajib memakai pola yang sama)** Validasi **magic bytes** pada unggahan multipart **(baru, D80)**, bukan `Content-Type` dari client dan bukan ekstensi nama berkas. Wajib punya test yang mengunggah berkas non-gambar bernama `.jpg` dan memastikan ditolak
-- [x] **H79** **(lulus audit 9 November 2026 untuk jalur e-KYC; unggahan bukti dispute di Fase 8 wajib memakai pola yang sama)** Urutan unggah multipart: validasi, kirim ke Storage, baru tulis baris basis data **(baru, D80)**. Kalau Storage gagal, jangan tinggalkan baris setengah jadi
+- [x] **H78** **(lulus audit 9 November 2026 untuk jalur e-KYC, dan di sesi 8d untuk jalur bukti sengketa)** Validasi **magic bytes** pada unggahan multipart **(baru, D80)**, bukan `Content-Type` dari client dan bukan ekstensi nama berkas. Wajib punya test yang mengunggah berkas non-gambar bernama `.jpg` dan memastikan ditolak
+- [x] **H79** **(lulus audit 9 November 2026 untuk jalur e-KYC, dan di sesi 8d untuk jalur bukti sengketa)** Urutan unggah multipart: validasi, kirim ke Storage, baru tulis baris basis data **(baru, D80)**. Kalau Storage gagal, jangan tinggalkan baris setengah jadi
 - [x] **H80** **(lulus audit 9 November 2026: perilaku ada di kode dan dijaga test)** Cron pembersih berkas yatim di bucket foto listing **(baru, D80)**, berkas lebih tua dari `orphan_upload_cleanup_hours` yang tidak punya baris `listing_photos`
 - [x] **H88** **(ditutup di sesi 6c oleh D105)** Perilaku hapus listing (soft delete) saat masih ada order yang belum selesai **diputuskan di Fase 6**, karena order baru ada di fase itu. Saat ini hapus listing tidak memeriksa order
 - [x] **H89** **(ditutup di sesi 6b: `schedule_conflict_buffer_minutes` boleh 0, kunci lain tetap wajib lebih dari 0)** `getNumberSetting` menganggap nilai 0 tidak sah dan memakai default. Sesuaikan sebelum `schedule_conflict_buffer_minutes` (Fase 6) atau `withdrawal_admin_fee` (Fase 8) boleh bernilai 0
@@ -2062,7 +2106,7 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 - [x] **H95** **(ditutup: klaim, pilihan pemilik, dan penolakan terakhir di sesi 6d; SLA miss pada cron T3 di sesi 6f)** Aturan `order_offers` di service layer (D102): klaim pekerja dan pilihan pemilik hanya dari baris yang belum menolak, penolakan terakhir langsung memicu T3 di transaksi yang sama, dan cron T3 tidak memberi SLA miss ke penerima yang sudah menolak. Wajib punya test untuk ketiganya, termasuk penolakan terakhir yang bersamaan dengan klaim pekerja lain **(baru)**
 - [ ] **H97** Pemeriksaan D105 tidak memakai kunci, sehingga order yang dibuat tepat bersamaan dengan penghapusan listing bisa lolos. Order seperti itu tidak bisa di-accept karena listing sudah terhapus, lalu kedaluwarsa sendiri. Diterima sebagai batasan **(baru, sesi 6c)**
 - [ ] **H98** `order_number` acak bisa kembar dengan peluang sangat kecil, dan saat ini berakhir 500. Ditandai `shortcut:`. Ganti dengan retry atau sequence kalau order per hari mencapai ribuan **(baru, sesi 6c)**
-- [ ] **H100** Test balapan pembukaan sengketa T19 dengan sweep T18 di sekitar `settlement_due_at`. Hasilnya harus tepat satu transisi yang berhasil, dan kalau DISPUTED yang menang tidak ada `ESCROW_RELEASE`. Guard dispute di `settleOrder` dibuktikan dengan uji mutasi. **Wajib di Fase 8** **(baru, sesi 7c)**
+- [x] **H100** **(ditutup di sesi 8d lewat tiga test deterministik dan uji mutasi)** Test balapan pembukaan sengketa T19 dengan sweep T18 di sekitar `settlement_due_at`. Hasilnya harus tepat satu transisi yang berhasil, dan kalau DISPUTED yang menang tidak ada `ESCROW_RELEASE`. Guard dispute di `settleOrder` dibuktikan dengan uji mutasi. **Wajib di Fase 8** **(baru, sesi 7c)**
 
 ### 8.5 Persiapan Data Pengujian
 
@@ -2140,8 +2184,8 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 
 ## 11. Langkah Berikutnya
 
-1. Fase 8 (uang lanjutan) dalam empat sesi menurut Bagian 4R. Sesi 8a sampai 8c selesai (14 sampai 15 November 2026), menghasilkan D136 sampai D147. Berikutnya 8d: H108, dispute, dan penutupan Fase 8
-2. Selesai: Fase 7 (11 November 2026, 627 test lulus) beserta uji sandbox Xendit sungguhan (12 November 2026), sebelumnya audit hutang teknis (9 November 2026) dan sesi perapian (10 November 2026)
+1. Fase 9 (chatbot): sesi tamu dan terdaftar, klaim sesi, personalisasi, structured output Gemini (H14), dan rate limiting tiga lapis (H19). Pembagian sesi disusun sebelum mulai
+2. Selesai: Fase 8 (15 November 2026, 751 test lulus, D131 sampai D150) beserta uji sandbox payout dan refund. Uji sandbox refund PARTIAL hasil putusan sengketa dijalankan penyusun. Sebelumnya Fase 7 (11 November 2026, 627 test lulus) beserta uji sandbox Xendit sungguhan (12 November 2026), sebelumnya audit hutang teknis (9 November 2026) dan sesi perapian (10 November 2026)
 3. Susun data simulasi untuk dua belas sub-kategori di Lampiran B, termasuk skenario perebutan Available Now dan pendamping pada dokumentasi acara
 4. Riset ringan rentang harga pasaran untuk dua belas sub-kategori tersebut, catat sumbernya
 5. Paralel sejak sekarang: kumpulkan H15 sedikit demi sedikit setiap minggu, dan siapkan instrumen UAT (H84)
@@ -2181,6 +2225,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 | 2.25 | 14 November 2026 | Dua keputusan dari uji sandbox sesi 8a: refund dua jalur dipilih dari metode pembayaran (D136, menutup keputusan terbuka nomor 6) dan payout v2 dengan status akhir dari webhook (D137). Hasil sandbox dan fixture payload sungguhan. H105. Tanpa perubahan skema |
 | 2.26 | 14 November 2026 | Dua keputusan dari sesi 8b: aturan approve withdrawal (D138) dan pengecualian 409 (D139). Catatan implementasi withdrawal, payout, dan webhook payout. H83, H102, dan H105 ditutup. Satu partial unique index baru |
 | 2.27 | 15 November 2026 | Delapan keputusan dari sesi 8c: aturan eksekusi refund (D140), kolom refund untuk sistem dan jalur manual (D141, D142), sinkronisasi admin (D143 sampai D145), penanda batal setelah bayar (D146), dan payment tanpa invoice id (D147). H99 bagian pembayaran telat, H101, dan H106 ditutup, H107 dan H108 baru. Perubahan skema pada `refunds` dan satu partial unique index |
+| 2.28 | 15 November 2026 | Tiga keputusan dari sesi 8d: batas bukti per pihak (D148), reason refund sengketa (D149), dan penghitung order (D150). Catatan implementasi sengketa. Fase 8 ditutup dengan seluruh kriteria PRD Bagian 9 terpenuhi. H100 dan H108 ditutup. Tanpa perubahan skema |
 
 ---
 

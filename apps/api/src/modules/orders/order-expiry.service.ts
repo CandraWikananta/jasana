@@ -117,8 +117,9 @@ const HOLDING_DISPUTES = ['OPEN', 'UNDER_REVIEW'] as const;
 /**
  * T18 COMPLETED -> SETTLED. Kunci order (transitionOrder) lalu wallet (UPDATE di
  * writeEscrow), urutan yang sama dengan T5 (register Bagian 4P).
+ * Diekspor untuk test balapan H100.
  */
-async function settleOrder(tx: Tx, afterCommit: AfterCommit, orderId: string): Promise<void> {
+export async function settleOrder(tx: Tx, afterCommit: AfterCommit, orderId: string): Promise<void> {
   await transitionOrder(tx, {
     orderId,
     afterCommit,

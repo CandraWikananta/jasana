@@ -12,7 +12,7 @@
  * Urutan kunci di setiap jalur: order dulu, lalu refund.
  */
 
-import { prisma, Prisma, type Order, type Payment, type Refund } from '@jasana/database';
+import { prisma, Prisma, type Order, type Payment, type Refund, type RefundType } from '@jasana/database';
 import { AppError, Errors } from '../../lib/errors';
 import { logger } from '../../lib/logger';
 import { pageMeta, skipTake, type Paginated } from '../../lib/pagination';
@@ -81,14 +81,15 @@ const stateConflict = (r: Refund, action: string) =>
 export async function createRefund(
   tx: Tx,
   afterCommit: AfterCommit,
-  input: { orderId: string; payment: Payment; initiatedBy: string | null; reason: string },
+  input: { orderId: string; payment: Payment; initiatedBy: string | null; reason: string; type?: RefundType; amount?: Prisma.Decimal },
 ): Promise<Refund> {
   const refund = await tx.refund.create({
     data: {
       orderId: input.orderId,
       paymentId: input.payment.id,
-      type: 'FULL',
-      amount: input.payment.paidAmount ?? input.payment.amount,
+      // PARTIAL hanya dari putusan sengketa (T20, D133), nominalnya refund_amount.
+      type: input.type ?? 'FULL',
+      amount: input.amount ?? input.payment.paidAmount ?? input.payment.amount,
       includesPlatformFee: true,
       reason: input.reason,
       initiatedBy: input.initiatedBy,
@@ -112,8 +113,13 @@ const gatewayStatusOf = (error: unknown) => {
  * Tidak pernah melempar: pemanggilnya afterCommit atau sync.
  */
 export async function executeRefund(id: string): Promise<void> {
-  const refund = await prisma.refund.findUniqueOrThrow({ where: { id }, include: { payment: { select: { paymentMethod: true, xenditInvoiceId: true } } } });
+  const refund = await prisma.refund.findUniqueOrThrow({
+    where: { id },
+    include: { payment: { select: { paymentMethod: true, xenditInvoiceId: true } }, order: { select: { dispute: { select: { id: true } } } } },
+  });
   if (refund.status !== 'REQUESTED' || !usesRefundApi(refund.payment.paymentMethod)) return;
+  // Usulan D149: refund putusan sengketa. Pembatalan dan D119 tidak pernah punya dispute (dispute baru sejak ARRIVED).
+  const reason = refund.order.dispute ? 'OTHERS' : 'CANCELLATION';
   const log = { refund_id: id, order_id: refund.orderId };
 
   const invoiceId = refund.payment.xenditInvoiceId;
@@ -125,7 +131,7 @@ export async function executeRefund(id: string): Promise<void> {
   }
 
   try {
-    const result = await paymentGateway.refund({ referenceId: id, invoiceId, amount: refund.amount.toNumber(), reason: 'CANCELLATION' });
+    const result = await paymentGateway.refund({ referenceId: id, invoiceId, amount: refund.amount.toNumber(), reason });
     // Nol baris kalau webhook sudah mendahului.
     await prisma.refund.updateMany({ where: { id, status: 'REQUESTED' }, data: { status: 'PROCESSING', xenditRefundId: result.refundId } });
   } catch (error) {
@@ -258,7 +264,8 @@ export interface SyncResult {
  * H106, usulan D140 no. 5. Dari PROCESSING, atau REQUESTED untuk metode API
  * (eksekusi setelah commit tidak pernah jalan). Record dari Xendit diterapkan
  * lewat `applyRefundEvent` yang sama dengan webhook. Tidak ditemukan dan masih
- * REQUESTED: eksekusi diulang, aman karena key-nya tetap `refunds.id`.
+ * REQUESTED, atau PROCESSING tanpa `xendit_refund_id` (H108): eksekusi diulang,
+ * aman karena key-nya tetap `refunds.id`.
  * shortcut: tidak ada cron sync otomatis (usulan D143), tambahkan kalau admin sering lupa menekan sync.
  */
 export async function syncRefund(id: string): Promise<{ refund: ReturnType<typeof toDto>; sync: SyncResult }> {
@@ -278,7 +285,12 @@ export async function syncRefund(id: string): Promise<{ refund: ReturnType<typeo
   if (record) {
     const result = await withOrderTransaction((tx, afterCommit) => applyRefundEvent(tx, afterCommit, { data: record }));
     sync = { gateway_status: record.status, outcome: result.status, message: result.message ?? null };
-  } else if (refund.status === 'REQUESTED') {
+  } else if (refund.status === 'REQUESTED' || refund.xenditRefundId === null) {
+    // H108: PROCESSING tanpa id yang tidak ada di Xendit berarti panggilannya tidak pernah sampai.
+    // Nol baris kalau webhook mendahului, lalu executeRefund tidak melakukan apa pun.
+    if (refund.status === 'PROCESSING') {
+      await prisma.refund.updateMany({ where: { id, status: 'PROCESSING', xenditRefundId: null }, data: { status: 'REQUESTED' } });
+    }
     await executeRefund(id);
     sync = { gateway_status: null, outcome: 'RETRIED', message: 'Refund tidak ditemukan di Xendit, eksekusi diulang dengan key yang sama' };
   } else {
