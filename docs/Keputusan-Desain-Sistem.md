@@ -1506,8 +1506,10 @@ Dari sesi 8d. Ketiganya dijawab sebelum atau saat review rencana. Tidak ada peru
 | Rekonsiliasi ledger tetap 0 baris setelah seluruh skenario | V1 diperiksa `afterEach` di 9 berkas test, dan `db:verify` nol setelah folder 00 sampai 03 | Lulus |
 | T9 dan T11 end-to-end | Postman folder 02 (order B dan D untuk T9, order C untuk T11), sandbox 8c | Lulus |
 | T13, T15, T17, T19 end-to-end | Postman folder 03 (order E, F, G, H) | Lulus |
-| T20, T21, T22 end-to-end | T20: order E (RELEASE) dan F (PARTIAL). T21: order G. T22: order B (webhook), C (manual), D (sync) | Lulus. Refund PARTIAL ke Xendit sungguhan menunggu uji sandbox |
+| T20, T21, T22 end-to-end | T20: order E (RELEASE) dan F (PARTIAL). T21: order G. T22: order B (webhook), C (manual), D (sync) | Lulus, termasuk refund PARTIAL ke Xendit sungguhan (lihat di bawah) |
 | H100 | Tiga test: sweep menang, sengketa menang, dan guard di `settleOrder` dibuktikan mutan | Lulus |
+
+**Uji sandbox sesi 8d (15 November 2026, dijalankan penyusun di Supabase dev dengan gateway xendit):** order `ORD-20261114-892243DF` Rp1.500.000 dibayar GoPay, dijalankan sampai IN_PROGRESS, lalu pemilik membuka sengketa (T15, kategori POOR_QUALITY). Admin memeriksa dan memutus PARTIAL Rp123.457 pukul 20:23:51 UTC. Order langsung SETTLED (T20) dengan `platform_fee_refunded` Rp12.346. Refund PARTIAL Rp123.457 ke e-wallet dibuat dan dikirim setelah commit, lalu webhook `refund.succeeded` diproses pukul 20:23:56 UTC, lima detik kemudian. Order tetap SETTLED tanpa T22 (D146), dan `initiated_by` refund berisi id admin yang memutus. `db:verify` di Supabase dev: V1, V5 sampai V8, V11, dan V12 nol baris. V4 kini memuat dua order SETTLED (A dan F) dengan fee dipungut Rp300.000, fee dikembalikan Rp12.346, dan pendapatan bersih Rp287.654, sesuai rumus D133.
 
 ---
 
@@ -2185,7 +2187,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 ## 11. Langkah Berikutnya
 
 1. Fase 9 (chatbot): sesi tamu dan terdaftar, klaim sesi, personalisasi, structured output Gemini (H14), dan rate limiting tiga lapis (H19). Pembagian sesi disusun sebelum mulai
-2. Selesai: Fase 8 (15 November 2026, 751 test lulus, D131 sampai D150) beserta uji sandbox payout dan refund. Uji sandbox refund PARTIAL hasil putusan sengketa dijalankan penyusun. Sebelumnya Fase 7 (11 November 2026, 627 test lulus) beserta uji sandbox Xendit sungguhan (12 November 2026), sebelumnya audit hutang teknis (9 November 2026) dan sesi perapian (10 November 2026)
+2. Selesai: Fase 8 (15 November 2026, 751 test lulus, D131 sampai D150) beserta uji sandbox payout dan refund. Uji sandbox refund PARTIAL hasil putusan sengketa lulus. Sebelumnya Fase 7 (11 November 2026, 627 test lulus) beserta uji sandbox Xendit sungguhan (12 November 2026), sebelumnya audit hutang teknis (9 November 2026) dan sesi perapian (10 November 2026)
 3. Susun data simulasi untuk dua belas sub-kategori di Lampiran B, termasuk skenario perebutan Available Now dan pendamping pada dokumentasi acara
 4. Riset ringan rentang harga pasaran untuk dua belas sub-kategori tersebut, catat sumbernya
 5. Paralel sejak sekarang: kumpulkan H15 sedikit demi sedikit setiap minggu, dan siapkan instrumen UAT (H84)
