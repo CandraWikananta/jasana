@@ -50,6 +50,7 @@
 1. Aturan approve withdrawal untuk payout diterima, gagal sementara, dan ditolak final (D138)
 2. Xendit 409 diperlakukan sebagai galat sementara (D139)
 3. Catatan implementasi dan hasil sesi 8b. H83, H102, dan H105 ditutup
+4. Hasil uji sandbox payout. H106 baru
 
 **Perubahan pada versi 2.25:**
 
@@ -1411,6 +1412,8 @@ Dari sesi 8b. D138 ditetapkan sebelum sesi berdasarkan hasil sandbox 8a, D139 mu
 
 **Hasil sesi 8b:** typecheck bersih termasuk test dan skrip, 680 test lulus di 37 berkas, 21 dari 21 mutan mati. Postman Fase 8: 49 request dan 83 assertion tanpa gagal. Regresi Postman Fase 1 sampai 7 hijau. `db:verify` dan `db:check-constraints` lulus di `jasana_test`, termasuk index H102.
 
+**Uji sandbox payout sesi 8b (14 November 2026, dijalankan penyusun di Supabase dev):** saldo diisi lewat folder 00 Postman Fase 8 dengan gateway fake, lalu server dijalankan ulang dengan gateway xendit. Withdrawal Rp100.000 ke rekening uji `1234567890` di-approve pukul 15:55:51 UTC, langsung DISBURSING dengan id `disb-f6cef850...`. Webhook `payout.succeeded` sebesar `net_amount` Rp93.500 datang sekitar 4 menit kemudian dengan `reference_id` sama dengan id withdrawal, tercatat PROCESSED, dan withdrawal menjadi COMPLETED. Withdrawal kedua ke rekening `121212` di-approve pukul 16:07:37 UTC dan masih Pending di dashboard Xendit lebih dari 20 menit kemudian tanpa webhook apa pun, padahal di sandbox 8a rekening yang sama gagal dalam 1,5 menit. Withdrawal-nya tetap DISBURSING, sesuai keadaan di Xendit. Kasus ini memperlihatkan celah H106. Waktu proses sandbox Xendit bervariasi dari detik sampai menit, sehingga test end-to-end tidak boleh menilai hasil dari satu kali cek.
+
 ---
 
 ## 5. Alur Sistem End-to-End
@@ -1947,6 +1950,7 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 - [ ] **H101** Partial unique index satu `REFUND_DEDUCTION` per order, dipasang di sesi 8c. Wajib punya test yang menulis deduction kedua dan memastikan ditolak **(baru, D132)**
 - [x] **H102** **(ditutup di sesi 8b: `uniq_withdrawal_event_per_withdrawal`, juga mencakup satu WITHDRAWAL per withdrawal, dibuktikan webhook FAILED ganda dan sisipan langsung yang ditolak)** Partial unique index satu `WITHDRAWAL_REVERSAL` per withdrawal, dipasang di sesi 8b. Wajib punya test webhook FAILED yang dikirim dua kali **(baru, D134)**
 - [x] **H105** **(ditutup di sesi 8b: `tsconfig.test.json`, 12 galat di 7 berkas diperbaiki)** `npm run typecheck` hanya memeriksa `src`, karena `tsconfig.json` di `apps/api` mengecualikan `tests` dan skrip. Vitest juga tidak memeriksa tipe, jadi galat tipe di test dan skrip lolos tanpa ketahuan. Tambahkan tsconfig untuk test dan skrip, lalu masukkan ke script typecheck. Dikerjakan di awal sesi 8b **(baru, ditemukan di sesi 8a)**
+- [ ] **H106** Rekonsiliasi status payout dan refund ke Xendit. Status akhir withdrawal (D137) dan refund (D136) hanya ditentukan webhook, sehingga kalau webhook tidak pernah datang, withdrawal tertahan di DISBURSING dan refund di PROCESSING tanpa jalan keluar. Sediakan aksi admin dan atau cron yang menanyakan status langsung ke Xendit (`GET /v2/payouts/{id}` dan endpoint refund yang setara), lalu menerapkannya lewat aturan yang sama dengan webhook. Dikerjakan di sesi 8c. Withdrawal `ed913010...` dari uji sandbox 8b bisa dipakai sebagai kasus uji kalau masih tertahan **(baru, ditemukan di uji sandbox 8b)**
 - [x] **H94** **(ditutup di sesi 6d)** `chk_order_offer_outcome` pada `order_offers`: `declined_at` dan `sla_missed_at` tidak boleh terisi bersamaan **(baru, D102)**
 
 ### 8.2 Keamanan Kode Verifikasi dan Token
