@@ -23,7 +23,9 @@ function validEnv(): NodeJS.ProcessEnv {
     PAYMENT_GATEWAY: 'fake',
     XENDIT_SECRET_KEY: 'xnd_development_dummy',
     XENDIT_CALLBACK_TOKEN: 'callback-token-dummy',
+    LLM_GATEWAY: 'fake',
     GEMINI_API_KEY: 'gemini-key-dummy',
+    GEMINI_MODEL: 'gemini-model-uji',
     SUPABASE_URL: 'https://example.supabase.co',
     SUPABASE_SERVICE_ROLE_KEY: 'service-role-dummy',
     SMTP_HOST: 'smtp.example.com',
@@ -120,11 +122,25 @@ describe('loadEnv', () => {
 
   it('menerima xendit di produksi dan menolak gateway yang tidak dikenal', () => {
     expect(
-      loadEnv({ ...validEnv(), NODE_ENV: 'production', PAYMENT_GATEWAY: 'xendit' }).PAYMENT_GATEWAY,
+      loadEnv({ ...validEnv(), NODE_ENV: 'production', PAYMENT_GATEWAY: 'xendit', LLM_GATEWAY: 'gemini' }).PAYMENT_GATEWAY,
     ).toBe('xendit');
     expect(() => loadEnv({ ...validEnv(), PAYMENT_GATEWAY: 'midtrans' })).toThrow(
       /fake atau xendit/,
     );
+  });
+
+  // D151, usulan D157: chatbot palsu di produksi akan merekam intent palsu sebagai data Bab IV.
+  it('gagal start kalau LLM_GATEWAY=fake bersama NODE_ENV=production', () => {
+    expect(() =>
+      loadEnv({ ...validEnv(), NODE_ENV: 'production', PAYMENT_GATEWAY: 'xendit', LLM_GATEWAY: 'fake' }),
+    ).toThrow(/LLM_GATEWAY=fake tidak boleh/);
+  });
+
+  it('menerima gemini di produksi dan menolak gateway LLM yang tidak dikenal', () => {
+    expect(
+      loadEnv({ ...validEnv(), NODE_ENV: 'production', PAYMENT_GATEWAY: 'xendit', LLM_GATEWAY: 'gemini' }).LLM_GATEWAY,
+    ).toBe('gemini');
+    expect(() => loadEnv({ ...validEnv(), LLM_GATEWAY: 'openai' })).toThrow(/fake atau gemini/);
   });
 
   it('menyebutkan nama variabel yang salah di pesan galatnya', () => {

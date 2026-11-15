@@ -93,7 +93,12 @@ const envSchema = z.object({
   XENDIT_CALLBACK_TOKEN: requiredString('XENDIT_CALLBACK_TOKEN'),
 
   // --- Gemini ---
+  // D151. `fake` untuk dev, test, newman, dan k6. Ditolak di produksi (usulan D157).
+  LLM_GATEWAY: z.enum(['fake', 'gemini'], {
+    errorMap: () => ({ message: 'LLM_GATEWAY harus fake atau gemini' }),
+  }),
   GEMINI_API_KEY: requiredString('GEMINI_API_KEY'),
+  GEMINI_MODEL: requiredString('GEMINI_MODEL'),
 
   // --- Supabase Storage ---
   SUPABASE_URL: requiredString('SUPABASE_URL').url('SUPABASE_URL harus URL yang sah'),
@@ -117,6 +122,13 @@ const envSchema = z.object({
       code: z.ZodIssueCode.custom,
       path: ['PAYMENT_GATEWAY'],
       message: 'PAYMENT_GATEWAY=fake tidak boleh dipakai bersama NODE_ENV=production (D101)',
+    });
+  }
+  if (value.NODE_ENV === 'production' && value.LLM_GATEWAY === 'fake') {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['LLM_GATEWAY'],
+      message: 'LLM_GATEWAY=fake tidak boleh dipakai bersama NODE_ENV=production (D151)',
     });
   }
 });

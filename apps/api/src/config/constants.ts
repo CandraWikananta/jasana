@@ -55,6 +55,12 @@ export const STORAGE_TIMEOUT_MS = 15_000;
  */
 export const PAYMENT_GATEWAY_TIMEOUT_MS = 10_000;
 
+/**
+ * Batas satu panggilan LlmGateway (D151, usulan D156). Ini batas keras, bukan
+ * target NFR p95 3 detik. Tamu tidak dibiarkan menunggu lebih lama dari ini.
+ */
+export const LLM_GATEWAY_TIMEOUT_MS = 8_000;
+
 /** PRD 7.1, D121: event PROCESSING lebih lama dari ini dianggap macet, FAILED diulang maksimal sekian kali. */
 export const WEBHOOK_STUCK_MINUTES = 5;
 export const WEBHOOK_MAX_RETRIES = 3;
