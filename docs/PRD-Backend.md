@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| Versi | 2.24 |
+| Versi | 2.25 |
 | Penyusun | I Nyoman Gede Candra Wikananta (2305551065) |
 | Program Studi | Teknologi Informasi, Universitas Udayana |
 | Bidang Keahlian | Sistem Informasi |
@@ -1071,9 +1071,11 @@ Efek samping: kirim lewat Socket.IO ke room `order:<order_id>`, lalu notifikasi 
    + personalization_snapshot (NULL untuk tamu)
    + riwayat percakapan
 5. Panggil Gemini lewat LlmGateway dengan structured output (D151)
+   galat 5xx -> satu kali retry dalam tenggat 8 detik yang sama (D165)
 6. Rekam extracted_intent, intent_confidence, token_usage, latency_ms
 7. Menurut jenis intent (D152):
      cari_jasa           -> validasi sub-kategori, cari listing, kembalikan rekomendasi
+                            hasil kosong: saran mengikuti slot yang terisi (D166)
      perlu_klarifikasi   -> teruskan pertanyaan klarifikasi dari Gemini
      jasa_tidak_tersedia, sapaan, di_luar_cakupan -> templat tetap dari server
    Gemini tidak pernah menerima data listing maupun penyedia
@@ -1495,7 +1497,7 @@ Yang sudah ditutup di register keputusan versi 2.8:
 | `GUEST_CHAT_LIMIT_REACHED` | 429 | Sesi chatbot tamu melewati batas pesan |
 | `CHAT_SESSION_ENDED` | 409 | Sesi chat tamu sudah berakhir atau kedaluwarsa, atau sesi terdaftar yang sudah berakhir dikirimi pesan (D162) |
 | `RATE_LIMIT_EXCEEDED` | 429 | Melewati batas permintaan |
-| `GEMINI_UNAVAILABLE` | 502 | Gemini API gagal merespons |
+| `GEMINI_UNAVAILABLE` | 502 | Gemini API gagal merespons, termasuk setelah satu kali retry untuk galat 5xx (D165) |
 | `PAYMENT_GATEWAY_ERROR` | 502 | Xendit gagal merespons |
 | `EMAIL_DELIVERY_FAILED` | 502 | SMTP gagal, dicatat tapi tidak membatalkan operasi |
 | `CHATBOT_TEMPORARILY_UNAVAILABLE` | 503 | Rem global harian chatbot tamu aktif |
@@ -1546,3 +1548,4 @@ Tidak menyangkut aturan bisnis, dibentuk oleh middleware bersama pada Fase 0.
 | 2.22 | 15 November 2026 | Sinkron dengan register keputusan versi 2.29. Alur pesan chatbot menurut jenis intent (D151, D152), parameter `guest_chat_session_hours` (D155), dan hari kalender rem global (D154) |
 | 2.23 | 15 November 2026 | Sinkron dengan register keputusan versi 2.30. Nilai `guest_chat_daily_global_limit` 250 (D160) dan model Gemini (D159) |
 | 2.24 | 16 November 2026 | Sinkron dengan register keputusan versi 2.31. Urutan batas tamu (D163, D164), header `X-Guest-Token`, dan kode error `CHAT_SESSION_ENDED` (D162) |
+| 2.25 | 16 November 2026 | Sinkron dengan register keputusan versi 2.32. Retry 5xx Gemini (D165) dan saran templat hasil kosong (D166) |

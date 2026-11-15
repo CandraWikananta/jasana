@@ -4,9 +4,9 @@
 **Nama sistem:** Jasana
 **Penyusun:** I Nyoman Gede Candra Wikananta (2305551065)
 **Bidang Keahlian:** Sistem Informasi, Teknologi Informasi, Universitas Udayana
-**Versi:** 2.31
-**Terakhir diperbarui:** 16 November 2026 (versi 2.31)
-**Tahap saat ini:** Implementasi backend. Fase 0 sampai Fase 8 selesai, Fase 9 berjalan (sesi 9a dan 9b selesai)
+**Versi:** 2.32
+**Terakhir diperbarui:** 16 November 2026 (versi 2.32)
+**Tahap saat ini:** Implementasi backend. Fase 0 sampai Fase 8 selesai, Fase 9 berjalan (sesi 9a dan 9b selesai beserta uji sandbox 9b)
 
 ---
 
@@ -48,7 +48,13 @@
 | Chatbot (D151 sampai D155) | 5 | 0 |
 | Gateway LLM dan model (D156 sampai D160) | 5 | 0 |
 | Sesi dan pesan chat (D161 sampai D164) | 4 | 0 |
+| Hasil sandbox chatbot (D165 sampai D166) | 2 | 0 |
 | Keputusan terbuka tanpa nomor D (Bagian 7) | | 0 |
+
+**Perubahan pada versi 2.32:**
+
+1. Satu kali retry untuk galat 5xx dari Gemini (D165) dan saran templat "tidak ada hasil" yang mengikuti slot (D166)
+2. Hasil uji sandbox 9b dengan Gemini sungguhan, termasuk analisis latensi. H111 baru
 
 **Perubahan pada versi 2.31:**
 
@@ -1610,6 +1616,46 @@ Dari sesi 9b. D161 sampai D163 dijawab sebelum rencana disusun, D164 dari review
 
 ---
 
+## 4Z. Keputusan Versi 2.32 (D165 sampai D166) dan Hasil Uji Sandbox 9b
+
+Dari uji sandbox 9b dengan Gemini sungguhan. Diimplementasikan di sesi 9c. Tanpa perubahan skema.
+
+| # | Keputusan | Alasan |
+|---|---|---|
+| D165 | **Satu kali retry otomatis untuk galat HTTP 5xx dari Gemini** (500, 502, 503, 504), dengan jeda sekitar 1 detik. Kedua percobaan berbagi satu tenggat 8 detik (D156): retry memakai sisa waktu dan tidak dijalankan kalau sisanya terlalu kecil untuk satu panggilan. Tidak ada retry untuk `invalid_output`, timeout, kuota habis (429), atau 4xx lain. Jumlah percobaan dicatat di log (`llm_attempts`). Pada evaluasi akurasi (D153), skenario yang baru berhasil setelah retry dihitung terpisah | Uji sandbox mencatat dua kegagalan dari sepuluh panggilan, dan yang terkonfirmasi lewat log adalah 503 `service_unavailable` dengan `llm_quota_exceeded` false, yaitu server Gemini sedang padat. Pesan yang sama berhasil saat dikirim ulang. Galat semacam ini sementara, sehingga satu retry menaikkan peluang berhasil tanpa membebani pengguna. Retry untuk `invalid_output` atau kuota hanya membuang kuota karena hasilnya hampir pasti sama. Satu pesan bisa memakan dua request dari jatah 15 RPM, masih aman untuk UAT yang dijalankan bertahap |
+| D166 | **Saran pada templat "tidak ada hasil" mengikuti slot yang diekstrak.** Kalau ada budget, sarankan menaikkan budget. Kalau ada waktu, sarankan mengganti waktu. Kalau keduanya kosong, sarankan mencoba lokasi lain atau sebutkan kategori lain yang tersedia | Templat 9b selalu menyarankan "ubah waktu atau budget-nya", padahal pada uji sandbox pengguna tidak menyebut waktu maupun budget. Saran yang tidak nyambung membuat chatbot terasa tidak memahami pesan, padahal intent-nya sudah diekstrak dengan benar |
+
+**Hasil uji sandbox 9b (16 November 2026, dijalankan penyusun di Supabase dev dengan `LLM_GATEWAY=gemini` dan model `gemini-3.5-flash-lite`):**
+
+| Jenis | Skenario | Hasil |
+|---|---|---|
+| `sapaan` | "halo kak" (tamu) dan "halo" (terdaftar) | Lulus, templat sapaan |
+| `perlu_klarifikasi` | "butuh fotografer" (tamu) | Lulus, Gemini menanyakan jenis foto (produk, prewedding, dan seterusnya) |
+| `cari_jasa`, ada hasil | dokumentasi acara seminar, tamu dengan koordinat | Lulus, sub-kategori `fotografi/dokumentasi-acara`, 2 rekomendasi |
+| `cari_jasa`, ada hasil | dokumentasi acara seminar dengan budget, terdaftar memakai alamat default | Lulus, 2 rekomendasi |
+| `cari_jasa`, kosong | "buat prewedding di pantai", tamu dengan koordinat | Lulus, sub-kategori `fotografi/foto-prewedding`, templat kosong. Dicek lewat SQL: Supabase dev memang belum punya listing Foto Prewedding |
+| `jasa_tidak_tersedia` | "les piano anak" (terdaftar) | Lulus, templat menyebut kategori yang tersedia |
+| `di_luar_cakupan` | "gimana cara daftar jadi penyedia?" (tamu) | Lulus pada percobaan kedua |
+| Gemini gagal | dua kali, pada percobaan pertama "gimana cara daftar jadi penyedia?" (2.129 ms) dan "buat prewedding di pantai" (4.789 ms) | Ditangani sesuai D161: baris ASSISTANT berisi pesan ramah, 502 `GEMINI_UNAVAILABLE`. Kegagalan kedua terkonfirmasi lewat log sebagai 503 `service_unavailable` tanpa kuota habis. Log kegagalan pertama tidak diambil, tetapi polanya sama dan pesan itu berhasil saat diulang |
+
+Semua jenis intent menghasilkan klasifikasi yang benar pada percobaan yang berhasil, dengan confidence 0,95 sampai 1 (H110). Pemakaian token 1.223 sampai 1.496 per panggilan.
+
+**Latensi.** `latency_ms` (panggilan Gemini saja) dan waktu total satu giliran (selisih `created_at` pesan ASSISTANT dan pesan USER) pada delapan panggilan yang berhasil:
+
+| Kelompok | Latensi Gemini | Waktu total | Selisih (overhead server) |
+|---|---|---|---|
+| Jawaban templat dan klarifikasi (5 panggilan) | 1.533 sampai 5.418 ms | 2.294 sampai 6.567 ms | 720 sampai 1.432 ms |
+| `cari_jasa` dengan pencarian listing (3 panggilan) | 1.715 sampai 4.781 ms | 4.849 sampai 7.241 ms | 2.460 sampai 3.134 ms |
+
+- Hanya 2 dari 8 giliran di bawah target 3 detik PRD 6.1, keduanya jawaban templat pada saat Gemini cepat
+- Latensi Gemini terbagi dua kelompok: sekitar 1,5 sampai 1,9 detik dan sekitar 4,8 sampai 5,4 detik, padahal panjang prompt hampir sama. Pada smoke 9a rata-ratanya sekitar 1,5 detik. Kelompok lambat jatuh berdekatan dengan dua 503, sehingga dugaan kuatnya beban server Gemini pada saat itu. Model preview di free tier tidak punya jaminan latensi. Kebetulan semua panggilan lambat berasal dari sesi tamu, sehingga evaluasi 9c memisahkan latensi per jenis sesi untuk memastikan ini bukan efek dari isi prompt
+- Overhead `cari_jasa` sekitar 1,7 sampai 2,4 detik lebih besar dari jawaban templat. Ini waktu pencarian listing dan penyusunan kartu rekomendasi ke Supabase dev yang jaraknya jauh (pola yang sama dengan H109). Dicatat sebagai H111
+- Target 3 detik ditetapkan dengan asumsi Gemini menjawab sekitar 1,5 detik. Pengukuran di Bab IV memisahkan latensi Gemini dari overhead server, supaya bagian yang dikendalikan sistem bisa dinilai sendiri
+
+**Catatan:** kategori dan sub-kategori demo dari fase sebelumnya ("Kebersihan Rumah (Demo F3)", "Otomotif (Demo Postman)", dan satu "Otomotif" ganda) masih aktif di Supabase dev, sehingga muncul di templat `jasa_tidak_tersedia` dan ikut terkirim ke prompt Gemini. Wajib dinonaktifkan sebelum evaluasi akurasi dan UAT (H16).
+
+---
+
 ## 5. Alur Sistem End-to-End
 
 ### 5.1 Onboarding
@@ -2248,6 +2294,7 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 - [ ] **H104** Pembayaran dobel lewat invoice yatim di-refund admin di luar sistem, bukan lewat alur refund otomatis **(baru, D135)**. Kasusnya bisa dicari lewat `webhook_events` bertanda `DOUBLE_PAYMENT`
 - [ ] **H107** Tidak ada sinkronisasi otomatis ke Xendit (D143). Withdrawal atau refund yang webhook-nya hilang baru selesai kalau admin menekan sync. Cron sinkronisasi masuk saran pengembangan **(baru, D143)**
 - [ ] **H110** Confidence intent adalah penilaian Gemini atas dirinya sendiri dan tidak terkalibrasi (hampir selalu 0,95 sampai 1 pada smoke 9a). Dilaporkan sebagai data pendukung, sedangkan keandalan diukur lewat akurasi terhadap dataset berlabel (D153) **(baru, sesi 9a)**
+- [ ] **H111** Overhead server pada giliran `cari_jasa` 2,5 sampai 3,1 detik di Supabase dev, sekitar 1,7 sampai 2,4 detik lebih besar dari jawaban templat. Sesi 9c menghitung jumlah kueri pada jalur pencarian dan penyusunan kartu rekomendasi, lalu memangkas kueri berulang kalau ada **(baru, uji sandbox 9b)**
 - [ ] **H82** Admin fee withdrawal berupa nilai flat yang mengikuti perkiraan biaya payout Xendit **(baru, D84)**. Untuk nominal di atas Rp250.000 biaya sebenarnya sedikit lebih besar dan selisihnya ditanggung platform
 
 ---
@@ -2284,7 +2331,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 
 ## 11. Langkah Berikutnya
 
-1. Fase 9 (chatbot) dalam tiga sesi menurut Bagian 4W. Paralel: penyusun menyusun dataset 30 sampai 50 skenario berlabel (H15, D153) dan mencatat model serta batas kuota project Gemini di AI Studio
+1. Fase 9 (chatbot) dalam tiga sesi menurut Bagian 4W. Sesi 9c juga memuat D165, D166, dan H111, dan sebelum evaluasi akurasi kategori demo di Supabase dev dinonaktifkan (H16). Paralel: penyusun menyusun dataset 30 sampai 50 skenario berlabel (H15, D153) dan mencatat model serta batas kuota project Gemini di AI Studio
 2. Selesai: Fase 8 (15 November 2026, 751 test lulus, D131 sampai D150) beserta uji sandbox payout dan refund. Uji sandbox refund PARTIAL hasil putusan sengketa lulus. Sebelumnya Fase 7 (11 November 2026, 627 test lulus) beserta uji sandbox Xendit sungguhan (12 November 2026), sebelumnya audit hutang teknis (9 November 2026) dan sesi perapian (10 November 2026)
 3. Susun data simulasi untuk dua belas sub-kategori di Lampiran B, termasuk skenario perebutan Available Now dan pendamping pada dokumentasi acara
 4. Riset ringan rentang harga pasaran untuk dua belas sub-kategori tersebut, catat sumbernya
@@ -2329,6 +2376,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 | 2.29 | 15 November 2026 | Lima keputusan sebelum Fase 9: port `LlmGateway` (D151), pembagian tugas Gemini dan server beserta lima jenis intent (D152), definisi akurasi (D153), rate limit tamu (D154), dan sesi tamu 24 jam (D155). Pembagian Fase 9. Satu parameter sistem baru |
 | 2.30 | 15 November 2026 | Lima keputusan dari sesi 9a dan smoke Gemini: timeout 8 detik (D156), fake ditolak di produksi (D157), `store: false` (D158), model `gemini-3.5-flash-lite` (D159), dan rem global tamu 250 (D160). H14 ditutup, H110 baru. Tanpa perubahan skema |
 | 2.31 | 16 November 2026 | Empat keputusan dari sesi 9b: baris ASSISTANT saat Gemini gagal (D161), kode galat akses sesi (D162), urutan batas tamu (D163), dan definisi tamu untuk rem global (D164). H19 dan H67 ditutup. Tanpa perubahan skema |
+| 2.32 | 16 November 2026 | Hasil uji sandbox 9b dengan Gemini sungguhan: semua jenis intent lulus, dua kegagalan 503 dari server Gemini ditangani sesuai D161, analisis latensi terhadap target 3 detik. Dua keputusan baru: retry 5xx (D165) dan saran templat kosong (D166). H111 baru. Tanpa perubahan skema |
 
 ---
 
