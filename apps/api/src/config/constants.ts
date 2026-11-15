@@ -98,3 +98,15 @@ export const DISPUTE_EVIDENCE_MAX_PER_PARTY = 5;
 
 /** Umur signed URL bukti dispute, sama alasannya dengan KYC_SIGNED_URL_TTL_SECONDS. */
 export const DISPUTE_EVIDENCE_SIGNED_URL_TTL_SECONDS = 10 * 60;
+
+/** Pesan terakhir sebelum pesan baru yang dikirim ulang ke LlmGateway sebagai riwayat (D158). */
+export const CHAT_HISTORY_MESSAGES = 6;
+
+/** Panjang maksimal satu pesan chatbot. Pesan panjang hanya menambah token tanpa menambah intent. */
+export const CHAT_MESSAGE_MAX_LENGTH = 1000;
+
+/** Rekomendasi listing per balasan cari_jasa. */
+export const CHAT_RECOMMENDATION_LIMIT = 5;
+
+/** PRD: cache daftar sub-kategori aktif untuk prompt, di-invalidasi saat admin mengubah katalog. */
+export const SUBCATEGORY_CACHE_TTL_MS = 5 * 60 * 1000;

@@ -4,13 +4,13 @@
 
 | | |
 |---|---|
-| Versi | 2.23 |
+| Versi | 2.24 |
 | Penyusun | I Nyoman Gede Candra Wikananta (2305551065) |
 | Program Studi | Teknologi Informasi, Universitas Udayana |
 | Bidang Keahlian | Sistem Informasi |
 | Pembimbing 1 | Dr. Ir. Ni Kadek Ayu Wirdiani, S.T., M.T., IPU |
 | Pembimbing 2 | Dr. Ir. Anak Agung Kompiang Oka Sudana, S.Kom., M.T., IPM |
-| Tanggal | 15 November 2026 |
+| Tanggal | 16 November 2026 |
 | Cakupan dokumen | **Backend saja** (Express.js REST API, basis data, integrasi eksternal, cron). Frontend dan UI/UX di luar cakupan dokumen ini |
 
 **Dokumen rujukan:** `Keputusan-Desain-Sistem.md` (register keputusan D1 sampai D128, versi 2.21), `State-Machine-Order.md` (artefak desain 3), `skema-database-final.dbml` (35 tabel, 35 enum), `schema.prisma`, `migration-constraints.sql`, `Panduan-Struktur-Database.md`.
@@ -828,7 +828,7 @@ Query parameter `GET /listings`:
 | POST | `/chat/sessions/:id/messages` | P/C | Kirim pesan, memanggil Gemini |
 | POST | `/chat/sessions/:id/end` | P/C | Akhiri sesi |
 
-Akses **P** pada endpoint chatbot berarti sesi tamu, yang diidentifikasi lewat `guest_token`, bukan JWT.
+Akses **P** pada endpoint chatbot berarti sesi tamu, yang diidentifikasi lewat header `X-Guest-Token`, bukan JWT. Token mentah hanya dikembalikan sekali saat sesi dibuat, dan yang disimpan di basis data adalah hash-nya. Sesi milik orang lain dibalas 404 (D162).
 
 #### Notifikasi, berkas, admin
 
@@ -1062,10 +1062,10 @@ Efek samping: kirim lewat Socket.IO ke room `order:<order_id>`, lalu notifikasi 
 
 ```
 1. Tentukan identitas: JWT (terdaftar) atau guest_token (tamu)
-2. Tamu: periksa tiga lapis rate limit
-     per guest_token   -> 429 GUEST_CHAT_LIMIT_REACHED
-     per alamat IP     -> 429 RATE_LIMIT_EXCEEDED
-     global harian     -> 503 CHATBOT_TEMPORARILY_UNAVAILABLE
+2. Tamu: periksa tiga lapis rate limit, urutannya menurut D163
+     per alamat IP     -> 429 RATE_LIMIT_EXCEEDED          (middleware memori)
+     global harian     -> 503 CHATBOT_TEMPORARILY_UNAVAILABLE (pesan USER sesi user_id NULL, hari WITA, D164)
+     per guest_token   -> 429 GUEST_CHAT_LIMIT_REACHED     (UPDATE bersyarat, disusul insert pesan USER)
 3. Terdaftar: rate limit per akun
 4. Susun prompt: daftar sub-kategori aktif
    + personalization_snapshot (NULL untuk tamu)
@@ -1493,6 +1493,7 @@ Yang sudah ditutup di register keputusan versi 2.8:
 | `TAXONOMY_REQUEST_LIMIT` | 429 | Melewati batas usulan aktif per provider |
 | `TAXONOMY_REQUEST_STATE_CONFLICT` | 409 | Usulan yang sudah diputus diputus lagi |
 | `GUEST_CHAT_LIMIT_REACHED` | 429 | Sesi chatbot tamu melewati batas pesan |
+| `CHAT_SESSION_ENDED` | 409 | Sesi chat tamu sudah berakhir atau kedaluwarsa, atau sesi terdaftar yang sudah berakhir dikirimi pesan (D162) |
 | `RATE_LIMIT_EXCEEDED` | 429 | Melewati batas permintaan |
 | `GEMINI_UNAVAILABLE` | 502 | Gemini API gagal merespons |
 | `PAYMENT_GATEWAY_ERROR` | 502 | Xendit gagal merespons |
@@ -1544,3 +1545,4 @@ Tidak menyangkut aturan bisnis, dibentuk oleh middleware bersama pada Fase 0.
 | 2.21 | 15 November 2026 | Sinkron dengan register keputusan versi 2.28. Fase 0 sampai 8 selesai. Dua kode error sengketa (D148) |
 | 2.22 | 15 November 2026 | Sinkron dengan register keputusan versi 2.29. Alur pesan chatbot menurut jenis intent (D151, D152), parameter `guest_chat_session_hours` (D155), dan hari kalender rem global (D154) |
 | 2.23 | 15 November 2026 | Sinkron dengan register keputusan versi 2.30. Nilai `guest_chat_daily_global_limit` 250 (D160) dan model Gemini (D159) |
+| 2.24 | 16 November 2026 | Sinkron dengan register keputusan versi 2.31. Urutan batas tamu (D163, D164), header `X-Guest-Token`, dan kode error `CHAT_SESSION_ENDED` (D162) |

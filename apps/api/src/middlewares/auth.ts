@@ -40,6 +40,19 @@ export const requireAuth: RequestHandler = (req, _res, next) => {
   next();
 };
 
+/**
+ * Chatbot (D77): rute yang dipakai tamu dan pengguna terdaftar. Header
+ * Authorization yang ada tetap wajib valid, supaya token rusak tidak diam-diam
+ * diperlakukan sebagai tamu. Tanpa header, lanjut sebagai calon tamu.
+ */
+export const optionalAuth: RequestHandler = (req, res, next) => {
+  if (req.headers.authorization === undefined) {
+    next();
+    return;
+  }
+  requireAuth(req, res, next);
+};
+
 /** Wajib dipasang SETELAH requireAuth. */
 export const requireEmailVerified: RequestHandler = (req, _res, next) => {
   if (!req.user) {

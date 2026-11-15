@@ -10,6 +10,7 @@ import { schedule } from 'node-cron';
 import { logger } from '../lib/logger';
 import { sweepPaymentDeadlines, sweepResponseDeadlines, sweepSettlements } from '../modules/orders/order-expiry.service';
 import { recoverWebhookEvents } from '../modules/webhooks/webhooks.service';
+import { endExpiredGuestSessions } from '../modules/chat/chat.service';
 import { cleanOrphanListingPhotos } from './orphan-listing-photos';
 import { sweepStalePresence } from './presence-sweep';
 
@@ -38,5 +39,7 @@ export function startJobs(): void {
   // Tiap 5 menit (PRD 7.1): T18 (7c) dan pemulihan webhook (D121).
   register('settlement-sweep', '*/5 * * * *', sweepSettlements);
   register('webhook-recovery', '*/5 * * * *', recoverWebhookEvents);
+  // Tiap 1 jam (PRD 7.1, D155).
+  register('guest-chat-expiry', '0 * * * *', endExpiredGuestSessions);
   logger.info('Cron terdaftar');
 }

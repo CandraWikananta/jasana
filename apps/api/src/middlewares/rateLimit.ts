@@ -19,7 +19,8 @@ import { AppError } from '../lib/errors';
 
 interface LimitOptions {
   windowMs: number;
-  limit: number;
+  /** Fungsi untuk batas yang dibaca dari `platform_settings` setiap permintaan. */
+  limit: number | (() => Promise<number>);
   message: string;
 }
 
@@ -100,6 +101,11 @@ export const RATE_LIMITS = {
     windowMs: DAY,
     limit: 3,
     message: 'Batas permintaan penggantian email hari ini sudah tercapai',
+  },
+  chatRegistered: {
+    windowMs: HOUR,
+    limit: 30,
+    message: 'Batas 30 pesan chatbot per jam sudah tercapai, coba lagi nanti',
   },
 } as const satisfies Record<string, LimitOptions>;
 

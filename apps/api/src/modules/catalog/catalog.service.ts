@@ -21,7 +21,9 @@
 
 import { Prisma, prisma, type SubcategoryAttribute } from '@jasana/database';
 import type { ErrorDetail } from '@jasana/shared';
+import { SUBCATEGORY_CACHE_TTL_MS } from '../../config/constants';
 import { Errors } from '../../lib/errors';
+import { subcategoryKey } from '../../lib/llm-intent';
 import { isUniqueViolation } from '../../lib/prisma-errors';
 import {
   checkAttributeDefinition,
@@ -110,6 +112,43 @@ export async function listAttributes(subcategoryId: string): Promise<AttributeDt
 }
 
 // ---------------------------------------------------------------------------
+// Cache sub-kategori aktif untuk prompt chatbot (PRD, cache TTL 5 menit)
+// ---------------------------------------------------------------------------
+
+export interface ActiveSubcategory {
+  id: string;
+  /** `subcategoryKey(kategori.slug, sub.slug)`, yang dikenal LlmGateway. */
+  key: string;
+  name: string;
+  categoryName: string;
+}
+
+// Sah karena API berjalan satu instance, sama seperti rate limiter.
+let activeCache: { loadedAt: number; rows: ActiveSubcategory[] } | null = null;
+
+export async function activeSubcategories(): Promise<ActiveSubcategory[]> {
+  if (activeCache && Date.now() - activeCache.loadedAt < SUBCATEGORY_CACHE_TTL_MS) return activeCache.rows;
+  const rows = await prisma.subcategory.findMany({
+    where: { isActive: true, category: { isActive: true } },
+    select: { id: true, name: true, slug: true, category: { select: { name: true, slug: true } } },
+    orderBy: [{ category: { displayOrder: 'asc' } }, { displayOrder: 'asc' }, { name: 'asc' }],
+  });
+  const mapped = rows.map((row) => ({
+    id: row.id,
+    key: subcategoryKey(row.category.slug, row.slug),
+    name: row.name,
+    categoryName: row.category.name,
+  }));
+  activeCache = { loadedAt: Date.now(), rows: mapped };
+  return mapped;
+}
+
+/** Dipanggil setiap kali kategori atau sub-kategori berubah, supaya chatbot tidak menunggu TTL. */
+export function invalidateActiveSubcategories(): void {
+  activeCache = null;
+}
+
+// ---------------------------------------------------------------------------
 // Admin: kategori
 // ---------------------------------------------------------------------------
 
@@ -136,6 +175,7 @@ export async function updateCategory(id: string, body: UpdateCategoryBody): Prom
   const row = await prisma.category
     .update({ where: { id }, data: categoryData(body) })
     .catch(translateCatalogError);
+  invalidateActiveSubcategories();
   return toCategoryDto(row);
 }
 
@@ -175,8 +215,10 @@ export async function createSubcategoryTx(
   return toSubcategoryDto(row);
 }
 
-export function createSubcategory(body: CreateSubcategoryBody): Promise<SubcategoryDto> {
-  return prisma.$transaction((tx) => createSubcategoryTx(tx, body)).catch(translateCatalogError);
+export async function createSubcategory(body: CreateSubcategoryBody): Promise<SubcategoryDto> {
+  const row = await prisma.$transaction((tx) => createSubcategoryTx(tx, body)).catch(translateCatalogError);
+  invalidateActiveSubcategories();
+  return row;
 }
 
 export async function updateSubcategory(
@@ -203,6 +245,7 @@ export async function updateSubcategory(
   const row = await prisma.subcategory
     .update({ where: { id }, data: subcategoryData(body) })
     .catch(translateCatalogError);
+  invalidateActiveSubcategories();
   return toSubcategoryDto(row);
 }
 

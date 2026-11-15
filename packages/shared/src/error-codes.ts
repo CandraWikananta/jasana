@@ -70,6 +70,9 @@ export const BUSINESS_ERROR_STATUS = {
   // Fase 3, belum tercatat di Lampiran A. Usulan taksonomi yang sudah
   // diputus tidak bisa diputus lagi.
   TAXONOMY_REQUEST_STATE_CONFLICT: 409,
+  // Sesi 9b, belum tercatat di Lampiran A (usulan D162). Sesi tamu ENDED atau kedaluwarsa, atau
+  // sesi terdaftar ENDED yang dikirimi pesan atau diakhiri lagi.
+  CHAT_SESSION_ENDED: 409,
   GUEST_CHAT_LIMIT_REACHED: 429,
   RATE_LIMIT_EXCEEDED: 429,
   GEMINI_UNAVAILABLE: 502,

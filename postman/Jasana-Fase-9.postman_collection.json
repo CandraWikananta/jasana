@@ -1,0 +1,1422 @@
+{
+  "info": {
+    "name": "Jasana Backend - Fase 9 (Chatbot)",
+    "description": "Sesi 9b: sesi chat tamu dan terdaftar, lima jenis intent (D152), tiga lapis batas tamu (H19, D154, usulan D163), dan akses sesi (usulan D162).\n\n## Setiap putaran\n1. `npm run postman:seed:fase-9` di akar repo, ke `jasana_test`. Seed menurunkan batas tamu: 3 pesan per sesi, 10 per IP per jam, dan rem global = pesan tamu hari ini WITA + 6.\n2. Server baru dengan `LLM_GATEWAY=fake` (WAJIB, collection ini tidak boleh memanggil Gemini sungguhan) dan port baru, karena limiter IP ada di memori proses.\n3. Jalankan folder berurutan dari 01. Hitungan IP: A1 sampai A4 (4), B1 sampai B4 (8), C1 sampai C3 (11). Pesan tamu tersimpan: A1 sampai A3 dan B1 sampai B3 (6), sehingga C1 kena rem global sebelum batas IP.\n\n## Akun\n| Akun | Peran |\n|---|---|\n| gklien | Client, alamat default Renon |\n| gservis | Servis AC Renon, listing servis AC radius 10 km |",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "01. Sesi tamu: lima intent dan tiga lapis batas (jalankan npm run postman:seed:fase-9 dulu)",
+      "item": [
+        {
+          "name": "Health",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Buat sesi tamu GA",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', function () { pm.response.to.have.status(201); });",
+                  "var body = pm.response.json().data;",
+                  "pm.test('guest_token 64 hex, hanya muncul di sini', function () { pm.expect(body.guest_token).to.match(/^[0-9a-f]{64}$/); });",
+                  "pm.test('Sesi tamu ACTIVE dengan expires_at', function () { pm.expect(body.session.type).to.eql('GUEST'); pm.expect(body.session.status).to.eql('ACTIVE'); pm.expect(body.session.expires_at).to.be.a('string'); });",
+                  "pm.environment.set('f9_ga_id', body.session.id);",
+                  "pm.environment.set('f9_ga_token', body.guest_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/chat/guest-sessions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "chat",
+                "guest-sessions"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "A1 sapaan",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', function () { pm.response.to.have.status(201); });",
+                  "var body = pm.response.json().data;",
+                  "pm.test('Intent sapaan', function () { pm.expect(body.intent).to.eql('sapaan'); });",
+                  "pm.test('Pesan USER dan ASSISTANT tersimpan', function () { pm.expect(body.user_message.role).to.eql('USER'); pm.expect(body.assistant_message.role).to.eql('ASSISTANT'); });",
+                  "pm.test('Sisa kuota tamu 2', function () { pm.expect(body.guest_quota.remaining).to.eql(2); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Guest-Token",
+                "value": "{{f9_ga_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"halo kak\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/chat/sessions/{{f9_ga_id}}/messages",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "chat",
+                "sessions",
+                "{{f9_ga_id}}",
+                "messages"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "A2 perlu_klarifikasi",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', function () { pm.response.to.have.status(201); });",
+                  "var body = pm.response.json().data;",
+                  "pm.test('Intent perlu_klarifikasi', function () { pm.expect(body.intent).to.eql('perlu_klarifikasi'); });",
+                  "pm.test('Pesan USER dan ASSISTANT tersimpan', function () { pm.expect(body.user_message.role).to.eql('USER'); pm.expect(body.assistant_message.role).to.eql('ASSISTANT'); });",
+                  "pm.test('Pertanyaan klarifikasi dari gateway', function () { pm.expect(body.assistant_message.content).to.include('Foto untuk apa'); });",
+                  "pm.test('Sisa kuota tamu 1', function () { pm.expect(body.guest_quota.remaining).to.eql(1); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Guest-Token",
+                "value": "{{f9_ga_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"butuh fotografer\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/chat/sessions/{{f9_ga_id}}/messages",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "chat",
+                "sessions",
+                "{{f9_ga_id}}",
+                "messages"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "A3 cari_jasa tanpa lokasi: minta izin lokasi",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', function () { pm.response.to.have.status(201); });",
+                  "var body = pm.response.json().data;",
+                  "pm.test('Intent cari_jasa', function () { pm.expect(body.intent).to.eql('cari_jasa'); });",
+                  "pm.test('Pesan USER dan ASSISTANT tersimpan', function () { pm.expect(body.user_message.role).to.eql('USER'); pm.expect(body.assistant_message.role).to.eql('ASSISTANT'); });",
+                  "pm.test('Tanpa rekomendasi', function () { pm.expect(body.recommendations).to.eql([]); });",
+                  "pm.test('Templat izin lokasi', function () { pm.expect(body.assistant_message.content).to.include('izinkan akses lokasi'); });",
+                  "pm.test('Sisa kuota tamu 0', function () { pm.expect(body.guest_quota.remaining).to.eql(0); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Guest-Token",
+                "value": "{{f9_ga_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"servis ac besok\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/chat/sessions/{{f9_ga_id}}/messages",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "chat",
+                "sessions",
+                "{{f9_ga_id}}",
+                "messages"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "A4 batas per sesi: 429 GUEST_CHAT_LIMIT_REACHED",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 429', function () { pm.response.to.have.status(429); });",
+                  "pm.test('Kode GUEST_CHAT_LIMIT_REACHED', function () { pm.expect(pm.response.json().error.code).to.eql('GUEST_CHAT_LIMIT_REACHED'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Guest-Token",
+                "value": "{{f9_ga_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"halo\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/chat/sessions/{{f9_ga_id}}/messages",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "chat",
+                "sessions",
+                "{{f9_ga_id}}",
+                "messages"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Riwayat sesi A",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "var items = pm.response.json().data;",
+                  "pm.test('Tiga pesan USER dan tiga ASSISTANT, lama ke baru', function () { pm.expect(items.map(function (m) { return m.role; })).to.eql(['USER', 'ASSISTANT', 'USER', 'ASSISTANT', 'USER', 'ASSISTANT']); });",
+                  "pm.test('Kolom pengukuran tidak dikirim', function () { pm.expect(items[1]).to.not.have.property('token_usage'); pm.expect(items[1]).to.not.have.property('gemini_model'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Guest-Token",
+                "value": "{{f9_ga_token}}"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/chat/sessions/{{f9_ga_id}}/messages",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "chat",
+                "sessions",
+                "{{f9_ga_id}}",
+                "messages"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Token salah: 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404', function () { pm.response.to.have.status(404); });",
+                  "pm.test('Kode NOT_FOUND', function () { pm.expect(pm.response.json().error.code).to.eql('NOT_FOUND'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Guest-Token",
+                "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/chat/sessions/{{f9_ga_id}}/messages",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "chat",
+                "sessions",
+                "{{f9_ga_id}}",
+                "messages"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Tanpa token: 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401', function () { pm.response.to.have.status(401); });",
+                  "pm.test('Kode UNAUTHORIZED', function () { pm.expect(pm.response.json().error.code).to.eql('UNAUTHORIZED'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/chat/sessions/{{f9_ga_id}}/messages",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "chat",
+                "sessions",
+                "{{f9_ga_id}}",
+                "messages"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Buat sesi tamu GB",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', function () { pm.response.to.have.status(201); });",
+                  "var body = pm.response.json().data;",
+                  "pm.test('guest_token 64 hex, hanya muncul di sini', function () { pm.expect(body.guest_token).to.match(/^[0-9a-f]{64}$/); });",
+                  "pm.test('Sesi tamu ACTIVE dengan expires_at', function () { pm.expect(body.session.type).to.eql('GUEST'); pm.expect(body.session.status).to.eql('ACTIVE'); pm.expect(body.session.expires_at).to.be.a('string'); });",
+                  "pm.environment.set('f9_gb_id', body.session.id);",
+                  "pm.environment.set('f9_gb_token', body.guest_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/chat/guest-sessions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "chat",
+                "guest-sessions"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "B1 jasa_tidak_tersedia",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', function () { pm.response.to.have.status(201); });",
+                  "var body = pm.response.json().data;",
+                  "pm.test('Intent jasa_tidak_tersedia', function () { pm.expect(body.intent).to.eql('jasa_tidak_tersedia'); });",
+                  "pm.test('Pesan USER dan ASSISTANT tersimpan', function () { pm.expect(body.user_message.role).to.eql('USER'); pm.expect(body.assistant_message.role).to.eql('ASSISTANT'); });",
+                  "pm.test('Menyebut kategori yang tersedia', function () { pm.expect(body.assistant_message.content).to.include('Saat ini yang tersedia'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Guest-Token",
+                "value": "{{f9_gb_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"cari les piano anak\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/chat/sessions/{{f9_gb_id}}/messages",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "chat",
+                "sessions",
+                "{{f9_gb_id}}",
+                "messages"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "B2 di_luar_cakupan",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', function () { pm.response.to.have.status(201); });",
+                  "var body = pm.response.json().data;",
+                  "pm.test('Intent di_luar_cakupan', function () { pm.expect(body.intent).to.eql('di_luar_cakupan'); });",
+                  "pm.test('Pesan USER dan ASSISTANT tersimpan', function () { pm.expect(body.user_message.role).to.eql('USER'); pm.expect(body.assistant_message.role).to.eql('ASSISTANT'); });",
+                  "pm.test('Mengarahkan ke halaman Bantuan', function () { pm.expect(body.assistant_message.content).to.include('halaman Bantuan'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Guest-Token",
+                "value": "{{f9_gb_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"cara bikin nasi goreng\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/chat/sessions/{{f9_gb_id}}/messages",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "chat",
+                "sessions",
+                "{{f9_gb_id}}",
+                "messages"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "B3 cari_jasa dengan geolokasi browser",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', function () { pm.response.to.have.status(201); });",
+                  "var body = pm.response.json().data;",
+                  "pm.test('Intent cari_jasa', function () { pm.expect(body.intent).to.eql('cari_jasa'); });",
+                  "pm.test('Pesan USER dan ASSISTANT tersimpan', function () { pm.expect(body.user_message.role).to.eql('USER'); pm.expect(body.assistant_message.role).to.eql('ASSISTANT'); });",
+                  "pm.test('Ada kartu rekomendasi, maksimal 5', function () { pm.expect(body.recommendations.length).to.be.within(1, 5); });",
+                  "pm.test('H67: kartu tanpa data pribadi penyedia', function () {",
+                  "  var raw = JSON.stringify(body.recommendations);",
+                  "  ['phone', 'email', 'address', 'user_id', 'base_latitude'].forEach(function (k) { pm.expect(raw).to.not.include('\"' + k + '\"'); });",
+                  "  pm.expect(raw).to.not.include('+628990000092');",
+                  "  pm.expect(Object.keys(body.recommendations[0].provider).sort()).to.eql(['business_name', 'id', 'rating_average', 'rating_count']);",
+                  "});",
+                  "pm.test('recommended_listing_ids sama dengan kartu', function () { pm.expect(body.assistant_message.recommended_listing_ids).to.eql(body.recommendations.map(function (c) { return c.id; })); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Guest-Token",
+                "value": "{{f9_gb_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"servis ac besok\",\n  \"latitude\": -8.6725,\n  \"longitude\": 115.234\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/chat/sessions/{{f9_gb_id}}/messages",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "chat",
+                "sessions",
+                "{{f9_gb_id}}",
+                "messages"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Akhiri sesi B",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('ENDED', function () { pm.expect(pm.response.json().data.status).to.eql('ENDED'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Guest-Token",
+                "value": "{{f9_gb_token}}"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/chat/sessions/{{f9_gb_id}}/end",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "chat",
+                "sessions",
+                "{{f9_gb_id}}",
+                "end"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "B4 setelah end: 409 CHAT_SESSION_ENDED",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 409', function () { pm.response.to.have.status(409); });",
+                  "pm.test('Kode CHAT_SESSION_ENDED', function () { pm.expect(pm.response.json().error.code).to.eql('CHAT_SESSION_ENDED'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Guest-Token",
+                "value": "{{f9_gb_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"halo\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/chat/sessions/{{f9_gb_id}}/messages",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "chat",
+                "sessions",
+                "{{f9_gb_id}}",
+                "messages"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Buat sesi tamu GC",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', function () { pm.response.to.have.status(201); });",
+                  "var body = pm.response.json().data;",
+                  "pm.test('guest_token 64 hex, hanya muncul di sini', function () { pm.expect(body.guest_token).to.match(/^[0-9a-f]{64}$/); });",
+                  "pm.test('Sesi tamu ACTIVE dengan expires_at', function () { pm.expect(body.session.type).to.eql('GUEST'); pm.expect(body.session.status).to.eql('ACTIVE'); pm.expect(body.session.expires_at).to.be.a('string'); });",
+                  "pm.environment.set('f9_gc_id', body.session.id);",
+                  "pm.environment.set('f9_gc_token', body.guest_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/chat/guest-sessions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "chat",
+                "guest-sessions"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "C1 rem global harian: 503",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 503', function () { pm.response.to.have.status(503); });",
+                  "pm.test('Kode CHATBOT_TEMPORARILY_UNAVAILABLE', function () { pm.expect(pm.response.json().error.code).to.eql('CHATBOT_TEMPORARILY_UNAVAILABLE'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Guest-Token",
+                "value": "{{f9_gc_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"halo\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/chat/sessions/{{f9_gc_id}}/messages",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "chat",
+                "sessions",
+                "{{f9_gc_id}}",
+                "messages"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Riwayat sesi C kosong: 503 tidak menyimpan pesan",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Kosong', function () { pm.expect(pm.response.json().data).to.eql([]); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Guest-Token",
+                "value": "{{f9_gc_token}}"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/chat/sessions/{{f9_gc_id}}/messages",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "chat",
+                "sessions",
+                "{{f9_gc_id}}",
+                "messages"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "C2 rem global masih aktif: 503 (pesan ke-10 dari IP ini)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 503', function () { pm.response.to.have.status(503); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Guest-Token",
+                "value": "{{f9_gc_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"halo\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/chat/sessions/{{f9_gc_id}}/messages",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "chat",
+                "sessions",
+                "{{f9_gc_id}}",
+                "messages"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "C3 batas per IP: 429 RATE_LIMIT_EXCEEDED (pesan ke-11)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 429', function () { pm.response.to.have.status(429); });",
+                  "pm.test('Kode RATE_LIMIT_EXCEEDED', function () { pm.expect(pm.response.json().error.code).to.eql('RATE_LIMIT_EXCEEDED'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Guest-Token",
+                "value": "{{f9_gc_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"halo\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/chat/sessions/{{f9_gc_id}}/messages",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "chat",
+                "sessions",
+                "{{f9_gc_id}}",
+                "messages"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "02. Sesi terdaftar",
+      "item": [
+        {
+          "name": "Login gklien",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.environment.set('f9_user_token', pm.response.json().data.access_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"gklien@postman.jasana.test\",\n  \"password\": \"{{seed_password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Buat sesi terdaftar",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', function () { pm.response.to.have.status(201); });",
+                  "var body = pm.response.json().data;",
+                  "pm.test('REGISTERED tanpa expires_at', function () { pm.expect(body.type).to.eql('REGISTERED'); pm.expect(body.expires_at).to.eql(null); });",
+                  "pm.environment.set('f9_us_id', body.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{f9_user_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/chat/sessions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "chat",
+                "sessions"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "U1 sapaan, tanpa kuota tamu",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', function () { pm.response.to.have.status(201); });",
+                  "var body = pm.response.json().data;",
+                  "pm.test('Intent sapaan', function () { pm.expect(body.intent).to.eql('sapaan'); });",
+                  "pm.test('Pesan USER dan ASSISTANT tersimpan', function () { pm.expect(body.user_message.role).to.eql('USER'); pm.expect(body.assistant_message.role).to.eql('ASSISTANT'); });",
+                  "pm.test('guest_quota null', function () { pm.expect(body.guest_quota).to.eql(null); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{f9_user_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"halo\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/chat/sessions/{{f9_us_id}}/messages",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "chat",
+                "sessions",
+                "{{f9_us_id}}",
+                "messages"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "U2 cari_jasa memakai alamat default",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', function () { pm.response.to.have.status(201); });",
+                  "var body = pm.response.json().data;",
+                  "pm.test('Intent cari_jasa', function () { pm.expect(body.intent).to.eql('cari_jasa'); });",
+                  "pm.test('Pesan USER dan ASSISTANT tersimpan', function () { pm.expect(body.user_message.role).to.eql('USER'); pm.expect(body.assistant_message.role).to.eql('ASSISTANT'); });",
+                  "pm.test('Ada kartu rekomendasi, maksimal 5', function () { pm.expect(body.recommendations.length).to.be.within(1, 5); });",
+                  "pm.test('H67: kartu tanpa data pribadi penyedia', function () {",
+                  "  var raw = JSON.stringify(body.recommendations);",
+                  "  ['phone', 'email', 'address', 'user_id', 'base_latitude'].forEach(function (k) { pm.expect(raw).to.not.include('\"' + k + '\"'); });",
+                  "  pm.expect(raw).to.not.include('+628990000092');",
+                  "  pm.expect(Object.keys(body.recommendations[0].provider).sort()).to.eql(['business_name', 'id', 'rating_average', 'rating_count']);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{f9_user_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"servis ac besok\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/chat/sessions/{{f9_us_id}}/messages",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "chat",
+                "sessions",
+                "{{f9_us_id}}",
+                "messages"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "U3 perlu_klarifikasi",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', function () { pm.response.to.have.status(201); });",
+                  "var body = pm.response.json().data;",
+                  "pm.test('Intent perlu_klarifikasi', function () { pm.expect(body.intent).to.eql('perlu_klarifikasi'); });",
+                  "pm.test('Pesan USER dan ASSISTANT tersimpan', function () { pm.expect(body.user_message.role).to.eql('USER'); pm.expect(body.assistant_message.role).to.eql('ASSISTANT'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{f9_user_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"butuh fotografer\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/chat/sessions/{{f9_us_id}}/messages",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "chat",
+                "sessions",
+                "{{f9_us_id}}",
+                "messages"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Riwayat sesi milik sendiri",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Memuat sesi ini', function () { pm.expect(pm.response.json().data.map(function (s) { return s.id; })).to.include(pm.environment.get('f9_us_id')); });",
+                  "pm.test('Paginasi', function () { pm.expect(pm.response.json().meta.page).to.eql(1); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{f9_user_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/chat/sessions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "chat",
+                "sessions"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Riwayat percakapan",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Enam pesan', function () { pm.expect(pm.response.json().data.length).to.eql(6); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{f9_user_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/chat/sessions/{{f9_us_id}}/messages",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "chat",
+                "sessions",
+                "{{f9_us_id}}",
+                "messages"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Sesi tamu tidak terbaca dengan JWT: 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404', function () { pm.response.to.have.status(404); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{f9_user_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/chat/sessions/{{f9_ga_id}}/messages",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "chat",
+                "sessions",
+                "{{f9_ga_id}}",
+                "messages"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Akhiri sesi",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{f9_user_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/chat/sessions/{{f9_us_id}}/end",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "chat",
+                "sessions",
+                "{{f9_us_id}}",
+                "end"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Kirim setelah end: 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 409', function () { pm.response.to.have.status(409); });",
+                  "pm.test('Kode CHAT_SESSION_ENDED', function () { pm.expect(pm.response.json().error.code).to.eql('CHAT_SESSION_ENDED'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{f9_user_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"halo\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/chat/sessions/{{f9_us_id}}/messages",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "chat",
+                "sessions",
+                "{{f9_us_id}}",
+                "messages"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Riwayat tetap terbaca setelah end (D77)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Masih enam pesan', function () { pm.expect(pm.response.json().data.length).to.eql(6); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{f9_user_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/chat/sessions/{{f9_us_id}}/messages",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "chat",
+                "sessions",
+                "{{f9_us_id}}",
+                "messages"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

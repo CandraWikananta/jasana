@@ -32,6 +32,10 @@ export const NUMERIC_SETTING_DEFAULTS = {
   verification_lockout_minutes: 15,
   withdrawal_min_amount: 50000,
   withdrawal_admin_fee: 6500,
+  guest_chat_message_limit: 20,
+  guest_chat_ip_hourly_limit: 50,
+  guest_chat_daily_global_limit: 250,
+  guest_chat_session_hours: 24,
 } as const;
 
 export type NumericSettingKey = keyof typeof NUMERIC_SETTING_DEFAULTS;

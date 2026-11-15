@@ -4,9 +4,9 @@
 **Nama sistem:** Jasana
 **Penyusun:** I Nyoman Gede Candra Wikananta (2305551065)
 **Bidang Keahlian:** Sistem Informasi, Teknologi Informasi, Universitas Udayana
-**Versi:** 2.30
-**Terakhir diperbarui:** 15 November 2026 (versi 2.30)
-**Tahap saat ini:** Implementasi backend. Fase 0 sampai Fase 8 selesai, Fase 9 berjalan (sesi 9a selesai)
+**Versi:** 2.31
+**Terakhir diperbarui:** 16 November 2026 (versi 2.31)
+**Tahap saat ini:** Implementasi backend. Fase 0 sampai Fase 8 selesai, Fase 9 berjalan (sesi 9a dan 9b selesai)
 
 ---
 
@@ -47,7 +47,13 @@
 | Sengketa (D148 sampai D150) | 3 | 0 |
 | Chatbot (D151 sampai D155) | 5 | 0 |
 | Gateway LLM dan model (D156 sampai D160) | 5 | 0 |
+| Sesi dan pesan chat (D161 sampai D164) | 4 | 0 |
 | Keputusan terbuka tanpa nomor D (Bagian 7) | | 0 |
+
+**Perubahan pada versi 2.31:**
+
+1. Baris ASSISTANT saat Gemini gagal (D161), kode galat akses sesi (D162), urutan batas tamu (D163), dan definisi tamu untuk rem global (D164)
+2. Catatan implementasi sesi 9b. H19 dan H67 ditutup, H66 sebagian
 
 **Perubahan pada versi 2.30:**
 
@@ -1577,6 +1583,33 @@ Dari sesi 9a dan smoke ke Gemini sungguhan. Tanpa perubahan skema.
 
 ---
 
+## 4Y. Keputusan Versi 2.31 (D161 sampai D164)
+
+Dari sesi 9b. D161 sampai D163 dijawab sebelum rencana disusun, D164 dari review rencana. Tanpa perubahan skema.
+
+| # | Keputusan | Alasan |
+|---|---|---|
+| D161 | **Kalau Gemini gagal, tetap ditulis baris ASSISTANT** berisi pesan ramah, `extracted_intent` NULL, dan `latency_ms` terukur, lalu dibalas 502. Pesan USER dan kenaikan `message_count` sudah ter-commit lebih dulu. Baris gagal tidak ikut dikirim sebagai riwayat prompt. Pada evaluasi akurasi (D153), skenario yang gagal dihitung salah dan jumlahnya dilaporkan terpisah | Kegagalan Gemini adalah data penelitian. Kolom `gagal_ekstraksi` di V3 hanya bermakna kalau kegagalan tercatat sebagai baris, bukan sekadar pesan user tanpa balasan. Kegagalan merespons tetap bagian dari kinerja sistem |
+| D162 | **Kode galat akses sesi chat.** Tanpa identitas, format `X-Guest-Token` salah, atau JWT rusak: 401, dan JWT rusak tidak pernah diperlakukan sebagai tamu. Sesi tidak ada atau milik orang lain: 404. Sesi tamu ENDED atau kedaluwarsa: 409 `CHAT_SESSION_ENDED` untuk semua aksi. Sesi terdaftar ENDED: riwayat tetap bisa dibaca, tetapi kirim pesan dan end dibalas 409 | 404 untuk sesi milik orang lain mencegah penebakan id sesi yang ada. Riwayat sesi terdaftar bersifat permanen (D77), sedangkan sesi tamu memang dirancang sementara |
+| D163 | **Urutan pemeriksaan batas tamu: IP, lalu global, lalu per sesi.** Merevisi urutan di PRD 4.4. IP diperiksa di middleware memori sebelum basis data. Global hanya membaca dan diperiksa sebelum kenaikan per sesi. Per sesi paling akhir lewat satu UPDATE bersyarat, langsung disusul insert pesan USER di transaksi yang sama | Banjir permintaan dengan token palsu tertahan sebelum menyentuh basis data. Penolakan 503 tidak memakan kuota sesi tamu. Hanya pemeriksaan terakhir yang mengubah data, sehingga tidak perlu mengembalikan kuota yang sudah terpotong |
+| D164 | **Rem global menghitung pesan USER dari sesi dengan `user_id IS NULL`** pada hari kalender WITA, bukan dari sesi yang punya `guest_token` | Setelah diklaim di 9c, sesi itu milik akun dan dibatasi batas per akun, sehingga tidak ikut memakan jatah tamu. Definisinya sama dengan `jenis_sesi` di V3, sehingga angka di Bab IV konsisten |
+
+**Catatan implementasi sesi 9b tanpa nomor D:**
+
+- **`guest_token` disimpan sebagai hash SHA-256** (pola D63, 64 karakter, kolom tidak berubah). Token mentah dikembalikan sekali saat sesi dibuat, dan dikirim lewat header `X-Guest-Token`
+- `message_count` juga naik untuk sesi terdaftar (tanpa batas), supaya artinya sama di laporan. Batas pengguna terdaftar 30 pesan per jam per akun ditulis sebagai konstanta mengikuti PRD 5.5
+- Konstanta baru: riwayat 6 pesan ke prompt, panjang pesan maksimal 1.000 karakter, dan 5 rekomendasi per jawaban. Kode galat baru `CHAT_SESSION_ENDED` (409)
+- Daftar sub-kategori aktif untuk prompt di-cache di memori 5 menit dan di-invalidasi saat admin mengubah katalog. Yang dikirim ke prompt hanya kunci, nama, dan nama kategori, sedangkan id dipakai server untuk memetakan kunci
+- `cari_jasa` tanpa lokasi (koordinat dari body atau alamat default terdaftar) tidak memicu pencarian, melainkan templat yang meminta izin lokasi, dan intent tetap tercatat `cari_jasa`. Waktu SEKARANG menjadi filter `available_now`, dan `budget_maks` menjadi harga maksimum
+- `latency_ms` mencatat waktu panggilan Gemini saja. Waktu proses total satu giliran bisa dihitung dari selisih `created_at` pesan ASSISTANT dan pesan USER, dan dipakai untuk target PRD 6.1 karena k6 memakai fake
+- Kartu rekomendasi memakai DTO pencarian publik. Test memeriksa bahwa telepon, email, id user, dan alamat penyedia tidak ikut (H67)
+- **Seed Postman Fase 9 menurunkan batas tamu di basis data yang ditunjuk `DATABASE_URL`.** Hanya boleh dijalankan ke `jasana_test`. Kalau terlanjur ke Supabase dev, hapus empat baris `guest_chat_*` di `platform_settings`
+- `shortcut:` baru: `lokasi.teks` tidak di-geocode, `slot.atribut` belum jadi filter, COUNT rem global tanpa kunci sehingga pesan paralel bisa sedikit melewati batas, dan belum ada index `chat_messages(created_at)`
+
+**Hasil sesi 9b:** typecheck bersih, 819 test di 42 berkas lulus, 34 dari 34 mutan tertangkap. Postman Fase 9: 31 request dan 85 assertion tanpa gagal, dijalankan dua kali. Regresi Fase 1 sampai 8 tanpa gagal. `db:verify` lulus, dan V3 berbaris untuk tamu dan terdaftar.
+
+---
+
 ## 5. Alur Sistem End-to-End
 
 ### 5.1 Onboarding
@@ -2134,7 +2167,7 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 - [x] **H12** **(ditutup di sesi 7b)** Simpan `paid_amount` dari callback terpisah dari `amount` yang ditagih
 - [x] **H13** **(ditutup di sesi 7b)** Verifikasi header `x-callback-token` pada setiap webhook
 - [x] **H14** **(ditutup di sesi 9a: Interactions API dengan structured output, dibuktikan smoke 12 dari 12 tanpa output tidak valid, D159)** Gemini dipanggil dengan structured output atau function calling
-- [ ] **H19** **Prioritas tinggi setelah D77.** Rate limiting chatbot tiga lapis: per `guest_token`, per alamat IP, dan rem global harian. Tanpa identitas login, endpoint chatbot terbuka untuk siapa saja sedangkan tiap pesan memanggil Gemini yang ada biayanya
+- [x] **H19** **(ditutup di sesi 9b: tiga lapis teruji termasuk paralel di batas sesi dan batas hari WITA, D163, D164)** **Prioritas tinggi setelah D77.** Rate limiting chatbot tiga lapis: per `guest_token`, per alamat IP, dan rem global harian. Tanpa identitas login, endpoint chatbot terbuka untuk siapa saja sedangkan tiap pesan memanggil Gemini yang ada biayanya
 - [ ] **H37** Pengiriman email dilakukan setelah commit, bukan di dalam transaksi **(baru, D58)**. Cron mengirim ulang baris FAILED maksimal tiga kali **(bagian pertama selesai di sesi perapian 10 November 2026: SMTP gagal tidak membatalkan operasi dan baris tercatat FAILED, dijaga test; bagian cron butuh keputusan skema di awal Fase 10, lihat catatan Bagian 4L)**
 - [x] **H96** **(ditutup di sesi 7a: timeout 10 detik di setiap panggilan gateway)** Tugas `afterCommit` dijalankan berurutan sebelum respons dikirim. Saat Xendit dipasang di Fase 7, setiap panggilan `PaymentGateway` wajib punya timeout, supaya Xendit yang lambat tidak menahan respons transisi **(baru, sesi 6b)**
 - [x] **H99** **(bagian pembayaran telat ditutup di sesi 8c; pembayaran dobel menjadi batasan H104)** Pembayaran yang masuk setelah order tidak lagi ACCEPTED (D119) di-refund otomatis lewat Refund API, dikerjakan di Fase 8 bersama refund lainnya. Sampai saat itu, kasusnya tercatat sebagai payment PAID pada order yang sudah mati dan harus terlihat di log. Mencakup juga pembayaran dobel dari invoice yatim (D125), yang tidak bisa dicatat sebagai payment PAID kedua; cara mencatat refund-nya diputuskan di Fase 8 **(baru, D119, diperluas D125)**
@@ -2188,8 +2221,8 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 
 - [ ] **H17** Validasi geolokasi berbasis browser dapat dipalsukan lewat DevTools. Sertakan mitigasinya: kode verifikasi 6 digit yang hanya dipegang client yang hadir secara fisik
 - [ ] **H21** Perilaku cold start chatbot: pengguna baru tanpa riwayat hanya mendapat intent extraction
-- [ ] **H66** Chatbot tamu tidak melakukan personalisasi sama sekali **(baru, D77)**. Lokasi diambil dari izin geolokasi browser per percakapan, bukan dari `user_addresses`, dan `personalization_snapshot` tetap null
-- [ ] **H67** Jawaban chatbot ke tamu tidak boleh memuat data pribadi penyedia seperti nomor telepon atau alamat persis **(baru, D77)**, hanya yang tampil di halaman listing publik
+- [ ] **H66** **(sebagian di sesi 9b: snapshot tetap null dan lokasi tamu hanya dari body; sisanya di 9c)** Chatbot tamu tidak melakukan personalisasi sama sekali **(baru, D77)**. Lokasi diambil dari izin geolokasi browser per percakapan, bukan dari `user_addresses`, dan `personalization_snapshot` tetap null
+- [x] **H67** **(ditutup secara struktur oleh D152, dibuktikan test prompt di sesi 9a dan test kartu rekomendasi di sesi 9b)** Jawaban chatbot ke tamu tidak boleh memuat data pribadi penyedia seperti nomor telepon atau alamat persis **(baru, D77)**, hanya yang tampil di halaman listing publik
 - [ ] **H22** Kode verifikasi order **dienkripsi**, bukan di-hash, beserta alasannya, dan bedanya dengan token email yang di-hash
 - [ ] **H29** Platform memverifikasi usaha, usaha bertanggung jawab atas pekerjanya (D34)
 - [ ] **H30** Satu orang hanya boleh punya satu keanggotaan aktif, multi-provider masuk saran pengembangan (D36)
@@ -2295,6 +2328,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 | 2.28 | 15 November 2026 | Tiga keputusan dari sesi 8d: batas bukti per pihak (D148), reason refund sengketa (D149), dan penghitung order (D150). Catatan implementasi sengketa. Fase 8 ditutup dengan seluruh kriteria PRD Bagian 9 terpenuhi. H100 dan H108 ditutup. Tanpa perubahan skema |
 | 2.29 | 15 November 2026 | Lima keputusan sebelum Fase 9: port `LlmGateway` (D151), pembagian tugas Gemini dan server beserta lima jenis intent (D152), definisi akurasi (D153), rate limit tamu (D154), dan sesi tamu 24 jam (D155). Pembagian Fase 9. Satu parameter sistem baru |
 | 2.30 | 15 November 2026 | Lima keputusan dari sesi 9a dan smoke Gemini: timeout 8 detik (D156), fake ditolak di produksi (D157), `store: false` (D158), model `gemini-3.5-flash-lite` (D159), dan rem global tamu 250 (D160). H14 ditutup, H110 baru. Tanpa perubahan skema |
+| 2.31 | 16 November 2026 | Empat keputusan dari sesi 9b: baris ASSISTANT saat Gemini gagal (D161), kode galat akses sesi (D162), urutan batas tamu (D163), dan definisi tamu untuk rem global (D164). H19 dan H67 ditutup. Tanpa perubahan skema |
 
 ---
 
