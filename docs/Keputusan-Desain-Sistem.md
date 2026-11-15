@@ -4,9 +4,9 @@
 **Nama sistem:** Jasana
 **Penyusun:** I Nyoman Gede Candra Wikananta (2305551065)
 **Bidang Keahlian:** Sistem Informasi, Teknologi Informasi, Universitas Udayana
-**Versi:** 2.29
-**Terakhir diperbarui:** 15 November 2026 (versi 2.29)
-**Tahap saat ini:** Implementasi backend. Fase 0 sampai Fase 8 selesai, Fase 9 dimulai
+**Versi:** 2.30
+**Terakhir diperbarui:** 15 November 2026 (versi 2.30)
+**Tahap saat ini:** Implementasi backend. Fase 0 sampai Fase 8 selesai, Fase 9 berjalan (sesi 9a selesai)
 
 ---
 
@@ -46,7 +46,14 @@
 | Refund dan rekonsiliasi (D140 sampai D147) | 8 | 0 |
 | Sengketa (D148 sampai D150) | 3 | 0 |
 | Chatbot (D151 sampai D155) | 5 | 0 |
+| Gateway LLM dan model (D156 sampai D160) | 5 | 0 |
 | Keputusan terbuka tanpa nomor D (Bagian 7) | | 0 |
+
+**Perubahan pada versi 2.30:**
+
+1. Timeout LLM 8 detik (D156), fake ditolak di produksi (D157), dan `store: false` (D158)
+2. Model `gemini-3.5-flash-lite` dari hasil smoke (D159) dan rem global tamu 250 per hari (D160)
+3. Catatan sesi 9a. H14 ditutup, H110 baru
 
 **Perubahan pada versi 2.29:**
 
@@ -928,7 +935,7 @@ Yang hilang untuk tamu hanya personalisasi, bukan fungsinya. Ini sekaligus jadi 
 |---|---|---|
 | Per `guest_token` | 20 pesan per sesi | Batas dasar |
 | Per alamat IP | 50 pesan per jam | `guest_token` gampang dibuang dan dibuat baru |
-| Global harian untuk seluruh lalu lintas tamu | ditetapkan saat pengujian | Rem darurat kalau dua lapis di atas ditembus |
+| Global harian untuk seluruh lalu lintas tamu | 250 pesan per hari WITA (D160) | Rem darurat kalau dua lapis di atas ditembus |
 
 Jawaban chatbot ke tamu tidak boleh memuat data pribadi penyedia seperti nomor telepon atau alamat persis, hanya yang tampil di halaman listing publik.
 
@@ -1542,6 +1549,34 @@ Diputuskan sebelum Fase 9 (chatbot). Satu parameter sistem baru, tanpa perubahan
 
 ---
 
+## 4X. Keputusan Versi 2.30 (D156 sampai D160)
+
+Dari sesi 9a dan smoke ke Gemini sungguhan. Tanpa perubahan skema.
+
+| # | Keputusan | Alasan |
+|---|---|---|
+| D156 | **Timeout satu panggilan `LlmGateway` 8 detik** (`LLM_GATEWAY_TIMEOUT_MS`), lebih pendek dari 10 detik milik gateway pembayaran | Ada pengguna yang menunggu jawaban di layar, sedangkan panggilan Xendit kebanyakan berjalan setelah commit. Lima detik terlalu ketat karena panggilan yang sebenarnya berhasil ikut terputus padahal kuota tetap terpakai. Target p95 tetap 3 detik, timeout hanya rem untuk kasus buruk |
+| D157 | **`LLM_GATEWAY=fake` bersama `NODE_ENV=production` membuat aplikasi gagal start**, sama seperti D101. Stress test k6 yang memakai fake dijalankan dengan `NODE_ENV` selain production, sedangkan UAT memakai Gemini sungguhan | Chatbot palsu di produksi akan menulis intent palsu ke `chat_messages`, padahal tabel itu sumber data Bab IV |
+| D158 | **Panggilan Gemini memakai `store: false`**, dan riwayat percakapan dikirim ulang setiap giliran (stateless) | Bawaan Interactions API adalah menyimpan request dan respons di Google (1 hari di tier gratis, 55 hari di tier berbayar). Pesan pengguna, terutama tamu, tidak perlu menginap di pihak ketiga, dan riwayat sudah tersimpan di `chat_messages` |
+| D159 | **Model `gemini-3.5-flash-lite`**, ditulis sebagai ID versi tetap, bukan alias `*-latest`. Lewat Interactions API dengan structured output, tanpa SDK, dan `thinking_level` minimal | Smoke 12 kalimat: 12 dari 12 sesuai harapan, tanpa output yang ditolak validasi, latensi rata-rata 1.506 ms dan tertinggi 1.902 ms, sekitar 1.260 token per panggilan. Pembanding `gemini-3.1-flash-lite` timeout 4 dari 12 kali pada batas 8 detik dengan rata-rata 2.838 ms. Keduanya satu-satunya keluarga dengan kuota gratis 500 RPD di project penyusun. Versi tetap dipakai supaya hasil evaluasi bisa diulang, karena alias bisa berpindah model tanpa pemberitahuan |
+| D160 | **`guest_chat_daily_global_limit` = 250 pesan per hari WITA**, separuh dari kuota 500 RPD | Kuota dipakai bersama oleh tamu, pengguna terdaftar, evaluasi akurasi, dan uji sandbox. Hari kuota Google di-reset tengah malam waktu Pasifik (sekitar 15.00 atau 16.00 WITA), sehingga satu hari WITA menyentuh dua hari kuota dan batasnya perlu jarak aman |
+
+**Catatan sesi 9a tanpa nomor D:**
+
+- Interactions API (`POST .../v1/interactions`), GA sejak Juni 2026 dan direkomendasikan untuk proyek baru, dengan `response_format` berisi JSON Schema. Panjang string tidak ditegakkan Gemini, sehingga Zod yang menegakkannya. Output yang tidak lolos Zod diperlakukan sebagai galat `GEMINI_UNAVAILABLE`, tidak diperbaiki diam-diam
+- Model yang dicatat adalah yang tertulis di respons Gemini, bukan hanya nilai env, karena Google bisa mengalihkan model (misalnya `gemini-2.5-flash` dialihkan mulai 1 Desember 2026)
+- Prompt hanya memuat kunci, nama, dan nama kategori sub-kategori. Test membuktikan judul listing, nama penyedia, dan telepon tidak masuk walaupun objek sumbernya membawa data itu (H67). Blok `personalization_snapshot` tidak muncul untuk tamu (H66)
+- **Aturan pelabelan:** `perlu_klarifikasi` hanya kalau sub-kategori tidak bisa ditentukan. Lokasi atau waktu yang kurang tidak membuat pesan perlu klarifikasi. Aturan yang sama dipakai untuk melabeli dataset H15
+- Pertanyaan tentang cara kerja platform, misalnya cara mendaftar sebagai penyedia, diklasifikasikan `di_luar_cakupan` dan dijawab templat yang mengarahkan ke halaman bantuan (D152)
+- Kalimat percobaan prompt injection ("abaikan semua instruksi sebelumnya...") diklasifikasikan `di_luar_cakupan`, dan output tetap terikat skema
+- Confidence hampir selalu 0,95 sampai 1 pada smoke. Confidence adalah penilaian model atas dirinya sendiri dan tidak terkalibrasi, sehingga dilaporkan sebagai data pendukung, bukan ukuran keandalan (H110)
+- Skema intent ditulis sebagai dua literal berdampingan (Zod dan JSON Schema) dengan nama properti yang sama. Perubahan skema harus mengubah keduanya
+- `shortcut:` baru: fake belum menggabungkan slot antar giliran
+
+**Hasil sesi 9a:** typecheck bersih, 800 test di 41 berkas lulus, 49 mutan tertangkap.
+
+---
+
 ## 5. Alur Sistem End-to-End
 
 ### 5.1 Onboarding
@@ -1928,7 +1963,7 @@ Kueri verifikasi V5 disesuaikan: pengelompokannya jadi `assigned_worker_id`, buk
 | `worker_location_max_interval_minutes` | 5 | Batas waktu maksimum antar pengiriman koordinat walaupun tidak berpindah (D66) |
 | `guest_chat_message_limit` | 20 | Batas pesan per `guest_token` (D77) |
 | `guest_chat_ip_hourly_limit` | 50 | Batas pesan per alamat IP per jam (D77) |
-| `guest_chat_daily_global_limit` | ditetapkan saat pengujian | Rem darurat seluruh lalu lintas chatbot tamu (D77) |
+| `guest_chat_daily_global_limit` | 250 (D160) | Rem darurat seluruh lalu lintas chatbot tamu (D77) |
 | `access_token_ttl_minutes` | 15 | Masa berlaku access token JWT (D76) |
 | `refresh_token_ttl_days` | 30 | Masa berlaku refresh token (D76) |
 | `listing_faq_max_items` | 10 | Batas butir FAQ per listing (D78) |
@@ -2048,7 +2083,7 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 
 **Ditutup pada versi sebelumnya:** batas bayar mode Scheduled (oleh D43), verifikasi email wajib atau tidak (oleh D62), dan refresh token (oleh D76).
 
-**Nilai yang menyusul, bukan keputusan terbuka:** `guest_chat_daily_global_limit`, ditetapkan pada fase chatbot (D85).
+**Nilai yang menyusul sudah ditetapkan:** `guest_chat_daily_global_limit` = 250 (D160).
 
 ---
 
@@ -2098,7 +2133,7 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 - [x] **H11** **(ditutup di sesi 7b)** Pengambilan lock pakai UPDATE bersyarat atomik, sediakan pemulihan baris PROCESSING yang macet
 - [x] **H12** **(ditutup di sesi 7b)** Simpan `paid_amount` dari callback terpisah dari `amount` yang ditagih
 - [x] **H13** **(ditutup di sesi 7b)** Verifikasi header `x-callback-token` pada setiap webhook
-- [ ] **H14** Gemini dipanggil dengan structured output atau function calling **(dikerjakan di sesi 9a, D151)**
+- [x] **H14** **(ditutup di sesi 9a: Interactions API dengan structured output, dibuktikan smoke 12 dari 12 tanpa output tidak valid, D159)** Gemini dipanggil dengan structured output atau function calling
 - [ ] **H19** **Prioritas tinggi setelah D77.** Rate limiting chatbot tiga lapis: per `guest_token`, per alamat IP, dan rem global harian. Tanpa identitas login, endpoint chatbot terbuka untuk siapa saja sedangkan tiap pesan memanggil Gemini yang ada biayanya
 - [ ] **H37** Pengiriman email dilakukan setelah commit, bukan di dalam transaksi **(baru, D58)**. Cron mengirim ulang baris FAILED maksimal tiga kali **(bagian pertama selesai di sesi perapian 10 November 2026: SMTP gagal tidak membatalkan operasi dan baris tercatat FAILED, dijaga test; bagian cron butuh keputusan skema di awal Fase 10, lihat catatan Bagian 4L)**
 - [x] **H96** **(ditutup di sesi 7a: timeout 10 detik di setiap panggilan gateway)** Tugas `afterCommit` dijalankan berurutan sebelum respons dikirim. Saat Xendit dipasang di Fase 7, setiap panggilan `PaymentGateway` wajib punya timeout, supaya Xendit yang lambat tidak menahan respons transisi **(baru, sesi 6b)**
@@ -2179,6 +2214,7 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 - [ ] **H103** Pembatalan setelah bayar tidak dikenai biaya pembatalan, dan pekerja yang sudah berangkat tidak mendapat kompensasi **(baru, D131)**. Biaya pembatalan berjenjang masuk saran pengembangan
 - [ ] **H104** Pembayaran dobel lewat invoice yatim di-refund admin di luar sistem, bukan lewat alur refund otomatis **(baru, D135)**. Kasusnya bisa dicari lewat `webhook_events` bertanda `DOUBLE_PAYMENT`
 - [ ] **H107** Tidak ada sinkronisasi otomatis ke Xendit (D143). Withdrawal atau refund yang webhook-nya hilang baru selesai kalau admin menekan sync. Cron sinkronisasi masuk saran pengembangan **(baru, D143)**
+- [ ] **H110** Confidence intent adalah penilaian Gemini atas dirinya sendiri dan tidak terkalibrasi (hampir selalu 0,95 sampai 1 pada smoke 9a). Dilaporkan sebagai data pendukung, sedangkan keandalan diukur lewat akurasi terhadap dataset berlabel (D153) **(baru, sesi 9a)**
 - [ ] **H82** Admin fee withdrawal berupa nilai flat yang mengikuti perkiraan biaya payout Xendit **(baru, D84)**. Untuk nominal di atas Rp250.000 biaya sebenarnya sedikit lebih besar dan selisihnya ditanggung platform
 
 ---
@@ -2258,6 +2294,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 | 2.27 | 15 November 2026 | Delapan keputusan dari sesi 8c: aturan eksekusi refund (D140), kolom refund untuk sistem dan jalur manual (D141, D142), sinkronisasi admin (D143 sampai D145), penanda batal setelah bayar (D146), dan payment tanpa invoice id (D147). H99 bagian pembayaran telat, H101, dan H106 ditutup, H107 dan H108 baru. Perubahan skema pada `refunds` dan satu partial unique index |
 | 2.28 | 15 November 2026 | Tiga keputusan dari sesi 8d: batas bukti per pihak (D148), reason refund sengketa (D149), dan penghitung order (D150). Catatan implementasi sengketa. Fase 8 ditutup dengan seluruh kriteria PRD Bagian 9 terpenuhi. H100 dan H108 ditutup. Tanpa perubahan skema |
 | 2.29 | 15 November 2026 | Lima keputusan sebelum Fase 9: port `LlmGateway` (D151), pembagian tugas Gemini dan server beserta lima jenis intent (D152), definisi akurasi (D153), rate limit tamu (D154), dan sesi tamu 24 jam (D155). Pembagian Fase 9. Satu parameter sistem baru |
+| 2.30 | 15 November 2026 | Lima keputusan dari sesi 9a dan smoke Gemini: timeout 8 detik (D156), fake ditolak di produksi (D157), `store: false` (D158), model `gemini-3.5-flash-lite` (D159), dan rem global tamu 250 (D160). H14 ditutup, H110 baru. Tanpa perubahan skema |
 
 ---
 

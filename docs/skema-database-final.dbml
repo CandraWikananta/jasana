@@ -1361,7 +1361,7 @@ Table platform_settings {
     email_retry_max_attempts              = 3     (D58)
     guest_chat_message_limit              = 20    (D77)
     guest_chat_ip_hourly_limit            = 50    (D77)
-    guest_chat_daily_global_limit         = TBD   (D77, D85, ditetapkan pada fase chatbot)
+    guest_chat_daily_global_limit         = 250   (D77, D85, D160)
     access_token_ttl_minutes              = 15    (D76)
     refresh_token_ttl_days                = 30    (D76)
     listing_faq_max_items                 = 10    (D78)

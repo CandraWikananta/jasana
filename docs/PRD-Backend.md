@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| Versi | 2.22 |
+| Versi | 2.23 |
 | Penyusun | I Nyoman Gede Candra Wikananta (2305551065) |
 | Program Studi | Teknologi Informasi, Universitas Udayana |
 | Bidang Keahlian | Sistem Informasi |
@@ -499,7 +499,7 @@ Disimpan sebagai key-value JSONB supaya bisa diubah saat eksperimen tanpa deploy
 | `email_retry_max_attempts` | 3 | Percobaan ulang pengiriman email gagal |
 | `guest_chat_message_limit` | 20 | Batas pesan per sesi chatbot tamu |
 | `guest_chat_ip_hourly_limit` | 50 | Batas pesan chatbot per alamat IP per jam |
-| `guest_chat_daily_global_limit` | ditetapkan pada fase chatbot (D85) | Rem darurat seluruh chatbot tamu, menyesuaikan kuota API key Gemini. Dihitung per hari kalender WITA (D154) |
+| `guest_chat_daily_global_limit` | 250 (D160) | Rem darurat seluruh chatbot tamu, menyesuaikan kuota API key Gemini. Dihitung per hari kalender WITA (D154) |
 | `guest_chat_session_hours` | 24 | Masa berlaku sesi chat tamu (D155) |
 | `access_token_ttl_minutes` | 15 | Masa berlaku access token |
 | `refresh_token_ttl_days` | 30 | Masa berlaku refresh token |
@@ -1543,3 +1543,4 @@ Tidak menyangkut aturan bisnis, dibentuk oleh middleware bersama pada Fase 0.
 | 2.20 | 15 November 2026 | Sinkron dengan register keputusan versi 2.27. Endpoint admin refund dan sync (D140, D142, D145), dan kode error `REFUND_STATE_CONFLICT` |
 | 2.21 | 15 November 2026 | Sinkron dengan register keputusan versi 2.28. Fase 0 sampai 8 selesai. Dua kode error sengketa (D148) |
 | 2.22 | 15 November 2026 | Sinkron dengan register keputusan versi 2.29. Alur pesan chatbot menurut jenis intent (D151, D152), parameter `guest_chat_session_hours` (D155), dan hari kalender rem global (D154) |
+| 2.23 | 15 November 2026 | Sinkron dengan register keputusan versi 2.30. Nilai `guest_chat_daily_global_limit` 250 (D160) dan model Gemini (D159) |
