@@ -4,9 +4,9 @@
 **Nama sistem:** Jasana
 **Penyusun:** I Nyoman Gede Candra Wikananta (2305551065)
 **Bidang Keahlian:** Sistem Informasi, Teknologi Informasi, Universitas Udayana
-**Versi:** 2.28
-**Terakhir diperbarui:** 15 November 2026 (versi 2.28)
-**Tahap saat ini:** Implementasi backend. Fase 0 sampai Fase 8 selesai
+**Versi:** 2.29
+**Terakhir diperbarui:** 15 November 2026 (versi 2.29)
+**Tahap saat ini:** Implementasi backend. Fase 0 sampai Fase 8 selesai, Fase 9 dimulai
 
 ---
 
@@ -45,7 +45,16 @@
 | Approve withdrawal (D138 sampai D139) | 2 | 0 |
 | Refund dan rekonsiliasi (D140 sampai D147) | 8 | 0 |
 | Sengketa (D148 sampai D150) | 3 | 0 |
+| Chatbot (D151 sampai D155) | 5 | 0 |
 | Keputusan terbuka tanpa nomor D (Bagian 7) | | 0 |
+
+**Perubahan pada versi 2.29:**
+
+1. Port `LlmGateway` dengan implementasi fake (D151)
+2. Gemini hanya untuk ekstraksi intent dan klarifikasi, lima jenis intent, templat untuk pesan di luar pencarian (D152)
+3. Definisi akurasi intent extraction (D153)
+4. Penyimpanan tiga lapis rate limit tamu (D154) dan masa berlaku sesi tamu (D155)
+5. Pembagian Fase 9 dalam tiga sesi
 
 **Perubahan pada versi 2.28:**
 
@@ -1513,6 +1522,26 @@ Dari sesi 8d. Ketiganya dijawab sebelum atau saat review rencana. Tidak ada peru
 
 ---
 
+## 4W. Keputusan Versi 2.29 (D151 sampai D155)
+
+Diputuskan sebelum Fase 9 (chatbot). Satu parameter sistem baru, tanpa perubahan skema.
+
+| # | Keputusan | Alasan |
+|---|---|---|
+| D151 | **Seluruh panggilan Gemini dibungkus port `LlmGateway`** dengan dua implementasi, gemini dan fake, dipilih lewat env. Model dipilih lewat env `GEMINI_MODEL`, dan setiap panggilan punya timeout seperti H96. Test, newman, dan stress test k6 selalu memakai fake yang deterministik. Gemini sungguhan hanya dipakai untuk uji sandbox dan evaluasi akurasi | Kuota gratis Gemini API dihitung per project per hari dan sangat terbatas, sehingga test otomatis dan k6 akan menghabiskannya dalam hitungan detik. Polanya sama dengan `PaymentGateway` (D101): service tidak pernah mengenal SDK, sehingga model atau versi API bisa diganti tanpa menyentuh logika chatbot |
+| D152 | **Gemini hanya mengekstrak intent dan menyusun pertanyaan klarifikasi, dalam satu panggilan per pesan.** Rekomendasi dicari server lewat layanan pencarian Fase 5 berdasarkan intent yang sudah divalidasi, lalu dikembalikan sebagai data listing terstruktur. Gemini tidak pernah menerima data listing maupun penyedia. Lima jenis intent: `cari_jasa` (server mencari listing), `perlu_klarifikasi` (pertanyaan klarifikasi dari Gemini diteruskan), `jasa_tidak_tersedia`, `sapaan`, dan `di_luar_cakupan`. Tiga jenis terakhir dijawab dengan templat tetap dari server | Gemini tidak bisa mengarang harga, rating, atau listing yang tidak ada, karena data selalu diambil langsung dari database. H67 tertutup secara struktur, bukan bergantung pada kepatuhan model. Satu panggilan per pesan menghemat kuota dan menjaga latensi di bawah target 3 detik. Templat untuk pesan di luar cakupan mencegah chatbot dipakai sebagai asisten umum dan mencegah Gemini mengarang aturan platform. Pembagian tugasnya bersih: Gemini memahami bahasa, server memegang data |
+| D153 | **Definisi akurasi intent extraction untuk D85**, ditetapkan sebelum pengujian. Sebuah skenario berlabel dihitung benar kalau jenis intent tepat, dan untuk `cari_jasa` juga sub-kategorinya tepat. Ketepatan slot (lokasi, waktu, budget, atribut) dilaporkan terpisah sebagai metrik pendukung. Dataset H15 disusun penyusun sendiri dan memuat sekitar 20 persen skenario `sapaan`, `jasa_tidak_tersedia`, dan `di_luar_cakupan`, supaya akurasi juga mengukur kemampuan menolak | Ambang yang ditetapkan setelah melihat hasil tidak punya arti (D85). Jenis intent dan sub-kategori adalah dua hal yang menentukan apakah pengguna diarahkan ke jasa yang benar. Kalimat uji yang ditulis AI sejenis dengan yang diuji akan menghasilkan akurasi yang tidak mencerminkan cara orang sungguhan bertanya |
+| D154 | **Penyimpanan tiga lapis rate limit tamu (H19).** Per `guest_token` lewat kolom `message_count`. Per alamat IP lewat limiter di memori, sama dengan limiter lain. Rem global harian dari hitungan pesan USER sesi tamu di basis data per hari kalender WITA, sehingga tahan restart. Nilai `guest_chat_daily_global_limit` ditetapkan setelah sesi 9a berdasarkan kuota project Gemini yang dipakai | Lapis per token dan per IP cukup memakai mekanisme yang sudah ada. Rem global adalah pengaman terakhir terhadap habisnya kuota, jadi harus tetap benar walaupun server restart. Batas harian kuota Gemini sendiri di-reset tengah malam waktu Pasifik, sehingga nilai rem diberi jarak aman dari batas itu |
+| D155 | **Sesi chat tamu berlaku 24 jam** lewat parameter baru `guest_chat_session_hours`. Klaim sesi oleh akun baru mengisi `user_id` dan `claimed_at`, lalu mengosongkan `expires_at` | Cukup panjang untuk percakapan yang dilanjutkan esok hari, cukup pendek supaya sesi tamu yang ditinggalkan tidak menumpuk sebagai sesi aktif. Setelah diklaim, sesi menjadi milik akun dan mengikuti aturan riwayat permanen (D77) |
+
+**Pembagian Fase 9 dalam tiga sesi:**
+
+- **9a.** `LlmGateway` beserta adapter Gemini (API dan model dicek ke dokumentasi terbaru), implementasi fake, timeout, skema intent, dan skrip smoke ke Gemini sungguhan dengan kalimat Bahasa Indonesia. Hasilnya menetapkan model dan nilai rem global, sama seperti 8a untuk Xendit
+- **9b.** Sesi tamu dan terdaftar, `POST /chat/sessions/:id/messages` dengan tiga lapis rate limit, pencatatan intent, confidence, latensi, dan token, rekomendasi lewat pencarian, riwayat, akhiri sesi, dan cron sesi tamu kedaluwarsa
+- **9c.** Klaim sesi (H68), `personalization_snapshot` (D27) dan pemakaiannya di prompt, H66, skrip evaluasi akurasi (H15, D153), V3 dan V9, Postman Fase 9, dan penutupan Fase 9
+
+---
+
 ## 5. Alur Sistem End-to-End
 
 ### 5.1 Onboarding
@@ -2069,7 +2098,7 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 - [x] **H11** **(ditutup di sesi 7b)** Pengambilan lock pakai UPDATE bersyarat atomik, sediakan pemulihan baris PROCESSING yang macet
 - [x] **H12** **(ditutup di sesi 7b)** Simpan `paid_amount` dari callback terpisah dari `amount` yang ditagih
 - [x] **H13** **(ditutup di sesi 7b)** Verifikasi header `x-callback-token` pada setiap webhook
-- [ ] **H14** Gemini dipanggil dengan structured output atau function calling
+- [ ] **H14** Gemini dipanggil dengan structured output atau function calling **(dikerjakan di sesi 9a, D151)**
 - [ ] **H19** **Prioritas tinggi setelah D77.** Rate limiting chatbot tiga lapis: per `guest_token`, per alamat IP, dan rem global harian. Tanpa identitas login, endpoint chatbot terbuka untuk siapa saja sedangkan tiap pesan memanggil Gemini yang ada biayanya
 - [ ] **H37** Pengiriman email dilakukan setelah commit, bukan di dalam transaksi **(baru, D58)**. Cron mengirim ulang baris FAILED maksimal tiga kali **(bagian pertama selesai di sesi perapian 10 November 2026: SMTP gagal tidak membatalkan operasi dan baris tercatat FAILED, dijaga test; bagian cron butuh keputusan skema di awal Fase 10, lihat catatan Bagian 4L)**
 - [x] **H96** **(ditutup di sesi 7a: timeout 10 detik di setiap panggilan gateway)** Tugas `afterCommit` dijalankan berurutan sebelum respons dikirim. Saat Xendit dipasang di Fase 7, setiap panggilan `PaymentGateway` wajib punya timeout, supaya Xendit yang lambat tidak menahan respons transisi **(baru, sesi 6b)**
@@ -2186,7 +2215,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 
 ## 11. Langkah Berikutnya
 
-1. Fase 9 (chatbot): sesi tamu dan terdaftar, klaim sesi, personalisasi, structured output Gemini (H14), dan rate limiting tiga lapis (H19). Pembagian sesi disusun sebelum mulai
+1. Fase 9 (chatbot) dalam tiga sesi menurut Bagian 4W. Paralel: penyusun menyusun dataset 30 sampai 50 skenario berlabel (H15, D153) dan mencatat model serta batas kuota project Gemini di AI Studio
 2. Selesai: Fase 8 (15 November 2026, 751 test lulus, D131 sampai D150) beserta uji sandbox payout dan refund. Uji sandbox refund PARTIAL hasil putusan sengketa lulus. Sebelumnya Fase 7 (11 November 2026, 627 test lulus) beserta uji sandbox Xendit sungguhan (12 November 2026), sebelumnya audit hutang teknis (9 November 2026) dan sesi perapian (10 November 2026)
 3. Susun data simulasi untuk dua belas sub-kategori di Lampiran B, termasuk skenario perebutan Available Now dan pendamping pada dokumentasi acara
 4. Riset ringan rentang harga pasaran untuk dua belas sub-kategori tersebut, catat sumbernya
@@ -2228,6 +2257,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 | 2.26 | 14 November 2026 | Dua keputusan dari sesi 8b: aturan approve withdrawal (D138) dan pengecualian 409 (D139). Catatan implementasi withdrawal, payout, dan webhook payout. H83, H102, dan H105 ditutup. Satu partial unique index baru |
 | 2.27 | 15 November 2026 | Delapan keputusan dari sesi 8c: aturan eksekusi refund (D140), kolom refund untuk sistem dan jalur manual (D141, D142), sinkronisasi admin (D143 sampai D145), penanda batal setelah bayar (D146), dan payment tanpa invoice id (D147). H99 bagian pembayaran telat, H101, dan H106 ditutup, H107 dan H108 baru. Perubahan skema pada `refunds` dan satu partial unique index |
 | 2.28 | 15 November 2026 | Tiga keputusan dari sesi 8d: batas bukti per pihak (D148), reason refund sengketa (D149), dan penghitung order (D150). Catatan implementasi sengketa. Fase 8 ditutup dengan seluruh kriteria PRD Bagian 9 terpenuhi. H100 dan H108 ditutup. Tanpa perubahan skema |
+| 2.29 | 15 November 2026 | Lima keputusan sebelum Fase 9: port `LlmGateway` (D151), pembagian tugas Gemini dan server beserta lima jenis intent (D152), definisi akurasi (D153), rate limit tamu (D154), dan sesi tamu 24 jam (D155). Pembagian Fase 9. Satu parameter sistem baru |
 
 ---
 

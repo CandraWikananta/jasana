@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| Versi | 2.21 |
+| Versi | 2.22 |
 | Penyusun | I Nyoman Gede Candra Wikananta (2305551065) |
 | Program Studi | Teknologi Informasi, Universitas Udayana |
 | Bidang Keahlian | Sistem Informasi |
@@ -499,7 +499,8 @@ Disimpan sebagai key-value JSONB supaya bisa diubah saat eksperimen tanpa deploy
 | `email_retry_max_attempts` | 3 | Percobaan ulang pengiriman email gagal |
 | `guest_chat_message_limit` | 20 | Batas pesan per sesi chatbot tamu |
 | `guest_chat_ip_hourly_limit` | 50 | Batas pesan chatbot per alamat IP per jam |
-| `guest_chat_daily_global_limit` | ditetapkan pada fase chatbot (D85) | Rem darurat seluruh chatbot tamu, menyesuaikan kuota API key Gemini |
+| `guest_chat_daily_global_limit` | ditetapkan pada fase chatbot (D85) | Rem darurat seluruh chatbot tamu, menyesuaikan kuota API key Gemini. Dihitung per hari kalender WITA (D154) |
+| `guest_chat_session_hours` | 24 | Masa berlaku sesi chat tamu (D155) |
 | `access_token_ttl_minutes` | 15 | Masa berlaku access token |
 | `refresh_token_ttl_days` | 30 | Masa berlaku refresh token |
 | `listing_faq_max_items` | 10 | Batas butir FAQ per listing |
@@ -1069,9 +1070,13 @@ Efek samping: kirim lewat Socket.IO ke room `order:<order_id>`, lalu notifikasi 
 4. Susun prompt: daftar sub-kategori aktif
    + personalization_snapshot (NULL untuk tamu)
    + riwayat percakapan
-5. Panggil Gemini dengan structured output
+5. Panggil Gemini lewat LlmGateway dengan structured output (D151)
 6. Rekam extracted_intent, intent_confidence, token_usage, latency_ms
-7. Cari listing sesuai intent, kembalikan rekomendasi
+7. Menurut jenis intent (D152):
+     cari_jasa           -> validasi sub-kategori, cari listing, kembalikan rekomendasi
+     perlu_klarifikasi   -> teruskan pertanyaan klarifikasi dari Gemini
+     jasa_tidak_tersedia, sapaan, di_luar_cakupan -> templat tetap dari server
+   Gemini tidak pernah menerima data listing maupun penyedia
 ```
 
 **Jawaban ke tamu tidak boleh memuat data pribadi penyedia** seperti nomor telepon atau alamat persis, hanya yang tampil di halaman listing publik.
@@ -1537,3 +1542,4 @@ Tidak menyangkut aturan bisnis, dibentuk oleh middleware bersama pada Fase 0.
 | 2.19 | 14 November 2026 | Sinkron dengan register keputusan versi 2.26. Respons approve withdrawal (D138, D139) dan kode error `WITHDRAWAL_STATE_CONFLICT` |
 | 2.20 | 15 November 2026 | Sinkron dengan register keputusan versi 2.27. Endpoint admin refund dan sync (D140, D142, D145), dan kode error `REFUND_STATE_CONFLICT` |
 | 2.21 | 15 November 2026 | Sinkron dengan register keputusan versi 2.28. Fase 0 sampai 8 selesai. Dua kode error sengketa (D148) |
+| 2.22 | 15 November 2026 | Sinkron dengan register keputusan versi 2.29. Alur pesan chatbot menurut jenis intent (D151, D152), parameter `guest_chat_session_hours` (D155), dan hari kalender rem global (D154) |
