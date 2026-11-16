@@ -4,9 +4,9 @@
 **Nama sistem:** Jasana
 **Penyusun:** I Nyoman Gede Candra Wikananta (2305551065)
 **Bidang Keahlian:** Sistem Informasi, Teknologi Informasi, Universitas Udayana
-**Versi:** 2.34
-**Terakhir diperbarui:** 16 November 2026 (versi 2.34)
-**Tahap saat ini:** Implementasi backend. Fase 0 sampai Fase 8 selesai, Fase 9 berjalan (sesi 9a sampai 9c dan uji sandbox 9c selesai, menunggu evaluasi akurasi penuh)
+**Versi:** 2.35
+**Terakhir diperbarui:** 16 November 2026 (versi 2.35)
+**Tahap saat ini:** Implementasi backend. Fase 0 sampai Fase 8 selesai, Fase 9 berjalan (implementasi dan uji sandbox selesai, evaluasi akurasi run 1 dari 3 selesai)
 
 ---
 
@@ -50,7 +50,12 @@
 | Sesi dan pesan chat (D161 sampai D164) | 4 | 0 |
 | Hasil sandbox chatbot (D165 sampai D166) | 2 | 0 |
 | Klaim, personalisasi, dan evaluasi chatbot (D167 sampai D175) | 9 | 0 |
+| Protokol evaluasi akurasi (D176) | 1 | 0 |
 | Keputusan terbuka tanpa nomor D (Bagian 7) | | 0 |
+
+**Perubahan pada versi 2.35:**
+
+1. Protokol evaluasi akurasi tiga run (D176) dan hasil evaluasi run 1
 
 **Perubahan pada versi 2.34:**
 
@@ -1716,6 +1721,34 @@ Dari sesi 9c. D168 sampai D173 dijawab penyusun sebelum rencana disusun, D167, D
 
 ---
 
+## 4AB. Keputusan Versi 2.35 (D176) dan Evaluasi Akurasi Run 1
+
+Ditetapkan penyusun setelah run 1 dan **sebelum** run berikutnya dijalankan. Tanpa perubahan kode maupun skema.
+
+| # | Keputusan | Alasan |
+|---|---|---|
+| D176 | **Protokol evaluasi akurasi tiga run.** Dataset 49 skenario dijalankan tiga kali pada waktu berbeda: run 1 (16 November 2026, sekitar 23.00 WITA), run 2 pagi WITA, dan run 3 siang atau sore WITA, dengan jarak minimal beberapa jam. **Semua run dilaporkan, tidak ada yang dibuang.** Akurasi utama yang dibandingkan dengan target 80 persen (D85) adalah rata-rata akurasi ketiga run, dengan kegagalan tetap dihitung salah (D161). Dua metrik pendukung dilaporkan terpisah: akurasi atas skenario yang dijawab Gemini (kualitas ekstraksi) dan tingkat respons berhasil (ketersediaan layanan). Ketiga run memakai dataset, prompt, skema, dan model yang sama, dibuktikan lewat hash di meta hasil, dan run 2 serta run 3 dijalankan dari commit yang bersih. Selama run, server tidak dipakai untuk chat lain supaya jatah RPM tidak terbagi | Run 1 menunjukkan bahwa satu run sangat bergantung pada ketersediaan layanan pada jam itu: 14 dari 15 kesalahan adalah kegagalan Gemini merespons, menumpuk di paruh kedua run, sedangkan dari 35 skenario yang dijawab hanya 1 yang salah klasifikasi. Model preview di free tier tidak punya jaminan ketersediaan. Jumlah run dan cara menghitung ditetapkan sebelum run berikutnya dan run yang buruk tetap dihitung, sehingga ini bukan mengulang sampai hasilnya bagus. Pemisahan dua metrik pendukung membedakan kemampuan memahami bahasa dari ketersediaan layanan, dan menjadi dasar saran pengembangan |
+
+**Hasil evaluasi run 1 (16 November 2026, 22.54 sampai 23.04 WITA, `gemini-3.5-flash-lite`, 49 skenario: 38 ditulis penyusun, 11 ditulis teman):**
+
+| Metrik | Hasil |
+|---|---|
+| Akurasi (kegagalan dihitung salah, D161) | 34 dari 49, **69,39 persen** |
+| Salah klasifikasi | 1 (S21, "listrik rumah turun terus tiap nyalain rice cooker, kenapa ya?" dibaca `di_luar_cakupan`, label `cari_jasa`) |
+| Gagal merespons | 14: 9 timeout dan 5 HTTP 503 yang tetap gagal setelah retry |
+| Berhasil setelah retry (D165) | 6 |
+| Akurasi atas skenario yang dijawab | 34 dari 35, 97,1 persen |
+| Tingkat respons berhasil | 35 dari 49, 71,4 persen |
+| Per jenis (benar/n) | `cari_jasa` 25/30, `perlu_klarifikasi` 2/6, `jasa_tidak_tersedia` 3/4, `sapaan` 3/4, `di_luar_cakupan` 1/5. Seluruh kesalahan di luar `cari_jasa` adalah kegagalan merespons |
+| Per asal | penyusun 27/38 (71,05 persen), teman 7/11 (63,64 persen) |
+| Slot (metrik pendukung) | `waktu_jenis` 24/30 (80 persen), `budget_maks` 25/29 (86,21 persen) |
+| Latensi Gemini, panggilan berhasil | rata-rata 3.589 ms, p50 3.257 ms, p95 7.224 ms. Token rata-rata 1.136 per panggilan |
+
+- Kegagalan menumpuk mulai skenario ke-16, sejalan dengan 503 yang sering muncul pada sandbox 9b dan 9c di jam yang sama. p95 latensi yang mendekati timeout 8 detik (D156) menunjukkan sebagian timeout adalah panggilan yang sangat lambat, bukan ditolak
+- Meta run 1 mencatat `commit_dirty` true karena dataset belum di-commit saat run dijalankan. Hash dataset dan prompt tetap tercatat dan menjadi acuan run 2 dan run 3
+
+---
+
 ## 5. Alur Sistem End-to-End
 
 ### 5.1 Onboarding
@@ -2315,7 +2348,7 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 
 ### 8.5 Persiapan Data Pengujian
 
-- [ ] **H15** Kumpulkan 30 sampai 50 skenario percakapan berlabel untuk mengukur akurasi intent extraction. Mulai sekarang, jangan tunggu bulan ke-5 **(alat siap di sesi 9c: dataset berformat, validator `--check`, dan skrip evaluasi. Dataset penyusun disusun paralel)**
+- [ ] **H15** Kumpulkan 30 sampai 50 skenario percakapan berlabel untuk mengukur akurasi intent extraction. Mulai sekarang, jangan tunggu bulan ke-5 **(alat siap di sesi 9c: dataset berformat, validator `--check`, dan skrip evaluasi. Dataset 49 skenario selesai dan run 1 dijalankan, tersisa run 2 dan 3 menurut D176)**
 - [ ] **H68** Ukur konversi sesi chat tamu jadi pendaftaran akun lewat `chat_sessions.claimed_at` **(baru, D77)**. Metrik ini menjawab pertanyaan kegunaan chatbot dengan angka **(alat siap di sesi 9c: klaim sesi D170 dan V9 D172. Datanya terkumpul saat UAT)**
 - [ ] **H16** Siapkan data simulasi, termasuk beberapa usaha BUSINESS dengan jumlah pekerja berbeda dan pemetaan listing yang tumpang tindih, supaya skenario order paralel dan perebutan bisa diuji
 - [ ] **H20** Jalankan kueri verifikasi V1 sampai V5 setelah seeding dan setelah pengujian
@@ -2393,7 +2426,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 
 ## 11. Langkah Berikutnya
 
-1. Fase 9 (chatbot) dalam tiga sesi menurut Bagian 4W. Sesi 9a sampai 9c selesai. Uji sandbox 9c lulus. Tersisa evaluasi akurasi penuh dengan dataset penyusun (H15), lalu penutupan Fase 9. Paralel: penyusun menyusun dataset 30 sampai 50 skenario berlabel (H15, D153) dan mencatat model serta batas kuota project Gemini di AI Studio
+1. Fase 9 (chatbot) dalam tiga sesi menurut Bagian 4W. Sesi 9a sampai 9c selesai. Uji sandbox 9c lulus dan evaluasi run 1 selesai. Tersisa run 2 (pagi WITA) dan run 3 (siang atau sore WITA) menurut D176, lalu penutupan Fase 9. Paralel: penyusun menyusun dataset 30 sampai 50 skenario berlabel (H15, D153) dan mencatat model serta batas kuota project Gemini di AI Studio
 2. Selesai: Fase 8 (15 November 2026, 751 test lulus, D131 sampai D150) beserta uji sandbox payout dan refund. Uji sandbox refund PARTIAL hasil putusan sengketa lulus. Sebelumnya Fase 7 (11 November 2026, 627 test lulus) beserta uji sandbox Xendit sungguhan (12 November 2026), sebelumnya audit hutang teknis (9 November 2026) dan sesi perapian (10 November 2026)
 3. Susun data simulasi untuk dua belas sub-kategori di Lampiran B, termasuk skenario perebutan Available Now dan pendamping pada dokumentasi acara
 4. Riset ringan rentang harga pasaran untuk dua belas sub-kategori tersebut, catat sumbernya
@@ -2441,6 +2474,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 | 2.32 | 16 November 2026 | Hasil uji sandbox 9b dengan Gemini sungguhan: semua jenis intent lulus, dua kegagalan 503 dari server Gemini ditangani sesuai D161, analisis latensi terhadap target 3 detik. Dua keputusan baru: retry 5xx (D165) dan saran templat kosong (D166). H111 baru. Tanpa perubahan skema |
 | 2.33 | 16 November 2026 | Sembilan keputusan dari sesi 9c: rincian retry (D167), snapshot personalisasi (D168, D169), kode galat klaim (D170), V3 per pesan yang merevisi catatan D164 (D171), V9 akun baru (D172), kriteria taksonomi demo (D173), relasi kartu paralel (D174), dan constraint sesi tamu yang diklaim (D175). H66 dan H111 ditutup, H112 dan H113 baru. Satu migrasi constraint |
 | 2.34 | 16 November 2026 | Hasil uji sandbox 9c dengan Gemini sungguhan: klaim sesi, personalisasi dari riwayat, dan retry 5xx terbukti, taksonomi demo dinonaktifkan, V3 dan V9 sesuai D171 dan D172. Tanpa keputusan baru dan tanpa perubahan skema |
+| 2.35 | 16 November 2026 | Protokol evaluasi akurasi tiga run (D176) dan hasil run 1: 69,39 persen dengan kegagalan dihitung salah, 97,1 persen atas skenario yang dijawab, 14 kegagalan merespons dari Gemini. Tanpa perubahan kode dan skema |
 
 ---
 
