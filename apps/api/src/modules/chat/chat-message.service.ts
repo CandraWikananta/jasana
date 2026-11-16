@@ -24,7 +24,8 @@ import { activeSubcategories, type ActiveSubcategory } from '../catalog/catalog.
 import { searchListings } from '../listings/listing-search.service';
 import type { ListingCardDto } from '../listings/listings.mapper';
 import { getNumberSetting } from '../settings/settings.service';
-import { findOwnSession, toMessageDto, type ChatIdentity, type ChatMessageDto } from './chat.service';
+import { logger } from '../../lib/logger';
+import { findOwnSession, toMessageDto, type ChatIdentity, type ChatMessageDto, type PersonalizationSnapshot } from './chat.service';
 import type { SendMessageBody } from './chat.schema';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -41,7 +42,7 @@ export const REPLY = {
     'Halo! Aku asisten Jasana. Ceritakan jasa yang kamu butuhkan, misalnya "servis AC besok pagi di Denpasar", nanti aku carikan pilihannya.',
   outOfScope:
     'Aku hanya bisa membantu mencari jasa di Jasana. Untuk pertanyaan seputar cara kerja platform, silakan buka halaman Bantuan.',
-  unavailable: (categories: string[]) =>
+  unavailable: (categories: readonly string[]) =>
     categories.length > 0
       ? `Maaf, jasa itu belum tersedia di Jasana. Saat ini yang tersedia: ${categories.join(', ')}.`
       : 'Maaf, jasa itu belum tersedia di Jasana.',
@@ -50,8 +51,18 @@ export const REPLY = {
       ? `Untuk mencarikan ${subName} terdekat, izinkan akses lokasi di browser lalu kirim pesanmu lagi.`
       : `Untuk mencarikan ${subName} terdekat, izinkan akses lokasi di browser atau atur alamat default di profilmu, lalu kirim pesanmu lagi.`,
   found: (count: number, subName: string) => `Ini ${count} pilihan ${subName} yang bisa melayani lokasimu.`,
-  none: (subName: string, now: boolean) =>
-    `Belum ada ${subName} yang bisa melayani lokasimu${now ? ' saat ini' : ''}. Coba ubah waktu atau budget-nya.`,
+  /** D166: saran mengikuti slot yang diekstrak, bukan selalu "ubah waktu atau budget". */
+  none: (subName: string, slot: Intent['slot'], categories: string[]) => {
+    const now = slot.waktu.jenis === 'SEKARANG';
+    const hasBudget = slot.budget_maks !== null;
+    const hasTime = slot.waktu.jenis !== 'TIDAK_DISEBUT';
+    const tips = [hasBudget ? 'naikkan budget-nya' : null, hasTime ? 'ganti waktunya' : null].filter((tip) => tip !== null);
+    const advice =
+      tips.length > 0
+        ? `Coba ${tips.join(' atau ')}.`
+        : `Coba cari di lokasi lain${categories.length > 0 ? `, atau jasa lain yang tersedia: ${categories.join(', ')}` : ''}.`;
+    return `Belum ada ${subName} yang bisa melayani lokasimu${now ? ' saat ini' : ''}. ${advice}`;
+  },
   failed: 'Maaf, asisten sedang tidak bisa menjawab. Coba kirim lagi sebentar lagi.',
 } as const;
 
@@ -81,16 +92,28 @@ async function assertGlobalBrake(): Promise<void> {
   }
 }
 
-/** Transaksi 1. UPDATE bersyarat atomik, bukan baca lalu cek: dua pesan di batas terakhir, tepat satu lolos. */
+/**
+ * Transaksi 1. UPDATE bersyarat atomik, bukan baca lalu cek: dua pesan di batas
+ * terakhir, tepat satu lolos. Satu `update` dengan filter non-unik sekaligus
+ * mengembalikan message_count, jadi tanpa SELECT susulan (H111); P2025 berarti
+ * syaratnya tidak terpenuhi.
+ */
 async function recordUserMessage(sessionId: string, content: string, guestLimit: number | null) {
   return prisma.$transaction(async (tx) => {
-    const { count } = await tx.chatSession.updateMany({
-      where: { id: sessionId, ...(guestLimit === null ? {} : { messageCount: { lt: guestLimit } }) },
-      data: { messageCount: { increment: 1 } },
-    });
-    if (count === 0) throw new AppError('GUEST_CHAT_LIMIT_REACHED', 'Batas pesan sesi tamu sudah habis. Masuk atau daftar untuk melanjutkan');
+    let messageCount: number;
+    try {
+      ({ messageCount } = await tx.chatSession.update({
+        where: { id: sessionId, ...(guestLimit === null ? {} : { messageCount: { lt: guestLimit } }) },
+        data: { messageCount: { increment: 1 } },
+        select: { messageCount: true },
+      }));
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+        throw new AppError('GUEST_CHAT_LIMIT_REACHED', 'Batas pesan sesi tamu sudah habis. Masuk atau daftar untuk melanjutkan');
+      }
+      throw error;
+    }
     const message = await tx.chatMessage.create({ data: { sessionId, role: 'USER', content } });
-    const { messageCount } = await tx.chatSession.findUniqueOrThrow({ where: { id: sessionId }, select: { messageCount: true } });
     return { message, messageCount };
   });
 }
@@ -123,12 +146,30 @@ interface Reply {
   recommendations: ListingCardDto[];
 }
 
+type PriceRange = PersonalizationSnapshot['rentang_harga'];
+
+/** Jarak harga dasar listing ke rentang harga dasar order sebelumnya, 0 kalau di dalam rentang. */
+const priceGap = (price: number, range: NonNullable<PriceRange>) => Math.max(range.min - price, price - range.maks, 0);
+
+/**
+ * Usulan D168: urutan ulang, BUKAN filter. Array.sort stabil, jadi jarak sama
+ * tetap mengikuti urutan pencarian (jarak lokasi).
+ */
+export function rerankByPriceRange<T extends { price: number }>(cards: T[], range: PriceRange): T[] {
+  if (!range) return cards;
+  return [...cards].sort((a, b) => priceGap(a.price, range) - priceGap(b.price, range));
+}
+
+/** Kategori unik dari daftar aktif, untuk templat yang menyebut jasa lain yang tersedia. */
+const categoryNames = (subcategories: ActiveSubcategory[]) => [...new Set(subcategories.map((s) => s.categoryName))];
+
 async function replyFor(
   intent: Intent,
   sub: ActiveSubcategory | null,
   location: { lat: number; lng: number } | null,
   subcategories: ActiveSubcategory[],
   guest: boolean,
+  priceRange: PriceRange,
 ): Promise<Reply> {
   const text = (content: string): Reply => ({ content, recommendations: [] });
   switch (intent.jenis) {
@@ -137,7 +178,7 @@ async function replyFor(
     case 'di_luar_cakupan':
       return text(REPLY.outOfScope);
     case 'jasa_tidak_tersedia':
-      return text(REPLY.unavailable([...new Set(subcategories.map((s) => s.categoryName))]));
+      return text(REPLY.unavailable(categoryNames(subcategories)));
     case 'perlu_klarifikasi':
       return text(intent.pertanyaan_klarifikasi!);
     case 'cari_jasa': {
@@ -154,7 +195,9 @@ async function replyFor(
         available_now: now || undefined,
         price_max: intent.slot.budget_maks ?? undefined,
       });
-      return { content: items.length > 0 ? REPLY.found(items.length, sub!.name) : REPLY.none(sub!.name, now), recommendations: items };
+      return items.length > 0
+        ? { content: REPLY.found(items.length, sub!.name), recommendations: rerankByPriceRange(items, priceRange) }
+        : text(REPLY.none(sub!.name, intent.slot, categoryNames(subcategories)));
     }
   }
 }
@@ -177,8 +220,8 @@ export async function sendMessage(sessionId: string, identity: ChatIdentity, bod
 
   let guestLimit: number | null = null;
   if (guest) {
-    await assertGlobalBrake();
-    guestLimit = await getNumberSetting('guest_chat_message_limit');
+    // Membaca setting bukan pemeriksaan, jadi boleh bersamaan dengan rem global tanpa mengubah urutan D163 (H111).
+    [, guestLimit] = await Promise.all([assertGlobalBrake(), getNumberSetting('guest_chat_message_limit')]);
   }
   const { message: userMessage, messageCount } = await recordUserMessage(sessionId, body.content, guestLimit);
 
@@ -190,6 +233,13 @@ export async function sendMessage(sessionId: string, identity: ChatIdentity, bod
     !bodyLocation && session.userId ? defaultAddress(session.userId) : null,
   ]);
 
+  // H66: tamu tidak punya snapshot. Kunci riwayat yang sudah nonaktif tidak dikirim, karena skema intent pasti menolaknya.
+  const snapshot = session.personalizationSnapshot as PersonalizationSnapshot | null;
+  const activeKeys = new Set(subcategories.map((s) => s.key));
+  const personalization = snapshot
+    ? { riwayat_sub_kategori: snapshot.riwayat_sub_kategori.map((h) => h.kunci).filter((key) => activeKeys.has(key)) }
+    : null;
+
   const started = performance.now();
   let result: ExtractIntentResult;
   let sub: ActiveSubcategory | null;
@@ -199,8 +249,9 @@ export async function sendMessage(sessionId: string, identity: ChatIdentity, bod
       history,
       subcategories: subcategories.map(({ key, name, categoryName }) => ({ key, name, categoryName })),
       lastIntent: session.lastIntent,
-      personalizationSnapshot: null,
+      personalization,
     });
+    logger.info({ llm_attempts: result.attempts, llm_latency_ms: result.latencyMs, intent: result.intent.jenis }, 'Intent diekstrak');
     sub = resolveSubcategory(result.intent, subcategories);
   } catch (error) {
     if (isAppError(error) && error.code === 'GEMINI_UNAVAILABLE') {
@@ -213,7 +264,7 @@ export async function sendMessage(sessionId: string, identity: ChatIdentity, bod
     throw error;
   }
 
-  const reply = await replyFor(result.intent, sub, bodyLocation ?? savedLocation, subcategories, guest);
+  const reply = await replyFor(result.intent, sub, bodyLocation ?? savedLocation, subcategories, guest, snapshot?.rentang_harga ?? null);
 
   const assistant = await prisma.$transaction(async (tx) => {
     const row = await tx.chatMessage.create({

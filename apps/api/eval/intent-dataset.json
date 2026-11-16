@@ -1,0 +1,49 @@
+{
+  "versi": 1,
+  "catatan": "Template dataset evaluasi akurasi intent (H15, D153). Kelima skenario di bawah adalah contoh format dan akan diganti dataset penyusun. Aturan label: perlu_klarifikasi hanya kalau sub-kategori tidak bisa ditentukan; lokasi atau waktu yang kurang tetap cari_jasa. Field asal: penyusun, teman, atau draf_ai. Skenario lanjutan memakai riwayat dan, kalau pesan sebelumnya menyebut lokasi, waktu, budget, atau atribut, intent_terakhir dengan bentuk sama seperti chat_sessions.last_intent. Validasi: npx tsx apps/api/scripts/eval-intent.ts --check",
+  "skenario": [
+    {
+      "id": "contoh-sapaan",
+      "pesan": "pagi kak, mau tanya-tanya dulu boleh?",
+      "label": { "jenis": "sapaan", "sub_kategori": null },
+      "asal": "draf_ai",
+      "catatan": "Contoh template"
+    },
+    {
+      "id": "contoh-klarifikasi",
+      "pesan": "cari tukang foto dong",
+      "label": { "jenis": "perlu_klarifikasi", "sub_kategori": null },
+      "asal": "draf_ai",
+      "catatan": "Contoh template. Fotografi punya tiga sub-kategori, jadi sub-kategori tidak bisa ditentukan"
+    },
+    {
+      "id": "contoh-lanjutan-klarifikasi",
+      "riwayat": [
+        { "role": "USER", "content": "cari tukang foto dong" },
+        { "role": "ASSISTANT", "content": "Foto untuk apa: produk, prewedding, atau dokumentasi acara?" }
+      ],
+      "pesan": "buat produk jualan online, besok bisa?",
+      "label": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "fotografi/foto-produk",
+        "slot": { "lokasi_teks": null, "waktu_jenis": "TERJADWAL", "budget_maks": null }
+      },
+      "asal": "draf_ai",
+      "catatan": "Contoh template skenario lanjutan. intent_terakhir dikosongkan, jadi diturunkan dari pertanyaan klarifikasi terakhir (pesan pertama tidak menyebut slot)"
+    },
+    {
+      "id": "contoh-tidak-tersedia",
+      "pesan": "ada jasa sedot wc ga di denpasar?",
+      "label": { "jenis": "jasa_tidak_tersedia", "sub_kategori": null },
+      "asal": "draf_ai",
+      "catatan": "Contoh template"
+    },
+    {
+      "id": "contoh-luar-cakupan",
+      "pesan": "gimana caranya jadi mitra penyedia di jasana?",
+      "label": { "jenis": "di_luar_cakupan", "sub_kategori": null },
+      "asal": "draf_ai",
+      "catatan": "Contoh template. Pertanyaan cara kerja platform adalah di_luar_cakupan (catatan 9a)"
+    }
+  ]
+}

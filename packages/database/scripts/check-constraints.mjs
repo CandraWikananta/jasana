@@ -32,7 +32,7 @@ const EXPECTED_CHECKS = [
   ['chk_verification_token_expiry', 'H33 masa berlaku token verifikasi di masa depan'],
   ['chk_refresh_token_expiry', 'H62 masa berlaku refresh token di masa depan'],
   ['chk_chat_session_identity', 'H63 sesi chat wajib punya identitas'],
-  ['chk_guest_session_expiry', 'H63 sesi tamu wajib punya batas waktu'],
+  ['chk_guest_session_expiry', 'H63 sesi tamu yang belum diklaim wajib punya batas waktu (9c)'],
   ['chk_order_message_sender_role', 'H69 pengirim pesan hanya CLIENT, PROVIDER, WORKER'],
   ['chk_order_message_content_length', 'H69 panjang pesan 1 sampai 2000'],
   ['chk_listing_faq_content', 'H73 panjang pertanyaan dan jawaban FAQ'],

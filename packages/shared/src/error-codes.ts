@@ -73,6 +73,9 @@ export const BUSINESS_ERROR_STATUS = {
   // Sesi 9b, belum tercatat di Lampiran A (usulan D162). Sesi tamu ENDED atau kedaluwarsa, atau
   // sesi terdaftar ENDED yang dikirimi pesan atau diakhiri lagi.
   CHAT_SESSION_ENDED: 409,
+  // Sesi 9c, belum tercatat di Lampiran A (usulan D170). Klaim sesi tamu yang sudah diklaim,
+  // termasuk oleh akun yang sama dan pecundang dua klaim paralel.
+  CHAT_SESSION_ALREADY_CLAIMED: 409,
   GUEST_CHAT_LIMIT_REACHED: 429,
   RATE_LIMIT_EXCEEDED: 429,
   GEMINI_UNAVAILABLE: 502,

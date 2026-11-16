@@ -1723,15 +1723,19 @@ model ChatSession {
   guestToken              String?           @unique @map("guest_token") @db.VarChar(64)
   title                   String?           @db.VarChar(150)
   status                  ChatSessionStatus @default(ACTIVE)
-  /// Konteks pengguna yang disuntikkan ke system prompt Gemini: riwayat
-  /// kategori, alamat default, rata-rata rating yang diberikan, rentang harga.
-  /// INI YANG MEMBUAT klaim personalisasi bisa dibuktikan, bukan sekadar label.
-  /// TETAP NULL untuk tamu (H66).
+  /// D27, usulan D168 dan D169. Empat sumber: riwayat sub-kategori, kota alamat
+  /// default, rata-rata rating yang diberikan, rentang harga dasar order
+  /// (listing_base_amount). Dihitung SEKALI saat sesi terdaftar dibuat atau saat
+  /// klaim, tidak per pesan, supaya bisa diaudit. Yang dikirim ke Gemini HANYA
+  /// kunci riwayat sub-kategori; rentang harga dipakai server untuk mengurutkan
+  /// ulang rekomendasi. INI YANG MEMBUAT klaim personalisasi bisa dibuktikan,
+  /// bukan sekadar label. TETAP NULL untuk tamu (H66).
   personalizationSnapshot Json?             @map("personalization_snapshot")
   lastIntent              Json?             @map("last_intent")
   /// Penegakan batas pesan tamu tanpa perlu COUNT ke ChatMessage tiap pesan.
   messageCount            Int               @default(0) @map("message_count")
-  /// D77. Hanya untuk sesi tamu.
+  /// D77. Hanya untuk sesi tamu, wajib terisi selama belum diklaim, dan
+  /// dikosongkan saat klaim (D155, chk_guest_session_expiry sejak sesi 9c).
   expiresAt               DateTime?         @map("expires_at") @db.Timestamptz(6)
   /// D77. Terisi saat sesi tamu diklaim setelah mendaftar. SUMBER METRIK
   /// KONVERSI untuk Bab IV: berapa persen sesi chat tamu yang berlanjut jadi

@@ -2,8 +2,8 @@
  * Prompt ekstraksi intent (D152). Terpisah dari adapter supaya isinya bisa diuji.
  *
  * Yang masuk prompt hanya: daftar sub-kategori aktif (kunci, nama, nama
- * kategori), riwayat percakapan, last_intent, personalization_snapshot untuk
- * pengguna terdaftar, dan pesan pengguna. Data listing maupun penyedia TIDAK
+ * kategori), riwayat percakapan, last_intent, kunci riwayat sub-kategori dari
+ * personalization_snapshot untuk pengguna terdaftar (usulan D168), dan pesan pengguna. Data listing maupun penyedia TIDAK
  * PERNAH masuk (D152, H67). Field sub-kategori dipetik satu per satu, jadi
  * objek yang membawa field lain tidak ikut bocor ke prompt.
  */
@@ -62,9 +62,17 @@ export function buildUserInput(input: ExtractIntentInput): string {
     `Riwayat percakapan, lama ke baru:\n${history}`,
     `last_intent:\n${input.lastIntent == null ? '(belum ada)' : JSON.stringify(input.lastIntent)}`,
   ];
-  // H66: tamu tidak punya snapshot, dan bloknya tidak muncul sama sekali.
-  if (input.personalizationSnapshot !== null) {
-    parts.push(`Konteks pengguna terdaftar (personalization_snapshot):\n${JSON.stringify(input.personalizationSnapshot)}`);
+  // H66: tamu tidak punya riwayat, dan bloknya tidak muncul sama sekali. Usulan D168:
+  // hanya kunci sub-kategori, aturannya ditulis di blok ini supaya system instruction
+  // (dan prompt evaluasi D153) tetap sama untuk tamu dan terdaftar.
+  const remembered = input.personalization?.riwayat_sub_kategori ?? [];
+  if (remembered.length > 0) {
+    parts.push(
+      `Riwayat sub-kategori yang pernah dipesan pengguna ini (paling sering dulu):\n${remembered.join('\n')}\n` +
+        'Pakai riwayat ini untuk memilih sub_kategori HANYA kalau pesan merujuk pesanan sebelumnya secara eksplisit, ' +
+        'misalnya "kayak kemarin", "seperti biasa", atau "langganan saya". Tanpa rujukan seperti itu, abaikan riwayat ' +
+        'dan pakai aturan perlu_klarifikasi seperti biasa.',
+    );
   }
   parts.push(`Pesan pengguna sekarang:\n${input.message}`);
   return parts.join('\n\n');

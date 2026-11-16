@@ -131,7 +131,7 @@ async function run(args: string[]) {
         history,
         subcategories,
         lastIntent: testCase.followUp ? (previous?.intent ?? null) : null,
-        personalizationSnapshot: null,
+        personalization: null,
       });
       done.push(result);
       previous = { message: testCase.message, intent: result.intent };

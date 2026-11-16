@@ -317,7 +317,7 @@ describe.skipIf(!hasTestDatabase)('chatbot 9b', () => {
           jenis: 'cari_jasa', sub_kategori: 'tidak/ada', confidence: 0.9, pertanyaan_klarifikasi: null,
           slot: { lokasi: { teks: null, pakai_lokasi_saat_ini: false }, waktu: { jenis: 'TIDAK_DISEBUT', teks: null }, budget_maks: null, atribut: [] },
         },
-        model: 'fake', usage: { inputTokens: 0, outputTokens: 0, thoughtTokens: 0, totalTokens: 0 }, latencyMs: 0, raw: null,
+        model: 'fake', usage: { inputTokens: 0, outputTokens: 0, thoughtTokens: 0, totalTokens: 0 }, latencyMs: 0, attempts: 1, raw: null,
       });
       const s = await guestSession();
       const res = await guestSend(s, 'servis ac', at(RENON));
@@ -383,7 +383,7 @@ describe.skipIf(!hasTestDatabase)('chatbot 9b', () => {
       // Tidak ada pekerja online: available_now kosong.
       const now = await userSend(user, id, 'servis ac sekarang');
       expect(now.body.data.recommendations).toEqual([]);
-      expect(now.body.data.assistant_message.content).toBe(REPLY.none('Servis AC', true));
+      expect(now.body.data.assistant_message.content).toBe('Belum ada Servis AC yang bisa melayani lokasimu saat ini. Coba ganti waktunya.');
       presence.connect(owner.workerId);
       expect((await userSend(user, id, 'servis ac sekarang')).body.data.recommendations).toHaveLength(1);
 
@@ -423,7 +423,9 @@ describe.skipIf(!hasTestDatabase)('chatbot 9b', () => {
       expect(row.recommendedListingIds).not.toBeNull();
       expect(row.geminiModel).toBe('fake');
       expect(row.tokenUsage).toEqual({ inputTokens: 0, outputTokens: 0, thoughtTokens: 0, totalTokens: 0 });
-      expect(row.latencyMs).toBe(0);
+      // Usulan D167: latensi fake ikut diukur (beberapa ms), tanpa retry jauh di bawah jeda 1 detik.
+      expect(row.latencyMs).toBeGreaterThanOrEqual(0);
+      expect(row.latencyMs).toBeLessThan(1000);
     }
 
     const v3 = (await runVerificationQuery('V3')) as { jenis_sesi: string; jumlah_pesan: bigint; gagal_ekstraksi: bigint }[];

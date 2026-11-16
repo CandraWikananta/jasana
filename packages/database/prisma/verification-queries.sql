@@ -42,18 +42,42 @@ FROM order_checkins
 GROUP BY radius_threshold_meters;
 
 
--- @query V3 | table | Performa intent extraction, dipecah tamu dan terdaftar
-SELECT CASE WHEN s.user_id IS NULL THEN 'tamu' ELSE 'terdaftar' END AS jenis_sesi,
-       m.gemini_model,
-       COUNT(*)                              AS jumlah_pesan,
-       ROUND(AVG(m.intent_confidence), 3)    AS rata_confidence,
-       ROUND(AVG(m.latency_ms))              AS rata_latensi_ms,
-       PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY m.latency_ms) AS p95_latensi_ms,
-       COUNT(*) FILTER (WHERE m.extracted_intent IS NULL) AS gagal_ekstraksi
-FROM chat_messages m
-JOIN chat_sessions s ON s.id = m.session_id
-WHERE m.role = 'ASSISTANT'
-GROUP BY 1, 2;
+-- @query V3 | table | Performa intent extraction per jenis sesi dan jenis intent
+-- Usulan D171: jenis sesi dihitung per pesan. Pesan sebelum klaim tetap tamu,
+-- karena dijawab tanpa personalisasi (H66). Rem global D164 tetap user_id IS NULL.
+-- Latensi total = created_at ASSISTANT dikurangi created_at USER tepat sebelumnya
+-- di sesi yang sama (catatan 9b). Overhead = total dikurangi latency_ms Gemini,
+-- yaitu bagian yang dikendalikan sistem (PRD 6.1, H111).
+WITH giliran AS (
+  SELECT m.*,
+         LAG(m.role)       OVER w AS role_sebelum,
+         LAG(m.created_at) OVER w AS created_sebelum
+  FROM chat_messages m
+  WINDOW w AS (PARTITION BY m.session_id ORDER BY m.id)
+), jawaban AS (
+  SELECT g.*,
+         CASE WHEN s.user_id IS NULL OR g.created_at < s.claimed_at THEN 'tamu' ELSE 'terdaftar' END AS jenis_sesi,
+         CASE WHEN g.role_sebelum = 'USER'
+              THEN EXTRACT(EPOCH FROM (g.created_at - g.created_sebelum)) * 1000 END AS total_ms
+  FROM giliran g
+  JOIN chat_sessions s ON s.id = g.session_id
+  WHERE g.role = 'ASSISTANT'
+)
+SELECT jenis_sesi,
+       gemini_model,
+       COALESCE(extracted_intent->>'jenis', '(gagal)') AS jenis_intent,
+       COUNT(*)                                        AS jumlah_pesan,
+       ROUND(AVG(intent_confidence), 3)                AS rata_confidence,
+       ROUND(AVG(latency_ms))                          AS rata_latensi_ms,
+       ROUND((PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY latency_ms))::numeric) AS p95_latensi_ms,
+       ROUND(AVG(total_ms))                            AS rata_total_ms,
+       ROUND((PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY total_ms))::numeric) AS p95_total_ms,
+       ROUND(AVG(total_ms - latency_ms))               AS rata_overhead_ms,
+       ROUND((PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY total_ms - latency_ms))::numeric) AS p95_overhead_ms,
+       COUNT(*) FILTER (WHERE extracted_intent IS NULL) AS gagal_ekstraksi
+FROM jawaban
+GROUP BY 1, 2, 3
+ORDER BY 1, 2, 3;
 
 
 -- @query V4 | table | Pendapatan platform beserta komposisi nominal
@@ -118,13 +142,21 @@ WHERE o1.status IN ('ON_THE_WAY', 'ARRIVED', 'IN_PROGRESS', 'AWAITING_VERIFICATI
 
 
 -- @query V9 | table | Konversi sesi chat tamu jadi pendaftaran
-SELECT COUNT(*)                                          AS total_sesi_tamu,
-       COUNT(*) FILTER (WHERE claimed_at IS NOT NULL)     AS berlanjut_daftar,
-       ROUND(100.0 * COUNT(*) FILTER (WHERE claimed_at IS NOT NULL)
-             / NULLIF(COUNT(*), 0), 2)                    AS persen_konversi,
-       ROUND(AVG(message_count), 1)                       AS rata_pesan_per_sesi
-FROM chat_sessions
-WHERE guest_token IS NOT NULL;
+-- Usulan D172: konversi hanya klaim oleh akun yang dibuat setelah sesi tamu
+-- dimulai. Akun lama yang sekadar login lalu mengklaim dihitung terpisah.
+SELECT COUNT(*)                                                    AS total_sesi_tamu,
+       COUNT(*) FILTER (WHERE s.claimed_at IS NOT NULL)            AS total_diklaim,
+       COUNT(*) FILTER (WHERE s.claimed_at IS NOT NULL
+                          AND u.created_at >= s.started_at)        AS berlanjut_daftar,
+       COUNT(*) FILTER (WHERE s.claimed_at IS NOT NULL
+                          AND u.created_at < s.started_at)         AS diklaim_akun_lama,
+       ROUND(100.0 * COUNT(*) FILTER (WHERE s.claimed_at IS NOT NULL
+                                        AND u.created_at >= s.started_at)
+             / NULLIF(COUNT(*), 0), 2)                             AS persen_konversi,
+       ROUND(AVG(s.message_count), 1)                              AS rata_pesan_per_sesi
+FROM chat_sessions s
+LEFT JOIN users u ON u.id = s.user_id
+WHERE s.guest_token IS NOT NULL;
 
 
 -- @query V10 | table | Usulan taksonomi yang jadi taksonomi resmi

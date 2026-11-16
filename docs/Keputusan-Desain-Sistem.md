@@ -4,9 +4,9 @@
 **Nama sistem:** Jasana
 **Penyusun:** I Nyoman Gede Candra Wikananta (2305551065)
 **Bidang Keahlian:** Sistem Informasi, Teknologi Informasi, Universitas Udayana
-**Versi:** 2.32
-**Terakhir diperbarui:** 16 November 2026 (versi 2.32)
-**Tahap saat ini:** Implementasi backend. Fase 0 sampai Fase 8 selesai, Fase 9 berjalan (sesi 9a dan 9b selesai beserta uji sandbox 9b)
+**Versi:** 2.33
+**Terakhir diperbarui:** 16 November 2026 (versi 2.33)
+**Tahap saat ini:** Implementasi backend. Fase 0 sampai Fase 8 selesai, Fase 9 berjalan (sesi 9a sampai 9c selesai, menunggu uji sandbox 9c dan evaluasi akurasi)
 
 ---
 
@@ -49,7 +49,15 @@
 | Gateway LLM dan model (D156 sampai D160) | 5 | 0 |
 | Sesi dan pesan chat (D161 sampai D164) | 4 | 0 |
 | Hasil sandbox chatbot (D165 sampai D166) | 2 | 0 |
+| Klaim, personalisasi, dan evaluasi chatbot (D167 sampai D175) | 9 | 0 |
 | Keputusan terbuka tanpa nomor D (Bagian 7) | | 0 |
+
+**Perubahan pada versi 2.33:**
+
+1. Rincian retry (D167), isi dan pemakaian snapshot personalisasi (D168, D169), kode galat klaim sesi (D170)
+2. V3 per pesan yang merevisi catatan D164 (D171), pemisahan akun baru di V9 (D172), kriteria taksonomi demo (D173)
+3. Relasi kartu listing paralel (D174) dan constraint sesi tamu yang diklaim (D175)
+4. Catatan sesi 9c. H66 dan H111 ditutup, H112 dan H113 baru
 
 **Perubahan pada versi 2.32:**
 
@@ -1598,7 +1606,7 @@ Dari sesi 9b. D161 sampai D163 dijawab sebelum rencana disusun, D164 dari review
 | D161 | **Kalau Gemini gagal, tetap ditulis baris ASSISTANT** berisi pesan ramah, `extracted_intent` NULL, dan `latency_ms` terukur, lalu dibalas 502. Pesan USER dan kenaikan `message_count` sudah ter-commit lebih dulu. Baris gagal tidak ikut dikirim sebagai riwayat prompt. Pada evaluasi akurasi (D153), skenario yang gagal dihitung salah dan jumlahnya dilaporkan terpisah | Kegagalan Gemini adalah data penelitian. Kolom `gagal_ekstraksi` di V3 hanya bermakna kalau kegagalan tercatat sebagai baris, bukan sekadar pesan user tanpa balasan. Kegagalan merespons tetap bagian dari kinerja sistem |
 | D162 | **Kode galat akses sesi chat.** Tanpa identitas, format `X-Guest-Token` salah, atau JWT rusak: 401, dan JWT rusak tidak pernah diperlakukan sebagai tamu. Sesi tidak ada atau milik orang lain: 404. Sesi tamu ENDED atau kedaluwarsa: 409 `CHAT_SESSION_ENDED` untuk semua aksi. Sesi terdaftar ENDED: riwayat tetap bisa dibaca, tetapi kirim pesan dan end dibalas 409 | 404 untuk sesi milik orang lain mencegah penebakan id sesi yang ada. Riwayat sesi terdaftar bersifat permanen (D77), sedangkan sesi tamu memang dirancang sementara |
 | D163 | **Urutan pemeriksaan batas tamu: IP, lalu global, lalu per sesi.** Merevisi urutan di PRD 4.4. IP diperiksa di middleware memori sebelum basis data. Global hanya membaca dan diperiksa sebelum kenaikan per sesi. Per sesi paling akhir lewat satu UPDATE bersyarat, langsung disusul insert pesan USER di transaksi yang sama | Banjir permintaan dengan token palsu tertahan sebelum menyentuh basis data. Penolakan 503 tidak memakan kuota sesi tamu. Hanya pemeriksaan terakhir yang mengubah data, sehingga tidak perlu mengembalikan kuota yang sudah terpotong |
-| D164 | **Rem global menghitung pesan USER dari sesi dengan `user_id IS NULL`** pada hari kalender WITA, bukan dari sesi yang punya `guest_token` | Setelah diklaim di 9c, sesi itu milik akun dan dibatasi batas per akun, sehingga tidak ikut memakan jatah tamu. Definisinya sama dengan `jenis_sesi` di V3, sehingga angka di Bab IV konsisten |
+| D164 | **Rem global menghitung pesan USER dari sesi dengan `user_id IS NULL`** pada hari kalender WITA, bukan dari sesi yang punya `guest_token` | Setelah diklaim di 9c, sesi itu milik akun dan dibatasi batas per akun, sehingga tidak ikut memakan jatah tamu. Definisinya sama dengan `jenis_sesi` di V3, sehingga angka di Bab IV konsisten. **Direvisi D171:** V3 kini menghitung jenis sesi per pesan lewat `claimed_at`, sedangkan rem global tetap `user_id IS NULL` |
 
 **Catatan implementasi sesi 9b tanpa nomor D:**
 
@@ -1653,6 +1661,35 @@ Semua jenis intent menghasilkan klasifikasi yang benar pada percobaan yang berha
 - Target 3 detik ditetapkan dengan asumsi Gemini menjawab sekitar 1,5 detik. Pengukuran di Bab IV memisahkan latensi Gemini dari overhead server, supaya bagian yang dikendalikan sistem bisa dinilai sendiri
 
 **Catatan:** kategori dan sub-kategori demo dari fase sebelumnya ("Kebersihan Rumah (Demo F3)", "Otomotif (Demo Postman)", dan satu "Otomotif" ganda) masih aktif di Supabase dev, sehingga muncul di templat `jasa_tidak_tersedia` dan ikut terkirim ke prompt Gemini. Wajib dinonaktifkan sebelum evaluasi akurasi dan UAT (H16).
+
+---
+
+## 4AA. Keputusan Versi 2.33 (D167 sampai D175)
+
+Dari sesi 9c. D168 sampai D173 dijawab penyusun sebelum rencana disusun, D167, D174, dan D175 dari pertanyaan selama implementasi. Satu migrasi constraint, tanpa tabel atau kolom baru.
+
+| # | Keputusan | Alasan |
+|---|---|---|
+| D167 | **Rincian retry D165.** Retry dilewati kalau sisa tenggat setelah jeda 1 detik kurang dari 3000 ms. `latency_ms` adalah waktu total langkah LLM sejak percobaan pertama, termasuk jeda dan percobaan kedua. Jumlah percobaan dikembalikan gateway dan dicatat di log (`llm_attempts`), tanpa kolom baru | Percobaan kedua dengan sisa waktu di bawah 3 detik hampir pasti terpotong timeout saat Gemini lambat, sehingga hanya membuang kuota. Akibatnya 503 yang datang setelah sekitar 4 detik tidak di-retry, dan itu disengaja. Latensi total adalah waktu yang benar-benar ditunggu pengguna |
+| D168 | **Isi dan pemakaian `personalization_snapshot`.** Sumbernya order berstatus PAID sampai SETTLED, di luar order batal, kedaluwarsa, sengketa, dan refund. Isinya maksimal 3 kunci riwayat sub-kategori, kota alamat default tanpa koordinat, rata-rata rating yang diberikan, dan rentang `listing_base_amount`. Gemini hanya menerima kunci riwayat sub-kategori yang masih aktif, dengan aturan bahwa riwayat boleh dipakai memilih sub-kategori hanya kalau pesan merujuknya secara eksplisit ("kayak kemarin"). Rentang harga dipakai server untuk mengurutkan ulang rekomendasi, bukan menyaring. Alamat, rating, dan angka harga tidak pernah dikirim ke Gemini | Dua efek personalisasi yang bisa ditunjukkan: Gemini memahami rujukan ke riwayat, dan urutan rekomendasi mengikuti kebiasaan harga pengguna. Rujukan wajib eksplisit supaya aturan label `perlu_klarifikasi` di H15 tidak bergeser. Rentang harga dari harga dasar listing supaya urutan ulang membandingkan harga dasar dengan harga dasar, bukan dengan total yang memuat opsi dan biaya lain. Data pribadi tetap di server |
+| D169 | **Snapshot dihitung saat sesi terdaftar dibuat dan saat klaim**, sekali per sesi, tidak per pesan | Akun lama yang login lalu mengklaim sesi tetap mendapat personalisasi. Snapshot yang tetap selama sesi bisa diaudit, dan giliran sebelum klaim tetap tercatat tanpa personalisasi |
+| D170 | **Kode galat klaim sesi** `POST /chat/sessions/:id/claim`. Tanpa JWT atau tanpa `X-Guest-Token`: 401. Token tidak cocok: 404. Sesi yang sudah diklaim, oleh akun siapa pun termasuk akun yang sama: 409 `CHAT_SESSION_ALREADY_CLAIMED` (kode baru). Sesi berakhir atau kedaluwarsa: 409 `CHAT_SESSION_ENDED`. Setelah diklaim, token tamu lama dibalas 404 di semua aksi | Satu jalur lewat UPDATE bersyarat atomik, tanpa baca tambahan. Frontend memperlakukan `ALREADY_CLAIMED` sebagai sudah beres. 404 untuk token lama mencegah token yang tertinggal di localStorage perangkat bersama membuka percakapan yang kini milik akun |
+| D171 | **`jenis_sesi` pada V3 dihitung per pesan:** tamu kalau sesi belum diklaim atau pesan dikirim sebelum `claimed_at`, selain itu terdaftar. **Merevisi catatan D164.** Rem global tetap menghitung `user_id IS NULL`, sehingga klaim mengurangi hitungan rem pada hari itu | Pesan sebelum klaim memang dijawab tanpa personalisasi, jadi harus terhitung tamu di Bab IV. Rem global adalah pengaman kuota, bukan metrik, sehingga definisi yang lebih sederhana cukup |
+| D172 | **V9 memisahkan akun baru dan akun lama** lewat `users.created_at >= chat_sessions.started_at`. Persen konversi H68 dihitung dari akun baru saja, dan klaim oleh akun lama ditampilkan terpisah | Yang ingin diukur H68 adalah tamu yang mendaftar setelah mencoba chatbot. Tanpa pemisahan, angka konversi melambung oleh pengguna lama yang kebetulan bertanya sebagai tamu. Tidak butuh angka jendela waktu yang ditetapkan sembarangan |
+| D173 | **Kriteria taksonomi demo (H16)** adalah kategori atau sub-kategori aktif yang pasangan slug-nya tidak ada di `scripts/catalog-data.mjs`. Skripnya hanya menonaktifkan, tanpa menghapus, dan bawaannya dry-run | Acuannya katalog resmi Lampiran B, sehingga objektif dan sekaligus menangkap sisa demo yang tidak terpikirkan. Dry-run menampilkan target dan listing ACTIVE terdampak sebelum ada yang diubah |
+| D174 | **Relasi kartu listing dibaca paralel.** Kueri listing tanpa relasi, lalu sub-kategori, profil penyedia, dan foto utama dibaca bersamaan lewat `Promise.all` di luar transaksi interaktif. Event query Prisma dinyalakan di env test untuk menghitung kueri | Prisma 6 terbukti membaca relasi itu berurutan. Jumlah kueri tetap, tetapi perjalanan berurutan ke basis data turun dari 4 menjadi 2, dan ikut mempercepat `GET /listings`. Hitungan kueri dikunci test sebagai pengaman regresi N+1 |
+| D175 | **`chk_guest_session_expiry` menjadi `user_id IS NOT NULL OR guest_token IS NULL OR expires_at IS NOT NULL`** (migrasi `20261116120000_guest_session_expiry_unclaimed`) | Constraint lama menolak klaim yang mempertahankan `guest_token` (untuk V9) sambil mengosongkan `expires_at` (D155). Maknanya tetap: sesi tamu yang belum diklaim wajib punya masa kedaluwarsa. Constraint baru lebih longgar, sehingga semua baris lama tetap sah |
+
+**Catatan implementasi sesi 9c tanpa nomor D:**
+
+- **`last_intent` pada evaluasi sama dengan produksi.** Di produksi, `chat_sessions.last_intent` diisi intent utuh yang lolos Zod di transaksi yang sama dengan baris ASSISTANT, dan giliran gagal tidak mengubahnya. Skrip evaluasi memakai penyusun input dan pemangkasan 6 pesan riwayat yang sama. Skenario lanjutan memakai field `intent_terakhir`, atau kalau kosong dan riwayat diakhiri pertanyaan ASSISTANT, diturunkan sebagai `perlu_klarifikasi` dengan slot kosong. Ditemukan dan disamakan perbedaan urutan kunci JSON antara prompt produksi dan dataset, dibuktikan test bahwa teks prompt identik
+- **Dataset evaluasi** `apps/api/eval/intent-dataset.json` punya field `asal` (penyusun, teman, draf_ai) dan `catatan` per skenario. Ringkasan melaporkan akurasi total terhadap target 80 persen (D85), akurasi per jenis, per asal, confusion matrix, akurasi slot per field yang berlabel, latensi, dan token. Meta mencatat model, hash commit, hash prompt dan skema, serta hash dataset. Asal pesan dilaporkan terbuka di Bab IV, tidak dikecualikan
+- Fake gateway: pesan berisi `#uji-503` gagal sekali sebagai HTTP 503 lalu berhasil, untuk membuktikan retry di test dan Postman
+- `AbortSignal.timeout` menolak milidetik pecahan, sehingga sisa tenggat retry dibulatkan ke bawah (bug yang ditemukan saat implementasi)
+- Pemangkasan kecil di jalur chat: kenaikan `message_count` tamu memakai satu UPDATE bersyarat yang langsung mengembalikan nilai baru, dan dua baca parameter tamu dijalankan bersamaan. Kueri per giliran (termasuk BEGIN dan COMMIT): templat tamu 15 menjadi 13, `cari_jasa` tamu 21 menjadi 19, `cari_jasa` terdaftar 18 menjadi 17
+- Satu mutan bertahan: syarat `user_id IS NULL` pada UPDATE klaim. Mutan ini setara dengan kode asli karena klaim pertama sudah mengosongkan `expires_at`, sehingga syarat kedaluwarsa ikut menolak klaim kedua. Syaratnya dipertahankan sebagai pengaman eksplisit
+
+**Hasil sesi 9c:** typecheck bersih, 888 test di 46 berkas lulus, 52 dari 53 mutan tertangkap (satu mutan setara, lihat di atas). Postman Fase 1 sampai 9 tanpa gagal, Fase 9 dengan 50 request dan 122 assertion. `db:verify` lulus di `jasana_test`. Uji sandbox 9c dengan Gemini sungguhan, migrasi D175 ke Supabase dev, dan evaluasi akurasi penuh dijalankan penyusun.
 
 ---
 
@@ -2255,8 +2292,8 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 
 ### 8.5 Persiapan Data Pengujian
 
-- [ ] **H15** Kumpulkan 30 sampai 50 skenario percakapan berlabel untuk mengukur akurasi intent extraction. Mulai sekarang, jangan tunggu bulan ke-5
-- [ ] **H68** Ukur konversi sesi chat tamu jadi pendaftaran akun lewat `chat_sessions.claimed_at` **(baru, D77)**. Metrik ini menjawab pertanyaan kegunaan chatbot dengan angka
+- [ ] **H15** Kumpulkan 30 sampai 50 skenario percakapan berlabel untuk mengukur akurasi intent extraction. Mulai sekarang, jangan tunggu bulan ke-5 **(alat siap di sesi 9c: dataset berformat, validator `--check`, dan skrip evaluasi. Dataset penyusun disusun paralel)**
+- [ ] **H68** Ukur konversi sesi chat tamu jadi pendaftaran akun lewat `chat_sessions.claimed_at` **(baru, D77)**. Metrik ini menjawab pertanyaan kegunaan chatbot dengan angka **(alat siap di sesi 9c: klaim sesi D170 dan V9 D172. Datanya terkumpul saat UAT)**
 - [ ] **H16** Siapkan data simulasi, termasuk beberapa usaha BUSINESS dengan jumlah pekerja berbeda dan pemetaan listing yang tumpang tindih, supaya skenario order paralel dan perebutan bisa diuji
 - [ ] **H20** Jalankan kueri verifikasi V1 sampai V5 setelah seeding dan setelah pengujian
 - [ ] **H91** Rate limiter dihitung per alamat IP, sedangkan k6 menembak seluruh request dari satu IP. Sediakan pengaturan khusus lingkungan pengujian beban, misalnya batas yang dinaikkan lewat env, supaya yang terukur adalah API dan bukan rate limiter-nya. Pengaturan itu ditulis di laporan **(baru)**
@@ -2267,7 +2304,7 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 
 - [ ] **H17** Validasi geolokasi berbasis browser dapat dipalsukan lewat DevTools. Sertakan mitigasinya: kode verifikasi 6 digit yang hanya dipegang client yang hadir secara fisik
 - [ ] **H21** Perilaku cold start chatbot: pengguna baru tanpa riwayat hanya mendapat intent extraction
-- [ ] **H66** **(sebagian di sesi 9b: snapshot tetap null dan lokasi tamu hanya dari body; sisanya di 9c)** Chatbot tamu tidak melakukan personalisasi sama sekali **(baru, D77)**. Lokasi diambil dari izin geolokasi browser per percakapan, bukan dari `user_addresses`, dan `personalization_snapshot` tetap null
+- [x] **H66** **(ditutup di sesi 9c: tamu dan giliran sebelum klaim tidak menerima snapshot, riwayat, maupun alamat default, dibuktikan test, D168, D169)** Chatbot tamu tidak melakukan personalisasi sama sekali **(baru, D77)**. Lokasi diambil dari izin geolokasi browser per percakapan, bukan dari `user_addresses`, dan `personalization_snapshot` tetap null
 - [x] **H67** **(ditutup secara struktur oleh D152, dibuktikan test prompt di sesi 9a dan test kartu rekomendasi di sesi 9b)** Jawaban chatbot ke tamu tidak boleh memuat data pribadi penyedia seperti nomor telepon atau alamat persis **(baru, D77)**, hanya yang tampil di halaman listing publik
 - [ ] **H22** Kode verifikasi order **dienkripsi**, bukan di-hash, beserta alasannya, dan bedanya dengan token email yang di-hash
 - [ ] **H29** Platform memverifikasi usaha, usaha bertanggung jawab atas pekerjanya (D34)
@@ -2294,7 +2331,9 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 - [ ] **H104** Pembayaran dobel lewat invoice yatim di-refund admin di luar sistem, bukan lewat alur refund otomatis **(baru, D135)**. Kasusnya bisa dicari lewat `webhook_events` bertanda `DOUBLE_PAYMENT`
 - [ ] **H107** Tidak ada sinkronisasi otomatis ke Xendit (D143). Withdrawal atau refund yang webhook-nya hilang baru selesai kalau admin menekan sync. Cron sinkronisasi masuk saran pengembangan **(baru, D143)**
 - [ ] **H110** Confidence intent adalah penilaian Gemini atas dirinya sendiri dan tidak terkalibrasi (hampir selalu 0,95 sampai 1 pada smoke 9a). Dilaporkan sebagai data pendukung, sedangkan keandalan diukur lewat akurasi terhadap dataset berlabel (D153) **(baru, sesi 9a)**
-- [ ] **H111** Overhead server pada giliran `cari_jasa` 2,5 sampai 3,1 detik di Supabase dev, sekitar 1,7 sampai 2,4 detik lebih besar dari jawaban templat. Sesi 9c menghitung jumlah kueri pada jalur pencarian dan penyusunan kartu rekomendasi, lalu memangkas kueri berulang kalau ada **(baru, uji sandbox 9b)**
+- [x] **H111** **(ditutup di sesi 9c lewat D174 dan pemangkasan kueri jalur chat. Penghematan waktu di Supabase dev diukur di uji sandbox 9c)** Overhead server pada giliran `cari_jasa` 2,5 sampai 3,1 detik di Supabase dev, sekitar 1,7 sampai 2,4 detik lebih besar dari jawaban templat. Sesi 9c menghitung jumlah kueri pada jalur pencarian dan penyusunan kartu rekomendasi, lalu memangkas kueri berulang kalau ada **(baru, uji sandbox 9b)**
+- [ ] **H112** Urutan ulang berdasarkan rentang harga (D168) hanya berlaku atas 5 hasil teratas berdasarkan jarak, sehingga listing yang cocok harganya tetapi di luar 5 terdekat tidak ikut naik **(baru, sesi 9c)**
+- [ ] **H113** `rata_pesan_per_sesi` di V9 ikut menghitung pesan sesudah klaim **(baru, sesi 9c)**
 - [ ] **H82** Admin fee withdrawal berupa nilai flat yang mengikuti perkiraan biaya payout Xendit **(baru, D84)**. Untuk nominal di atas Rp250.000 biaya sebenarnya sedikit lebih besar dan selisihnya ditanggung platform
 
 ---
@@ -2331,7 +2370,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 
 ## 11. Langkah Berikutnya
 
-1. Fase 9 (chatbot) dalam tiga sesi menurut Bagian 4W. Sesi 9c juga memuat D165, D166, dan H111, dan sebelum evaluasi akurasi kategori demo di Supabase dev dinonaktifkan (H16). Paralel: penyusun menyusun dataset 30 sampai 50 skenario berlabel (H15, D153) dan mencatat model serta batas kuota project Gemini di AI Studio
+1. Fase 9 (chatbot) dalam tiga sesi menurut Bagian 4W. Sesi 9a sampai 9c selesai. Tersisa uji sandbox 9c oleh penyusun: migrasi D175 ke Supabase dev, nonaktif taksonomi demo (D173), klaim dan personalisasi dengan Gemini sungguhan, lalu evaluasi akurasi penuh dengan dataset penyusun (H15). Paralel: penyusun menyusun dataset 30 sampai 50 skenario berlabel (H15, D153) dan mencatat model serta batas kuota project Gemini di AI Studio
 2. Selesai: Fase 8 (15 November 2026, 751 test lulus, D131 sampai D150) beserta uji sandbox payout dan refund. Uji sandbox refund PARTIAL hasil putusan sengketa lulus. Sebelumnya Fase 7 (11 November 2026, 627 test lulus) beserta uji sandbox Xendit sungguhan (12 November 2026), sebelumnya audit hutang teknis (9 November 2026) dan sesi perapian (10 November 2026)
 3. Susun data simulasi untuk dua belas sub-kategori di Lampiran B, termasuk skenario perebutan Available Now dan pendamping pada dokumentasi acara
 4. Riset ringan rentang harga pasaran untuk dua belas sub-kategori tersebut, catat sumbernya
@@ -2377,6 +2416,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 | 2.30 | 15 November 2026 | Lima keputusan dari sesi 9a dan smoke Gemini: timeout 8 detik (D156), fake ditolak di produksi (D157), `store: false` (D158), model `gemini-3.5-flash-lite` (D159), dan rem global tamu 250 (D160). H14 ditutup, H110 baru. Tanpa perubahan skema |
 | 2.31 | 16 November 2026 | Empat keputusan dari sesi 9b: baris ASSISTANT saat Gemini gagal (D161), kode galat akses sesi (D162), urutan batas tamu (D163), dan definisi tamu untuk rem global (D164). H19 dan H67 ditutup. Tanpa perubahan skema |
 | 2.32 | 16 November 2026 | Hasil uji sandbox 9b dengan Gemini sungguhan: semua jenis intent lulus, dua kegagalan 503 dari server Gemini ditangani sesuai D161, analisis latensi terhadap target 3 detik. Dua keputusan baru: retry 5xx (D165) dan saran templat kosong (D166). H111 baru. Tanpa perubahan skema |
+| 2.33 | 16 November 2026 | Sembilan keputusan dari sesi 9c: rincian retry (D167), snapshot personalisasi (D168, D169), kode galat klaim (D170), V3 per pesan yang merevisi catatan D164 (D171), V9 akun baru (D172), kriteria taksonomi demo (D173), relasi kartu paralel (D174), dan constraint sesi tamu yang diklaim (D175). H66 dan H111 ditutup, H112 dan H113 baru. Satu migrasi constraint |
 
 ---
 

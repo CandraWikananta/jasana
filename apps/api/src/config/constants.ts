@@ -61,6 +61,15 @@ export const PAYMENT_GATEWAY_TIMEOUT_MS = 10_000;
  */
 export const LLM_GATEWAY_TIMEOUT_MS = 8_000;
 
+/**
+ * D165, usulan D167: satu retry untuk HTTP 500, 502, 503, 504, dengan jeda ini,
+ * di dalam tenggat LLM_GATEWAY_TIMEOUT_MS yang sama. Retry dilewati kalau sisa
+ * tenggat setelah jeda kurang dari ambang (sekitar dua kali latensi normal 1,5
+ * detik pada smoke 9a), karena percobaan kedua hampir pasti terpotong timeout.
+ */
+export const LLM_RETRY_DELAY_MS = 1_000;
+export const LLM_RETRY_MIN_REMAINING_MS = 3_000;
+
 /** PRD 7.1, D121: event PROCESSING lebih lama dari ini dianggap macet, FAILED diulang maksimal sekian kali. */
 export const WEBHOOK_STUCK_MINUTES = 5;
 export const WEBHOOK_MAX_RETRIES = 3;
@@ -98,6 +107,9 @@ export const DISPUTE_EVIDENCE_MAX_PER_PARTY = 5;
 
 /** Umur signed URL bukti dispute, sama alasannya dengan KYC_SIGNED_URL_TTL_SECONDS. */
 export const DISPUTE_EVIDENCE_SIGNED_URL_TTL_SECONDS = 10 * 60;
+
+/** Usulan D168: sub-kategori terbanyak dipesan yang masuk personalization_snapshot dan prompt. */
+export const CHAT_SNAPSHOT_HISTORY_LIMIT = 3;
 
 /** Pesan terakhir sebelum pesan baru yang dikirim ulang ke LlmGateway sebagai riwayat (D158). */
 export const CHAT_HISTORY_MESSAGES = 6;

@@ -16,7 +16,7 @@ const input = (overrides: Partial<ExtractIntentInput> = {}): ExtractIntentInput 
   history: [],
   subcategories: SUBCATEGORIES,
   lastIntent: null,
-  personalizationSnapshot: null,
+  personalization: null,
   ...overrides,
 });
 
@@ -59,18 +59,34 @@ describe('buildSystemInstruction', () => {
 });
 
 describe('buildUserInput', () => {
-  it('tamu: tanpa blok personalization_snapshot sama sekali (H66)', () => {
+  it('tamu: tanpa blok riwayat sama sekali (H66)', () => {
     const text = buildUserInput(input());
-    expect(text).not.toContain('personalization_snapshot');
+    expect(text).not.toContain('Riwayat sub-kategori');
     expect(text).toContain('Pesan pengguna sekarang:\nac kamar ga dingin');
     expect(text).toContain('Riwayat percakapan, lama ke baru:\n(belum ada)');
     expect(text).toContain('last_intent:\n(belum ada)');
   });
 
-  it('terdaftar: snapshot dimasukkan', () => {
-    const snapshot = { kategori_favorit: ['Perbaikan'], rentang_harga: [100000, 300000] };
-    const text = buildUserInput(input({ personalizationSnapshot: snapshot }));
-    expect(text).toContain(`(personalization_snapshot):\n${JSON.stringify(snapshot)}`);
+  it('terdaftar tanpa riwayat order: blok riwayat juga tidak muncul', () => {
+    expect(buildUserInput(input({ personalization: { riwayat_sub_kategori: [] } }))).not.toContain('Riwayat sub-kategori');
+  });
+
+  it('terdaftar: hanya kunci riwayat, dengan aturan rujukan eksplisit, sebelum pesan sekarang (usulan D168)', () => {
+    const text = buildUserInput(input({ personalization: { riwayat_sub_kategori: ['perbaikan/servis-ac', 'kecantikan/makeup-pengantin'] } }));
+    expect(text).toContain('(paling sering dulu):\nperbaikan/servis-ac\nkecantikan/makeup-pengantin\n');
+    expect(text).toContain('HANYA kalau pesan merujuk pesanan sebelumnya secara eksplisit');
+    expect(text.indexOf('Riwayat sub-kategori')).toBeLessThan(text.indexOf('Pesan pengguna sekarang:'));
+  });
+
+  it('isi snapshot lain tidak bisa ikut walaupun objek sumbernya membawanya', () => {
+    const leaky = {
+      riwayat_sub_kategori: ['perbaikan/servis-ac'],
+      kota_alamat_default: 'Denpasar',
+      rata_rating_diberikan: 4.5,
+      rentang_harga: { min: 150000, maks: 275000 },
+    } as unknown as ExtractIntentInput['personalization'];
+    const text = buildUserInput(input({ personalization: leaky }));
+    for (const secret of ['Denpasar', '4.5', '150000', '275000', 'rentang', 'rating', 'kota']) expect(text).not.toContain(secret);
   });
 
   it('riwayat dan last_intent ikut masuk, berurutan, sebelum pesan sekarang', () => {

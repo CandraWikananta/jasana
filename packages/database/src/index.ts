@@ -40,7 +40,8 @@ function createPrismaClient(): PrismaClient {
   return new PrismaClient({
     transactionOptions: { timeout: TRANSACTION_TIMEOUT_MS, maxWait: TRANSACTION_MAX_WAIT_MS },
     log:
-      process.env.NODE_ENV === 'development'
+      // Env test ikut, supaya test bisa menghitung kueri per giliran chat (H111).
+      process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test'
         ? [
             { emit: 'event', level: 'query' },
             { emit: 'stdout', level: 'warn' },

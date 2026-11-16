@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| Versi | 2.25 |
+| Versi | 2.26 |
 | Penyusun | I Nyoman Gede Candra Wikananta (2305551065) |
 | Program Studi | Teknologi Informasi, Universitas Udayana |
 | Bidang Keahlian | Sistem Informasi |
@@ -821,14 +821,14 @@ Query parameter `GET /listings`:
 | Method | Path | Akses | Fungsi |
 |---|---|---|---|
 | POST | `/chat/guest-sessions` | P | Mulai sesi tamu, mengembalikan `guest_token` |
-| POST | `/chat/sessions` | C | Mulai sesi terdaftar, menyusun `personalization_snapshot` |
-| POST | `/chat/sessions/:id/claim` | C | Klaim sesi tamu setelah mendaftar |
+| POST | `/chat/sessions` | C | Mulai sesi terdaftar, menyusun `personalization_snapshot` sekali per sesi |
+| POST | `/chat/sessions/:id/claim` | C + `X-Guest-Token` | Klaim sesi tamu setelah mendaftar atau login, menyusun `personalization_snapshot` |
 | GET | `/chat/sessions` | C | Riwayat sesi |
 | GET | `/chat/sessions/:id/messages` | P/C | Riwayat percakapan |
 | POST | `/chat/sessions/:id/messages` | P/C | Kirim pesan, memanggil Gemini |
 | POST | `/chat/sessions/:id/end` | P/C | Akhiri sesi |
 
-Akses **P** pada endpoint chatbot berarti sesi tamu, yang diidentifikasi lewat header `X-Guest-Token`, bukan JWT. Token mentah hanya dikembalikan sekali saat sesi dibuat, dan yang disimpan di basis data adalah hash-nya. Sesi milik orang lain dibalas 404 (D162).
+Akses **P** pada endpoint chatbot berarti sesi tamu, yang diidentifikasi lewat header `X-Guest-Token`, bukan JWT. Token mentah hanya dikembalikan sekali saat sesi dibuat, dan yang disimpan di basis data adalah hash-nya. Sesi milik orang lain dibalas 404 (D162). Setelah sesi diklaim, `X-Guest-Token` lama tidak lagi membuka sesi itu (404).
 
 #### Notifikasi, berkas, admin
 
@@ -1068,18 +1068,41 @@ Efek samping: kirim lewat Socket.IO ke room `order:<order_id>`, lalu notifikasi 
      per guest_token   -> 429 GUEST_CHAT_LIMIT_REACHED     (UPDATE bersyarat, disusul insert pesan USER)
 3. Terdaftar: rate limit per akun
 4. Susun prompt: daftar sub-kategori aktif
-   + personalization_snapshot (NULL untuk tamu)
-   + riwayat percakapan
+   + kunci riwayat sub-kategori dari personalization_snapshot (NULL untuk tamu),
+     dipakai Gemini HANYA kalau pesan merujuk pesanan sebelumnya secara eksplisit.
+     Alamat, rating, dan angka harga tidak pernah dikirim
+   + riwayat percakapan dan last_intent
 5. Panggil Gemini lewat LlmGateway dengan structured output (D151)
    galat 5xx -> satu kali retry dalam tenggat 8 detik yang sama (D165)
 6. Rekam extracted_intent, intent_confidence, token_usage, latency_ms
 7. Menurut jenis intent (D152):
      cari_jasa           -> validasi sub-kategori, cari listing, kembalikan rekomendasi
                             hasil kosong: saran mengikuti slot yang terisi (D166)
+                            sesi terdaftar: urutkan ulang menurut rentang harga
+                            dasar di snapshot, bukan filter
      perlu_klarifikasi   -> teruskan pertanyaan klarifikasi dari Gemini
      jasa_tidak_tersedia, sapaan, di_luar_cakupan -> templat tetap dari server
    Gemini tidak pernah menerima data listing maupun penyedia
 ```
+
+#### POST /chat/sessions/:id/claim
+
+```
+1. JWT wajib (requireAuth)                   -> 401
+2. X-Guest-Token wajib, 64 hex               -> 401
+3. Sesi dengan id dan hash token itu ada?    -> 404 NOT_FOUND
+4. Sudah diklaim (oleh siapa pun)            -> 409 CHAT_SESSION_ALREADY_CLAIMED
+5. ENDED atau expires_at lewat               -> 409 CHAT_SESSION_ENDED
+6. Susun personalization_snapshot akun (di luar transaksi, hanya baca)
+7. UPDATE bersyarat atomik
+     WHERE id, guest_token, user_id IS NULL, status ACTIVE, expires_at > now()
+     SET   user_id, claimed_at = now(), expires_at = NULL, personalization_snapshot
+   0 baris: baca ulang, user_id terisi -> 409 ALREADY_CLAIMED, selain itu 409 ENDED
+```
+
+guest_token tetap disimpan karena V9 menghitung sesi tamu dari kolom itu. Dua klaim paralel menghasilkan tepat satu pemenang. Setelah diklaim, sesi mengikuti batas per akun dan aturan riwayat permanen (D77, D155). Constraint `chk_guest_session_expiry` mewajibkan `expires_at` hanya untuk sesi yang belum diklaim.
+
+**Isi `personalization_snapshot` (D27):** riwayat sub-kategori dari order berstatus PAID sampai SETTLED (maksimal 3, terbanyak lalu terbaru), kota alamat default tanpa koordinat, rata-rata rating yang diberikan, dan rentang `listing_base_amount` order. Dihitung sekali per sesi, tidak per pesan.
 
 **Jawaban ke tamu tidak boleh memuat data pribadi penyedia** seperti nomor telepon atau alamat persis, hanya yang tampil di halaman listing publik.
 
@@ -1378,13 +1401,13 @@ Dijalankan setelah seeding dan setelah seluruh pengujian, hasilnya masuk Bab IV.
 |---|---|---|
 | V1 | Rekonsiliasi ledger terhadap cache saldo | 0 baris |
 | V2 | Akurasi validasi geolokasi | tabel hasil |
-| V3 | Performa intent extraction, dipecah tamu dan terdaftar | tabel hasil |
+| V3 | Performa intent extraction per jenis sesi, model, dan jenis intent: latensi Gemini, latensi total per giliran, dan overhead server (rata-rata dan p95). Pesan sebelum klaim dihitung tamu | tabel hasil |
 | V4 | Pendapatan platform beserta komposisi nominal | tabel hasil |
 | V5 | Tidak ada pekerja terikat dua pekerjaan | 0 baris |
 | V6 | Setiap provider punya pekerja aktif yang bersedia ditugaskan | 0 baris |
 | V7 | Tidak ada listing `ACTIVE` tanpa pekerja terpetakan | 0 baris |
 | V8 | Tidak ada pendamping yang bentrok dengan order lain | 0 baris |
-| V9 | Konversi sesi chat tamu jadi pendaftaran | angka |
+| V9 | Konversi sesi chat tamu jadi pendaftaran. Klaim oleh akun yang dibuat setelah sesi dimulai dipisah dari akun lama | angka |
 | V10 | Usulan taksonomi yang jadi taksonomi resmi | angka |
 | V11 | Tidak ada pesan dari bukan peserta order | 0 baris |
 | V12 | Tidak ada listing melebihi batas FAQ | 0 baris |
@@ -1496,6 +1519,7 @@ Yang sudah ditutup di register keputusan versi 2.8:
 | `TAXONOMY_REQUEST_STATE_CONFLICT` | 409 | Usulan yang sudah diputus diputus lagi |
 | `GUEST_CHAT_LIMIT_REACHED` | 429 | Sesi chatbot tamu melewati batas pesan |
 | `CHAT_SESSION_ENDED` | 409 | Sesi chat tamu sudah berakhir atau kedaluwarsa, atau sesi terdaftar yang sudah berakhir dikirimi pesan (D162) |
+| `CHAT_SESSION_ALREADY_CLAIMED` | 409 | Sesi chat tamu sudah diklaim, termasuk oleh akun yang sama |
 | `RATE_LIMIT_EXCEEDED` | 429 | Melewati batas permintaan |
 | `GEMINI_UNAVAILABLE` | 502 | Gemini API gagal merespons, termasuk setelah satu kali retry untuk galat 5xx (D165) |
 | `PAYMENT_GATEWAY_ERROR` | 502 | Xendit gagal merespons |
@@ -1549,3 +1573,4 @@ Tidak menyangkut aturan bisnis, dibentuk oleh middleware bersama pada Fase 0.
 | 2.23 | 15 November 2026 | Sinkron dengan register keputusan versi 2.30. Nilai `guest_chat_daily_global_limit` 250 (D160) dan model Gemini (D159) |
 | 2.24 | 16 November 2026 | Sinkron dengan register keputusan versi 2.31. Urutan batas tamu (D163, D164), header `X-Guest-Token`, dan kode error `CHAT_SESSION_ENDED` (D162) |
 | 2.25 | 16 November 2026 | Sinkron dengan register keputusan versi 2.32. Retry 5xx Gemini (D165) dan saran templat hasil kosong (D166) |
+| 2.26 | 16 November 2026 | Sinkron dengan register keputusan versi 2.33 (D167 sampai D175). Alur klaim sesi dan kode error `CHAT_SESSION_ALREADY_CLAIMED`, isi dan pemakaian `personalization_snapshot`, kolom V3 dan V9 |

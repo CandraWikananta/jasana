@@ -48,6 +48,8 @@ export async function resetDatabase(): Promise<void> {
     // payments.order_id dan disputes.order_id restrict, jadi dihapus sebelum order (Fase 6, 7c).
     prisma.payment.deleteMany(),
     prisma.dispute.deleteMany(),
+    // reviews.order_id restrict. Snapshot chatbot membaca ulasan yang diberikan (9c).
+    prisma.review.deleteMany(),
     prisma.order.deleteMany(),
     prisma.workerListing.deleteMany(),
     prisma.providerWorker.deleteMany(),

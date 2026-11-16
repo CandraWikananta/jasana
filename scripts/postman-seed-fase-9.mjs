@@ -6,9 +6,17 @@
  * Collection WAJIB dijalankan dengan LLM_GATEWAY=fake (D151): fake memetakan
  * kata kunci ke sub-kategori Lampiran B, jadi jenis intent bisa ditebak.
  *
- *   gklien   client terverifikasi, alamat default di Puputan Renon
- *   gservis  INDIVIDUAL "Servis AC Renon" (nama karangan), basis Renon,
- *            radius 10 km, satu listing servis AC ACTIVE, pemilik terpetakan
+ *   gklien      client terverifikasi, alamat default di Puputan Renon
+ *   gservis     INDIVIDUAL "Servis AC Renon" (nama karangan), basis Renon,
+ *               radius 10 km, satu listing servis AC 80 ribu, pemilik terpetakan
+ *   gservis2    INDIVIDUAL "AC Premium Sumerta" (9c), basis 2 km utara Renon,
+ *               radius 10 km, satu listing servis AC 300 ribu
+ *   gpelanggan  client (9c), alamat default Renon, satu order SETTLED servis AC
+ *               300 ribu ke gservis2 beserta ulasan bintang 5. Riwayat ini
+ *               mengisi personalization_snapshot saat klaim (usulan D168)
+ *
+ * Sesi tamu kedaluwarsa dengan id dan token mentah tetap (9c), untuk uji klaim
+ * 409 CHAT_SESSION_ENDED. Nilainya sama dengan EXPIRED_SESSION di collection.
  *
  * BATAS TAMU DITURUNKAN supaya ketiga lapis bisa diuji dengan sedikit request:
  *   guest_chat_message_limit      = 3
@@ -22,6 +30,7 @@
  * beserta listing dan sesi chat-nya dihapus lalu dibuat ulang.
  */
 
+import { createHash } from 'node:crypto';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { config as loadDotenv } from 'dotenv';
@@ -52,7 +61,14 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const ACTORS = [
   { key: 'gklien', fullName: 'Ayu Penanya', phone: '+628990000091' },
   { key: 'gservis', fullName: 'Wayan Dingin', phone: '+628990000092' },
+  { key: 'gservis2', fullName: 'Made Sejuk', phone: '+628990000093' },
+  { key: 'gpelanggan', fullName: 'Komang Langganan', phone: '+628990000094' },
 ];
+/** 2 km ke utara Renon: rekomendasi bawaan (urut jarak) menaruh listing ini di urutan kedua. */
+const SUMERTA = { lat: RENON.lat + 2 / 111.195, lng: RENON.lng };
+/** Sesi tamu kedaluwarsa (9c). Token mentah 64 hex, yang disimpan hash SHA-256-nya (pola D63). */
+const EXPIRED_SESSION = { id: '9c9c9c9c-0000-4000-8000-00000000c9c9', token: 'c9'.repeat(32) };
+const sha256 = (value) => createHash('sha256').update(value, 'utf8').digest('hex');
 const emailOf = (key) => `${key}${DOMAIN}`;
 
 function describeTarget(url) {
@@ -86,6 +102,10 @@ async function main() {
       const ids = old.map((u) => u.id);
       if (ids.length > 0) {
         const own = { providerProfile: { userId: { in: ids } } };
+        // Order dan ulasan restrict ke user dan listing, jadi dihapus lebih dulu (9c).
+        const orders = { OR: [{ clientId: { in: ids } }, own] };
+        await tx.review.deleteMany({ where: { order: orders } });
+        await tx.order.deleteMany({ where: orders });
         await tx.providerWorker.deleteMany({ where: { OR: [{ userId: { in: ids } }, own] } });
         await tx.listing.deleteMany({ where: own });
         // chat_sessions dan alamat ikut terhapus cascade dari users.
@@ -136,6 +156,54 @@ async function main() {
       });
       await tx.workerListing.create({ data: { workerId: owner.id, listingId: listing.id } });
 
+      // 9c: penyedia kedua yang lebih jauh dan lebih mahal, untuk membuktikan urutan ulang menurut rentang harga.
+      const provider2 = await tx.providerProfile.create({
+        data: {
+          userId: users.gservis2.id, providerType: 'INDIVIDUAL', businessName: 'AC Premium Sumerta', verificationStatus: 'VERIFIED',
+          verifiedAt: now, baseAddress: 'AC Premium Sumerta, Bali', baseLatitude: SUMERTA.lat, baseLongitude: SUMERTA.lng,
+          serviceRadiusKm: 10, wallet: { create: {} },
+        },
+      });
+      const owner2 = await tx.providerWorker.create({
+        data: {
+          providerProfileId: provider2.id, userId: users.gservis2.id, displayName: users.gservis2.fullName,
+          isOwner: true, membershipStatus: 'ACTIVE', acceptsAssignments: true, approvedAt: now,
+        },
+      });
+      const listing2 = await tx.listing.create({
+        data: {
+          providerProfileId: provider2.id, subcategoryId: sub.id, title: 'Servis AC Premium Sumerta', price: 300000,
+          estimatedDurationMinutes: 90, attributes: { merek_dilayani: ['Daikin'] },
+          supportsScheduled: true, supportsAvailableNow: true, status: 'ACTIVE',
+          optionPrices: { create: [{ attributeKey: 'jenis_pekerjaan', optionValue: 'Cuci AC', priceDelta: 0 }] },
+        },
+      });
+      await tx.workerListing.create({ data: { workerId: owner2.id, listingId: listing2.id } });
+
+      await tx.userAddress.create({
+        data: { userId: users.gpelanggan.id, label: 'Rumah', addressLine: 'Jl. Tukad Badung, Renon', city: 'Denpasar', latitude: RENON.lat, longitude: RENON.lng, isDefault: true },
+      });
+      // Order lampau langsung ke basis data, pola seed Fase 5. Status SETTLED, harga dasar 300 ribu.
+      const order = await tx.order.create({
+        data: {
+          orderNumber: 'ORD-POSTMAN-F9-1', clientId: users.gpelanggan.id, providerProfileId: provider2.id, listingId: listing2.id,
+          assignedWorkerId: owner2.id, bookingMode: 'SCHEDULED', status: 'SETTLED', scheduledAt: new Date(now.getTime() - 7 * DAY_MS),
+          serviceAddress: 'Jl. Tukad Badung, Renon', serviceLatitude: RENON.lat, serviceLongitude: RENON.lng, locationSource: 'SAVED_ADDRESS',
+          snapshotListingTitle: listing2.title, snapshotAssigneeName: users.gservis2.fullName,
+          listingBaseAmount: 300000, platformFee: 30000, totalAmount: 300000, providerEarning: 270000,
+          acceptedAt: now, paidAt: now, startedAt: now, completedAt: now, settledAt: now,
+        },
+      });
+      await tx.review.create({
+        data: { orderId: order.id, clientId: users.gpelanggan.id, providerProfileId: provider2.id, listingId: listing2.id, rating: 5 },
+      });
+
+      // Sesi tamu kedaluwarsa dengan token tetap, dihapus dulu supaya seed bisa diulang.
+      await tx.chatSession.deleteMany({ where: { OR: [{ id: EXPIRED_SESSION.id }, { guestToken: sha256(EXPIRED_SESSION.token) }] } });
+      await tx.chatSession.create({
+        data: { id: EXPIRED_SESSION.id, guestToken: sha256(EXPIRED_SESSION.token), expiresAt: new Date(now.getTime() - 60 * 60 * 1000) },
+      });
+
       // Sesi tamu = user_id NULL, sama dengan rem global di service dan V3.
       const dayStart = new Date(Math.floor((now.getTime() + WITA_OFFSET_MS) / DAY_MS) * DAY_MS - WITA_OFFSET_MS);
       const usedToday = await tx.chatMessage.count({ where: { role: 'USER', createdAt: { gte: dayStart }, session: { userId: null } } });
@@ -150,7 +218,10 @@ async function main() {
 
   console.log('Akun demo siap. Password seluruhnya:', PASSWORD);
   console.log('  gklien   client, alamat default Renon');
-  console.log('  gservis  Servis AC Renon, radius 10 km, listing servis AC');
+  console.log('  gservis  Servis AC Renon, radius 10 km, listing servis AC 80 ribu');
+  console.log('  gservis2    AC Premium Sumerta, 2 km utara Renon, listing servis AC 300 ribu');
+  console.log('  gpelanggan  client, alamat default Renon, satu order SETTLED servis AC 300 ribu');
+  console.log(`  sesi tamu kedaluwarsa ${EXPIRED_SESSION.id}`);
   console.log('Batas tamu:', JSON.stringify(limits));
   console.log('\nJalankan collection "Jasana Backend - Fase 9" dengan server LLM_GATEWAY=fake.');
 }

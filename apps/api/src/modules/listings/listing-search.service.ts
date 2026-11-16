@@ -23,7 +23,7 @@ import { currentOnlineWorkerIds } from '../../realtime/presence';
 import { pageMeta, skipTake, type Paginated } from '../../lib/pagination';
 import { parseAttributeFilters, type AttributeFilters } from '../catalog/attribute-rules';
 import { toDefinition } from '../catalog/catalog.mapper';
-import { CARD_SELECT, toListingCardDto, type ListingCardDto } from './listings.mapper';
+import { CARD_SELECT, toListingCardDto, type ListingCardDto, type ListingCardRow } from './listings.mapper';
 import type { SEARCH_SORTS, SearchListingsQuery } from './listings.schema';
 
 const SORTS: Record<(typeof SEARCH_SORTS)[number], Prisma.Sql> = {
@@ -182,6 +182,46 @@ function onlineWorkersCte(km: Prisma.Sql, where: Prisma.Sql, onlineIds: string[]
   )`;
 }
 
+const { subcategory: SUB_SELECT, providerProfile: PROVIDER_SELECT, photos: _photos, ...LISTING_SELECT } = CARD_SELECT;
+
+/**
+ * Bentuk sama dengan `findMany({ select: CARD_SELECT })`, tetapi tiga relasinya
+ * dibaca bersamaan (usulan D174, H111). Prisma 6 membaca relasi saudara satu per
+ * satu, sehingga ke basis data jauh setiap relasi menambah satu perjalanan.
+ * Memakai `prisma` global, BUKAN klien transaksi interaktif: tiga kueri paralel
+ * di satu koneksi transaksi akan diantrekan juga, dan menahan transaksi lebih lama.
+ */
+export async function loadCards(ids: string[]): Promise<ListingCardRow[]> {
+  if (ids.length === 0) return [];
+  const listings = await prisma.listing.findMany({
+    where: { id: { in: ids } },
+    select: { ...LISTING_SELECT, subcategoryId: true, providerProfileId: true },
+  });
+  const [subcategories, providers, photos] = await Promise.all([
+    prisma.subcategory.findMany({ where: { id: { in: [...new Set(listings.map((l) => l.subcategoryId))] } }, select: SUB_SELECT.select }),
+    prisma.providerProfile.findMany({
+      where: { id: { in: [...new Set(listings.map((l) => l.providerProfileId))] } },
+      select: PROVIDER_SELECT.select,
+    }),
+    // Urutan id sama dengan bawaan Prisma untuk `photos: { take: 1 }`, jadi foto yang terpilih sama.
+    prisma.listingPhoto.findMany({ where: { listingId: { in: ids }, isPrimary: true }, select: { listingId: true, fileUrl: true }, orderBy: { id: 'asc' } }),
+  ]);
+  const subById = new Map(subcategories.map((s) => [s.id, s]));
+  const providerById = new Map(providers.map((p) => [p.id, p]));
+  const photoByListing = new Map<string, { fileUrl: string }>();
+  for (const photo of photos) if (!photoByListing.has(photo.listingId)) photoByListing.set(photo.listingId, { fileUrl: photo.fileUrl });
+
+  return listings.map(({ subcategoryId, providerProfileId, ...listing }) => {
+    const photo = photoByListing.get(listing.id);
+    return {
+      ...listing,
+      subcategory: subById.get(subcategoryId)!,
+      providerProfile: providerById.get(providerProfileId)!,
+      photos: photo ? [photo] : [],
+    };
+  });
+}
+
 export async function searchListings(query: SearchListingsQuery): Promise<Paginated<ListingCardDto>> {
   const sql = await buildSearchSql(query);
   const rows = await prisma.$queryRaw<{ id: string; distance_km: number | null; total: bigint }[]>(sql.page);
@@ -192,7 +232,7 @@ export async function searchListings(query: SearchListingsQuery): Promise<Pagina
     total = Number(counted?.total ?? 0);
   }
 
-  const cards = await prisma.listing.findMany({ where: { id: { in: rows.map((row) => row.id) } }, select: CARD_SELECT });
+  const cards = await loadCards(rows.map((row) => row.id));
   const byId = new Map(cards.map((card) => [card.id, card]));
   const items = rows.flatMap((row) => {
     const card = byId.get(row.id);

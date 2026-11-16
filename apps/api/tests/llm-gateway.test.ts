@@ -5,9 +5,9 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { env } from '../src/config/env';
-import { LLM_GATEWAY_TIMEOUT_MS } from '../src/config/constants';
+import { LLM_GATEWAY_TIMEOUT_MS, LLM_RETRY_DELAY_MS, LLM_RETRY_MIN_REMAINING_MS } from '../src/config/constants';
 import { AppError } from '../src/lib/errors';
-import { fakeGateway, geminiGateway, type ExtractIntentInput } from '../src/lib/llm-gateway';
+import { FAKE_RETRY_MARKER, fakeGateway, geminiGateway, withRetry, type ExtractIntentInput } from '../src/lib/llm-gateway';
 import { buildIntentSchema, type Intent } from '../src/lib/llm-intent';
 import { buildSystemInstruction, buildUserInput } from '../src/lib/llm-prompt';
 
@@ -25,7 +25,7 @@ const input = (overrides: Partial<ExtractIntentInput> = {}): ExtractIntentInput 
   history: [],
   subcategories: SUBCATEGORIES,
   lastIntent: null,
-  personalizationSnapshot: null,
+  personalization: null,
   ...overrides,
 });
 
@@ -165,13 +165,99 @@ describe('geminiGateway (sesi 9a)', () => {
       llm_status: 429,
       llm_error_code: 'RESOURCE_EXHAUSTED',
       llm_quota_exceeded: true,
+      llm_attempts: 1,
     });
   });
 
   it.each([500, 503])('respons %i bukan kuota habis', async (status) => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(json(status, { error: { code: 'unavailable', message: 'ac kamar ga dingin' } }));
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async () => json(status, { error: { code: 'unavailable', message: 'ac kamar ga dingin' } }));
     const error = await expectSafeLlmError(geminiGateway.extractIntent(input()));
     expect(error.context).toMatchObject({ llm_status: status, llm_error_code: 'unavailable', llm_quota_exceeded: false });
+  });
+});
+
+describe('retry 5xx (D165, usulan D167)', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  const unavailable = (status: number) => json(status, { error: { code: 'unavailable', message: 'ac kamar ga dingin' } });
+  const ok = () => json(200, interaction(JSON.stringify(validIntent())));
+
+  it.each([500, 502, 503, 504])('%i sekali lalu berhasil: dua percobaan, latensi termasuk jeda, sisa tenggat untuk percobaan kedua', async (status) => {
+    const timeout = vi.spyOn(AbortSignal, 'timeout');
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(unavailable(status)).mockResolvedValueOnce(ok());
+    const result = await geminiGateway.extractIntent(input());
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(fetchSpy.mock.calls[1]![1]!.body).toBe(fetchSpy.mock.calls[0]![1]!.body);
+    expect(result).toMatchObject({ attempts: 2, intent: validIntent() });
+    expect(result.latencyMs).toBeGreaterThanOrEqual(LLM_RETRY_DELAY_MS);
+    expect(timeout.mock.calls[0]![0]).toBe(LLM_GATEWAY_TIMEOUT_MS);
+    const second = timeout.mock.calls[1]![0];
+    expect(Number.isInteger(second)).toBe(true);
+    expect(second).toBeLessThanOrEqual(LLM_GATEWAY_TIMEOUT_MS - LLM_RETRY_DELAY_MS);
+    expect(second).toBeGreaterThanOrEqual(LLM_RETRY_MIN_REMAINING_MS);
+  });
+
+  it('5xx dua kali: galat dengan llm_attempts 2, tidak ada percobaan ketiga', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => unavailable(503));
+    const error = await expectSafeLlmError(geminiGateway.extractIntent(input()));
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(error.context).toMatchObject({ llm_status: 503, llm_attempts: 2 });
+  });
+
+  it.each([
+    ['429 kuota', () => json(429, { error: { status: 'RESOURCE_EXHAUSTED' } })],
+    ['400', () => json(400, { error: { status: 'INVALID_ARGUMENT' } })],
+    ['404', () => json(404, { error: { status: 'NOT_FOUND' } })],
+    ['501 bukan sementara', () => json(501, { error: { status: 'UNIMPLEMENTED' } })],
+    ['invalid_output', () => json(200, interaction('bukan json'))],
+    ['incomplete', () => json(200, interaction(JSON.stringify(validIntent()), { status: 'incomplete' }))],
+  ])('%s tidak diulang', async (_label, response) => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => response());
+    const error = await expectSafeLlmError(geminiGateway.extractIntent(input()));
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(error.context!.llm_attempts).toBe(1);
+  });
+
+  it.each([
+    ['timeout', new DOMException('The operation was aborted due to timeout', 'TimeoutError')],
+    ['jaringan', new TypeError('fetch failed')],
+  ])('%s tidak diulang', async (_label, failure) => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockRejectedValue(failure);
+    const error = await expectSafeLlmError(geminiGateway.extractIntent(input()));
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(error.context!.llm_attempts).toBe(1);
+  });
+
+  /** Jam palsu: percobaan pertama gagal pada `failedAt` ms sejak mulai. */
+  async function attemptsWhenFailingAt(failedAt: number) {
+    const clock = vi.spyOn(performance, 'now').mockReturnValueOnce(0).mockReturnValueOnce(failedAt).mockReturnValue(failedAt + 1000);
+    let calls = 0;
+    const result = await withRetry(async () => {
+      calls += 1;
+      if (calls === 1) throw new AppError('GEMINI_UNAVAILABLE', 'x', { context: { llm_reason: 'http', llm_status: 503 } });
+      return { intent: validIntent(), model: 'm', usage: { inputTokens: 0, outputTokens: 0, thoughtTokens: 0, totalTokens: 0 }, raw: null };
+    }).then(
+      (r) => r.attempts,
+      (e: AppError) => -(e.context!.llm_attempts as number),
+    );
+    clock.mockRestore();
+    return { result, calls };
+  }
+
+  it('ambang sisa tenggat: tepat 3000 ms masih diulang, 2999 ms tidak', async () => {
+    // 8000 - 4000 - 1000 = 3000
+    expect(await attemptsWhenFailingAt(LLM_GATEWAY_TIMEOUT_MS - LLM_RETRY_DELAY_MS - LLM_RETRY_MIN_REMAINING_MS)).toEqual({ result: 2, calls: 2 });
+    expect(await attemptsWhenFailingAt(LLM_GATEWAY_TIMEOUT_MS - LLM_RETRY_DELAY_MS - LLM_RETRY_MIN_REMAINING_MS + 1)).toEqual({ result: -1, calls: 1 });
+    expect(LLM_RETRY_MIN_REMAINING_MS).toBe(3_000);
+    expect(LLM_RETRY_DELAY_MS).toBe(1_000);
+  });
+
+  it('fake: penanda #uji-503 gagal sekali lalu berhasil, tanpa penanda satu percobaan', async () => {
+    const retried = await fakeGateway.extractIntent(input({ message: `servis ac ${FAKE_RETRY_MARKER}` }));
+    expect(retried.attempts).toBe(2);
+    expect(retried.latencyMs).toBeGreaterThanOrEqual(LLM_RETRY_DELAY_MS);
+    expect(retried.intent.sub_kategori).toBe('perbaikan/servis-ac');
+    expect((await fakeGateway.extractIntent(input())).attempts).toBe(1);
   });
 });
 
@@ -180,8 +266,9 @@ describe('fakeGateway (sesi 9a)', () => {
     (await fakeGateway.extractIntent(input({ message, subcategories }))).intent;
 
   it('deterministik: masukan sama, hasil sama', async () => {
-    const a = await fakeGateway.extractIntent(input());
-    const b = await fakeGateway.extractIntent(input());
+    // latencyMs diukur sungguhan sejak usulan D167, jadi bukan bagian dari determinisme.
+    const { latencyMs: _a, ...a } = await fakeGateway.extractIntent(input());
+    const { latencyMs: _b, ...b } = await fakeGateway.extractIntent(input());
     expect(a).toEqual(b);
     expect(a.model).toBe('fake');
   });
@@ -217,6 +304,14 @@ describe('fakeGateway (sesi 9a)', () => {
       lokasi: { pakai_lokasi_saat_ini: true },
     });
     expect((await extract('servis ac di sini')).slot.lokasi).toEqual({ teks: null, pakai_lokasi_saat_ini: true });
+  });
+
+  it('riwayat dipakai hanya kalau pesan merujuknya secara eksplisit (usulan D168)', async () => {
+    const personalization = { riwayat_sub_kategori: ['perbaikan/servis-ac'] };
+    const remembered = await fakeGateway.extractIntent(input({ message: 'mau yang kayak kemarin dong', personalization }));
+    expect(remembered.intent).toMatchObject({ jenis: 'cari_jasa', sub_kategori: 'perbaikan/servis-ac' });
+    expect((await fakeGateway.extractIntent(input({ message: 'mau yang kayak kemarin dong' }))).intent.jenis).toBe('di_luar_cakupan');
+    expect((await fakeGateway.extractIntent(input({ message: 'butuh fotografer', personalization }))).intent.jenis).toBe('perlu_klarifikasi');
   });
 
   it('sub-kategori yang tidak ada di daftar aktif tidak pernah dipilih', async () => {

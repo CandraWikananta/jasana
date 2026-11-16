@@ -14,13 +14,22 @@ import * as messageService from './chat-message.service';
 
 const GUEST_TOKEN = /^[0-9a-f]{64}$/;
 
+function guestToken(req: Request): string {
+  const token = req.get('x-guest-token');
+  if (!token || !GUEST_TOKEN.test(token)) throw Errors.unauthorized('Header X-Guest-Token tidak ada atau tidak valid');
+  return token;
+}
+
 /** JWT menang kalau keduanya ada. Tanpa keduanya, atau token bukan 64 hex: 401 (usulan D162). */
 function identity(req: Request): chatService.ChatIdentity {
   if (req.user) return { userId: req.user.id };
-  const token = req.get('x-guest-token');
-  if (!token || !GUEST_TOKEN.test(token)) throw Errors.unauthorized('Header X-Guest-Token tidak ada atau tidak valid');
-  return { guestToken: token };
+  return { guestToken: guestToken(req) };
 }
+
+/** Klaim butuh keduanya: JWT dari requireAuth dan token tamu (usulan D170). */
+export const claimSession = asyncHandler(async (req, res) => {
+  sendOk(res, await chatService.claimSession(req.params.id!, currentUser(req).id, guestToken(req)));
+});
 
 export const createGuestSession = asyncHandler(async (_req, res) => {
   sendCreated(res, await chatService.createGuestSession());

@@ -1,6 +1,6 @@
 /**
  * Rute chatbot `/chat` (PRD 4.3, D77). Akses P berarti sesi tamu lewat header
- * `X-Guest-Token`, bukan JWT. Klaim sesi menyusul di 9c.
+ * `X-Guest-Token`, bukan JWT. Klaim butuh keduanya (usulan D170).
  */
 
 import { Router, type RequestHandler } from 'express';
@@ -42,6 +42,7 @@ export function createChatRouter(): Router {
     controller.sendMessage,
   );
   router.post('/sessions/:id/end', optionalAuth, session, controller.endSession);
+  router.post('/sessions/:id/claim', requireAuth, session, controller.claimSession);
 
   return router;
 }

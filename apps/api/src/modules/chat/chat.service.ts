@@ -11,13 +11,21 @@
  *   sesi tamu ENDED atau kedaluwarsa          409 CHAT_SESSION_ENDED untuk semua aksi
  *   sesi terdaftar ENDED                      riwayat tetap terbaca (D77 permanen),
  *                                             kirim pesan dan end 409 CHAT_SESSION_ENDED
+ *   token tamu ke sesi yang sudah diklaim     404, sesinya milik akun (usulan D170)
+ *
+ * Klaim (H68, D155, usulan D170): JWT dan X-Guest-Token wajib. Token salah 404,
+ * sudah diklaim 409 CHAT_SESSION_ALREADY_CLAIMED, ENDED atau kedaluwarsa 409
+ * CHAT_SESSION_ENDED. guest_token tetap disimpan karena V9 menghitung sesi tamu
+ * dari kolom itu.
  */
 
-import { prisma, type ChatSession } from '@jasana/database';
+import { Prisma, prisma, type ChatSession, type OrderStatus } from '@jasana/database';
+import { CHAT_SNAPSHOT_HISTORY_LIMIT } from '../../config/constants';
 import { AppError, Errors } from '../../lib/errors';
 import { generateToken, hashToken } from '../../lib/crypto';
 import { logger } from '../../lib/logger';
 import { pageMeta, skipTake, type Page, type Paginated } from '../../lib/pagination';
+import { subcategoryKey } from '../../lib/llm-intent';
 import { getNumberSetting } from '../settings/settings.service';
 
 export type ChatIdentity = { userId: string } | { guestToken: string };
@@ -31,6 +39,7 @@ export interface ChatSessionDto {
   title: string | null;
   message_count: number;
   expires_at: string | null;
+  claimed_at: string | null;
   started_at: string;
   ended_at: string | null;
 }
@@ -43,6 +52,7 @@ export function toSessionDto(row: ChatSession): ChatSessionDto {
     title: row.title,
     message_count: row.messageCount,
     expires_at: row.expiresAt?.toISOString() ?? null,
+    claimed_at: row.claimedAt?.toISOString() ?? null,
     started_at: row.startedAt.toISOString(),
     ended_at: row.endedAt?.toISOString() ?? null,
   };
@@ -61,9 +71,81 @@ export async function createGuestSession(): Promise<{ session: ChatSessionDto; g
   return { session: toSessionDto(row), guest_token: token, message_limit: messageLimit };
 }
 
-/** POST /chat/sessions. `personalization_snapshot` disusun di 9c (D27). */
+// ---------------------------------------------------------------------------
+// personalization_snapshot (D27, usulan D168 dan D169)
+// ---------------------------------------------------------------------------
+
+/** Order yang sudah dibayar dan tidak batal, ditolak, kedaluwarsa, disengketakan, atau dikembalikan. */
+export const SNAPSHOT_ORDER_STATUSES: OrderStatus[] = [
+  'PAID', 'ON_THE_WAY', 'ARRIVED', 'IN_PROGRESS', 'AWAITING_VERIFICATION', 'COMPLETED', 'SETTLED',
+];
+
+export interface PersonalizationSnapshot {
+  versi: 1;
+  dihitung_pada: string;
+  sumber: 'sesi_baru' | 'klaim';
+  riwayat_sub_kategori: { kunci: string; nama: string; jumlah: number }[];
+  kota_alamat_default: string | null;
+  rata_rating_diberikan: number | null;
+  jumlah_ulasan: number;
+  /** Dari `orders.listing_base_amount`, kolom yang sama dengan `nilai_harga_dasar` di V4. */
+  rentang_harga: { min: number; maks: number } | null;
+}
+
+/**
+ * Empat sumber D27, dihitung sekali per sesi lalu tidak diubah, supaya jawaban
+ * bisa diaudit. Yang sampai ke prompt hanya kunci riwayat sub-kategori
+ * (llm-prompt). Kota tanpa koordinat dan alamat baris, karena lokasi pencarian
+ * dibaca langsung dari user_addresses saat pesan dikirim.
+ */
+export async function buildPersonalizationSnapshot(userId: string, sumber: PersonalizationSnapshot['sumber']): Promise<PersonalizationSnapshot> {
+  const [orders, address, reviews] = await Promise.all([
+    // shortcut: semua order client dimuat ke memori. Ganti dengan groupBy di SQL kalau satu client punya ratusan order.
+    prisma.order.findMany({
+      where: { clientId: userId, status: { in: SNAPSHOT_ORDER_STATUSES } },
+      select: {
+        listingBaseAmount: true,
+        createdAt: true,
+        listing: { select: { subcategory: { select: { name: true, slug: true, category: { select: { slug: true } } } } } },
+      },
+    }),
+    prisma.userAddress.findFirst({ where: { userId, isDefault: true }, select: { city: true } }),
+    prisma.review.aggregate({ where: { clientId: userId }, _avg: { rating: true }, _count: { _all: true } }),
+  ]);
+
+  const history = new Map<string, { kunci: string; nama: string; jumlah: number; terakhir: number }>();
+  for (const order of orders) {
+    const sub = order.listing.subcategory;
+    const kunci = subcategoryKey(sub.category.slug, sub.slug);
+    const entry = history.get(kunci) ?? { kunci, nama: sub.name, jumlah: 0, terakhir: 0 };
+    entry.jumlah += 1;
+    entry.terakhir = Math.max(entry.terakhir, order.createdAt.getTime());
+    history.set(kunci, entry);
+  }
+  const prices = orders.map((order) => order.listingBaseAmount.toNumber());
+  const average = reviews._avg.rating;
+
+  return {
+    versi: 1,
+    dihitung_pada: new Date().toISOString(),
+    sumber,
+    riwayat_sub_kategori: [...history.values()]
+      .sort((a, b) => b.jumlah - a.jumlah || b.terakhir - a.terakhir || a.kunci.localeCompare(b.kunci))
+      .slice(0, CHAT_SNAPSHOT_HISTORY_LIMIT)
+      .map(({ kunci, nama, jumlah }) => ({ kunci, nama, jumlah })),
+    kota_alamat_default: address?.city ?? null,
+    rata_rating_diberikan: average === null ? null : Math.round(average * 100) / 100,
+    jumlah_ulasan: reviews._count._all,
+    rentang_harga: prices.length > 0 ? { min: Math.min(...prices), maks: Math.max(...prices) } : null,
+  };
+}
+
+const snapshotJson = (snapshot: PersonalizationSnapshot) => snapshot as unknown as Prisma.InputJsonValue;
+
+/** POST /chat/sessions */
 export async function createUserSession(userId: string): Promise<ChatSessionDto> {
-  return toSessionDto(await prisma.chatSession.create({ data: { userId } }));
+  const snapshot = await buildPersonalizationSnapshot(userId, 'sesi_baru');
+  return toSessionDto(await prisma.chatSession.create({ data: { userId, personalizationSnapshot: snapshotJson(snapshot) } }));
 }
 
 /** GET /chat/sessions */
@@ -83,7 +165,9 @@ const ended = () => new AppError('CHAT_SESSION_ENDED', 'Sesi chat sudah berakhir
  * ENDED dari jenis apa pun.
  */
 export async function findOwnSession(id: string, identity: ChatIdentity, write: boolean): Promise<ChatSession> {
-  const where = 'userId' in identity ? { id, userId: identity.userId } : { id, guestToken: hashToken(identity.guestToken) };
+  // Tamu hanya sesi yang belum diklaim: token yang tertinggal di perangkat tidak membuka percakapan milik akun (usulan D170).
+  const where =
+    'userId' in identity ? { id, userId: identity.userId } : { id, userId: null, guestToken: hashToken(identity.guestToken) };
   const session = await prisma.chatSession.findFirst({ where });
   if (!session) throw Errors.notFound('Sesi chat tidak ditemukan');
 
@@ -135,6 +219,31 @@ export async function listMessages(id: string, identity: ChatIdentity, page: Pag
     prisma.chatMessage.count({ where }),
   ]);
   return { items: rows.map(toMessageDto), meta: pageMeta(page, total) };
+}
+
+const alreadyClaimed = () => new AppError('CHAT_SESSION_ALREADY_CLAIMED', 'Sesi chat ini sudah diklaim');
+
+/** POST /chat/sessions/:id/claim (H68, D155, usulan D170). */
+export async function claimSession(id: string, userId: string, guestToken: string): Promise<ChatSessionDto> {
+  const where = { id, guestToken: hashToken(guestToken) };
+  const session = await prisma.chatSession.findFirst({ where });
+  if (!session) throw Errors.notFound('Sesi chat tidak ditemukan');
+  if (session.userId !== null) throw alreadyClaimed();
+  const now = new Date();
+  if (session.status === 'ENDED' || (session.expiresAt !== null && session.expiresAt <= now)) throw ended();
+
+  // Dihitung sebelum UPDATE dan di luar transaksi: hanya baca, dan UPDATE di bawah yang memutuskan pemenang.
+  const snapshot = await buildPersonalizationSnapshot(userId, 'klaim');
+  // UPDATE bersyarat atomik, bukan baca lalu cek: dua klaim paralel, tepat satu yang mengisi user_id.
+  const { count } = await prisma.chatSession.updateMany({
+    where: { ...where, userId: null, status: 'ACTIVE', expiresAt: { gt: now } },
+    data: { userId, claimedAt: now, expiresAt: null, personalizationSnapshot: snapshotJson(snapshot) },
+  });
+  if (count === 0) {
+    const current = await prisma.chatSession.findUniqueOrThrow({ where: { id }, select: { userId: true } });
+    throw current.userId !== null ? alreadyClaimed() : ended();
+  }
+  return toSessionDto(await prisma.chatSession.findUniqueOrThrow({ where: { id } }));
 }
 
 /** POST /chat/sessions/:id/end */
