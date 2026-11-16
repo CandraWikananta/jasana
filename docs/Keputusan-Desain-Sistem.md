@@ -63,6 +63,7 @@
 3. Perbaikan temuan sandbox 10a: batas umur retry (D193), backoff (D194), format waktu WITA (D195), dan nomor order WITA (D196)
 4. Urutan kunci seragam penyedia lalu listing (D197)
 5. Catatan sesi 10b. H70 sampai H72 ditutup, H117 baru
+6. Hasil uji sandbox 10b di Supabase dev
 
 **Perubahan pada versi 2.37:**
 
@@ -1863,6 +1864,22 @@ Dari sesi 10b. D187 sampai D192 dijawab penyusun sebelum rencana disusun, D193 s
 
 **Hasil sesi 10b:** typecheck bersih, 953 test di 51 berkas lulus, 42 dari 42 mutan tertangkap termasuk test paralel cache rating. Postman Fase 1 sampai 10 tanpa gagal, Fase 10 dengan 68 request dan 123 assertion. `db:verify` di `jasana_test` lulus dengan V11 nol baris.
 
+**Hasil uji sandbox 10b (17 November 2026, dijalankan penyusun di Supabase dev, gateway pembayaran fake, SMTP Ethereal):**
+
+| Uji | Hasil |
+|---|---|
+| Nomor order (D196) | Order dibuat 17 November pukul 02.2x WITA (16 November UTC) bernomor `ORD-20261117-3A32B12E` |
+| Dua pesan dari client pada order ACCEPTED | Pemilik dan penanggung jawab masing-masing mendapat **satu** notifikasi `ORDER_MESSAGE`, tanpa email (D188) |
+| Pekerja lain di usaha yang sama mengirim pesan | 403 `NOT_ORDER_PARTICIPANT` |
+| Pemilik menandai dibaca | 2 pesan sisi lawan mendapat `read_at`, notifikasi pesan pemilik ikut terbaca, lalu pesan berikutnya memunculkan notifikasi baru (anti-spam D178). Penanggung jawab yang belum membaca tidak mendapat notifikasi kedua |
+| Kirim pesan pada order SETTLED | 409 `MESSAGE_WINDOW_CLOSED`, riwayat tetap bisa dibaca (D187) |
+| Review pada order SETTLED yang selesai 14 November | Rating listing dari 0/0 menjadi 4/1, nama reviewer tampil "Sari P." (D191), dan detail listing memuat review (D192). Review kedua 409 `REVIEW_ALREADY_EXISTS`. Pemilik mendapat notifikasi "Ulasan baru" |
+| Balasan penyedia | Berhasil, balasan kedua 409 `REVIEW_ALREADY_REPLIED`, client mendapat notifikasi "Balasan ulasan" |
+| Admin menyembunyikan lalu menampilkan review | Rating kembali ke 0/0, lalu ke 4/1 (D189) |
+| `db:verify` di Supabase dev | Kueri integritas lulus, V11 nol baris |
+
+- Skrip uji sempat terkena batas percobaan login per IP karena login ulang di setiap perintah, membuktikan rate limiter login bekerja. Skrip diperbaiki dengan menyimpan token selama masa berlakunya
+
 ---
 
 ## 5. Alur Sistem End-to-End
@@ -2597,7 +2614,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 | 2.35 | 16 November 2026 | Protokol evaluasi akurasi tiga run (D176) dan hasil run 1: 69,39 persen dengan kegagalan dihitung salah, 97,1 persen atas skenario yang dijawab, 14 kegagalan merespons dari Gemini. Tanpa perubahan kode dan skema |
 | 2.36 | 16 November 2026 | Lima keputusan sebelum Fase 10: retry email dengan render ulang (D177), notifikasi in-app selektif (D178), aturan review (D179), laporan admin per hari WITA (D180), dan validasi parameter (D181). Pembagian Fase 10 dalam tiga sesi. Satu kolom dan satu parameter baru, dibuat di sesi implementasinya |
 | 2.37 | 17 November 2026 | Lima keputusan dari sesi 10a: tabel event notifikasi (D182), endpoint notifikasi (D183), whitelist dan render generik retry yang merevisi D177 (D184), hitungan dan klaim retry (D185), dan enum `ORDER_MESSAGE` (D186). H37 ditutup, H114 sampai H116 baru. Satu migrasi Ditambah hasil uji sandbox 10a dan empat temuannya |
-| 2.38 | 17 November 2026 | Sebelas keputusan dari sesi 10b: masa aktif pesan yang merevisi D79 (D187), notifikasi pesan dan review (D188), admin review (D189), revisi V11 (D190), batas teks dan nama disamarkan (D191), review di detail listing (D192), perbaikan sandbox 10a (D193 sampai D196), dan urutan kunci seragam (D197). H70 sampai H72 ditutup, H117 baru. Tanpa migrasi |
+| 2.38 | 17 November 2026 | Sebelas keputusan dari sesi 10b: masa aktif pesan yang merevisi D79 (D187), notifikasi pesan dan review (D188), admin review (D189), revisi V11 (D190), batas teks dan nama disamarkan (D191), review di detail listing (D192), perbaikan sandbox 10a (D193 sampai D196), dan urutan kunci seragam (D197). H70 sampai H72 ditutup, H117 baru. Tanpa migrasi Ditambah hasil uji sandbox 10b |
 
 ---
 
