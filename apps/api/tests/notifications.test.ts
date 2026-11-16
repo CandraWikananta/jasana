@@ -12,6 +12,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
 import { prisma, type NotificationType } from '@jasana/database';
 import { createApp } from '../src/app';
+import { formatWita } from '../src/lib/wita';
 import { recordNotification } from '../src/modules/notifications/email-outbox';
 import { hasUnreadMessageNotification } from '../src/modules/notifications/notifications.service';
 import { captureEmails, hasTestDatabase, registerUser, resetDatabase } from './helpers/integration';
@@ -79,6 +80,18 @@ describe.skipIf(!hasTestDatabase)('notifikasi in-app (10a)', () => {
         expect(await inApp(user.id, { referenceType: 'order', referenceId: id, title: { startsWith: 'Order diterima' } })).toBe(1);
       }
       expect(await prisma.notification.count({ where: { channel: 'EMAIL', referenceId: id, title: { startsWith: 'Order diterima' } } })).toBe(3);
+    });
+
+    it('sandbox 10a: waktu di isi notifikasi ditulis WITA yang mudah dibaca, bukan ISO UTC', async () => {
+      const { id } = await acceptedScheduledOrder(app, w, { crew: [w.w3] });
+      const order = await prisma.order.findUniqueOrThrow({ where: { id } });
+      const body = async (userId: string, title: string) =>
+        (await prisma.notification.findFirstOrThrow({ where: { channel: 'IN_APP', userId, referenceId: id, title: { startsWith: title } } })).body;
+      expect(await body(w.owner.id, 'Order baru masuk')).toContain(`Terima atau tolak sebelum ${formatWita(order.responseDeadlineAt!)}.`);
+      expect(await body(w.client.id, 'Order diterima')).toContain(`Selesaikan pembayaran sebelum ${formatWita(order.paymentDeadlineAt!)}.`);
+      expect(await body(w.w3.id, 'Anda ditambahkan sebagai pendamping')).toContain(`terjadwal ${formatWita(order.scheduledAt!)}.`);
+      const all = await prisma.notification.findMany({ where: { referenceId: id }, select: { body: true } });
+      for (const n of all) expect(n.body).not.toMatch(/d{4}-d{2}-d{2}T/);
     });
 
     it('T12 Pekerjaan dimulai: EMAIL ke client, tanpa IN_APP (opsi B)', async () => {

@@ -29,6 +29,8 @@ import {
   workerParamsSchema,
 } from '../workers/workers.schema';
 import * as controller from './providers.controller';
+import * as reviews from '../reviews/reviews.controller';
+import { replyReviewSchema, reviewParamsSchema } from '../reviews/reviews.schema';
 import {
   applyProviderSchema,
   kycDocumentSchema,
@@ -118,6 +120,15 @@ export function createProvidersRouter(): Router {
     requireProvider,
     validate({ params: workerParamsSchema, body: workerListingsSchema }),
     controller.setWorkerListings,
+  );
+
+  // Sesi 10b, D179: balasan sekali per review.
+  router.post(
+    '/me/reviews/:id/reply',
+    requireAuth,
+    requireProvider,
+    validate({ params: reviewParamsSchema, body: replyReviewSchema }),
+    reviews.reply,
   );
 
   router.post(

@@ -131,5 +131,17 @@ export const SUBCATEGORY_CACHE_TTL_MS = 5 * 60 * 1000;
  */
 export const EMAIL_PENDING_STALE_MINUTES = 15;
 
+/**
+ * Uji sandbox 10a: email yang lebih tua dari ini tidak di-retry lagi, FAILED atau PENDING
+ * yatim, supaya sisa uji lama tidak terkirim berhari-hari kemudian. Barisnya dibiarkan apa adanya.
+ */
+export const EMAIL_RETRY_MAX_AGE_HOURS = 24;
+
+/**
+ * Uji sandbox 10a: jadwal retry ke-n, dalam menit KUMULATIF dari created_at, supaya gangguan SMTP
+ * sebentar tidak menghabiskan seluruh jatah. Retry di luar panjang larik memakai nilai terakhir.
+ */
+export const EMAIL_RETRY_BACKOFF_MINUTES = [5, 30, 120] as const;
+
 /** Baris email per putaran cron retry. */
 export const EMAIL_RETRY_BATCH = 50;

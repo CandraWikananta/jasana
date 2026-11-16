@@ -774,7 +774,7 @@ Table taxonomy_requests {
 
 Table orders {
   id                           uuid                  [pk, note: 'Primary key']
-  order_number                 varchar(30)           [unique, not null, note: 'ORD-YYYYMMDD-XXXXXXXX, 8 hex acak (catatan sesi 6c di register 4H)']
+  order_number                 varchar(30)           [unique, not null, note: 'ORD-YYYYMMDD-XXXXXXXX, 8 hex acak (catatan sesi 6c di register 4H). Tanggal hari kalender WITA (D154, sesi 10b)']
   client_id                    uuid                  [not null, note: 'Yang memesan dan membayar']
   provider_profile_id          uuid                  [not null, note: 'usaha yang bertanggung jawab, penerima uang']
   assigned_worker_id           uuid                  [note: 'D42, D68. PENANGGUNG JAWAB order. Nullable saat PENDING_ACCEPTANCE, WAJIB mulai ACCEPTED']
@@ -1384,6 +1384,7 @@ Table platform_settings {
     orphan_upload_cleanup_hours           = 24    (D80)
     withdrawal_min_amount                 = 50000 (D84)
     withdrawal_admin_fee                  = 6500  (D84)
+    review_window_days                    = 14    (D179, sesi 10b)
   '''
 }
 

@@ -6,6 +6,7 @@
  *   berhenti setelah email_retry_max_attempts retry
  *   PENDING yatim lebih dari 15 menit diambil, yang baru tidak
  *   dua putaran paralel tidak mengirim email yang sama dua kali
+ *   uji sandbox 10a: baris lebih dari 24 jam tidak disentuh, dan retry mengikuti backoff 5, 30, 120 menit
  */
 
 import { randomUUID } from 'node:crypto';
@@ -15,7 +16,7 @@ import { createApp } from '../src/app';
 import { mailer } from '../src/lib/mailer';
 import { retryFailedEmails } from '../src/modules/notifications/email-retry';
 import { captureEmails, hasTestDatabase, resetDatabase } from './helpers/integration';
-import { MINUTE, acceptedScheduledOrder, newProvider, newWorld } from './helpers/orders';
+import { HOUR, MINUTE, acceptedScheduledOrder, newProvider, newWorld } from './helpers/orders';
 
 const app = createApp();
 
@@ -38,7 +39,8 @@ describe.skipIf(!hasTestDatabase)('retry email (10a)', () => {
     prisma.notification.create({
       data: {
         userId, type: 'KYC', channel: 'EMAIL', title: 'Pengajuan provider disetujui', body: 'e-KYC Anda disetujui.',
-        emailStatus: 'FAILED', emailError: 'SMTP mati', referenceType: 'provider_profile', referenceId: profileId, ...data,
+        // Bawaan 3 jam lalu: seluruh jadwal backoff sudah lewat, masih di dalam batas umur.
+        emailStatus: 'FAILED', emailError: 'SMTP mati', referenceType: 'provider_profile', referenceId: profileId, createdAt: new Date(Date.now() - 3 * HOUR), ...data,
       },
     });
   const row = (id: bigint) => prisma.notification.findUniqueOrThrow({ where: { id } });
@@ -101,6 +103,44 @@ describe.skipIf(!hasTestDatabase)('retry email (10a)', () => {
     expect(await row(retrying.id)).toEqual(retrying);
   });
 
+  it('sandbox 10a: FAILED dan PENDING yatim yang lebih tua dari 24 jam tidak diklaim dan tidak berubah', async () => {
+    const old = [
+      await email({ createdAt: new Date(Date.now() - 25 * HOUR) }),
+      await email({ emailStatus: 'PENDING', emailError: null, createdAt: new Date(Date.now() - 25 * HOUR) }),
+    ];
+    const recent = await email({ createdAt: new Date(Date.now() - 23 * HOUR) });
+    const { sent } = captureEmails();
+    expect(await retryFailedEmails()).toEqual({ claimed: 1, sent: 1, failed: 0 });
+    expect(sent).toHaveLength(1);
+    for (const o of old) expect(await row(o.id)).toEqual(o);
+    expect(await row(recent.id)).toMatchObject({ emailStatus: 'SENT', emailAttempts: 1 });
+  });
+
+  it('sandbox 10a: retry ke-n menunggu jadwal kumulatif 5, 30, 120 menit dari created_at', async () => {
+    const cases: Array<[attempts: number, minutesAgo: number, due: boolean]> = [
+      [0, 4, false], [0, 6, true],
+      [1, 29, false], [1, 31, true],
+      [2, 119, false], [2, 121, true],
+    ];
+    const rows = await Promise.all(cases.map(([emailAttempts, m]) => email({ emailAttempts, createdAt: new Date(Date.now() - m * MINUTE) })));
+    captureEmails();
+    expect((await retryFailedEmails()).claimed).toBe(3);
+    for (const [i, [attempts, , due]] of cases.entries()) {
+      expect(await row(rows[i]!.id), `attempts ${attempts}, ${cases[i]![1]} menit`).toMatchObject({ emailAttempts: due ? attempts + 1 : attempts });
+    }
+  });
+
+  it('sandbox 10a: retry di luar panjang larik memakai jadwal terakhir (120 menit)', async () => {
+    await prisma.platformSetting.create({ data: { key: 'email_retry_max_attempts', value: 5 } });
+    const early = await email({ emailAttempts: 3, createdAt: new Date(Date.now() - 119 * MINUTE) });
+    const due = await email({ emailAttempts: 4, createdAt: new Date(Date.now() - 121 * MINUTE) });
+    captureEmails();
+    expect((await retryFailedEmails()).claimed).toBe(1);
+    expect(await row(early.id)).toEqual(early);
+    expect(await row(due.id)).toMatchObject({ emailStatus: 'SENT', emailAttempts: 5 });
+  });
+
+  // Tetap di urutan akhir: spy findMany di sini tidak pulih bersih lewat restoreAllMocks pada klien Prisma.
   it('dua putaran paralel: setiap baris terkirim tepat sekali', async () => {
     const rows = [
       ...(await Promise.all([email(), email(), email()])),

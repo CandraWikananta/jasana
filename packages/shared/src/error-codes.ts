@@ -76,6 +76,12 @@ export const BUSINESS_ERROR_STATUS = {
   // Sesi 9c, belum tercatat di Lampiran A (usulan D170). Klaim sesi tamu yang sudah diklaim,
   // termasuk oleh akun yang sama dan pecundang dua klaim paralel.
   CHAT_SESSION_ALREADY_CLAIMED: 409,
+  // Sesi 10b, belum tercatat di Lampiran A. Review: order belum pernah COMPLETED, lewat
+  // review_window_days, review kedua untuk order yang sama, dan balasan penyedia kedua.
+  REVIEW_NOT_ALLOWED: 409,
+  REVIEW_WINDOW_CLOSED: 409,
+  REVIEW_ALREADY_EXISTS: 409,
+  REVIEW_ALREADY_REPLIED: 409,
   GUEST_CHAT_LIMIT_REACHED: 429,
   RATE_LIMIT_EXCEEDED: 429,
   GEMINI_UNAVAILABLE: 502,

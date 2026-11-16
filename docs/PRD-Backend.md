@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| Versi | 2.27 |
+| Versi | 2.28 |
 | Penyusun | I Nyoman Gede Candra Wikananta (2305551065) |
 | Program Studi | Teknologi Informasi, Universitas Udayana |
 | Bidang Keahlian | Sistem Informasi |
@@ -310,7 +310,7 @@ Kolom yang menentukan perilaku sistem:
 
 | Kelompok | Kolom | Catatan |
 |---|---|---|
-| Identitas | `order_number` | Format `ORD-20260914-0001`, unique |
+| Identitas | `order_number` | Format `ORD-YYYYMMDD-XXXXXXXX`, delapan karakter heksadesimal acak, unique. Tanggalnya hari kalender **WITA** (D154), bukan UTC, jadi order pukul 00.24 WITA tanggal 17 bernomor `ORD-20261117-...` (sesi 10b). Order lama tidak diubah |
 | Pelaksana | `provider_profile_id`, `assigned_worker_id`, `accepted_by` | Usaha yang bertanggung jawab, pekerja penanggung jawab, dan siapa yang menekan tombol terima |
 | Snapshot | `snapshot_listing_title`, `snapshot_assignee_name`, `snapshot_attributes`, `snapshot_selected_options`, `snapshot_duration_minutes` | Diambil saat pemesanan. Perubahan harga atau tarif opsi besok tidak boleh mengubah order kemarin |
 | Uang | `listing_base_amount`, `options_amount`, `platform_fee`, `total_amount`, `provider_earning`, `platform_fee_refunded` | Dua invariant terpisah, lihat di bawah |
@@ -506,6 +506,7 @@ Disimpan sebagai key-value JSONB supaya bisa diubah saat eksperimen tanpa deploy
 | `listing_faq_max_items` | 10 | Batas butir FAQ per listing |
 | `order_message_max_length` | 2000 | Batas panjang satu pesan dalam order |
 | `order_message_rate_per_minute` | 20 | Batas pesan per menit per pengirim |
+| `review_window_days` | 14 | Batas memberi review sejak `completed_at` (D179, sesi 10b) |
 | `kyc_document_max_size_mb` | 5 | Batas ukuran satu dokumen e-KYC |
 | `dispute_evidence_max_size_mb` | 5 | Batas ukuran satu bukti dispute |
 | `orphan_upload_cleanup_hours` | 24 | Umur berkas tanpa baris basis data sebelum dibersihkan cron |
@@ -714,7 +715,7 @@ Kolom akses: **P** publik, **C** client (user login), **PR** provider terverifik
 | Method | Path | Akses | Fungsi |
 |---|---|---|---|
 | GET | `/listings` | P | Pencarian dan filter |
-| GET | `/listings/:id` | P | Detail listing, penyedia, foto, FAQ, opsi berbayar, review |
+| GET | `/listings/:id` | P | Detail listing, penyedia, foto, FAQ, opsi berbayar, dan `reviews`: tiga review tampil terbaru (sesi 10b) |
 | POST | `/providers/me/listings` | PR | Buat listing |
 | GET | `/providers/me/listings` | PR | Listing milik sendiri, termasuk DRAFT dan INACTIVE, tanpa yang terhapus (D91) |
 | GET | `/providers/me/listings/:id` | PR | Detail listing milik sendiri beserta status, pekerja terpetakan, dan seluruh harga opsi (D91) |
@@ -772,9 +773,9 @@ Query parameter `GET /listings`:
 | POST | `/dev/workers/presence` | auth | Menandai pekerja online untuk pengujian (H92). Hanya terdaftar saat `PAYMENT_GATEWAY=fake`, kedaluwarsa per `worker_presence_timeout_minutes` |
 | PATCH | `/dev/orders/:id/deadline` | C/PR/W | Memundurkan `response_deadline_at`, `payment_deadline_at`, atau `settlement_due_at` (order COMPLETED) untuk pengujian cron. Hanya saat `PAYMENT_GATEWAY=fake` |
 | POST | `/dev/jobs/:job/run` | auth | Menjalankan job `response-deadline`, `payment-deadline`, `settlement`, atau `webhook-recovery`, fungsi yang sama dengan cron. Hanya saat `PAYMENT_GATEWAY=fake` |
-| GET | `/orders/:id/messages` | C/PR/W/A | Riwayat pesan, terpaginasi. Admin membaca saja |
+| GET | `/orders/:id/messages` | C/PR/W/A | Riwayat pesan, terpaginasi, terbaru dulu. Admin membaca saja. Tetap terbaca setelah masa aktif lewat |
 | POST | `/orders/:id/messages` | C/PR/W | Kirim pesan, hanya selama masa aktif |
-| PATCH | `/orders/:id/messages/read` | C/PR/W | Tandai pesan sisi lawan sudah dibaca |
+| PATCH | `/orders/:id/messages/read` | C/PR/W | Tandai pesan sisi lawan sudah dibaca, sekaligus notifikasi `ORDER_MESSAGE` pemanggil untuk order itu. Balasan `{ updated }`, idempoten |
 
 #### Pembayaran dan webhook
 
@@ -812,9 +813,11 @@ Query parameter `GET /listings`:
 | GET | `/admin/disputes` | A | Antrean sengketa |
 | POST | `/admin/disputes/:id/review` | A | `OPEN -> UNDER_REVIEW` |
 | POST | `/admin/disputes/:id/resolve` | A | Putusan: `RELEASE`, `PARTIAL`, atau `REFUND` |
-| POST | `/orders/:id/review` | C | Beri rating dan ulasan |
-| GET | `/listings/:id/reviews` | P | Ulasan sebuah listing |
-| POST | `/providers/me/reviews/:id/reply` | PR | Balasan penyedia |
+| POST | `/orders/:id/review` | C | Beri rating dan ulasan, lihat kontrak di 4.4 |
+| GET | `/listings/:id/reviews` | P | Ulasan tampil sebuah listing, terpaginasi, nama reviewer disamarkan |
+| POST | `/providers/me/reviews/:id/reply` | PR | Balasan penyedia, sekali. Review penyedia lain 404 |
+| GET | `/admin/reviews` | A | Seluruh review termasuk yang disembunyikan, filter `is_visible` dan `listing_id`, terpaginasi (sesi 10b) |
+| PATCH | `/admin/reviews/:id/visibility` | A | `{ is_visible }`, idempoten. Cache rating dihitung ulang di transaksi yang sama (sesi 10b) |
 
 #### Chatbot
 
@@ -1058,7 +1061,35 @@ Request: `{ "content": "saya sudah di gerbang, unit yang mana?" }`
 | Panjang isi 1 sampai `order_message_max_length` | 422 `VALIDATION_ERROR` |
 | Belum melewati `order_message_rate_per_minute` | 429 `RATE_LIMIT_EXCEEDED` |
 
-Efek samping: kirim lewat Socket.IO ke room `order:<order_id>`, lalu notifikasi ke sisi lawan.
+Pendamping, pekerja lain di usaha yang sama, penerima tawaran (OFFERED), dan admin sama-sama dibalas 403 `NOT_ORDER_PARTICIPANT` saat mengirim atau menandai dibaca. Admin hanya boleh `GET`. `sender_role` adalah `CLIENT`, `WORKER` (penanggung jawab, termasuk pemilik INDIVIDUAL yang ditugaskan), atau `PROVIDER`.
+
+**Masa aktif per status (sesi 10b).** Ditegakkan service layer (H70) di dalam kunci baris order, jadi serial terhadap pembukaan sengketa.
+
+| Status | Kirim pesan | Baca dan tandai dibaca |
+|---|---|---|
+| `PENDING_ACCEPTANCE` | 409 | Boleh |
+| `ACCEPTED`, `PAID`, `ON_THE_WAY`, `ARRIVED`, `IN_PROGRESS`, `AWAITING_VERIFICATION` | Boleh | Boleh |
+| `COMPLETED` | Boleh selama `now() < settlement_due_at` | Boleh |
+| `DISPUTED` | 409, read-only apa pun status asalnya. Percakapan yang jadi bukti (D79) dibekukan saat sengketa dibuka | Boleh |
+| `SETTLED`, `REFUNDED`, `CANCELLED`, `REJECTED`, `EXPIRED`, `PAYMENT_EXPIRED` | 409 | Boleh |
+
+Balasan 201: `{ id, order_id, sender_user_id, sender_role, sender_name, content, read_at, created_at }`, dengan `id` string (bigserial). Efek samping setelah commit: event `order:message` berisi objek yang sama ke room `order:<order_id>`, lalu notifikasi in-app ke sisi lawan (Bagian 7.3 baris 27). Dibaca **per sisi**: client di satu sisi, pemilik dan penanggung jawab di sisi lain.
+
+#### POST /orders/:id/review
+
+Request: `{ "rating": 5, "comment": "Rapi dan tepat waktu" }`. `comment` opsional, 1 sampai 1000 karakter setelah di-trim. Field lain ditolak 422.
+
+| Guard | Kode error |
+|---|---|
+| Pemanggil client pemilik order | 403 `FORBIDDEN_ACTOR` |
+| Order pernah mencapai COMPLETED (`completed_at` terisi), termasuk yang kemudian disengketakan | 409 `REVIEW_NOT_ALLOWED` |
+| `now() <= completed_at + review_window_days` | 409 `REVIEW_WINDOW_CLOSED` |
+| Belum ada review untuk order ini (unique `reviews.order_id`) | 409 `REVIEW_ALREADY_EXISTS` |
+| `rating` bilangan bulat 1 sampai 5 | 422 `VALIDATION_ERROR` |
+
+Efek samping di transaksi yang sama: kunci baris `provider_profiles` lalu `listings` (`FOR NO KEY UPDATE`, urutan yang sama dengan T16 dan pengubahan listing), tulis review, lalu hitung ulang `rating_average` (dua desimal) dan `rating_count` listing dan penyedia dari review `is_visible = true`. Notifikasi in-app ke pemilik penyedia (7.3 baris 28). Review tidak bisa diedit atau dihapus.
+
+`POST /providers/me/reviews/:id/reply` menerima `{ "reply": "..." }`, 1 sampai 1000 karakter, dan ditulis lewat UPDATE bersyarat `provider_reply IS NULL`. Balasan kedua 409 `REVIEW_ALREADY_REPLIED`. Butir daftar publik: `{ id, rating, comment, reviewer_name, provider_reply, provider_replied_at, created_at }`, dengan `reviewer_name` berupa kata pertama dan inisial kata kedua (`Candra W.`).
 
 #### POST /chat/sessions/:id/messages
 
@@ -1330,7 +1361,7 @@ Ringkasan aturan yang tidak boleh dilanggar implementasi mana pun:
 | Sweep settlement | tiap 5 menit | Order `COMPLETED` yang `settlement_due_at` lewat dan tidak punya dispute `OPEN` atau `UNDER_REVIEW` menjadi `SETTLED` beserta `ESCROW_RELEASE`. Jalur pesan jadi read-only |
 | Sweep presence pekerja | tiap 2 menit | Pekerja yang koneksi Socket.IO-nya putus lebih dari `worker_presence_timeout_minutes` dimatikan `is_available`-nya, supaya tampilan dashboard jujur |
 | Pemulihan webhook macet | tiap 5 menit | `webhook_events` berstatus `PROCESSING` dengan `locked_at` lebih dari 5 menit dikembalikan ke `FAILED`, lalu event `FAILED` diproses ulang dari payload tersimpan maksimal 3 kali lewat `retry_count` (D121). Event selisih nominal (D120) tidak diulang |
-| Percobaan ulang email | tiap 5 menit | Baris EMAIL berstatus `FAILED` dengan `email_attempts < email_retry_max_attempts`, ditambah baris `PENDING` dengan `email_attempts = 0` yang lebih tua dari 15 menit (proses mati setelah commit sebelum dispatch), dikirim ulang. Hanya `reference_type` yang punya renderer: `order`, `withdrawal`, `provider_profile`, `provider_worker`, `taxonomy_request`. Email bertoken (`verification_token`) dan baris tanpa referensi tidak pernah dikirim ulang (D177). Isi dirender ulang: subjek `Jasana: <title>`, isi `Halo <nama>`, `body`, dan baris referensi, ke `users.email` terkini. `email_attempts` hanya menghitung retry, dan klaimnya UPDATE bersyarat pada status dan hitungan, jadi dua instance tidak mengirim email yang sama dua kali. Pengiriman di luar transaksi |
+| Percobaan ulang email | tiap 5 menit | Baris EMAIL berstatus `FAILED` dengan `email_attempts < email_retry_max_attempts`, ditambah baris `PENDING` dengan `email_attempts = 0` yang lebih tua dari 15 menit (proses mati setelah commit sebelum dispatch), dikirim ulang. Hanya baris yang `created_at`-nya dalam 24 jam terakhir (`EMAIL_RETRY_MAX_AGE_HOURS`); yang lebih tua dibiarkan apa adanya. Retry ke-n baru diklaim setelah `created_at` melewati jadwal kumulatif 5, 30, lalu 120 menit (`EMAIL_RETRY_BACKOFF_MINUTES`, retry di luar panjang larik memakai nilai terakhir), tanpa kolom baru (sesi 10b, dari uji sandbox 10a). Hanya `reference_type` yang punya renderer: `order`, `withdrawal`, `provider_profile`, `provider_worker`, `taxonomy_request`. Email bertoken (`verification_token`) dan baris tanpa referensi tidak pernah dikirim ulang (D177). Isi dirender ulang: subjek `Jasana: <title>`, isi `Halo <nama>`, `body`, dan baris referensi, ke `users.email` terkini. `email_attempts` hanya menghitung retry, dan klaimnya UPDATE bersyarat pada status dan hitungan, jadi dua instance tidak mengirim email yang sama dua kali. Pengiriman di luar transaksi |
 | Pembersihan sesi tamu | tiap 1 jam | `chat_sessions` tamu yang `expires_at` lewat ditandai `ENDED`. Datanya tidak dihapus, karena jadi bahan pengukuran Bab IV |
 | Pembersihan token kedaluwarsa | tiap 1 hari | `verification_tokens` dan `refresh_tokens` yang sudah lewat masa berlaku dihapus |
 | Pembersihan berkas yatim | tiap 1 hari | Berkas di bucket foto listing yang lebih tua dari `orphan_upload_cleanup_hours` dan tidak punya baris `listing_photos` yang merujuknya dihapus dari Storage |
@@ -1393,9 +1424,14 @@ Notifikasi hanya untuk event yang butuh perhatian pihak tertentu, bukan untuk se
 | 24 | Lamaran pekerja disetujui atau ditolak, termasuk yang gugur saat usaha turun ke INDIVIDUAL | Pelamar | WORKER_APPLICATION / provider_worker | in-app + email |
 | 25 | Usulan taksonomi disetujui, ditolak, atau sudah tersedia | Pengusul | TAXONOMY_REQUEST / taxonomy_request | in-app + email |
 | 26 | Anda ditambahkan sebagai pendamping | Pendamping yang baru masuk kru (accept dengan kru, atau `PUT /orders/:id/crew`) | ORDER_STATUS / order | **in-app saja** |
+| 27 | Pesan baru dalam order | Sisi lawan pengirim: client, atau pemilik dan penanggung jawab. Hanya kalau penerima belum punya notifikasi pesan yang belum dibaca untuk order itu | ORDER_MESSAGE / order | **in-app saja**, isi pesan tidak ikut (sesi 10b) |
+| 28 | Ulasan baru | P | REVIEW / review | **in-app saja** (sesi 10b) |
+| 29 | Balasan ulasan | C | REVIEW / review | **in-app saja** (sesi 10b) |
 | – | Verifikasi email, reset password, konfirmasi email baru, pemberitahuan ganti email | Pemilik akun | ACCOUNT / verification_token atau kosong | **email saja**, tidak pernah di-retry |
 
-Notifikasi pesan dalam order (sesi 10b) memakai `type = ORDER_MESSAGE` dan `reference_type = order`, dan hanya dibuat kalau penerima belum punya notifikasi pesan yang belum dibaca untuk order itu (`hasUnreadMessageNotification`).
+Notifikasi pesan dalam order (sesi 10b) memakai `type = ORDER_MESSAGE` dan `reference_type = order`, dan hanya dibuat kalau penerima belum punya notifikasi pesan yang belum dibaca untuk order itu (`hasUnreadMessageNotification`). `PATCH /orders/:id/messages/read` ikut menandai notifikasi itu dibaca, sehingga pesan berikutnya memberi notifikasi lagi.
+
+**Waktu di isi notifikasi dan email** ditulis dalam WITA yang mudah dibaca, misalnya `18 Nov 2026 pukul 00.24 WITA`, lewat satu helper (`formatWita`), bukan ISO UTC mentah (sesi 10b, dari uji sandbox 10a). Berlaku juga untuk pesan galat `VERIFICATION_LOCKED` yang ditampilkan frontend.
 
 ---
 
@@ -1447,7 +1483,7 @@ Dijalankan setelah seeding dan setelah seluruh pengujian, hasilnya masuk Bab IV.
 | V8 | Tidak ada pendamping yang bentrok dengan order lain | 0 baris |
 | V9 | Konversi sesi chat tamu jadi pendaftaran. Klaim oleh akun yang dibuat setelah sesi dimulai dipisah dari akun lama | angka |
 | V10 | Usulan taksonomi yang jadi taksonomi resmi | angka |
-| V11 | Tidak ada pesan dari bukan peserta order | 0 baris |
+| V11 | Tidak ada pesan dari bukan peserta order. Penanggung jawab lama yang tercatat `from_worker_id` di riwayat `ASSIGNMENT_CHANGED` tetap pengirim sah (revisi sesi 10b) | 0 baris |
 | V12 | Tidak ada listing melebihi batas FAQ | 0 baris |
 
 ### 8.4 Kebutuhan data simulasi
@@ -1533,7 +1569,11 @@ Yang sudah ditutup di register keputusan versi 2.8:
 | `LISTING_NOT_AVAILABLE` | 409 | Listing tidak aktif, tidak ada pekerja idle, atau lokasi layanan di luar radius usaha (D106) |
 | `LISTING_HAS_ACTIVE_ORDERS` | 409 | Listing masih punya order berstatus `PENDING_ACCEPTANCE` sampai `AWAITING_VERIFICATION`, jadi belum bisa dihapus (D105) |
 | `ORDER_ALREADY_PAID` | 409 | Order sudah punya pembayaran lunas |
-| `MESSAGE_WINDOW_CLOSED` | 409 | Di luar masa aktif pesan dalam order |
+| `MESSAGE_WINDOW_CLOSED` | 409 | Di luar masa aktif pesan dalam order, termasuk saat DISPUTED |
+| `REVIEW_NOT_ALLOWED` | 409 | Order belum pernah mencapai COMPLETED (sesi 10b) |
+| `REVIEW_WINDOW_CLOSED` | 409 | Sudah lewat `review_window_days` sejak `completed_at` (sesi 10b) |
+| `REVIEW_ALREADY_EXISTS` | 409 | Order ini sudah punya review, dan review tidak bisa diubah (sesi 10b) |
+| `REVIEW_ALREADY_REPLIED` | 409 | Review sudah dibalas penyedia, balasan hanya sekali (sesi 10b) |
 | `DISPUTE_ALREADY_EXISTS` | 409 | Satu order hanya boleh punya satu dispute |
 | `DISPUTE_WINDOW_CLOSED` | 409 | Sudah melewati `settlement_due_at` |
 | `DISPUTE_STATE_CONFLICT` | 409 | Review bukan dari OPEN, putusan bukan dari UNDER_REVIEW, atau bukti untuk sengketa yang sudah diputus |
@@ -1613,3 +1653,4 @@ Tidak menyangkut aturan bisnis, dibentuk oleh middleware bersama pada Fase 0.
 | 2.25 | 16 November 2026 | Sinkron dengan register keputusan versi 2.32. Retry 5xx Gemini (D165) dan saran templat hasil kosong (D166) |
 | 2.26 | 16 November 2026 | Sinkron dengan register keputusan versi 2.33 (D167 sampai D175). Alur klaim sesi dan kode error `CHAT_SESSION_ALREADY_CLAIMED`, isi dan pemakaian `personalization_snapshot`, kolom V3 dan V9 |
 | 2.27 | 17 November 2026 | Sesi 10a. Respons tiga endpoint notifikasi, tabel event notifikasi (Bagian 7.3), aturan cron retry email (whitelist `reference_type`, render ulang, PENDING yatim 15 menit, klaim bersyarat), payload `notification:new`, dan makna `email_retry_max_attempts`. Menunggu pencatatan usulan D182 sampai D186 di register |
+| 2.28 | 17 November 2026 | Sesi 10b. Kontrak pesan dalam order dengan tabel masa aktif per status (DISPUTED read-only), kontrak review dan balasan, dua endpoint admin review, parameter `review_window_days`, baris 27 sampai 29 tabel event (in-app saja), revisi V11, empat kode error review, cron retry dengan batas umur 24 jam dan backoff, format waktu WITA, dan tanggal `order_number` per hari WITA. Menunggu pencatatan usulan D187 sampai D197 dan H117 di register |

@@ -651,7 +651,16 @@ CREATE INDEX IF NOT EXISTS idx_listing_attributes
 -- LEFT JOIN provider_workers w  ON w.id = o.assigned_worker_id
 -- WHERE m.sender_user_id <> o.client_id
 --   AND m.sender_user_id <> p.user_id
---   AND (w.user_id IS NULL OR m.sender_user_id <> w.user_id);
+--   AND (w.user_id IS NULL OR m.sender_user_id <> w.user_id)
+--   -- Revisi sesi 10b: penanggung jawab lama yang sudah diganti (D44) tetap sah.
+--   AND NOT EXISTS (
+--     SELECT 1
+--     FROM order_status_histories h
+--     JOIN provider_workers pw ON pw.id = (h.metadata->>'from_worker_id')::uuid
+--     WHERE h.order_id = m.order_id
+--       AND h.metadata->>'operation' = 'ASSIGNMENT_CHANGED'
+--       AND pw.user_id = m.sender_user_id
+--   );
 
 
 -- V12. Tidak ada listing yang melebihi batas jumlah FAQ (D78, H73).

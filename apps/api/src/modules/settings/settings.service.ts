@@ -37,6 +37,9 @@ export const NUMERIC_SETTING_DEFAULTS = {
   guest_chat_daily_global_limit: 250,
   guest_chat_session_hours: 24,
   email_retry_max_attempts: 3,
+  order_message_max_length: 2000,
+  order_message_rate_per_minute: 20,
+  review_window_days: 14,
 } as const;
 
 export type NumericSettingKey = keyof typeof NUMERIC_SETTING_DEFAULTS;

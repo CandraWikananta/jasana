@@ -13,6 +13,8 @@ import { requireAuth } from '../../middlewares/auth';
 import { requireProvider } from '../../middlewares/rbac';
 import { validate } from '../../middlewares/validate';
 import * as controller from './listings.controller';
+import * as reviews from '../reviews/reviews.controller';
+import { listingReviewsParamsSchema, listReviewsQuerySchema } from '../reviews/reviews.schema';
 import {
   createListingSchema,
   faqsSchema,
@@ -51,6 +53,7 @@ export function createPublicListingsRouter(): Router {
   router.get('/', validate({ query: searchListingsQuerySchema }), controller.searchPublic);
   router.get('/:id', validate({ params: listingParamsSchema }), controller.getPublic);
   router.get('/:id/faqs', validate({ params: listingParamsSchema }), controller.getPublicFaqs);
+  router.get('/:id/reviews', validate({ params: listingReviewsParamsSchema, query: listReviewsQuerySchema }), reviews.listForListing);
   return router;
 }
 

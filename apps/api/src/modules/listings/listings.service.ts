@@ -34,6 +34,7 @@ import {
 import { toDefinition } from '../catalog/catalog.mapper';
 import { getNumberSetting } from '../settings/settings.service';
 import { lockProviderProfile } from '../workers/workforce';
+import { PUBLIC_REVIEW_ORDER, PUBLIC_REVIEW_SELECT, toPublicReviewDto, type PublicReviewDto } from '../reviews/reviews.mapper';
 import { LISTING_SELECT, toFaqDto, toListingDto, type FaqDto, type ListingDto } from './listings.mapper';
 import {
   MODE_MESSAGE,
@@ -517,11 +518,17 @@ export const PUBLIC_WHERE = {
   providerProfile: { verificationStatus: 'VERIFIED' },
 } as const satisfies Prisma.ListingWhereInput;
 
-/** GET /listings/:id. Review menyusul di Fase 10. */
-export async function getPublicListing(id: string): Promise<ListingDto> {
+/** Cuplikan review di detail listing (sesi 10b). Daftar lengkap lewat GET /listings/:id/reviews. */
+const LISTING_REVIEW_PREVIEW = 3;
+
+/** GET /listings/:id, dengan tiga review tampil terbaru. */
+export async function getPublicListing(id: string): Promise<ListingDto & { reviews: PublicReviewDto[] }> {
   const row = await prisma.listing.findFirst({ where: { id, ...PUBLIC_WHERE }, select: LISTING_SELECT });
   if (!row) throw notFound();
-  return toListingDto(row, 'public');
+  const reviews = await prisma.review.findMany({
+    where: { listingId: id, isVisible: true }, orderBy: PUBLIC_REVIEW_ORDER, select: PUBLIC_REVIEW_SELECT, take: LISTING_REVIEW_PREVIEW,
+  });
+  return { ...toListingDto(row, 'public'), reviews: reviews.map(toPublicReviewDto) };
 }
 
 /** GET /listings/:id/faqs. */

@@ -1091,7 +1091,7 @@ model TaxonomyRequest {
 /// UPDATE bersyarat atomik (H38), pola yang sama dengan lock webhook.
 model Order {
   id                  String            @id @default(uuid()) @db.Uuid
-  /// Nomor yang dibaca manusia: ORD-20260914-0001. UUID tidak enak dibacakan.
+  /// Nomor yang dibaca manusia: ORD-20260914-9F2A0C1B, tanggalnya hari kalender WITA (sesi 10b). UUID tidak enak dibacakan.
   orderNumber         String            @unique @map("order_number") @db.VarChar(30)
   clientId            String            @map("client_id") @db.Uuid
   /// USAHA yang bertanggung jawab, penerima uang, pemilik rating.
@@ -1865,6 +1865,7 @@ model Notification {
 ///   orphan_upload_cleanup_hours           = 24    (D80)
 ///   withdrawal_min_amount                 = 50000 (D84)
 ///   withdrawal_admin_fee                  = 6500  (D84)
+///   review_window_days                    = 14    (D179, sesi 10b)
 model PlatformSetting {
   key         String   @id @db.VarChar(50)
   value       Json

@@ -6,6 +6,7 @@
  *   pekerja hanya menerima event di room miliknya
  *   order:join hanya untuk peserta, dan pekerja lama keluar setelah D44
  *   order:location_update hanya dari penanggung jawab saat ON_THE_WAY (usulan D112)
+ *   order:message sampai ke peserta di room, tidak ke pendamping atau pekerja lain (sesi 10b)
  */
 
 import { createServer, type Server as HttpServer } from 'node:http';
@@ -165,6 +166,23 @@ describe.skipIf(!hasTestDatabase)('Socket.IO', () => {
     await api().post(`/api/v1/dev/orders/${orderId}/simulate-payment`).set(...auth(w.client)).expect(200);
     await settle();
     expect(changes).toEqual([]);
+  });
+
+  it('sesi 10b: order:message sampai ke client dan pemilik di room, pendamping dan pekerja lain tidak bisa masuk room', async () => {
+    const { id } = await paidScheduledOrder(server, w, { assigned: w.w2, crew: [w.w3] });
+    const [client, owner, crew, coworker] = [await connected(w.client), await connected(w.owner), await connected(w.w3), await connected(w.w4)];
+    expect(await join(client, id)).toEqual({ ok: true });
+    expect(await join(owner, id)).toEqual({ ok: true });
+    expect(await join(crew, id)).toEqual({ ok: false, code: 'FORBIDDEN_ACTOR' });
+    expect(await join(coworker, id)).toEqual({ ok: false, code: 'FORBIDDEN_ACTOR' });
+    const [toClient, toOwner, toCrew, toCoworker] = [client, owner, crew, coworker].map((socket) => collect(socket, 'order:message'));
+
+    const sent = await api().post(`/api/v1/orders/${id}/messages`).set(...auth(w.w2)).send({ content: 'saya sudah di gerbang' }).expect(201);
+    await settle();
+    expect(toClient).toEqual([sent.body.data]);
+    expect(toOwner).toEqual([sent.body.data]);
+    expect(toCrew).toEqual([]);
+    expect(toCoworker).toEqual([]);
   });
 
   it('order:location_update hanya diteruskan dari penanggung jawab saat ON_THE_WAY, tanpa menulis basis data (usulan D112)', async () => {

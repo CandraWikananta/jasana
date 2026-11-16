@@ -11,6 +11,7 @@
 
 import { prisma, type Order, type Payment, type Prisma } from '@jasana/database';
 import { AppError, Errors } from '../../lib/errors';
+import { formatWita } from '../../lib/wita';
 import { emit, leaveRoom } from '../../realtime/socket';
 import { actorFrom, type OrderAccess } from '../access/access.service';
 import { dispatchNotifications } from '../notifications/email-outbox';
@@ -100,7 +101,7 @@ async function notifyNewCrew(tx: Tx, afterCommit: AfterCommit, order: Order, wor
   if (workerIds.length === 0) return;
   const workers = await tx.providerWorker.findMany({ where: { id: { in: workerIds } }, select: { userId: true } });
   const outgoing = await notifyUsers(tx, workers.map((w) => w.userId), order, 'Anda ditambahkan sebagai pendamping',
-    `Anda menjadi pendamping untuk order ini, terjadwal ${order.scheduledAt?.toISOString() ?? '-'}.`, 'ORDER_STATUS', { email: false });
+    `Anda menjadi pendamping untuk order ini, terjadwal ${order.scheduledAt ? formatWita(order.scheduledAt) : '-'}.`, 'ORDER_STATUS', { email: false });
   afterCommit(() => void dispatchNotifications(outgoing));
 }
 
@@ -109,7 +110,7 @@ async function applyAcceptance(tx: Tx, afterCommit: AfterCommit, order: Order, a
   const payment = await createPendingPayment(tx, order, paymentDeadlineAt);
   const who = await parties(tx, order.id);
   const emails = await notifyUsers(tx, [order.clientId, who.providerProfile.userId, assignee.userId], order, 'Order diterima',
-    `Order diterima dan ditangani ${assignee.displayName}. Selesaikan pembayaran sebelum ${paymentDeadlineAt.toISOString()}.`);
+    `Order diterima dan ditangani ${assignee.displayName}. Selesaikan pembayaran sebelum ${formatWita(paymentDeadlineAt)}.`);
   afterCommit(() => void dispatchNotifications(emails));
   // Usulan D104: gagal di sini tidak membatalkan T1, invoice_url tetap null.
   afterCommit(() => issueInvoice(payment.id));

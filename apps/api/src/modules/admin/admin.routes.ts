@@ -14,6 +14,8 @@ import { requireAuth } from '../../middlewares/auth';
 import { requireAdmin } from '../../middlewares/rbac';
 import { validate } from '../../middlewares/validate';
 import * as controller from './admin.controller';
+import * as reviews from '../reviews/reviews.controller';
+import { adminReviewsQuerySchema, reviewParamsSchema, reviewVisibilitySchema } from '../reviews/reviews.schema';
 import {
   applicationParamsSchema,
   listApplicationsQuerySchema,
@@ -137,6 +139,10 @@ export function createAdminRouter(): Router {
   router.get('/disputes', validate({ query: adminDisputesQuerySchema }), disputes.list);
   router.post('/disputes/:id/review', validate({ params: disputeParamsSchema }), disputes.review);
   router.post('/disputes/:id/resolve', validate({ params: disputeParamsSchema, body: resolveDisputeSchema }), disputes.resolve);
+
+  // Sesi 10b: visibilitas review (D179), cache rating dihitung ulang di transaksi yang sama
+  router.get('/reviews', validate({ query: adminReviewsQuerySchema }), reviews.listForAdmin);
+  router.patch('/reviews/:id/visibility', validate({ params: reviewParamsSchema, body: reviewVisibilitySchema }), reviews.setVisibility);
 
   return router;
 }

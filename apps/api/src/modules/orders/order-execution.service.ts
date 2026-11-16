@@ -16,6 +16,7 @@ import { prisma, type Order, type Prisma } from '@jasana/database';
 import { decryptVerificationCode, encryptVerificationCode, generateVerificationCode } from '../../lib/crypto';
 import { AppError } from '../../lib/errors';
 import { haversineKm } from '../../lib/haversine';
+import { formatWita } from '../../lib/wita';
 import { actorFrom, type OrderAccess } from '../access/access.service';
 import { dispatchNotifications } from '../notifications/email-outbox';
 import { getNumberSetting } from '../settings/settings.service';
@@ -191,7 +192,7 @@ export async function verifyCode(access: OrderAccess, code: string): Promise<Ord
 
     const now = new Date();
     if (order.verificationLockedUntil && order.verificationLockedUntil > now) {
-      throw new AppError('VERIFICATION_LOCKED', `Terlalu banyak percobaan, coba lagi setelah ${order.verificationLockedUntil.toISOString()}`);
+      throw new AppError('VERIFICATION_LOCKED', `Terlalu banyak percobaan, coba lagi setelah ${formatWita(order.verificationLockedUntil)}`);
     }
     // D114: tidak ada yang ditulis, jadi boleh dilempar. Client meminta kode baru (D111).
     if (!order.verificationExpiresAt || order.verificationExpiresAt <= now) {
@@ -219,11 +220,13 @@ export async function verifyCode(access: OrderAccess, code: string): Promise<Ord
       data: { verificationAttempts: attempts, settlementDueAt: new Date(now.getTime() + holdingHours * HOUR) },
       // In-flight pekerja dan pendamping lepas sendiri: COMPLETED tidak dihitung IN_FLIGHT_WHERE maupun rumus bentrok.
       effects: async (tx, order) => {
-        await tx.listing.update({ where: { id: order.listingId }, data: { orderCount: { increment: 1 } } });
+        // Urutan kunci baris seragam: provider_profiles lalu listings, sama dengan lockProviderProfile
+        // di listings.service dan review (sesi 10b). Urutan terbalik bisa deadlock dengan PATCH listing.
         await tx.providerProfile.update({
           where: { id: order.providerProfileId },
           data: { completedOrdersCount: { increment: 1 } },
         });
+        await tx.listing.update({ where: { id: order.listingId }, data: { orderCount: { increment: 1 } } });
         await notify(tx, afterCommit, order, 'Order selesai',
           'Kode verifikasi cocok, pekerjaan selesai. Client bisa memberi ulasan untuk penyedia.', true);
       },
@@ -266,7 +269,7 @@ export async function renewVerificationCode(access: OrderAccess): Promise<Verifi
     if (order.status !== 'AWAITING_VERIFICATION') throw notAllowed('Kode verifikasi hanya ada saat order menunggu verifikasi');
     const now = new Date();
     if (order.verificationLockedUntil && order.verificationLockedUntil > now) {
-      throw new AppError('VERIFICATION_LOCKED', `Masih terkunci sampai ${order.verificationLockedUntil.toISOString()}`);
+      throw new AppError('VERIFICATION_LOCKED', `Masih terkunci sampai ${formatWita(order.verificationLockedUntil)}`);
     }
     if (order.verificationExpiresAt && order.verificationExpiresAt > now) {
       return codeDto(decryptVerificationCode(order.verificationCodeEncrypted!), order.verificationExpiresAt, order.verificationLockedUntil);

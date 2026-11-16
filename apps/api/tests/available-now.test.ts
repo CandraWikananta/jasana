@@ -15,6 +15,7 @@ import request from 'supertest';
 import type { Express } from 'express';
 import { prisma, type OrderStatus } from '@jasana/database';
 import { createApp } from '../src/app';
+import { formatWita } from '../src/lib/wita';
 import { presence } from '../src/realtime/presence';
 import { hasTestDatabase, resetDatabase } from './helpers/integration';
 import { MINUTE, RENON, auth, newProvider, newWorld, northOfRenon, waitForLockWaiters, type User, type Worker, type World } from './helpers/orders';
@@ -102,6 +103,9 @@ describe.skipIf(!hasTestDatabase)('order Available Now (6d)', () => {
       expect(deadline).toBeGreaterThan(4 * MINUTE);
       expect(deadline).toBeLessThanOrEqual(5 * MINUTE);
       expect(await prisma.notification.count({ where: { channel: 'EMAIL', referenceId: order.id, title: { startsWith: 'Tawaran order sekarang' } } })).toBe(3);
+      // Sandbox 10a: batas waktu di isi tawaran ditulis WITA.
+      const offer = await prisma.notification.findFirstOrThrow({ where: { channel: 'IN_APP', referenceId: order.id, title: { startsWith: 'Tawaran order sekarang' } } });
+      expect(offer.body).toContain(`Ambil sebelum ${formatWita(new Date(order.response_deadline_at))}.`);
     });
 
     it('dibatasi available_now_offer_limit', async () => {

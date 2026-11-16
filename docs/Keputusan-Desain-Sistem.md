@@ -4,9 +4,9 @@
 **Nama sistem:** Jasana
 **Penyusun:** I Nyoman Gede Candra Wikananta (2305551065)
 **Bidang Keahlian:** Sistem Informasi, Teknologi Informasi, Universitas Udayana
-**Versi:** 2.37
-**Terakhir diperbarui:** 17 November 2026 (versi 2.37)
-**Tahap saat ini:** Implementasi backend. Fase 0 sampai Fase 8 selesai. Fase 9 menunggu evaluasi akurasi run 2 dan 3 (D176). Fase 10 berjalan (sesi 10a selesai)
+**Versi:** 2.38
+**Terakhir diperbarui:** 17 November 2026 (versi 2.38)
+**Tahap saat ini:** Implementasi backend. Fase 0 sampai Fase 8 selesai. Fase 9 menunggu evaluasi akurasi run 2 dan 3 (D176). Fase 10 berjalan (sesi 10a dan 10b selesai)
 
 ---
 
@@ -53,7 +53,16 @@
 | Protokol evaluasi akurasi (D176) | 1 | 0 |
 | Pelengkap: notifikasi, review, laporan, dan parameter (D177 sampai D181) | 5 | 0 |
 | Notifikasi dan retry email (D182 sampai D186) | 5 | 0 |
+| Pesan, review, dan perbaikan sandbox 10a (D187 sampai D197) | 11 | 0 |
 | Keputusan terbuka tanpa nomor D (Bagian 7) | | 0 |
+
+**Perubahan pada versi 2.38:**
+
+1. Masa aktif pesan per status yang merevisi D79 (D187), kanal notifikasi pesan dan review (D188), endpoint admin review (D189), dan revisi V11 (D190)
+2. Batas teks dan nama reviewer disamarkan (D191), serta review di detail listing (D192)
+3. Perbaikan temuan sandbox 10a: batas umur retry (D193), backoff (D194), format waktu WITA (D195), dan nomor order WITA (D196)
+4. Urutan kunci seragam penyedia lalu listing (D197)
+5. Catatan sesi 10b. H70 sampai H72 ditutup, H117 baru
 
 **Perubahan pada versi 2.37:**
 
@@ -990,7 +999,7 @@ Jawaban chatbot ke tamu tidak boleh memuat data pribadi penyedia seperti nomor t
 | # | Keputusan | Alasan |
 |---|---|---|
 | D78 | **FAQ per listing**, tabel `listing_faqs`. Provider menulis sendiri tanya jawabnya di muka, tampil di halaman listing, terbaca semua calon client. Teks saja, maksimal `listing_faq_max_items` butir per listing | Pertanyaan sebelum memesan seharusnya dijawab STRUKTUR, bukan percakapan. Atribut SPEC sudah menjawab sebagian besar (`sumber_air`, `sparepart`, `material`, `merek_dilayani` semuanya adalah pertanyaan pra-order yang sudah jadi kolom), dan FAQ menutup sisanya. Bedanya dengan percakapan: yang terbantu semua calon client, bukan satu penanya, dan provider tidak perlu online |
-| D79 | **Pesan dalam order**, tabel `order_messages`. Satu percakapan per order, sejak `ACCEPTED` sampai `settlement_due_at` lewat, lalu read-only. Teks saja, tanpa lampiran. Peserta: client, pemilik, dan pekerja yang ditugaskan | Menutup gesekan operasional nyata, terutama pekerja yang kesulitan menemukan alamat. Sudah ada order, ada SLA, dan ada batas waktu, jadi tidak membuka jalur pribadi permanen. Pengirimannya menumpang Socket.IO yang sudah ada, tidak ada komponen baru |
+| D79 | **Pesan dalam order**, tabel `order_messages`. Satu percakapan per order, sejak `ACCEPTED` sampai `settlement_due_at` lewat, lalu read-only. Teks saja, tanpa lampiran. Peserta: client, pemilik, dan pekerja yang ditugaskan | Menutup gesekan operasional nyata, terutama pekerja yang kesulitan menemukan alamat. Sudah ada order, ada SLA, dan ada batas waktu, jadi tidak membuka jalur pribadi permanen. Pengirimannya menumpang Socket.IO yang sudah ada, tidak ada komponen baru **Direvisi D187:** masa aktif ditetapkan per status, dan DISPUTED read-only |
 
 **Percakapan PRA-ORDER ditolak.** Ini perlu dicatat beserta alasannya, karena pertanyaan "bagaimana client bertanya sebelum memesan" hampir pasti muncul di sidang.
 
@@ -1816,12 +1825,43 @@ Dari sesi 10a. Semua dijawab penyusun sebelum rencana disusun, kecuali tambahan 
 | Kredensial diperbaiki, retry dipicu | Baris EMAIL menjadi SENT dengan `email_attempts` 1. Email diterima Ethereal dengan subjek "Jasana: Order baru masuk (ORD-20261116-EB9FD5ED)", sapaan, isi notifikasi, dan baris "Nomor order" (D184) |
 | Order dibatalkan client | Pemilik mendapat IN_APP dan EMAIL "Order dibatalkan", email langsung SENT dengan `email_attempts` 0 |
 
-**Temuan sandbox 10a, diperbaiki di sesi 10b:**
+**Temuan sandbox 10a, diperbaiki di sesi 10b lewat D193 sampai D196:**
 
 1. **Retry tanpa batas umur.** Supabase dev menyimpan tumpukan email FAILED dari uji Fase 7 dan Fase 8. Cron mengirim semuanya, termasuk email sejak 31 Oktober 2026. Email seperti "Pembayaran berhasil" yang datang dua minggu terlambat menyesatkan pengguna
 2. **Jatah retry habis terlalu cepat.** Selama kredensial SMTP salah sekitar 15 menit, cron tiap 5 menit menghabiskan jatah 3 retry pada 50 email lama. Gangguan SMTP yang sedikit lebih lama membuat email gagal permanen. Jeda retry perlu makin panjang
 3. **Waktu di isi notifikasi ditulis sebagai ISO UTC mentah**, misalnya batas respons `2026-11-17T16:24:03.779Z` yang sebenarnya 18 November pukul 00.24 WITA. Berasal dari template sejak Fase 6, berlaku untuk email maupun notifikasi in-app
 4. **Tanggal di nomor order memakai UTC.** Order yang dibuat 17 November pukul 00.24 WITA bernomor `ORD-20261116-...`, sedangkan hari bisnis memakai WITA (D154, D180)
+
+---
+
+## 4AE. Keputusan Versi 2.38 (D187 sampai D197)
+
+Dari sesi 10b. D187 sampai D192 dijawab penyusun sebelum rencana disusun, D193 sampai D196 dari temuan uji sandbox 10a, dan D197 dari pemeriksaan urutan kunci yang diminta saat review rencana. Tanpa migrasi, tiga parameter baru memakai nilai bawaan di kode.
+
+| # | Keputusan | Alasan |
+|---|---|---|
+| D187 | **Masa aktif pesan dalam order per status.** Kirim pesan dibuka sejak ACCEPTED sampai AWAITING_VERIFICATION, dan saat COMPLETED selama `settlement_due_at` belum lewat. **DISPUTED read-only apa pun status asalnya** (T15 maupun T19). PENDING_ACCEPTANCE, SETTLED, REFUNDED, CANCELLED, REJECTED, EXPIRED, dan PAYMENT_EXPIRED dibalas 409 `MESSAGE_WINDOW_CLOSED`. Membaca dan menandai dibaca selalu boleh. Pengiriman mengunci baris order lebih dulu. **Merevisi rumusan D79** yang memakai `settlement_due_at` saja | Begitu sengketa dibuka, seluruh percakapan menjadi bukti yang dibaca admin. Kalau masih bisa ditambah, bukti berubah setelah pemeriksaan dimulai dan masing-masing pihak bisa menyusun percakapan untuk menguatkan posisinya. Bukti tambahan tetap punya jalur resmi lewat `dispute_evidences`. Rumusan D79 literal membuat sengketa dari T15 tetap terbuka sedangkan dari T19 tertutup, padahal keduanya sengketa yang sama |
+| D188 | **Notifikasi pesan baru, review baru, dan balasan review in-app saja.** Isi pesan tidak masuk body notifikasi. `PATCH /orders/:id/messages/read` ikut menandai notifikasi `ORDER_MESSAGE` milik pemanggil untuk order itu | Pesan sudah sampai realtime lewat `order:message`, dan review tidak mendesak, sehingga email hanya menyesakkan kotak masuk. Tanpa ikut menandai notifikasi, aturan anti-spam D178 akan menahan notifikasi pesan berikutnya selamanya |
+| D189 | **Endpoint admin review:** `GET /admin/reviews` (filter `is_visible` dan `listing_id`, terpaginasi) dan `PATCH /admin/reviews/:id/visibility` yang idempoten, dengan cache rating dihitung ulang di transaksi yang sama | Tanpa daftar yang memuat review tersembunyi, review yang sudah disembunyikan tidak bisa ditemukan lagi untuk ditampilkan kembali |
+| D190 | **Revisi V11:** pengirim pekerja sah kalau ia penanggung jawab saat ini atau pernah tercatat sebagai `from_worker_id` di riwayat `ASSIGNMENT_CHANGED` order itu | Penanggung jawab yang mengirim pesan lalu diganti (D44) sah saat mengirim. Tanpa revisi, V11 menghasilkan pelanggaran palsu. Melonggarkan ke semua pekerja usaha itu terlalu longgar |
+| D191 | **Komentar review dan balasan penyedia 1 sampai 1.000 karakter** (konstanta, bukan parameter). **Nama reviewer di halaman publik disamarkan** menjadi kata pertama ditambah inisial, misalnya "Komang K." | Cukup untuk keluhan yang rinci tanpa membebani halaman listing. Pembaca tetap tahu ulasan berasal dari orang sungguhan tanpa nama lengkap client terpajang, sejalan dengan H67 |
+| D192 | **Detail listing memuat 3 review tampil terbaru**, memakai bentuk yang sama dengan daftar review | Memenuhi isi PRD bahwa detail listing menampilkan review. Daftar lengkap tetap lewat `/listings/:id/reviews` |
+| D193 | **Retry email hanya untuk baris berumur paling lama 24 jam** (`EMAIL_RETRY_MAX_AGE_HOURS`), baik FAILED maupun PENDING yatim. Baris yang lebih tua dibiarkan FAILED | Uji sandbox 10a: cron mengirim email FAILED sejak 31 Oktober. Email yang datang berhari-hari terlambat menyesatkan pengguna |
+| D194 | **Backoff retry kumulatif 5, 30, dan 120 menit dari `created_at`** (`EMAIL_RETRY_BACKOFF_MINUTES`), tanpa kolom baru. Retry di luar panjang larik memakai nilai terakhir | Uji sandbox 10a: gangguan SMTP sekitar 15 menit menghabiskan seluruh jatah 3 retry. Dengan backoff, email bertahan melewati gangguan sampai sekitar 2 jam |
+| D195 | **Waktu di notifikasi, email, dan pesan galat yang dibaca pengguna ditulis dalam WITA yang mudah dibaca** lewat `formatWita` ("18 Nov 2026 pukul 00.24 WITA"), dengan nama bulan Indonesia tanpa bergantung pada ICU. Dipakai di empat template notifikasi dan dua pesan galat `VERIFICATION_LOCKED` | Uji sandbox 10a: batas respons ditulis `2026-11-17T16:24:03.779Z`, yang dibaca penyedia sebagai jam 16.24 padahal batas sebenarnya 18 November pukul 00.24 WITA. Salah baca seperti ini membuat order kedaluwarsa |
+| D196 | **Tanggal di `order_number` mengikuti hari kalender WITA** (D154). Order lama tidak diubah | Uji sandbox 10a: order yang dibuat 17 November pukul 00.24 WITA bernomor `ORD-20261116-...`. Nomor order dicocokkan admin dengan laporan harian yang memakai WITA (D180) |
+| D197 | **Urutan kunci seragam `provider_profiles` lalu `listings` di semua jalur.** T16 ditukar dua barisnya (`completed_orders_count` sebelum `order_count`). Kunci cache rating memakai `FOR NO KEY UPDATE` | Pemeriksaan kode menemukan `updateListing` dan `setOptionPrices` sudah mengunci penyedia lebih dulu, sedangkan T16 sebaliknya, sehingga edit listing dan penyelesaian order pada listing yang sama bisa deadlock sejak sebelum Fase 10. `FOR NO KEY UPDATE` setara dengan kunci UPDATE biasa: penulis cache tetap bergiliran, tetapi insert yang hanya mereferensikan baris itu lewat FK (order, review, pemetaan pekerja) tidak tertahan |
+
+**Catatan implementasi sesi 10b tanpa nomor D:**
+
+- Pesan dalam order di modul `orders` (`order-messages.*`), review di modul baru `reviews`. Peserta diperiksa lewat `resolveOrderAccess`, dan admin hanya boleh membaca pesan
+- Review kedua ditolak lewat unique index `reviews.order_id` (409 `REVIEW_ALREADY_EXISTS`), balasan kedua lewat UPDATE bersyarat `provider_reply IS NULL` (409 `REVIEW_ALREADY_REPLIED`). Kode galat baru: `NOT_ORDER_PARTICIPANT`, `REVIEW_NOT_ALLOWED`, `REVIEW_WINDOW_CLOSED`, `REVIEW_ALREADY_EXISTS`, `REVIEW_ALREADY_REPLIED`
+- Parameter baru dengan nilai bawaan di kode: `order_message_max_length` (2000), `order_message_rate_per_minute` (20), `review_window_days` (14). Batas atas `order_message_max_length` terhadap CHECK basis data ditangani validasi D181 di sesi 10c
+- Room `order:<id>` sejak Fase 6 hanya menerima client, pemilik VERIFIED, dan penanggung jawab ACTIVE. Pendamping dan pekerja lain ditolak saat bergabung, dibuktikan test realtime
+- Belum teruji deterministik: kunci order pada pengiriman pesan terhadap pembukaan sengketa, dan urutan kunci D197 (dibuktikan lewat pembacaan kode)
+- Regresi newman membaca kredensial Storage dari `.env`, sehingga unggahan e-KYC dan bukti sengketa di Fase 2 dan 8 masuk ke bucket Supabase dev, sama seperti sesi sebelumnya
+
+**Hasil sesi 10b:** typecheck bersih, 953 test di 51 berkas lulus, 42 dari 42 mutan tertangkap termasuk test paralel cache rating. Postman Fase 1 sampai 10 tanpa gagal, Fase 10 dengan 68 request dan 123 assertion. `db:verify` di `jasana_test` lulus dengan V11 nol baris.
 
 ---
 
@@ -2405,9 +2445,9 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 - [x] **H55** **(lulus audit 9 November 2026: perilaku ada di kode dan dijaga test)** **Prioritas tinggi.** Harga dihitung ulang sepenuhnya di server dari `listing_option_prices`, tidak pernah menerima nominal dari client **(baru, D73)**. Wajib punya test yang mengirim total palsu lewat API dan memastikan nominal itu diabaikan **(rumusan diselaraskan dengan kode dan PRD 8.2 pada audit 9 November 2026; sebelumnya "ditolak")**
 - [x] **H56** **(lulus audit 9 November 2026: perilaku ada di kode dan dijaga test)** Validasi bercabang pada `POST /taxonomy-requests` **(baru, D74)**. NEW_ATTRIBUTE wajib `subcategory_id`, NEW_ATTRIBUTE_OPTION wajib `subcategory_id` dan `attribute_key`. Validasi bersyarat seperti ini gampang lolos kalau hanya mengandalkan skema validasi datar
 - [x] **H57** **(lulus audit 9 November 2026: perilaku ada di kode dan dijaga test)** Batas 3 usulan aktif per provider dihitung lintas jenis **(baru, D74)**
-- [ ] **H70** Masa aktif pesan dalam order ditegakkan service layer **(baru, D79)**. Hanya boleh mengirim saat status order antara ACCEPTED dan sebelum `settlement_due_at` lewat. Setelah itu read-only, bukan terhapus
-- [ ] **H71** Pengirim wajib peserta order itu **(baru, D79)**: client pemilik order, pemilik provider, atau `assigned_worker_id`. Pendamping dan pekerja lain di usaha yang sama DITOLAK, sama polanya dengan `ASSIGNEE_ONLY_TRANSITIONS` di state machine
-- [ ] **H72** Rate limit pengiriman pesan per pengirim **(baru, D79)**
+- [x] **H70** **(ditutup di sesi 10b, D187)** Masa aktif pesan dalam order ditegakkan service layer **(baru, D79)**. Hanya boleh mengirim saat status order antara ACCEPTED dan sebelum `settlement_due_at` lewat. Setelah itu read-only, bukan terhapus
+- [x] **H71** **(ditutup di sesi 10b, D187, D190)** Pengirim wajib peserta order itu **(baru, D79)**: client pemilik order, pemilik provider, atau `assigned_worker_id`. Pendamping dan pekerja lain di usaha yang sama DITOLAK, sama polanya dengan `ASSIGNEE_ONLY_TRANSITIONS` di state machine
+- [x] **H72** **(ditutup di sesi 10b, D188, limit per akun dari `order_message_rate_per_minute`)** Rate limit pengiriman pesan per pengirim **(baru, D79)**
 - [x] **H73** **(lulus audit 9 November 2026: perilaku ada di kode dan dijaga test)** Batas jumlah butir FAQ per listing **(baru, D78)**
 - [x] **H78** **(lulus audit 9 November 2026 untuk jalur e-KYC, dan di sesi 8d untuk jalur bukti sengketa)** Validasi **magic bytes** pada unggahan multipart **(baru, D80)**, bukan `Content-Type` dari client dan bukan ekstensi nama berkas. Wajib punya test yang mengunggah berkas non-gambar bernama `.jpg` dan memastikan ditolak
 - [x] **H79** **(lulus audit 9 November 2026 untuk jalur e-KYC, dan di sesi 8d untuk jalur bukti sengketa)** Urutan unggah multipart: validasi, kirim ke Storage, baru tulis baris basis data **(baru, D80)**. Kalau Storage gagal, jangan tinggalkan baris setengah jadi
@@ -2469,6 +2509,7 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 - [ ] **H114** Baris EMAIL yang macet di PENDING di tengah retry (`email_attempts` 1 atau lebih), karena proses mati saat mengirim, tidak pernah diambil lagi. Tidak ada kolom waktu klaim untuk mendeteksinya. Pengiriman pertama yang macet sudah ditangani D185 **(baru, sesi 10a)**
 - [ ] **H115** Lamaran ke usaha lain yang gugur otomatis saat pelamar diterima di satu usaha (D36) tidak diberi notifikasi **(baru, sesi 10a)**
 - [ ] **H116** Baris `notifications` lama tidak pernah dibersihkan **(baru, sesi 10a)**
+- [ ] **H117** Keanggotaan room `order:<id>` hanya diperiksa saat bergabung. Anggota yang keanggotaannya menjadi nonaktif, atau penyedia yang kehilangan status VERIFIED, tetap menerima event room sampai koneksinya putus **(baru, sesi 10b)**
 - [ ] **H82** Admin fee withdrawal berupa nilai flat yang mengikuti perkiraan biaya payout Xendit **(baru, D84)**. Untuk nominal di atas Rp250.000 biaya sebenarnya sedikit lebih besar dan selisihnya ditanggung platform
 
 ---
@@ -2556,6 +2597,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 | 2.35 | 16 November 2026 | Protokol evaluasi akurasi tiga run (D176) dan hasil run 1: 69,39 persen dengan kegagalan dihitung salah, 97,1 persen atas skenario yang dijawab, 14 kegagalan merespons dari Gemini. Tanpa perubahan kode dan skema |
 | 2.36 | 16 November 2026 | Lima keputusan sebelum Fase 10: retry email dengan render ulang (D177), notifikasi in-app selektif (D178), aturan review (D179), laporan admin per hari WITA (D180), dan validasi parameter (D181). Pembagian Fase 10 dalam tiga sesi. Satu kolom dan satu parameter baru, dibuat di sesi implementasinya |
 | 2.37 | 17 November 2026 | Lima keputusan dari sesi 10a: tabel event notifikasi (D182), endpoint notifikasi (D183), whitelist dan render generik retry yang merevisi D177 (D184), hitungan dan klaim retry (D185), dan enum `ORDER_MESSAGE` (D186). H37 ditutup, H114 sampai H116 baru. Satu migrasi Ditambah hasil uji sandbox 10a dan empat temuannya |
+| 2.38 | 17 November 2026 | Sebelas keputusan dari sesi 10b: masa aktif pesan yang merevisi D79 (D187), notifikasi pesan dan review (D188), admin review (D189), revisi V11 (D190), batas teks dan nama disamarkan (D191), review di detail listing (D192), perbaikan sandbox 10a (D193 sampai D196), dan urutan kunci seragam (D197). H70 sampai H72 ditutup, H117 baru. Tanpa migrasi |
 
 ---
 

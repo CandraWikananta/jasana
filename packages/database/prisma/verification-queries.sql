@@ -172,6 +172,8 @@ GROUP BY request_type;
 
 
 -- @query V11 | zero | Tidak ada pesan dari bukan peserta order
+-- Revisi sesi 10b: penanggung jawab LAMA yang sudah diganti (D44) tetap pengirim sah untuk
+-- pesan yang ia kirim saat masih ditugaskan, dibaca dari riwayat ASSIGNMENT_CHANGED.
 SELECT m.id, m.order_id, m.sender_user_id, m.sender_role
 FROM order_messages m
 JOIN orders o ON o.id = m.order_id
@@ -179,7 +181,15 @@ LEFT JOIN provider_profiles p ON p.id = o.provider_profile_id
 LEFT JOIN provider_workers w  ON w.id = o.assigned_worker_id
 WHERE m.sender_user_id <> o.client_id
   AND m.sender_user_id <> p.user_id
-  AND (w.user_id IS NULL OR m.sender_user_id <> w.user_id);
+  AND (w.user_id IS NULL OR m.sender_user_id <> w.user_id)
+  AND NOT EXISTS (
+    SELECT 1
+    FROM order_status_histories h
+    JOIN provider_workers pw ON pw.id = (h.metadata->>'from_worker_id')::uuid
+    WHERE h.order_id = m.order_id
+      AND h.metadata->>'operation' = 'ASSIGNMENT_CHANGED'
+      AND pw.user_id = m.sender_user_id
+  );
 
 
 -- @query V12 | zero | Tidak ada listing melebihi batas FAQ

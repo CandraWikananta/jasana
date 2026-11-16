@@ -6,6 +6,8 @@
  *   /orders/:id/depart ... verify  lima transisi pelaksanaan, + requireAssignedWorker (6e)
  *   /orders/:id/payment         C, invoice aktif dan pembuatan ulang (D104, 7a)
  *   /orders/:id/disputes        C/PR, buka sengketa T13, T15, T17, T19 (8d). Pekerja tidak berhak
+ *   /orders/:id/messages        pesan dalam order (10b). Peserta diperiksa service supaya 403-nya NOT_ORDER_PARTICIPANT
+ *   /orders/:id/review          C, review setelah COMPLETED (10b, D179)
  *   /dev/orders/:id/simulate-payment
  *   /dev/workers/presence       hanya terdaftar saat PAYMENT_GATEWAY=fake (D101, H92)
  *   /dev/orders/:id/deadline, /dev/jobs/:job/run   pemicu sweep T3, T6, T18, pemulihan webhook, dan retry email untuk Postman (6f, 7c, 10a)
@@ -13,11 +15,17 @@
 
 import { Router, type RequestHandler } from 'express';
 import { requireAuth, requireEmailVerified } from '../../middlewares/auth';
+import { limitPerAccount } from '../../middlewares/rateLimit';
 import { requireAssignedWorker, requireOrderParticipant } from '../../middlewares/rbac';
 import { validate } from '../../middlewares/validate';
 import * as controller from './orders.controller';
 import * as disputes from '../disputes/disputes.controller';
 import { openDisputeSchema } from '../disputes/disputes.schema';
+import * as reviews from '../reviews/reviews.controller';
+import { createReviewSchema } from '../reviews/reviews.schema';
+import { getNumberSetting } from '../settings/settings.service';
+import * as messages from './order-messages.controller';
+import { listMessagesQuerySchema, sendMessageSchema } from './order-messages.schema';
 import {
   acceptOrderSchema,
   assignmentSchema,
@@ -65,6 +73,18 @@ export function createOrdersRouter(): Router {
   router.get('/:id/payment', ...participant(), controller.payment);
   router.post('/:id/payment', ...participant(), controller.renewPayment);
   router.post('/:id/disputes', ...participant(), validate({ body: openDisputeSchema }), disputes.open);
+  router.post('/:id/review', ...participant(), validate({ body: createReviewSchema }), reviews.create);
+
+  // H72: per pengirim, dibaca dari platform_settings setiap permintaan.
+  const messageLimit = limitPerAccount({
+    windowMs: 60_000,
+    limit: () => getNumberSetting('order_message_rate_per_minute'),
+    message: 'Terlalu banyak pesan, coba lagi sebentar',
+  });
+  const orderParams = validate({ params: orderParamsSchema });
+  router.post('/:id/messages', requireAuth, messageLimit, orderParams, validate({ body: sendMessageSchema }), messages.send);
+  router.get('/:id/messages', requireAuth, orderParams, validate({ query: listMessagesQuerySchema }), messages.list);
+  router.patch('/:id/messages/read', requireAuth, orderParams, messages.markRead);
 
   return router;
 }

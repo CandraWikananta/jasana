@@ -14,6 +14,7 @@ import request from 'supertest';
 import type { Express } from 'express';
 import { prisma } from '@jasana/database';
 import { createApp } from '../src/app';
+import { formatWita } from '../src/lib/wita';
 import { hasTestDatabase, resetDatabase } from './helpers/integration';
 import { HOUR, KUTA, MINUTE, RENON, auth, northOfRenon, paidScheduledOrder, type User, type Worker, type World, newWorld } from './helpers/orders';
 
@@ -226,9 +227,14 @@ describe.skipIf(!hasTestDatabase)('pelaksanaan order (6e)', () => {
       const sixth = await post(id, 'verify', w.w2, { code });
       expect(sixth.status).toBe(429);
       expect(sixth.body.error.code).toBe('VERIFICATION_LOCKED');
+      // Sandbox 10a: teks galat ditampilkan frontend, jadi jamnya WITA, bukan ISO UTC.
+      const until = formatWita(locked.verificationLockedUntil!);
+      expect(sixth.body.error.message).toBe(`Terlalu banyak percobaan, coba lagi setelah ${until}`);
       expect(await statusOf(id)).toBe('AWAITING_VERIFICATION');
       // Client tidak bisa mengakali lockout lewat kode baru (usulan D111).
-      expect((await request(app).post(`/api/v1/orders/${id}/verification-code`).set(...auth(w.client))).status).toBe(429);
+      const renewLocked = await request(app).post(`/api/v1/orders/${id}/verification-code`).set(...auth(w.client));
+      expect(renewLocked.status).toBe(429);
+      expect(renewLocked.body.error.message).toBe(`Masih terkunci sampai ${until}`);
     });
 
     it('usulan D110: setelah lockout lewat, hitungan mulai dari nol lagi', async () => {

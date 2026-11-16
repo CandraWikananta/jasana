@@ -14,6 +14,7 @@ import { Prisma, prisma } from '@jasana/database';
 import { AppError, Errors } from '../../lib/errors';
 import { haversineKm } from '../../lib/haversine';
 import { pageMeta, skipTake, type Paginated } from '../../lib/pagination';
+import { formatWita, witaDateKey } from '../../lib/wita';
 import { resolveProvider, resolveWorker } from '../access/access.service';
 import { toDefinition } from '../catalog/catalog.mapper';
 import { PUBLIC_WHERE } from '../listings/listings.service';
@@ -36,11 +37,11 @@ const notAvailable = (message: string) => new AppError('LISTING_NOT_AVAILABLE', 
 const NO_ORDER = '00000000-0000-0000-0000-000000000000';
 
 /**
- * ORD-20261107-9F2A0C1B. Acak, bukan urutan harian: urutan butuh kunci atau sequence.
+ * ORD-20261107-9F2A0C1B, tanggalnya hari kalender WITA (D154). Acak, bukan urutan harian: urutan butuh kunci atau sequence.
  * shortcut: tabrakan dibalas 500 oleh unique index, upgrade ke retry atau sequence kalau order per hari ribuan.
  */
-function newOrderNumber(now: Date): string {
-  return `ORD-${now.toISOString().slice(0, 10).replace(/-/g, '')}-${randomBytes(4).toString('hex').toUpperCase()}`;
+export function newOrderNumber(now: Date): string {
+  return `ORD-${witaDateKey(now)}-${randomBytes(4).toString('hex').toUpperCase()}`;
 }
 
 async function serviceLocation(userId: string, body: CreateOrderBody) {
@@ -205,7 +206,7 @@ export async function createOrder(userId: string, body: CreateOrderBody): Promis
 
     if (scheduled) {
       const emails = await notifyUsers(tx, [listing.providerProfile.userId], order, 'Order baru masuk',
-        `Ada order terjadwal baru untuk "${listing.title}". Terima atau tolak sebelum ${responseDeadlineAt.toISOString()}.`);
+        `Ada order terjadwal baru untuk "${listing.title}". Terima atau tolak sebelum ${formatWita(responseDeadlineAt)}.`);
       afterCommit(() => void dispatchNotifications(emails));
       return order.id;
     }
@@ -216,7 +217,7 @@ export async function createOrder(userId: string, body: CreateOrderBody): Promis
     });
     // D59: Socket.IO kanal utama, email pelengkap.
     const emails = await notifyUsers(tx, recipients.map((w) => w.userId), order, 'Tawaran order sekarang',
-      `Ada order mendadak untuk "${listing.title}". Ambil sebelum ${responseDeadlineAt.toISOString()}.`);
+      `Ada order mendadak untuk "${listing.title}". Ambil sebelum ${formatWita(responseDeadlineAt)}.`);
     const summary = {
       order_id: order.id,
       order_number: order.orderNumber,

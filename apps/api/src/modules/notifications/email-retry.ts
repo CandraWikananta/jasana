@@ -2,10 +2,12 @@
  * Cron retry email (D177, H37), tiap 5 menit.
  *
  * Kandidat:
- *   - baris EMAIL berstatus FAILED dengan `email_attempts < email_retry_max_attempts`
+ *   - baris EMAIL berstatus FAILED dengan `email_attempts < email_retry_max_attempts`, dan retry
+ *     ke-(n+1) baru boleh setelah created_at melewati EMAIL_RETRY_BACKOFF_MINUTES[n] (backoff)
  *   - baris EMAIL yang yatim di PENDING (`email_attempts = 0`, lebih tua dari
  *     EMAIL_PENDING_STALE_MINUTES): proses mati setelah commit sebelum dispatch (sebagian H114)
- * dan hanya kalau `reference_type` punya renderer di bawah. Whitelist, bukan
+ * keduanya hanya yang created_at-nya dalam EMAIL_RETRY_MAX_AGE_HOURS, dan hanya kalau
+ * `reference_type` punya renderer di bawah. Whitelist, bukan
  * pengecualian: email bertoken (`verification_token`) dan baris tanpa referensi
  * tidak pernah dikirim ulang, termasuk jenis baru yang lupa didaftarkan.
  *
@@ -16,7 +18,9 @@
  */
 
 import { prisma } from '@jasana/database';
-import { EMAIL_PENDING_STALE_MINUTES, EMAIL_RETRY_BATCH } from '../../config/constants';
+import {
+  EMAIL_PENDING_STALE_MINUTES, EMAIL_RETRY_BACKOFF_MINUTES, EMAIL_RETRY_BATCH, EMAIL_RETRY_MAX_AGE_HOURS,
+} from '../../config/constants';
 import { logger } from '../../lib/logger';
 import { getNumberSetting } from '../settings/settings.service';
 import { deliver, markFailed } from './email-outbox';
@@ -49,13 +53,20 @@ export async function retryFailedEmails(): Promise<EmailRetryResult> {
   const max = await getNumberSetting('email_retry_max_attempts');
   if (max <= 0) return result;
 
+  const now = Date.now();
+  const ago = (minutes: number) => new Date(now - minutes * 60_000);
+  const backoff = (n: number) => EMAIL_RETRY_BACKOFF_MINUTES[Math.min(n, EMAIL_RETRY_BACKOFF_MINUTES.length - 1)]!;
+  // Tanpa kolom baru: jadwal dihitung dari created_at, satu cabang per nilai email_attempts.
+  const failedDue = Array.from({ length: max }, (_, n) => ({ emailStatus: 'FAILED' as const, emailAttempts: n, createdAt: { lt: ago(backoff(n)) } }));
+
   const candidates = await prisma.notification.findMany({
     where: {
       channel: 'EMAIL',
       referenceType: { in: RETRYABLE_REFERENCE_TYPES },
+      createdAt: { gte: ago(EMAIL_RETRY_MAX_AGE_HOURS * 60) },
       OR: [
-        { emailStatus: 'FAILED', emailAttempts: { lt: max } },
-        { emailStatus: 'PENDING', emailAttempts: 0, createdAt: { lt: new Date(Date.now() - EMAIL_PENDING_STALE_MINUTES * 60_000) } },
+        ...failedDue,
+        { emailStatus: 'PENDING', emailAttempts: 0, createdAt: { lt: ago(EMAIL_PENDING_STALE_MINUTES) } },
       ],
     },
     orderBy: { createdAt: 'asc' },
