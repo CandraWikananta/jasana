@@ -4,13 +4,13 @@
 
 | | |
 |---|---|
-| Versi | 2.28 |
+| Versi | 2.29 |
 | Penyusun | I Nyoman Gede Candra Wikananta (2305551065) |
 | Program Studi | Teknologi Informasi, Universitas Udayana |
 | Bidang Keahlian | Sistem Informasi |
 | Pembimbing 1 | Dr. Ir. Ni Kadek Ayu Wirdiani, S.T., M.T., IPU |
 | Pembimbing 2 | Dr. Ir. Anak Agung Kompiang Oka Sudana, S.Kom., M.T., IPM |
-| Tanggal | 16 November 2026 |
+| Tanggal | 17 November 2026 |
 | Cakupan dokumen | **Backend saja** (Express.js REST API, basis data, integrasi eksternal, cron). Frontend dan UI/UX di luar cakupan dokumen ini |
 
 **Dokumen rujukan:** `Keputusan-Desain-Sistem.md` (register keputusan D1 sampai D128, versi 2.21), `State-Machine-Order.md` (artefak desain 3), `skema-database-final.dbml` (35 tabel, 35 enum), `schema.prisma`, `migration-constraints.sql`, `Panduan-Struktur-Database.md`.
@@ -479,39 +479,44 @@ Status yang dihitung: ACCEPTED dan PAID.
 
 ### 3.5 Parameter Sistem (`platform_settings`)
 
-Disimpan sebagai key-value JSONB supaya bisa diubah saat eksperimen tanpa deploy ulang.
+Disimpan sebagai key-value JSONB supaya bisa diubah saat eksperimen tanpa deploy ulang. Diubah admin lewat `PATCH /admin/settings` (Bagian 4.4). Seluruh nilai bilangan bulat, dan rentangnya dijaga di jalur tulis (D181, sesi 10c). Server membaca ulang nilainya setiap kali dibutuhkan tanpa cache, jadi perubahan langsung berlaku di permintaan berikutnya. Baris yang belum ada atau isinya tidak sah memakai nilai default.
 
-| Key | Nilai default | Fungsi |
+| Key | Nilai default | Rentang | Fungsi |
+|---|---|---|---|
+| `platform_fee_percentage` | 10 | 0 sampai 30 | Komisi platform dari penyedia. 0 berarti tanpa komisi (sesi 10c) |
+| `geolocation_radius_meters` | 100 | 10 sampai 1.000 | Radius toleransi validasi kedatangan |
+| `available_now_response_minutes` | 5 | 1 sampai 60 | SLA respons mode Available Now |
+| `scheduled_approval_hours` | 24 | 1 sampai 72 | SLA respons mode Scheduled, tetap dipotong `scheduled_at` dikurangi `payment_window_minutes` (D106) |
+| `settlement_holding_hours` | 24 | 1 sampai 168 | Holding window escrow dan batas akhir membuka dispute |
+| `payment_window_minutes` | 10 | 5 sampai 120 | Batas waktu bayar setelah order diterima |
+| `verification_max_attempts` | 5 | 3 sampai 10 | Batas percobaan kode verifikasi |
+| `verification_lockout_minutes` | 15 | 1 sampai 1.440 | Durasi lockout setelah batas terlampaui |
+| `available_now_offer_limit` | 5 | 1 sampai 20 | Jumlah pekerja yang ditawari satu order mendadak |
+| `worker_presence_timeout_minutes` | 10 | 1 sampai 60 | Toleransi putus sinyal sebelum pekerja dianggap offline |
+| `schedule_conflict_buffer_minutes` | 30 | 0 sampai 240 | Jeda perjalanan antar order Scheduled. 0 berarti tanpa jeda (H89) |
+| `email_retry_max_attempts` | 3 | 0 sampai 10 | Percobaan ulang oleh cron untuk email gagal, di luar pengiriman pertama. Nol mematikan retry (sesi 10a) |
+| `guest_chat_message_limit` | 20 | 1 sampai 200 | Batas pesan per sesi chatbot tamu |
+| `guest_chat_ip_hourly_limit` | 50 | 1 sampai 1.000 | Batas pesan chatbot per alamat IP per jam |
+| `guest_chat_daily_global_limit` | 250 (D160) | 1 sampai 500 | Rem darurat seluruh chatbot tamu, menyesuaikan kuota API key Gemini (500 RPD model Flash Lite). Dihitung per hari kalender WITA (D154) |
+| `guest_chat_session_hours` | 24 | 1 sampai 168 | Masa berlaku sesi chat tamu (D155) |
+| `listing_faq_max_items` | 10 | 1 sampai 30 | Batas butir FAQ per listing. Tidak bisa diturunkan di bawah jumlah FAQ aktif terbanyak yang sudah ada, karena V12 membaca kunci ini (409 `SETTING_CONFLICTS_WITH_DATA`) |
+| `order_message_max_length` | 2000 | 100 sampai 2.000 | Batas panjang satu pesan dalam order. Batas atas mengikuti CHECK `chk_order_message_content_length` |
+| `order_message_rate_per_minute` | 20 | 1 sampai 120 | Batas pesan per menit per pengirim |
+| `review_window_days` | 14 | 1 sampai 90 | Batas memberi review sejak `completed_at` (D179, sesi 10b) |
+| `kyc_document_max_size_mb` | 5 | 1 sampai 10 | Batas ukuran satu dokumen e-KYC. Berkas ditahan di memori (multer `memoryStorage`) |
+| `dispute_evidence_max_size_mb` | 5 | 1 sampai 10 | Batas ukuran satu bukti dispute |
+| `orphan_upload_cleanup_hours` | 24 | 3 sampai 168 | Umur berkas tanpa baris basis data sebelum dibersihkan cron. Minimal di atas umur signed upload URL Supabase (2 jam) |
+| `withdrawal_min_amount` | 50000 | 10.000 sampai 10.000.000 | Nominal minimum satu pengajuan withdrawal (D84) |
+| `withdrawal_admin_fee` | 6500 | 0 sampai 50.000 | Admin fee flat per pengajuan withdrawal, perkiraan biaya payout Xendit (D84). Harus lebih kecil dari `withdrawal_min_amount` efektif |
+
+**Kunci yang tidak dibaca server (sesi 10c).** Empat kunci berikut tercantum di register Bagian 6.5 tetapi **tidak dibaca server dari `platform_settings`**. Karena itu keempatnya tidak terdaftar, tidak tampil di `GET /admin/settings`, dan ditolak 422 oleh `PATCH`. Kalau tetap bisa diubah, admin mengubah angka yang tidak berefek apa pun.
+
+| Key | Nilai acuan | Alasan |
 |---|---|---|
-| `platform_fee_percentage` | 10 | Komisi platform dari penyedia |
-| `geolocation_radius_meters` | 100 | Radius toleransi validasi kedatangan |
-| `available_now_response_minutes` | 5 | SLA respons mode Available Now |
-| `scheduled_approval_hours` | 24 | SLA respons mode Scheduled |
-| `settlement_holding_hours` | 24 | Holding window escrow dan batas akhir membuka dispute |
-| `payment_window_minutes` | 10 | Batas waktu bayar setelah order diterima |
-| `verification_max_attempts` | 5 | Batas percobaan kode verifikasi |
-| `verification_lockout_minutes` | 15 | Durasi lockout setelah batas terlampaui |
-| `available_now_offer_limit` | 5 | Jumlah pekerja yang ditawari satu order mendadak |
-| `worker_presence_timeout_minutes` | 10 | Toleransi putus sinyal sebelum pekerja dianggap offline |
-| `worker_location_move_threshold_meters` | 200 | Perpindahan minimum sebelum koordinat dikirim ulang |
-| `worker_location_max_interval_minutes` | 5 | Batas waktu antar pengiriman koordinat |
-| `schedule_conflict_buffer_minutes` | 30 | Jeda perjalanan antar order Scheduled |
-| `email_retry_max_attempts` | 3 | Percobaan ulang oleh cron untuk email gagal, di luar pengiriman pertama. Nol mematikan retry (sesi 10a) |
-| `guest_chat_message_limit` | 20 | Batas pesan per sesi chatbot tamu |
-| `guest_chat_ip_hourly_limit` | 50 | Batas pesan chatbot per alamat IP per jam |
-| `guest_chat_daily_global_limit` | 250 (D160) | Rem darurat seluruh chatbot tamu, menyesuaikan kuota API key Gemini. Dihitung per hari kalender WITA (D154) |
-| `guest_chat_session_hours` | 24 | Masa berlaku sesi chat tamu (D155) |
-| `access_token_ttl_minutes` | 15 | Masa berlaku access token |
-| `refresh_token_ttl_days` | 30 | Masa berlaku refresh token |
-| `listing_faq_max_items` | 10 | Batas butir FAQ per listing |
-| `order_message_max_length` | 2000 | Batas panjang satu pesan dalam order |
-| `order_message_rate_per_minute` | 20 | Batas pesan per menit per pengirim |
-| `review_window_days` | 14 | Batas memberi review sejak `completed_at` (D179, sesi 10b) |
-| `kyc_document_max_size_mb` | 5 | Batas ukuran satu dokumen e-KYC |
-| `dispute_evidence_max_size_mb` | 5 | Batas ukuran satu bukti dispute |
-| `orphan_upload_cleanup_hours` | 24 | Umur berkas tanpa baris basis data sebelum dibersihkan cron |
-| `withdrawal_min_amount` | 50000 | Nominal minimum satu pengajuan withdrawal (D84) |
-| `withdrawal_admin_fee` | 6500 | Admin fee flat per pengajuan withdrawal, perkiraan biaya payout Xendit (D84) |
+| `access_token_ttl_minutes` | 15 | Dibaca dari env `JWT_ACCESS_TTL_MINUTES` (Bagian 5.6), karena TTL token adalah konfigurasi keamanan saat start, bukan parameter eksperimen |
+| `refresh_token_ttl_days` | 30 | Dibaca dari env `REFRESH_TOKEN_TTL_DAYS`, alasannya sama |
+| `worker_location_move_threshold_meters` | 200 | Hanya relevan untuk frontend, yang memutuskan kapan koordinat dikirim ulang (D66). Backend menerima setiap `PATCH /workers/me/location` |
+| `worker_location_max_interval_minutes` | 5 | Sama, hanya relevan untuk frontend (D66) |
 
 ### 3.6 State Machine Order
 
@@ -841,12 +846,12 @@ Akses **P** pada endpoint chatbot berarti sesi tamu, yang diidentifikasi lewat h
 | PATCH | `/notifications/:id/read` | C | Tandai dibaca. Idempoten. Milik orang lain dan baris EMAIL dibalas 404 |
 | PATCH | `/notifications/read-all` | C | Tandai semua IN_APP milik pemanggil dibaca, balasan `{ updated }` |
 | POST | `/uploads/signed-url` | C | Signed URL Supabase Storage untuk unggah langsung. **Hanya untuk foto listing** (D80) |
-| GET | `/admin/reports/transactions` | A | Laporan transaksi, filter periode |
-| GET | `/admin/reports/providers` | A | Laporan performa penyedia termasuk SLA miss |
-| GET | `/admin/reports/workers` | A | Laporan performa pekerja, akurasi check-in, SLA miss |
-| GET | `/admin/reports/revenue` | A | Laporan pendapatan platform |
-| GET | `/admin/settings` | A | Baca `platform_settings` |
-| PATCH | `/admin/settings` | A | Ubah parameter sistem |
+| GET | `/admin/reports/transactions` | A | Laporan transaksi per hari WITA, `from` dan `to` wajib (Bagian 4.4) |
+| GET | `/admin/reports/providers` | A | Laporan performa penyedia termasuk SLA miss, terpaginasi |
+| GET | `/admin/reports/workers` | A | Laporan performa pekerja, akurasi check-in (V2), SLA miss, terpaginasi |
+| GET | `/admin/reports/revenue` | A | Laporan pendapatan platform per hari WITA, sumber sama dengan V4 dan ledger |
+| GET | `/admin/settings` | A | 25 parameter terdaftar beserta nilai efektif, default, rentang, dan jejak `updated_by` |
+| PATCH | `/admin/settings` | A | Ubah satu atau beberapa parameter secara atomik, dengan validasi rentang dan relasi antarkunci (D181) |
 | GET | `/health` | P | Health check (status API dan basis data) |
 
 **Notifikasi (sesi 10a).** Endpoint notifikasi hanya menampilkan baris `channel = IN_APP`. Baris EMAIL adalah log pengiriman (`email_status`, `email_attempts`, `email_error`) dan tidak pernah tampil. Butir daftar: `id` (string, bigserial), `type`, `title`, `body`, `reference_type`, `reference_id`, `is_read`, `read_at`, `created_at`, urut terbaru dulu. `meta` = `{ page, limit, total, unread_count }`, dan `unread_count` selalu menghitung seluruh IN_APP yang belum dibaca, tidak terpengaruh filter. Event yang menghasilkan notifikasi ada di Bagian 7.3.
@@ -1154,6 +1159,78 @@ guest_token tetap disimpan karena V9 menghitung sesi tamu dari kolom itu. Dua kl
 Saldo didebit saat **pengajuan**, bukan saat selesai, supaya penyedia tidak bisa mengajukan berkali-kali melebihi saldonya. Yang didebit `amount` penuh, sedangkan yang dikirim ke rekening `net_amount`. Request hanya memuat `amount` dan rekening tujuan, tidak pernah memuat nominal fee (D84, H83). Rincian admin fee dan `net_amount` ditampilkan ke penyedia sebelum konfirmasi.
 
 **Pembalikan (D134).** Saldo dikembalikan lewat satu `WITHDRAWAL_REVERSAL` sebesar `amount` penuh, termasuk admin fee, kalau admin menolak pengajuan, payout berakhir FAILED, atau payout yang sudah SUCCEEDED berubah REVERSED. Satu withdrawal paling banyak punya satu reversal. Payout dikirim dengan idempotency key berupa id withdrawal.
+
+
+#### GET dan PATCH /admin/settings
+
+`GET` mengembalikan `data` berupa larik 25 butir, terurut seperti tabel Bagian 3.5:
+
+```json
+{ "key": "geolocation_radius_meters", "value": 150, "default_value": 100, "min": 10, "max": 1000,
+  "description": "...", "source": "DATABASE", "updated_by": { "id": "...", "full_name": "..." },
+  "updated_at": "2026-11-17T02:00:00.000Z" }
+```
+
+`source` bernilai `DEFAULT` kalau barisnya belum ada atau isinya tidak sah, dan saat itu `value` sama dengan `default_value`. Baris basis data untuk kunci yang tidak terdaftar diabaikan.
+
+`PATCH` menerima objek datar berisi satu kunci atau lebih, misalnya `{ "withdrawal_min_amount": 30000, "withdrawal_admin_fee": 5000 }`. Respons sama dengan `GET`.
+
+```
+1. Zod ketat: hanya kunci terdaftar, bilangan bulat (bukan string),
+   dalam rentang Bagian 3.5, minimal satu kunci         -> 422 VALIDATION_ERROR
+2. TRANSAKSI, diawali pg_advisory_xact_lock kunci konstan,
+   sehingga dua PATCH serentak diserialkan (menutup H119)
+3. Nilai efektif SESUDAH perubahan:
+   withdrawal_admin_fee >= withdrawal_min_amount        -> 422, path kunci yang diubah
+4. listing_faq_max_items < FAQ aktif terbanyak satu listing
+                                                        -> 409 SETTING_CONFLICTS_WITH_DATA
+5. upsert setiap kunci dengan updated_by = admin, description dari registri
+```
+
+Satu kunci gagal berarti tidak ada yang tertulis. Relasi antarkunci dinilai terhadap nilai sesudah perubahan, sehingga minimum dan admin fee bisa dinaikkan bersamaan walaupun urutan satu per satu akan ditolak. Tidak ada cache parameter, jadi tidak ada yang perlu diinvalidasi.
+
+#### GET /admin/reports/*
+
+**Periode (D180).** Query `from` dan `to` wajib, berformat `YYYY-MM-DD`, hari kalender WITA, inklusif. `to` tidak boleh sebelum `from`, dan rentang paling panjang 366 hari. Pelanggaran dibalas 422. Batasnya `[from 00.00 WITA, to+1 00.00 WITA)`, dan bucket harian memakai `(kolom AT TIME ZONE 'Asia/Makassar')::date`.
+
+**Setiap angka dihitung pada hari WITA kejadiannya sendiri:**
+
+| Kejadian | Kolom penentu |
+|---|---|
+| Order masuk | `orders.created_at` |
+| Order diterima | `orders.accepted_at` |
+| Order dibayar | `orders.paid_at` |
+| Order selesai | `orders.completed_at` |
+| Pendapatan (settled) | `orders.settled_at`, sama dengan V4 |
+| Ditolak (REJECTED) dan dibatalkan (CANCELLED) | `orders.cancelled_at` |
+| EXPIRED, PAYMENT_EXPIRED, REFUNDED | `order_status_histories.created_at` dengan `to_status` yang bersangkutan, karena tidak punya kolom waktu di `orders` |
+| SLA miss penyedia | `orders.response_deadline_at` |
+| SLA miss pekerja | `order_offers.sla_missed_at` |
+| Tawaran masuk dan ditolak | `order_offers.offered_at` dan `declined_at` |
+| Check-in | `order_checkins.created_at` |
+| Sengketa dibuka | `disputes.created_at` |
+
+Uang dalam integer rupiah. Uang yang menyangkut penyedia dibaca dari ledger `wallet_transactions` lewat `order_id`, bukan lewat waktu baris ledger.
+
+**`transactions` dan `revenue`.** `data = { period: { from, to, timezone: "WITA", days }, rows: [...], totals: {...} }`, dengan satu baris per hari, termasuk hari tanpa kejadian. `totals` adalah jumlah seluruh baris.
+
+| Laporan | Kolom per baris |
+|---|---|
+| `transactions` | `tanggal`, `order_masuk`, `order_masuk_available_now`, `order_masuk_scheduled`, `order_dibayar`, `nilai_dibayar` (jumlah `total_amount`), `order_selesai`, `order_batal` (REJECTED, CANCELLED, EXPIRED, PAYMENT_EXPIRED), `order_direfund` |
+| `revenue` | `tanggal`, `jumlah_order`, `nilai_harga_dasar`, `nilai_opsi_tambahan`, `nilai_transaksi`, `fee_dipungut`, `fee_dikembalikan`, `pendapatan_bersih` (tujuh kolom V4, hanya order SETTLED), `dana_dilepas_ke_penyedia` (ledger `ESCROW_RELEASE`), `dikembalikan_ke_client` (`fee_dikembalikan` ditambah ledger `REFUND_DEDUCTION`) |
+
+Identitas `revenue`: `nilai_transaksi = pendapatan_bersih + dana_dilepas_ke_penyedia + dikembalikan_ke_client`. Total satu bulan WITA identik dengan baris V4 bulan itu, dibuktikan test.
+
+**`providers` dan `workers`.** Satu baris per entitas yang punya minimal satu kejadian di periode itu, terpaginasi `page`/`limit` (Bagian 4.1). `data = { period, rows, totals }` dengan `totals` seluruh periode, bukan hanya halaman itu, dan `meta = { page, limit, total }`.
+
+| Laporan | Kolom per baris | Urutan |
+|---|---|---|
+| `providers` | `provider_profile_id`, `business_name`, `provider_type`, `order_masuk`, `order_diterima`, `order_ditolak`, `order_selesai`, `sla_miss`, `persen_sla_miss`, `order_disengketakan`, `nilai_transaksi_settled`, `dana_dilepas` (ledger), `rating_average_saat_ini`, `rating_count_saat_ini` (cache saat ini, bukan per periode) | `order_masuk` turun |
+| `workers` | `worker_id`, `display_name`, `membership_status`, `provider_profile_id`, `business_name`, `order_selesai_sebagai_pj`, `tawaran_masuk`, `tawaran_ditolak`, `sla_miss`, `persen_sla_miss`, `checkin_total`, `checkin_valid`, `persen_valid`, `rata_jarak_meter`, `rata_akurasi_gps` (ekspresi V2 per pekerja) | `tawaran_masuk + order_selesai_sebagai_pj` turun |
+
+- **SLA miss penyedia** adalah order EXPIRED karena deadline, yaitu `SCHEDULED` atau `AVAILABLE_NOW` yang punya penerima dengan `sla_missed_at`. EXPIRED karena seluruh penerima menolak (D102) bukan SLA miss
+- `persen_sla_miss` penyedia dihitung `sla_miss / (order_diterima + order_ditolak + sla_miss)`, sedangkan untuk pekerja `sla_miss / tawaran_masuk`
+- Persentase dibulatkan dua desimal dan bernilai `null` kalau penyebutnya nol
 
 ---
 
@@ -1476,7 +1553,7 @@ Dijalankan setelah seeding dan setelah seluruh pengujian, hasilnya masuk Bab IV.
 | V1 | Rekonsiliasi ledger terhadap cache saldo | 0 baris |
 | V2 | Akurasi validasi geolokasi | tabel hasil |
 | V3 | Performa intent extraction per jenis sesi, model, dan jenis intent: latensi Gemini, latensi total per giliran, dan overhead server (rata-rata dan p95). Pesan sebelum klaim dihitung tamu | tabel hasil |
-| V4 | Pendapatan platform beserta komposisi nominal | tabel hasil |
+| V4 | Pendapatan platform beserta komposisi nominal, per bulan kalender WITA (sesi 10c) | tabel hasil |
 | V5 | Tidak ada pekerja terikat dua pekerjaan | 0 baris |
 | V6 | Setiap provider punya pekerja aktif yang bersedia ditugaskan | 0 baris |
 | V7 | Tidak ada listing `ACTIVE` tanpa pekerja terpetakan | 0 baris |
@@ -1501,7 +1578,7 @@ Data seed harus menyertakan kombinasi yang memungkinkan skenario di atas dijalan
 
 ## 9. Milestone Implementasi
 
-Status per 15 November 2026: **Fase 0 sampai Fase 8 selesai**, sisanya belum dikerjakan. Urutan mengikuti dependency tree, bukan urutan tabel jadwal pada usulan ide.
+Status per 17 November 2026: **Fase 0 sampai Fase 8 selesai, dan Fase 10 selesai di tingkat kode pada sesi 10c** (uji sandbox penyusun menyusul). Fase 9 selesai di tingkat kode, tetapi penutupannya menunggu evaluasi akurasi run 2 dan run 3 (D176). Urutan mengikuti dependency tree, bukan urutan tabel jadwal pada usulan ide.
 
 | Fase | Keluaran backend | Kriteria selesai |
 |---|---|---|
@@ -1574,6 +1651,7 @@ Yang sudah ditutup di register keputusan versi 2.8:
 | `REVIEW_WINDOW_CLOSED` | 409 | Sudah lewat `review_window_days` sejak `completed_at` (sesi 10b) |
 | `REVIEW_ALREADY_EXISTS` | 409 | Order ini sudah punya review, dan review tidak bisa diubah (sesi 10b) |
 | `REVIEW_ALREADY_REPLIED` | 409 | Review sudah dibalas penyedia, balasan hanya sekali (sesi 10b) |
+| `SETTING_CONFLICTS_WITH_DATA` | 409 | Parameter diturunkan di bawah data yang sudah ada, misalnya `listing_faq_max_items` di bawah FAQ aktif terbanyak (sesi 10c) |
 | `DISPUTE_ALREADY_EXISTS` | 409 | Satu order hanya boleh punya satu dispute |
 | `DISPUTE_WINDOW_CLOSED` | 409 | Sudah melewati `settlement_due_at` |
 | `DISPUTE_STATE_CONFLICT` | 409 | Review bukan dari OPEN, putusan bukan dari UNDER_REVIEW, atau bukti untuk sengketa yang sudah diputus |
@@ -1654,3 +1732,4 @@ Tidak menyangkut aturan bisnis, dibentuk oleh middleware bersama pada Fase 0.
 | 2.26 | 16 November 2026 | Sinkron dengan register keputusan versi 2.33 (D167 sampai D175). Alur klaim sesi dan kode error `CHAT_SESSION_ALREADY_CLAIMED`, isi dan pemakaian `personalization_snapshot`, kolom V3 dan V9 |
 | 2.27 | 17 November 2026 | Sesi 10a. Respons tiga endpoint notifikasi, tabel event notifikasi (Bagian 7.3), aturan cron retry email (whitelist `reference_type`, render ulang, PENDING yatim 15 menit, klaim bersyarat), payload `notification:new`, dan makna `email_retry_max_attempts`. Menunggu pencatatan usulan D182 sampai D186 di register |
 | 2.28 | 17 November 2026 | Sesi 10b. Kontrak pesan dalam order dengan tabel masa aktif per status (DISPUTED read-only), kontrak review dan balasan, dua endpoint admin review, parameter `review_window_days`, baris 27 sampai 29 tabel event (in-app saja), revisi V11, empat kode error review, cron retry dengan batas umur 24 jam dan backoff, format waktu WITA, dan tanggal `order_number` per hari WITA. Menunggu pencatatan usulan D187 sampai D197 dan H117 di register |
+| 2.29 | 17 November 2026 | Sesi 10c. Rentang parameter dan empat kunci yang tidak dibaca server (Bagian 3.5), kontrak `GET` dan `PATCH /admin/settings`, kontrak empat laporan admin beserta aturan periode per kejadian, V4 per bulan WITA (H121), kode error `SETTING_CONFLICTS_WITH_DATA`, dan status Fase 10 selesai. Menunggu pencatatan usulan D198 sampai D203 di register |

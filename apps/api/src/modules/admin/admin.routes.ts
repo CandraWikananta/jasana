@@ -3,6 +3,7 @@
  * Fase 3: katalog dan usulan taksonomi. Sesi 8b: antrean withdrawal.
  * Sesi 8c: antrean refund, jalur manual, dan sinkronisasi status ke Xendit (H106).
  * Sesi 8d: antrean sengketa, review, dan putusan T20/T21 (D133).
+ * Sesi 10c: parameter sistem (D181) dan empat laporan (D180).
  *
  * `GET /admin/provider-applications/:id` tidak ada di daftar endpoint PRD,
  * tapi dibutuhkan D80: bucket e-KYC private, jadi admin hanya bisa membuka
@@ -45,6 +46,10 @@ import { adminRefundsQuerySchema, completeRefundSchema, refundParamsSchema } fro
 import * as wallets from '../wallets/wallets.controller';
 import * as disputes from '../disputes/disputes.controller';
 import { adminDisputesQuerySchema, disputeParamsSchema, resolveDisputeSchema } from '../disputes/disputes.schema';
+import * as settings from '../settings/settings.controller';
+import { updateSettingsSchema } from '../settings/settings.schema';
+import * as reports from '../reports/reports.controller';
+import { pagedPeriodQuerySchema, periodQuerySchema } from '../reports/reports.schema';
 import { adminWithdrawalsQuerySchema, rejectWithdrawalSchema, withdrawalParamsSchema } from '../wallets/wallets.schema';
 
 export function createAdminRouter(): Router {
@@ -143,6 +148,16 @@ export function createAdminRouter(): Router {
   // Sesi 10b: visibilitas review (D179), cache rating dihitung ulang di transaksi yang sama
   router.get('/reviews', validate({ query: adminReviewsQuerySchema }), reviews.listForAdmin);
   router.patch('/reviews/:id/visibility', validate({ params: reviewParamsSchema, body: reviewVisibilitySchema }), reviews.setVisibility);
+
+  // Sesi 10c: parameter sistem (D181, usulan D198 dan D199)
+  router.get('/settings', settings.list);
+  router.patch('/settings', validate({ body: updateSettingsSchema }), settings.update);
+
+  // Sesi 10c: laporan per hari WITA (D180, usulan D200 sampai D203)
+  router.get('/reports/transactions', validate({ query: periodQuerySchema }), reports.transactions);
+  router.get('/reports/revenue', validate({ query: periodQuerySchema }), reports.revenue);
+  router.get('/reports/providers', validate({ query: pagedPeriodQuerySchema }), reports.providers);
+  router.get('/reports/workers', validate({ query: pagedPeriodQuerySchema }), reports.workers);
 
   return router;
 }

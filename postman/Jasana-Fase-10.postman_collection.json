@@ -3292,6 +3292,1532 @@
           "response": []
         }
       ]
+    },
+    {
+      "name": "04. Parameter sistem (sesi 10c, D181)",
+      "item": [
+        {
+          "name": "GET settings: 25 kunci terdaftar, tanpa kunci yang tidak dibaca server",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "var list = pm.response.json().data;",
+                  "pm.test('25 kunci', function () { pm.expect(list.length).to.eql(25); });",
+                  "pm.test('Tanpa TTL token dan parameter lokasi pekerja', function () { var keys = list.map(function (x) { return x.key; }); ['access_token_ttl_minutes', 'refresh_token_ttl_days', 'worker_location_move_threshold_meters', 'worker_location_max_interval_minutes'].forEach(function (k) { pm.expect(keys).to.not.include(k); }); });",
+                  "var s = pm.response.json().data.find(function (x) { return x.key === 'review_window_days'; });",
+                  "pm.test('review_window_days bawaan 14, rentang 1 sampai 90', function () { pm.expect(s).to.include({ value: 14, default_value: 14, min: 1, max: 90, source: 'DEFAULT' }); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{hadmin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/settings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "settings"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH beberapa kunci sekaligus: minimum dan admin fee naik bersama",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "var s = pm.response.json().data.find(function (x) { return x.key === 'withdrawal_admin_fee'; });",
+                  "pm.test('Tersimpan dengan jejak updated_by', function () { pm.expect(s).to.include({ value: 7000, source: 'DATABASE' }); pm.expect(s.updated_by.full_name).to.eql('Admin Fase Sepuluh'); pm.expect(s.updated_at).to.be.a('string'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{hadmin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/settings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "settings"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"withdrawal_min_amount\": 60000,\n  \"withdrawal_admin_fee\": 7000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Kunci karangan: 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () { pm.response.to.have.status(422); });",
+                  "pm.test('Kode VALIDATION_ERROR', function () { pm.expect(pm.response.json().error.code).to.eql('VALIDATION_ERROR'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{hadmin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/settings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "settings"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"kunci_karangan\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Kunci yang tidak dibaca server: 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () { pm.response.to.have.status(422); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{hadmin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/settings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "settings"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"access_token_ttl_minutes\": 60\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Di luar rentang: radius 5 meter 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () { pm.response.to.have.status(422); });",
+                  "pm.test('details[0].path geolocation_radius_meters', function () { pm.expect(pm.response.json().error.details[0].path).to.eql('geolocation_radius_meters'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{hadmin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/settings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "settings"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"geolocation_radius_meters\": 5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Bukan bilangan bulat: 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () { pm.response.to.have.status(422); });",
+                  "pm.test('details[0].path review_window_days', function () { pm.expect(pm.response.json().error.details[0].path).to.eql('review_window_days'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{hadmin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/settings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "settings"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"review_window_days\": 14.5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Admin fee sama dengan minimum: 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () { pm.response.to.have.status(422); });",
+                  "pm.test('details[0].path withdrawal_admin_fee', function () { pm.expect(pm.response.json().error.details[0].path).to.eql('withdrawal_admin_fee'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{hadmin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/settings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "settings"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"withdrawal_admin_fee\": 60000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Atomik: kunci sah ikut batal kalau relasi gagal",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () { pm.response.to.have.status(422); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{hadmin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/settings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "settings"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"review_window_days\": 30,\n  \"withdrawal_min_amount\": 10000,\n  \"withdrawal_admin_fee\": 10000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "review_window_days tetap 14",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "var s = pm.response.json().data.find(function (x) { return x.key === 'review_window_days'; });",
+                  "pm.test('Tidak tertulis', function () { pm.expect(s).to.include({ value: 14, source: 'DEFAULT' }); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{hadmin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/settings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "settings"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "listing_faq_max_items di bawah FAQ yang ada: 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 409', function () { pm.response.to.have.status(409); });",
+                  "pm.test('Kode SETTING_CONFLICTS_WITH_DATA', function () { pm.expect(pm.response.json().error.code).to.eql('SETTING_CONFLICTS_WITH_DATA'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{hadmin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/settings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "settings"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"listing_faq_max_items\": 2\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Bukan admin: 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 403', function () { pm.response.to.have.status(403); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{hklien_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/settings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "settings"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"review_window_days\": 30\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Perpanjang review_window_days ke 25",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "var s = pm.response.json().data.find(function (x) { return x.key === 'review_window_days'; });",
+                  "pm.test('25', function () { pm.expect(s.value).to.eql(25); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{hadmin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/settings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "settings"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"review_window_days\": 25\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Langsung berlaku: review order LAMA (selesai 20 hari lalu) kini diterima",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', function () { pm.response.to.have.status(201); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{hklien_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{order_lama}}/review",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{order_lama}}",
+                "review"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rating\": 4,\n  \"comment\": \"Ulasan setelah batas diperpanjang\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Kembalikan nilai bawaan",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{hadmin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/settings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "settings"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"review_window_days\": 14,\n  \"withdrawal_min_amount\": 50000,\n  \"withdrawal_admin_fee\": 6500\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Tanpa token: 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401', function () { pm.response.to.have.status(401); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/settings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "settings"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "05. Laporan admin (sesi 10c, D180)",
+      "item": [
+        {
+          "name": "Transaksi 31 hari terakhir",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "function witaDay(offsetDays) { return new Date(Date.now() + 8 * 3600000 + offsetDays * 86400000).toISOString().slice(0, 10); }",
+                  "pm.collectionVariables.set('rep_from', witaDay(-30));",
+                  "pm.collectionVariables.set('rep_to', witaDay(0));",
+                  "pm.collectionVariables.set('lama_from', witaDay(-20));",
+                  "pm.collectionVariables.set('lama_to', witaDay(-18));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "var d = pm.response.json().data;",
+                  "pm.test('Satu baris per hari', function () { pm.expect(d.rows.length).to.eql(d.period.days); pm.expect(d.period.timezone).to.eql('WITA'); });",
+                  "pm.test('totals = jumlah seluruh baris', function () { Object.keys(d.totals).forEach(function (k) { var sum = d.rows.reduce(function (t, r) { return t + r[k]; }, 0); pm.expect(sum, k).to.eql(d.totals[k]); }); });",
+                  "pm.test('31 hari', function () { pm.expect(d.rows.length).to.eql(31); pm.expect(d.rows[30].tanggal).to.eql(pm.collectionVariables.get('rep_to')); });",
+                  "pm.test('Order seed masuk hari ini', function () { pm.expect(d.rows[30].order_masuk).to.be.at.least(7); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{hadmin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/reports/transactions?from={{rep_from}}&to={{rep_to}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "reports",
+                "transactions"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "{{rep_from}}"
+                },
+                {
+                  "key": "to",
+                  "value": "{{rep_to}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Pendapatan 31 hari terakhir",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "var d = pm.response.json().data;",
+                  "pm.test('Satu baris per hari', function () { pm.expect(d.rows.length).to.eql(d.period.days); pm.expect(d.period.timezone).to.eql('WITA'); });",
+                  "pm.test('totals = jumlah seluruh baris', function () { Object.keys(d.totals).forEach(function (k) { var sum = d.rows.reduce(function (t, r) { return t + r[k]; }, 0); pm.expect(sum, k).to.eql(d.totals[k]); }); });",
+                  "pm.test('LAMA dan KEDUA settled di periode', function () { pm.expect(d.totals.jumlah_order).to.be.at.least(2); pm.expect(d.totals.pendapatan_bersih).to.eql(d.totals.fee_dipungut - d.totals.fee_dikembalikan); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{hadmin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/reports/revenue?from={{rep_from}}&to={{rep_to}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "reports",
+                "revenue"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "{{rep_from}}"
+                },
+                {
+                  "key": "to",
+                  "value": "{{rep_to}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Penyedia: Teknik Renon dengan SLA miss",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "var row = pm.response.json().data.rows.find(function (r) { return r.business_name === 'Teknik Renon'; });",
+                  "pm.test('Tujuh order masuk, lima diterima', function () { pm.expect(row).to.include({ order_masuk: 7, order_diterima: 5, order_ditolak: 0 }); });",
+                  "pm.test('SLA miss: Scheduled dan Available Now lewat deadline', function () { pm.expect(row.sla_miss).to.eql(2); pm.expect(row.persen_sla_miss).to.eql(28.57); });",
+                  "pm.test('Settled LAMA dan KEDUA', function () { pm.expect(row.nilai_transaksi_settled).to.eql(300000); pm.expect(row.order_disengketakan).to.eql(1); });",
+                  "pm.test('meta paginasi', function () { var m = pm.response.json().meta; pm.expect(m.page).to.eql(1); pm.expect(m.limit).to.eql(100); pm.expect(m.total).to.be.at.least(1); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{hadmin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/reports/providers?from={{rep_from}}&to={{rep_to}}&limit=100",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "reports",
+                "providers"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "{{rep_from}}"
+                },
+                {
+                  "key": "to",
+                  "value": "{{rep_to}}"
+                },
+                {
+                  "key": "limit",
+                  "value": "100"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Penyedia: hari settled LAMA saja",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "var row = pm.response.json().data.rows.find(function (r) { return r.business_name === 'Teknik Renon'; });",
+                  "pm.test('Hanya LAMA, tanpa order masuk', function () { pm.expect(row).to.include({ nilai_transaksi_settled: 150000, order_masuk: 0, sla_miss: 0 }); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{hadmin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/reports/providers?from={{lama_from}}&to={{lama_to}}&limit=100",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "reports",
+                "providers"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "{{lama_from}}"
+                },
+                {
+                  "key": "to",
+                  "value": "{{lama_to}}"
+                },
+                {
+                  "key": "limit",
+                  "value": "100"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Pekerja: akurasi check-in dan SLA miss",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "var rows = pm.response.json().data.rows;",
+                  "var pekerja = rows.find(function (r) { return r.display_name === 'Wayan Pekerja' && r.business_name === 'Teknik Renon'; });",
+                  "var rekan = rows.find(function (r) { return r.display_name === 'Ketut Rekan' && r.business_name === 'Teknik Renon'; });",
+                  "pm.test('hpekerja: 2 check-in, 1 sah, menolak tawaran tanpa SLA miss', function () { pm.expect(pekerja).to.include({ checkin_total: 2, checkin_valid: 1, persen_valid: 50, rata_jarak_meter: 231, rata_akurasi_gps: 14, tawaran_masuk: 1, tawaran_ditolak: 1, sla_miss: 0 }); });",
+                  "pm.test('hrekan: SLA miss 100 persen', function () { pm.expect(rekan).to.include({ tawaran_masuk: 1, sla_miss: 1, persen_sla_miss: 100, checkin_total: 0 }); pm.expect(rekan.persen_valid).to.eql(null); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{hadmin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/reports/workers?from={{rep_from}}&to={{rep_to}}&limit=100",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "reports",
+                "workers"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "{{rep_from}}"
+                },
+                {
+                  "key": "to",
+                  "value": "{{rep_to}}"
+                },
+                {
+                  "key": "limit",
+                  "value": "100"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Pekerja: limit=1 page=2",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('meta halaman 2', function () { var m = pm.response.json().meta; pm.expect(m.page).to.eql(2); pm.expect(m.limit).to.eql(1); pm.expect(m.total).to.be.at.least(2); pm.expect(pm.response.json().data.rows.length).to.eql(1); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{hadmin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/reports/workers?from={{rep_from}}&to={{rep_to}}&limit=1&page=2",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "reports",
+                "workers"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "{{rep_from}}"
+                },
+                {
+                  "key": "to",
+                  "value": "{{rep_to}}"
+                },
+                {
+                  "key": "limit",
+                  "value": "1"
+                },
+                {
+                  "key": "page",
+                  "value": "2"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "from sesudah to: 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () { pm.response.to.have.status(422); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{hadmin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/reports/revenue?from=2026-01-02&to=2026-01-01",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "reports",
+                "revenue"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "2026-01-02"
+                },
+                {
+                  "key": "to",
+                  "value": "2026-01-01"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Rentang 367 hari: 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () { pm.response.to.have.status(422); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{hadmin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/reports/transactions?from=2025-01-01&to=2026-01-02",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "reports",
+                "transactions"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "2025-01-01"
+                },
+                {
+                  "key": "to",
+                  "value": "2026-01-02"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Rentang 366 hari (2028 kabisat): 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('366 baris', function () { pm.expect(pm.response.json().data.rows.length).to.eql(366); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{hadmin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/reports/transactions?from=2028-01-01&to=2028-12-31",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "reports",
+                "transactions"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "2028-01-01"
+                },
+                {
+                  "key": "to",
+                  "value": "2028-12-31"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Tanggal tidak sah: 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () { pm.response.to.have.status(422); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{hadmin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/reports/revenue?from=2026-02-28&to=2026-02-30",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "reports",
+                "revenue"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "2026-02-28"
+                },
+                {
+                  "key": "to",
+                  "value": "2026-02-30"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Injeksi di from: 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () { pm.response.to.have.status(422); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{hadmin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/reports/providers?from=2026-01-01'%20OR%201=1--&to=2026-01-02",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "reports",
+                "providers"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "2026-01-01'%20OR%201=1--"
+                },
+                {
+                  "key": "to",
+                  "value": "2026-01-02"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Injeksi di page: 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 422', function () { pm.response.to.have.status(422); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{hadmin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/reports/workers?from=2026-01-01&to=2026-01-02&page=1;DROP%20TABLE%20orders",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "reports",
+                "workers"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "2026-01-01"
+                },
+                {
+                  "key": "to",
+                  "value": "2026-01-02"
+                },
+                {
+                  "key": "page",
+                  "value": "1;DROP%20TABLE%20orders"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Bukan admin: 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 403', function () { pm.response.to.have.status(403); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{hklien_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/reports/revenue?from={{rep_from}}&to={{rep_to}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "reports",
+                "revenue"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "{{rep_from}}"
+                },
+                {
+                  "key": "to",
+                  "value": "{{rep_to}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Tanpa token: 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401', function () { pm.response.to.have.status(401); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/reports/workers?from={{rep_from}}&to={{rep_to}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "reports",
+                "workers"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "{{rep_from}}"
+                },
+                {
+                  "key": "to",
+                  "value": "{{rep_to}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
     }
   ],
   "variable": [
@@ -3325,6 +4851,22 @@
     },
     {
       "key": "listing_id",
+      "value": ""
+    },
+    {
+      "key": "rep_from",
+      "value": ""
+    },
+    {
+      "key": "rep_to",
+      "value": ""
+    },
+    {
+      "key": "lama_from",
+      "value": ""
+    },
+    {
+      "key": "lama_to",
       "value": ""
     }
   ]

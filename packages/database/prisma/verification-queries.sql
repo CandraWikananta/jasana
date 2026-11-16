@@ -81,7 +81,10 @@ ORDER BY 1, 2, 3;
 
 
 -- @query V4 | table | Pendapatan platform beserta komposisi nominal
-SELECT DATE_TRUNC('month', settled_at) AS bulan,
+-- Sesi 10c (menutup H121): dikelompokkan per bulan kalender WITA, bukan bulan zona sesi
+-- basis data, supaya satu baris V4 identik dengan laporan revenue untuk bulan WITA yang sama
+-- (D180). Order yang settled 23.59 WITA tanggal terakhir masuk bulan itu, bukan bulan berikutnya.
+SELECT DATE_TRUNC('month', settled_at AT TIME ZONE 'Asia/Makassar') AS bulan,
        COUNT(*)                        AS jumlah_order,
        SUM(listing_base_amount)        AS nilai_harga_dasar,
        SUM(options_amount)             AS nilai_opsi_tambahan,

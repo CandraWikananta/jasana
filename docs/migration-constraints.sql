@@ -532,8 +532,9 @@ CREATE INDEX IF NOT EXISTS idx_listing_attributes
 
 -- V4. Pendapatan platform, untuk fitur Laporan Pendapatan Platform.
 --     Disesuaikan D73: komposisi nominal ikut ditampilkan.
+--     Sesi 10c (menutup H121): bulan kalender WITA, sama dengan laporan admin (D180).
 --
--- SELECT DATE_TRUNC('month', settled_at) AS bulan,
+-- SELECT DATE_TRUNC('month', settled_at AT TIME ZONE 'Asia/Makassar') AS bulan,
 --        COUNT(*)                        AS jumlah_order,
 --        SUM(listing_base_amount)        AS nilai_harga_dasar,
 --        SUM(options_amount)             AS nilai_opsi_tambahan,

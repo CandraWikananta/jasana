@@ -1,6 +1,7 @@
 /**
  * Menyiapkan data demo untuk collection Postman Fase 10: folder 01 (Notifikasi, sesi 10a),
- * folder 02 (Pesan dalam order) dan 03 (Review), sesi 10b.
+ * folder 02 (Pesan dalam order) dan 03 (Review), sesi 10b, serta folder 04 (parameter sistem)
+ * dan 05 (laporan admin), sesi 10c.
  *
  *   npm run postman:seed:fase-10
  *
@@ -27,6 +28,13 @@
  *   SENGKETA  DISPUTED (dispute OPEN)                   pesan read-only
  *   LAMA      SETTLED, selesai 20 hari lalu             review lewat batas 14 hari
  *   KEDUA     SETTLED, selesai kemarin                  review kedua untuk cache rata-rata
+ * Sesi 10c, fixture laporan (folder 05):
+ *   KEDALUWARSA  SCHEDULED EXPIRED karena deadline 2 jam lalu      SLA miss penyedia
+ *   TAWARAN      AVAILABLE_NOW EXPIRED karena deadline 2 jam lalu  SLA miss penyedia; tawaran ke
+ *                hpekerja (menolak) dan hrekan (sla_missed_at)
+ *   check-in hpekerja pada SELESAI: satu gagal (450 m), satu sah (12 m), radius 100 m
+ *   listing punya 3 FAQ aktif, untuk 409 listing_faq_max_items di bawah data
+ * Baris platform_settings yang diubah folder 04 dihapus lebih dulu, supaya bisa diulang.
  *
  * Akunnya @postman.jasana.test berawalan `h`. Setiap kali dijalankan, akun
  * beserta notifikasi, order, dan listingnya dihapus lalu dibuat ulang.
@@ -84,7 +92,11 @@ const ORDER_IDS = {
   SENGKETA: '10b00000-0000-4000-8000-000000000003',
   LAMA: '10b00000-0000-4000-8000-000000000004',
   KEDUA: '10b00000-0000-4000-8000-000000000005',
+  KEDALUWARSA: '10c00000-0000-4000-8000-000000000006',
+  TAWARAN: '10c00000-0000-4000-8000-000000000007',
 };
+/** Kunci yang diubah folder 04 (sesi 10c). Dihapus supaya setiap run mulai dari nilai default. */
+const SETTING_KEYS_FOLDER_04 = ['review_window_days', 'withdrawal_min_amount', 'withdrawal_admin_fee', 'listing_faq_max_items'];
 const emailOf = (key) => `${key}${DOMAIN}`;
 
 const prisma = new PrismaClient();
@@ -113,6 +125,7 @@ async function main() {
       await tx.listing.deleteMany({ where: own });
       await tx.user.deleteMany({ where: { id: { in: ids } } });
     }
+    await tx.platformSetting.deleteMany({ where: { key: { in: SETTING_KEYS_FOLDER_04 } } });
     await seedCatalog(tx);
     const sub = await tx.subcategory.findFirstOrThrow({ where: { slug: 'servis-ac', category: { slug: 'perbaikan' } } });
 
@@ -197,6 +210,25 @@ async function main() {
     });
     await order('LAMA', 'SETTLED', { scheduledAt: ago(21 * DAY), paidAt: ago(21 * DAY), startedAt: ago(21 * DAY), completedAt: ago(20 * DAY), settledAt: ago(19 * DAY) });
     await order('KEDUA', 'SETTLED', { scheduledAt: ago(2 * DAY), paidAt: ago(2 * DAY), startedAt: ago(2 * DAY), completedAt: ago(2 * DAY), settledAt: ago(DAY) });
+
+    // Sesi 10c: fixture laporan. Order kedaluwarsa tidak punya penanggung jawab dan acceptedAt.
+    await order('KEDALUWARSA', 'EXPIRED', { assignedWorkerId: null, acceptedAt: null, scheduledAt: new Date(now + DAY), responseDeadlineAt: ago(2 * HOUR) });
+    await order('TAWARAN', 'EXPIRED', { assignedWorkerId: null, acceptedAt: null, bookingMode: 'AVAILABLE_NOW', responseDeadlineAt: ago(2 * HOUR) });
+    await tx.orderOffer.createMany({
+      data: [
+        { orderId: ORDER_IDS.TAWARAN, workerId: workers.hpekerja.id, distanceMeters: 300, offeredAt: ago(2 * HOUR + 5 * MINUTE), declinedAt: ago(2 * HOUR + 3 * MINUTE) },
+        { orderId: ORDER_IDS.TAWARAN, workerId: workers.hrekan.id, distanceMeters: 800, offeredAt: ago(2 * HOUR + 5 * MINUTE), slaMissedAt: ago(2 * HOUR) },
+      ],
+    });
+    await tx.orderCheckin.createMany({
+      data: [
+        { orderId: ORDER_IDS.SELESAI, workerId: workers.hpekerja.id, latitude: RENON.lat + 0.004, longitude: RENON.lng, distanceMeters: 450, radiusThresholdMeters: 100, accuracyMeters: 20, isValid: false, attemptNumber: 1, createdAt: ago(3 * HOUR) },
+        { orderId: ORDER_IDS.SELESAI, workerId: workers.hpekerja.id, latitude: RENON.lat, longitude: RENON.lng, distanceMeters: 12, radiusThresholdMeters: 100, accuracyMeters: 8, isValid: true, attemptNumber: 2, createdAt: ago(3 * HOUR - MINUTE) },
+      ],
+    });
+    await tx.listingFaq.createMany({
+      data: [1, 2, 3].map((n) => ({ listingId: listing.id, question: `Pertanyaan ${n}?`, answer: `Jawaban ${n}.`, displayOrder: n })),
+    });
     return listing.id;
   }, { timeout: 60_000 });
 

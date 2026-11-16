@@ -11,6 +11,7 @@ import request from 'supertest';
 import { expect, vi, type MockInstance } from 'vitest';
 import { prisma } from '@jasana/database';
 import { mailer, type MailMessage } from '../../src/lib/mailer';
+import { SETTING_KEYS } from '../../src/modules/settings/settings.service';
 
 export const hasTestDatabase = Boolean(process.env.TEST_DATABASE_URL);
 
@@ -32,6 +33,9 @@ if (!hasTestDatabase) {
  * Katalog hanya dihapus yang slug-nya berawalan `uji-`, yaitu yang dibuat
  * uji, bukan hasil seed.
  */
+/** Kunci PRD 3.5 yang tidak dibaca server, ditulis langsung oleh test penolakannya. */
+const UNREGISTERED_SETTING_KEYS = ['access_token_ttl_minutes', 'refresh_token_ttl_days', 'worker_location_move_threshold_meters', 'worker_location_max_interval_minutes'];
+
 export async function resetDatabase(): Promise<void> {
   await prisma.$transaction([
     // Sesi tamu (user_id NULL) tidak ikut terhapus cascade dari users (9b).
@@ -60,7 +64,8 @@ export async function resetDatabase(): Promise<void> {
     prisma.kycDocument.deleteMany(),
     prisma.providerProfile.deleteMany(),
     prisma.platformSetting.deleteMany({
-      where: { key: { in: ['kyc_document_max_size_mb', 'listing_faq_max_items', 'orphan_upload_cleanup_hours', 'schedule_conflict_buffer_minutes', 'platform_fee_percentage', 'available_now_offer_limit', 'geolocation_radius_meters', 'withdrawal_min_amount', 'withdrawal_admin_fee', 'guest_chat_message_limit', 'guest_chat_ip_hourly_limit', 'guest_chat_daily_global_limit', 'guest_chat_session_hours', 'email_retry_max_attempts', 'order_message_max_length', 'order_message_rate_per_minute', 'review_window_days'] } },
+      // Sesi 10c: seluruh kunci terdaftar, karena PATCH /admin/settings bisa menulis kunci mana pun.
+      where: { key: { in: [...SETTING_KEYS, ...UNREGISTERED_SETTING_KEYS] } },
     }),
     prisma.refreshToken.deleteMany(),
     prisma.verificationToken.deleteMany(),

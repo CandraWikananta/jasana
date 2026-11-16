@@ -4,9 +4,9 @@
 **Nama sistem:** Jasana
 **Penyusun:** I Nyoman Gede Candra Wikananta (2305551065)
 **Bidang Keahlian:** Sistem Informasi, Teknologi Informasi, Universitas Udayana
-**Versi:** 2.38
-**Terakhir diperbarui:** 17 November 2026 (versi 2.38)
-**Tahap saat ini:** Implementasi backend. Fase 0 sampai Fase 8 selesai. Fase 9 menunggu evaluasi akurasi run 2 dan 3 (D176). Fase 10 berjalan (sesi 10a dan 10b selesai)
+**Versi:** 2.39
+**Terakhir diperbarui:** 17 November 2026 (versi 2.39)
+**Tahap saat ini:** Implementasi backend. Fase 0 sampai Fase 8 selesai. Fase 9 menunggu evaluasi akurasi run 2 dan 3 (D176). Fase 10 selesai
 
 ---
 
@@ -54,7 +54,14 @@
 | Pelengkap: notifikasi, review, laporan, dan parameter (D177 sampai D181) | 5 | 0 |
 | Notifikasi dan retry email (D182 sampai D186) | 5 | 0 |
 | Pesan, review, dan perbaikan sandbox 10a (D187 sampai D197) | 11 | 0 |
+| Parameter dan laporan admin (D198 sampai D203) | 6 | 0 |
 | Keputusan terbuka tanpa nomor D (Bagian 7) | | 0 |
+
+**Perubahan pada versi 2.39:**
+
+1. Registri parameter dan tabel rentang (D198), PATCH atomik dengan advisory lock (D199)
+2. Periode laporan per hari WITA dan V4 per bulan WITA (D200), definisi kolom laporan (D201), SQL mentah terikat (D202), dan waktu status dari riwayat (D203)
+3. Catatan sesi 10c dan penutupan Fase 10. H118 dan H120 baru. Bagian 6.5 menandai empat kunci yang tidak dibaca server
 
 **Perubahan pada versi 2.38:**
 
@@ -1784,7 +1791,7 @@ Diputuskan sebelum Fase 10 (pelengkap). Satu kolom baru (`notifications.email_at
 | D178 | **Notifikasi in-app selektif.** Notifikasi dibuat hanya untuk event yang membutuhkan perhatian pihak tertentu, bukan untuk setiap transisi. Daftar event ditetapkan di sesi 10a dan ditulis di dokumen. Barisnya ditulis di dalam transaksi yang memicunya, mengikuti pola D58. Untuk pesan dalam order, notifikasi ke sisi lawan hanya dibuat kalau belum ada notifikasi pesan yang belum dibaca untuk order itu | Notifikasi untuk setiap transisi menenggelamkan yang penting, sehingga pengguna berhenti membacanya. Penulisan di dalam transaksi menjamin notifikasi tidak pernah ada tanpa event-nya dan sebaliknya. Aturan anti-spam pesan mencegah 20 pesan menghasilkan 20 notifikasi |
 | D179 | **Aturan review.** Client bisa memberi review setelah order mencapai COMPLETED (T16 membuka form review), termasuk order yang kemudian disengketakan, dalam `review_window_days` (14 hari) sejak `completed_at`. Satu review per order dan tidak bisa diedit. Penyedia bisa membalas sekali. `rating_average` dan `rating_count` listing dan penyedia diperbarui di transaksi yang sama dengan review. Admin bisa menyembunyikan review lewat `is_visible`, dan review yang disembunyikan keluar dari hitungan rating | Pengalaman buruk yang berujung sengketa justru informasi paling berguna bagi calon client. Review yang tidak bisa diedit dan dibatasi satu per order mencegah manipulasi rating. Batas waktu menjaga review tetap mencerminkan pengalaman yang masih segar. Cache diperbarui di transaksi yang sama supaya angka di pencarian selalu cocok dengan baris review |
 | D180 | **Laporan admin dihitung per hari kalender WITA** dan diambil dari sumber yang sama dengan V4 dan ledger. Test membuktikan total laporan identik dengan V4 dan ledger untuk data yang sama | Kriteria selesai Fase 10 adalah laporan cocok dengan data transaksi. Sumber yang sama dan pembuktian lewat test menjadikan kecocokan itu bukti, bukan asumsi. Zona WITA sama dengan D154 |
-| D181 | **`PATCH /admin/settings` hanya menerima kunci terdaftar**, dengan validasi tipe dan rentang per kunci, misalnya radius 10 sampai 1.000 meter dan komisi 0 sampai 30 persen. Setiap perubahan mencatat `updated_by`, dan cache parameter langsung diinvalidasi | Parameter penelitian memang dirancang bisa diubah tanpa deploy, tetapi nilai di luar akal sehat bisa merusak alur uang dan validasi kedatangan. Jejak `updated_by` menjawab pertanyaan siapa yang mengubah parameter saat eksperimen |
+| D181 | **`PATCH /admin/settings` hanya menerima kunci terdaftar**, dengan validasi tipe dan rentang per kunci, misalnya radius 10 sampai 1.000 meter dan komisi 0 sampai 30 persen. Setiap perubahan mencatat `updated_by`, dan cache parameter langsung diinvalidasi | Parameter penelitian memang dirancang bisa diubah tanpa deploy, tetapi nilai di luar akal sehat bisa merusak alur uang dan validasi kedatangan. Jejak `updated_by` menjawab pertanyaan siapa yang mengubah parameter saat eksperimen **Dirinci D198 dan D199:** parameter tidak di-cache, sehingga perubahan langsung berlaku tanpa invalidasi |
 
 **Pembagian Fase 10 dalam tiga sesi:**
 
@@ -1879,6 +1886,42 @@ Dari sesi 10b. D187 sampai D192 dijawab penyusun sebelum rencana disusun, D193 s
 | `db:verify` di Supabase dev | Kueri integritas lulus, V11 nol baris |
 
 - Skrip uji sempat terkena batas percobaan login per IP karena login ulang di setiap perintah, membuktikan rate limiter login bekerja. Skrip diperbaiki dengan menyimpan token selama masa berlakunya
+
+---
+
+## 4AF. Keputusan Versi 2.39 (D198 sampai D203) dan Penutupan Fase 10
+
+Dari sesi 10c. Semua dijawab penyusun sebelum rencana disusun, kecuali advisory lock pada D199 dan V4 per bulan WITA pada D200 yang berasal dari review rencana. Tanpa migrasi.
+
+| # | Keputusan | Alasan |
+|---|---|---|
+| D198 | **Registri parameter tunggal** (`SETTING_REGISTRY`) berisi 25 kunci beserta nilai bawaan, rentang, dan deskripsi. Tabel rentangnya di PRD 3.5, antara lain komisi 0 sampai 30 persen (0 sah), radius 10 sampai 1.000 meter, `order_message_max_length` 100 sampai 2.000 mengikuti CHECK basis data, dan `guest_chat_daily_global_limit` paling banyak 500 mengikuti kuota harian Gemini. Rentang hanya dijaga saat menulis. Empat kunci yang tidak dibaca server (`access_token_ttl_minutes`, `refresh_token_ttl_days`, `worker_location_move_threshold_meters`, `worker_location_max_interval_minutes`) dikecualikan dari GET maupun PATCH | Satu sumber untuk nilai bawaan, rentang, dan deskripsi mencegah ketiganya saling menyimpang. Kunci TTL dibaca dari env, dan dua kunci lokasi pekerja hanya relevan untuk frontend (D66). Admin yang mengubah kunci yang tidak dibaca server lalu melihat tidak ada efeknya akan mengira sistemnya rusak |
+| D199 | **`PATCH /admin/settings` menerima banyak kunci sekaligus secara atomik**, diawali `pg_advisory_xact_lock` sehingga dua PATCH bersamaan diserialkan. Relasi antarkunci dinilai terhadap nilai sesudah perubahan (`withdrawal_admin_fee` harus lebih kecil dari `withdrawal_min_amount`). `listing_faq_max_items` yang lebih kecil dari jumlah FAQ aktif terbanyak dibalas 409 `SETTING_CONFLICTS_WITH_DATA` | Pasangan kunci yang saling bergantung bisa diubah sekaligus tanpa harus melewati kondisi antara yang tidak sah. Advisory lock mencegah dua admin yang masing-masing mengubah satu kunci secara sah menghasilkan pasangan yang melanggar relasi, dibuktikan test paralel |
+| D200 | **Periode laporan per hari kalender WITA kejadiannya sendiri**, `from` dan `to` wajib dan inklusif, paling panjang 366 hari. Laporan penyedia dan pekerja terpaginasi (bawaan 20, maksimal 100). **V4 dikelompokkan per bulan WITA**, `DATE_TRUNC('month', settled_at AT TIME ZONE 'Asia/Makassar')` | Setiap angka dihitung pada hari terjadinya, sehingga laporan pendapatan identik dengan V4 dan laporan pekerja identik dengan V2. V4 per bulan UTC menempatkan order yang settled pada malam terakhir bulan di bulan berikutnya, padahal seluruh aturan hari memakai WITA (D154, D180, D196) |
+| D201 | **Definisi kolom keempat laporan** di PRD 4.4. SLA miss penyedia adalah order EXPIRED karena deadline pada mode Scheduled, atau pada Available Now yang punya `order_offers.sla_missed_at`. Order Available Now yang ditolak semua pekerja (ALL_DECLINED) bukan SLA miss. Persen SLA miss penyedia dihitung terhadap order yang direspons atau seharusnya direspons di periode itu, sehingga tidak pernah lebih dari 100. Laporan pendapatan memenuhi identitas nilai transaksi = pendapatan bersih + dana dilepas ke penyedia + dikembalikan ke client | ALL_DECLINED berarti pekerja menolak secara aktif, bukan diam, jadi bukan kegagalan merespons. Identitas tiga suku menurunkan rumus D133 dan membuktikan tidak ada rupiah yang hilang di laporan |
+| D202 | **Pengecualian SQL mentah untuk laporan:** hanya SELECT lewat `$queryRaw` dengan `Prisma.sql` dan seluruh nilai terikat, ditambah `$executeRaw` untuk advisory lock D199. Tanpa `Prisma.raw` maupun `$queryRawUnsafe`, dan disertai test injeksi | Laporan butuh pengelompokan per hari WITA dan `generate_series` untuk hari kosong, yang tidak bisa dinyatakan lewat Prisma `groupBy`. Logikanya sama dengan V4 dan V2 yang juga SQL mentah, sehingga kecocokannya mudah dibuktikan. Mengikuti preseden pencarian Fase 5 |
+| D203 | **Waktu kejadian EXPIRED, PAYMENT_EXPIRED, dan REFUNDED diambil dari `order_status_histories`** baris dengan `to_status` yang bersangkutan, tanpa kolom baru | Tabel riwayat adalah audit trail yang selalu ditulis `transitionOrder` di transaksi yang sama, sehingga waktunya akurat. `updated_at` bergeser setiap ada perubahan lain pada baris order |
+
+**Catatan implementasi sesi 10c tanpa nomor D:**
+
+- **Parameter tidak di-cache.** Setiap pembacaan mengambil satu baris lewat primary key, sehingga perubahan lewat PATCH langsung berlaku di permintaan berikutnya, dibuktikan test. Ini cara memenuhi syarat "cache langsung diinvalidasi" pada D181
+- Laporan penyedia dan pekerja menaruh `period`, `rows`, dan `totals` di `data`, seragam dengan laporan transaksi dan pendapatan. Kolom rating diberi nama `rating_average_saat_ini` karena berasal dari cache, bukan per periode
+- Salinan V4 lama di komentar migrasi September 2026 tidak diubah, karena mengubahnya mengubah checksum migrasi yang sudah diterapkan
+- Skrip bantu kini tersimpan di repo, di `scripts/dev/`: runner newman per fase, `regresi.ps1` untuk Fase 1 sampai 10, builder Postman, dan skrip mutasi
+
+**Hasil sesi 10c:** typecheck bersih, 1.004 test di 53 berkas lulus, 38 dari 38 mutan tertangkap. Postman Fase 1 sampai 10 tanpa gagal, Fase 10 dengan 97 request dan 179 assertion. `db:verify` di `jasana_test` lulus.
+
+**Penutupan Fase 10 (17 November 2026):**
+
+| Kriteria PRD Bagian 9 | Bukti | Status |
+|---|---|---|
+| Laporan cocok dengan data transaksi | Total laporan pendapatan identik dengan V4, termasuk per bulan WITA dengan order yang settled pukul 23.59 WITA tanggal terakhir dan 00.00 WITA tanggal 1. Cocok dengan ledger (`ESCROW_RELEASE`, refund) dan identitas tiga suku. Laporan transaksi cocok dengan payments dan `ESCROW_HOLD`, laporan pekerja cocok dengan V2 (`admin-reports.test.ts`) | Lulus |
+| Pesan hanya bisa dikirim peserta order | `order-messages.test.ts`, test realtime, Postman folder 02, V11 nol baris di `jasana_test` dan Supabase dev (uji sandbox 10b) | Lulus |
+| Review | `reviews.test.ts` termasuk test paralel cache rating, Postman folder 03, uji sandbox 10b | Lulus |
+| Notifikasi dan email | Sesi 10a, uji sandbox 10a dengan SMTP sungguhan, perbaikan D193 sampai D196 | Lulus |
+| `platform_settings` | `admin-settings.test.ts`, Postman folder 04 | Lulus |
+
+Hitungan akhir Fase 10: 1.004 test (dari 888 sebelum Fase 10), mutan 13 dari 13 (10a), 42 dari 42 (10b), dan 38 dari 38 (10c). H37, H66, H70 sampai H72, dan H111 ditutup sepanjang Fase 9 dan 10.
 
 ---
 
@@ -2264,13 +2307,13 @@ Kueri verifikasi V5 disesuaikan: pengelompokannya jadi `assigned_worker_id`, buk
 | `worker_presence_timeout_minutes` | 10 | Ambang presence basi sebelum pekerja dianggap offline (D57) |
 | `schedule_conflict_buffer_minutes` | 30 | Jeda perjalanan antar order Scheduled (D41) |
 | `email_retry_max_attempts` | 3 | Percobaan ulang pengiriman email yang gagal (D58) |
-| `worker_location_move_threshold_meters` | 200 | Perpindahan minimum sebelum koordinat dikirim ulang (D66) |
-| `worker_location_max_interval_minutes` | 5 | Batas waktu maksimum antar pengiriman koordinat walaupun tidak berpindah (D66) |
+| `worker_location_move_threshold_meters` | 200 | Perpindahan minimum sebelum koordinat dikirim ulang (D66). **Tidak dibaca server, hanya relevan untuk frontend (D198)** |
+| `worker_location_max_interval_minutes` | 5 | Batas waktu maksimum antar pengiriman koordinat walaupun tidak berpindah (D66). **Tidak dibaca server, hanya relevan untuk frontend (D198)** |
 | `guest_chat_message_limit` | 20 | Batas pesan per `guest_token` (D77) |
 | `guest_chat_ip_hourly_limit` | 50 | Batas pesan per alamat IP per jam (D77) |
 | `guest_chat_daily_global_limit` | 250 (D160) | Rem darurat seluruh lalu lintas chatbot tamu (D77) |
-| `access_token_ttl_minutes` | 15 | Masa berlaku access token JWT (D76) |
-| `refresh_token_ttl_days` | 30 | Masa berlaku refresh token (D76) |
+| `access_token_ttl_minutes` | 15 | Masa berlaku access token JWT (D76). **Tidak dibaca server, nilainya dari env `JWT_ACCESS_TTL_MINUTES` (D198)** |
+| `refresh_token_ttl_days` | 30 | Masa berlaku refresh token (D76). **Tidak dibaca server, nilainya dari env `REFRESH_TOKEN_TTL_DAYS` (D198)** |
 | `listing_faq_max_items` | 10 | Batas butir FAQ per listing (D78) |
 | `order_message_max_length` | 2000 | Batas panjang satu pesan dalam order (D79) |
 | `order_message_rate_per_minute` | 20 | Batas pesan per menit per pengirim (D79) |
@@ -2527,6 +2570,8 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 - [ ] **H115** Lamaran ke usaha lain yang gugur otomatis saat pelamar diterima di satu usaha (D36) tidak diberi notifikasi **(baru, sesi 10a)**
 - [ ] **H116** Baris `notifications` lama tidak pernah dibersihkan **(baru, sesi 10a)**
 - [ ] **H117** Keanggotaan room `order:<id>` hanya diperiksa saat bergabung. Anggota yang keanggotaannya menjadi nonaktif, atau penyedia yang kehilangan status VERIFIED, tetap menerima event room sampai koneksinya putus **(baru, sesi 10b)**
+- [ ] **H118** Penurunan `listing_faq_max_items` bisa berbalapan dengan penulisan FAQ yang berjalan bersamaan, karena jalur FAQ tidak memakai advisory lock D199. Pelanggarannya terdeteksi V12 **(baru, sesi 10c)**
+- [ ] **H120** Belum ada index `order_status_histories(to_status, created_at)` untuk laporan yang membaca waktu status dari riwayat (D203). Belum diperlukan untuk skala data penelitian **(baru, sesi 10c)**
 - [ ] **H82** Admin fee withdrawal berupa nilai flat yang mengikuti perkiraan biaya payout Xendit **(baru, D84)**. Untuk nominal di atas Rp250.000 biaya sebenarnya sedikit lebih besar dan selisihnya ditanggung platform
 
 ---
@@ -2563,7 +2608,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 
 ## 11. Langkah Berikutnya
 
-1. Fase 9 (chatbot) dalam tiga sesi menurut Bagian 4W. Sesi 9a sampai 9c selesai. Uji sandbox 9c lulus dan evaluasi run 1 selesai. Tersisa run 2 (pagi WITA) dan run 3 (siang atau sore WITA) menurut D176, lalu penutupan Fase 9. Paralel: Fase 10 dalam tiga sesi menurut Bagian 4AC, dengan batasan selama evaluasi belum selesai. Paralel: penyusun menyusun dataset 30 sampai 50 skenario berlabel (H15, D153) dan mencatat model serta batas kuota project Gemini di AI Studio
+1. Fase 9 (chatbot): implementasi dan uji sandbox selesai, evaluasi run 1 selesai. Tersisa run 2 (pagi WITA) dan run 3 (siang atau sore WITA) menurut D176, lalu penutupan Fase 9. Fase 10 selesai 17 November 2026 (1.004 test lulus, D177 sampai D203), dengan uji sandbox 10a dan 10b lulus dan uji sandbox 10c dijalankan penyusun. Paralel: penyusun menyusun dataset 30 sampai 50 skenario berlabel (H15, D153) dan mencatat model serta batas kuota project Gemini di AI Studio
 2. Selesai: Fase 8 (15 November 2026, 751 test lulus, D131 sampai D150) beserta uji sandbox payout dan refund. Uji sandbox refund PARTIAL hasil putusan sengketa lulus. Sebelumnya Fase 7 (11 November 2026, 627 test lulus) beserta uji sandbox Xendit sungguhan (12 November 2026), sebelumnya audit hutang teknis (9 November 2026) dan sesi perapian (10 November 2026)
 3. Susun data simulasi untuk dua belas sub-kategori di Lampiran B, termasuk skenario perebutan Available Now dan pendamping pada dokumentasi acara
 4. Riset ringan rentang harga pasaran untuk dua belas sub-kategori tersebut, catat sumbernya
@@ -2615,6 +2660,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 | 2.36 | 16 November 2026 | Lima keputusan sebelum Fase 10: retry email dengan render ulang (D177), notifikasi in-app selektif (D178), aturan review (D179), laporan admin per hari WITA (D180), dan validasi parameter (D181). Pembagian Fase 10 dalam tiga sesi. Satu kolom dan satu parameter baru, dibuat di sesi implementasinya |
 | 2.37 | 17 November 2026 | Lima keputusan dari sesi 10a: tabel event notifikasi (D182), endpoint notifikasi (D183), whitelist dan render generik retry yang merevisi D177 (D184), hitungan dan klaim retry (D185), dan enum `ORDER_MESSAGE` (D186). H37 ditutup, H114 sampai H116 baru. Satu migrasi Ditambah hasil uji sandbox 10a dan empat temuannya |
 | 2.38 | 17 November 2026 | Sebelas keputusan dari sesi 10b: masa aktif pesan yang merevisi D79 (D187), notifikasi pesan dan review (D188), admin review (D189), revisi V11 (D190), batas teks dan nama disamarkan (D191), review di detail listing (D192), perbaikan sandbox 10a (D193 sampai D196), dan urutan kunci seragam (D197). H70 sampai H72 ditutup, H117 baru. Tanpa migrasi Ditambah hasil uji sandbox 10b |
+| 2.39 | 17 November 2026 | Enam keputusan dari sesi 10c: registri dan rentang parameter (D198), PATCH atomik dengan advisory lock (D199), periode laporan per hari WITA dan V4 per bulan WITA (D200), definisi kolom laporan (D201), SQL mentah terikat (D202), dan waktu status dari riwayat (D203). Penutupan Fase 10. H118 dan H120 baru. Tanpa migrasi |
 
 ---
 

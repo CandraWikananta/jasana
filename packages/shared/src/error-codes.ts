@@ -82,6 +82,9 @@ export const BUSINESS_ERROR_STATUS = {
   REVIEW_WINDOW_CLOSED: 409,
   REVIEW_ALREADY_EXISTS: 409,
   REVIEW_ALREADY_REPLIED: 409,
+  // Sesi 10c (usulan D199). PATCH /admin/settings yang menurunkan batas di bawah data yang
+  // sudah ada, misalnya listing_faq_max_items di bawah FAQ aktif terbanyak (V12).
+  SETTING_CONFLICTS_WITH_DATA: 409,
   GUEST_CHAT_LIMIT_REACHED: 429,
   RATE_LIMIT_EXCEEDED: 429,
   GEMINI_UNAVAILABLE: 502,
