@@ -1,49 +1,608 @@
 {
   "versi": 1,
-  "catatan": "Template dataset evaluasi akurasi intent (H15, D153). Kelima skenario di bawah adalah contoh format dan akan diganti dataset penyusun. Aturan label: perlu_klarifikasi hanya kalau sub-kategori tidak bisa ditentukan; lokasi atau waktu yang kurang tetap cari_jasa. Field asal: penyusun, teman, atau draf_ai. Skenario lanjutan memakai riwayat dan, kalau pesan sebelumnya menyebut lokasi, waktu, budget, atau atribut, intent_terakhir dengan bentuk sama seperti chat_sessions.last_intent. Validasi: npx tsx apps/api/scripts/eval-intent.ts --check",
+  "catatan": "Dataset evaluasi akurasi intent (H15, D153), disusun penyusun dan dikunci sebelum evaluasi dijalankan. Aturan label: perlu_klarifikasi hanya kalau jasa ada di katalog tetapi sub-kategori tidak bisa ditentukan; jasa di luar katalog adalah jasa_tidak_tersedia; lokasi atau waktu yang kurang tetap cari_jasa. Foto hari H pernikahan = dokumentasi-acara, prewedding = sesi sebelum menikah. Makeup wisuda dan kondangan = makeup-artist-acara. Waktu: SEKARANG hanya untuk saat itu juga, TERJADWAL untuk waktu lain yang disebut, TIDAK_DISEBUT kalau tidak ada. Slot yang dinilai: waktu_jenis dan budget_maks (null berarti tidak disebut). Lokasi teks dan atribut tidak dilabeli. Field asal mencatat siapa yang menulis kalimatnya: penyusun, teman, atau draf_ai (draf AI, termasuk yang hanya diedit sedikit). Sumber: dataset-intent-draft.xlsx. Validasi: npx tsx apps/api/scripts/eval-intent.ts --check",
   "skenario": [
     {
-      "id": "contoh-sapaan",
-      "pesan": "pagi kak, mau tanya-tanya dulu boleh?",
-      "label": { "jenis": "sapaan", "sub_kategori": null },
-      "asal": "draf_ai",
-      "catatan": "Contoh template"
+      "id": "S01",
+      "pesan": "halo, mau nyari jasa pembersihan mobil apakah ada yang di sekitar jimbaran",
+      "label": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "otomotif/cuci-mobil-panggilan",
+        "slot": {
+          "waktu_jenis": "TIDAK_DISEBUT",
+          "budget_maks": null
+        }
+      },
+      "asal": "penyusun",
+      "catatan": "daerah sekitar jimbaran"
     },
     {
-      "id": "contoh-klarifikasi",
-      "pesan": "cari tukang foto dong",
-      "label": { "jenis": "perlu_klarifikasi", "sub_kategori": null },
-      "asal": "draf_ai",
-      "catatan": "Contoh template. Fotografi punya tiga sub-kategori, jadi sub-kategori tidak bisa ditentukan"
+      "id": "S02",
+      "pesan": "cariin jasa cuci mobil panggilan di daerah renon, budget 75rb",
+      "label": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "otomotif/cuci-mobil-panggilan",
+        "slot": {
+          "waktu_jenis": "TIDAK_DISEBUT",
+          "budget_maks": 75000
+        }
+      },
+      "asal": "penyusun"
     },
     {
-      "id": "contoh-lanjutan-klarifikasi",
-      "riwayat": [
-        { "role": "USER", "content": "cari tukang foto dong" },
-        { "role": "ASSISTANT", "content": "Foto untuk apa: produk, prewedding, atau dokumentasi acara?" }
-      ],
-      "pesan": "buat produk jualan online, besok bisa?",
+      "id": "S03",
+      "pesan": "motor sy mogok di jalan ga bisa nyala sama sekali, butuh bengkel skrg",
+      "label": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "otomotif/servis-motor-panggilan",
+        "slot": {
+          "waktu_jenis": "SEKARANG",
+          "budget_maks": null
+        }
+      },
+      "asal": "teman",
+      "catatan": "Mogok di jalan + skrg = SEKARANG"
+    },
+    {
+      "id": "S04",
+      "pesan": "servis rutin vario besok pagi ada yang bisa datang ke rumah",
+      "label": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "otomotif/servis-motor-panggilan",
+        "slot": {
+          "waktu_jenis": "TERJADWAL",
+          "budget_maks": null
+        }
+      },
+      "asal": "penyusun"
+    },
+    {
+      "id": "S05",
+      "pesan": "mau ganti oli motor tapi males antre di bengkel tolong cariin skrang",
+      "label": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "otomotif/ganti-oli-panggilan",
+        "slot": {
+          "waktu_jenis": "SEKARANG",
+          "budget_maks": null
+        }
+      },
+      "asal": "penyusun"
+    },
+    {
+      "id": "S06",
+      "pesan": "mau ganti oli avanza di kantor jumat siang, maks 400 ribu",
+      "label": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "otomotif/ganti-oli-panggilan",
+        "slot": {
+          "waktu_jenis": "TERJADWAL",
+          "budget_maks": 400000
+        }
+      },
+      "asal": "penyusun"
+    },
+    {
+      "id": "S07",
+      "pesan": "butuh fotografer buat foto produk skincare olshop ku",
       "label": {
         "jenis": "cari_jasa",
         "sub_kategori": "fotografi/foto-produk",
-        "slot": { "lokasi_teks": null, "waktu_jenis": "TERJADWAL", "budget_maks": null }
+        "slot": {
+          "waktu_jenis": "TIDAK_DISEBUT",
+          "budget_maks": null
+        }
       },
-      "asal": "draf_ai",
-      "catatan": "Contoh template skenario lanjutan. intent_terakhir dikosongkan, jadi diturunkan dari pertanyaan klarifikasi terakhir (pesan pertama tidak menyebut slot)"
+      "asal": "teman"
     },
     {
-      "id": "contoh-tidak-tersedia",
-      "pesan": "ada jasa sedot wc ga di denpasar?",
-      "label": { "jenis": "jasa_tidak_tersedia", "sub_kategori": null },
-      "asal": "draf_ai",
-      "catatan": "Contoh template"
+      "id": "S08",
+      "pesan": "cari jasa foto katalog baju sekitar 50 item, berapa harga untuk 50 item?",
+      "label": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "fotografi/foto-produk",
+        "slot": {
+          "waktu_jenis": "TIDAK_DISEBUT",
+          "budget_maks": null
+        }
+      },
+      "asal": "penyusun"
     },
     {
-      "id": "contoh-luar-cakupan",
-      "pesan": "gimana caranya jadi mitra penyedia di jasana?",
-      "label": { "jenis": "di_luar_cakupan", "sub_kategori": null },
-      "asal": "draf_ai",
-      "catatan": "Contoh template. Pertanyaan cara kerja platform adalah di_luar_cakupan (catatan 9a)"
+      "id": "S09",
+      "pesan": "mau cari fotografer untuk acara pernikahan di ubud bulan depan",
+      "label": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "fotografi/dokumentasi-acara",
+        "slot": {
+          "waktu_jenis": "TERJADWAL",
+          "budget_maks": null
+        }
+      },
+      "asal": "penyusun"
+    },
+    {
+      "id": "S10",
+      "pesan": "aku butuh seorang fotografer untuk acara pre wedding aku di tanggal 19 desember 2026, lokasi fotoshoot di pantai melasti. Tolong cariin fotografer yang murah dan hasilnya yang bagus",
+      "label": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "fotografi/foto-prewedding",
+        "slot": {
+          "waktu_jenis": "TERJADWAL",
+          "budget_maks": null
+        }
+      },
+      "asal": "penyusun",
+      "catatan": "cari yang murah berarti cari harga kecil, tapi gimana menilai \"hasil yang bagus\"?"
+    },
+    {
+      "id": "S11",
+      "pesan": "ak mw cri dokumentasi utk ultah ank ak d jam 8 mlm nnti. crikan yg pling murah",
+      "label": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "fotografi/dokumentasi-acara",
+        "slot": {
+          "waktu_jenis": "TERJADWAL",
+          "budget_maks": null
+        }
+      },
+      "asal": "penyusun"
+    },
+    {
+      "id": "S12",
+      "pesan": "hello, I want to look for a photographer that can do a photoshoot on Saturday morning for my company gathering event with a budget of 100 dollars usd. Is there anyone available for me?",
+      "label": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "fotografi/dokumentasi-acara",
+        "slot": {
+          "waktu_jenis": "TERJADWAL"
+        }
+      },
+      "asal": "penyusun",
+      "catatan": "100 dollar usd = 1,8jt. budget_maks sengaja tidak dinilai karena budget dalam USD"
+    },
+    {
+      "id": "S13",
+      "pesan": "halo jasana, aku mau cari mua buat wisuda sabtu depan, budget aku max 500rb",
+      "label": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "kecantikan/makeup-artist-acara",
+        "slot": {
+          "waktu_jenis": "TERJADWAL",
+          "budget_maks": 500000
+        }
+      },
+      "asal": "penyusun",
+      "catatan": "Wisuda dan kondangan = makeup artist acara, mua = make up artist"
+    },
+    {
+      "id": "S14",
+      "pesan": "apakah ada makeup buat kondangan nanti malem yang bisa dateng ke rumah?",
+      "label": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "kecantikan/makeup-artist-acara",
+        "slot": {
+          "waktu_jenis": "TERJADWAL",
+          "budget_maks": null
+        }
+      },
+      "asal": "penyusun"
+    },
+    {
+      "id": "S15",
+      "pesan": "butuh mua pengantin adat bali segera karena mua sebelumnya nge cancel",
+      "label": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "kecantikan/makeup-pengantin",
+        "slot": {
+          "waktu_jenis": "SEKARANG",
+          "budget_maks": null
+        }
+      },
+      "asal": "penyusun",
+      "catatan": "segera = urgent = sekarang"
+    },
+    {
+      "id": "S16",
+      "pesan": "Hi, I'm looking for a bridal makeup for the wedding ceremony, including makeup for the mothers and female family members. Is there any available?",
+      "label": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "kecantikan/makeup-pengantin",
+        "slot": {
+          "waktu_jenis": "TIDAK_DISEBUT",
+          "budget_maks": null
+        }
+      },
+      "asal": "penyusun"
+    },
+    {
+      "id": "S17",
+      "pesan": "aku mau cari jasa potong rambut yang bisa dateng kerumah soalnya mager keluar. Cariin yang terdekat",
+      "label": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "kecantikan/potong-rambut-panggilan",
+        "slot": {
+          "waktu_jenis": "TIDAK_DISEBUT",
+          "budget_maks": null
+        }
+      },
+      "asal": "penyusun"
+    },
+    {
+      "id": "S18",
+      "pesan": "mau potram yang murah",
+      "label": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "kecantikan/potong-rambut-panggilan",
+        "slot": {
+          "waktu_jenis": "TIDAK_DISEBUT",
+          "budget_maks": null
+        }
+      },
+      "asal": "penyusun",
+      "catatan": "potram = potong rambut"
+    },
+    {
+      "id": "S19",
+      "pesan": "ac kamar gak dingin, ada jasa perbaikan yang bisa dateng sekarang?",
+      "label": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "perbaikan/servis-ac",
+        "slot": {
+          "waktu_jenis": "SEKARANG",
+          "budget_maks": null
+        }
+      },
+      "asal": "penyusun"
+    },
+    {
+      "id": "S20",
+      "pesan": "butuh jasa cuci ac 3 unit di ruko saya, budget nya 500rb",
+      "label": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "perbaikan/servis-ac",
+        "slot": {
+          "waktu_jenis": "TIDAK_DISEBUT",
+          "budget_maks": 500000
+        }
+      },
+      "asal": "penyusun"
+    },
+    {
+      "id": "S21",
+      "pesan": "listrik rumah turun terus tiap nyalain rice cooker, kenapa ya?",
+      "label": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "perbaikan/tukang-listrik",
+        "slot": {
+          "waktu_jenis": "TIDAK_DISEBUT",
+          "budget_maks": null
+        }
+      },
+      "asal": "penyusun"
+    },
+    {
+      "id": "S22",
+      "pesan": "saya butuh orang buat pasang lampu teras rumah",
+      "label": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "perbaikan/tukang-listrik",
+        "slot": {
+          "waktu_jenis": "TIDAK_DISEBUT",
+          "budget_maks": null
+        }
+      },
+      "asal": "penyusun"
+    },
+    {
+      "id": "S23",
+      "pesan": "mesin cuci bunyi kenceng bgt pas muter. Cariin orang untuk perbaiki",
+      "label": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "perbaikan/servis-mesin-cuci",
+        "slot": {
+          "waktu_jenis": "TIDAK_DISEBUT",
+          "budget_maks": null
+        }
+      },
+      "asal": "penyusun"
+    },
+    {
+      "id": "S24",
+      "pesan": "mesin cuci ku seperti nya rusak, gk mau buang air, sekarang sudah malam apakah ada orang yang tersedia? Kalau tidak ada carikan untuk besok sore",
+      "label": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "perbaikan/servis-mesin-cuci",
+        "slot": {
+          "waktu_jenis": "SEKARANG",
+          "budget_maks": null
+        }
+      },
+      "asal": "penyusun",
+      "catatan": "butuh sekarang, jika tidak ada untuk besok sore"
+    },
+    {
+      "id": "S25",
+      "pesan": "halo kak, aku butuh fotografer full day untuk acara pernikahan. Apakah ada yang tersedia?",
+      "label": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "fotografi/dokumentasi-acara",
+        "slot": {
+          "waktu_jenis": "TIDAK_DISEBUT",
+          "budget_maks": null
+        }
+      },
+      "asal": "penyusun",
+      "catatan": "Aturan: foto hari H pernikahan = dokumentasi acara, prewedding = sesi sebelum menikah"
+    },
+    {
+      "id": "S26",
+      "pesan": "aki motor kayaknya tekor, ga bisa distarter",
+      "label": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "otomotif/servis-motor-panggilan",
+        "slot": {
+          "waktu_jenis": "TIDAK_DISEBUT",
+          "budget_maks": null
+        }
+      },
+      "asal": "teman",
+      "catatan": "Aki tekor = servis motor, bukan ganti oli"
+    },
+    {
+      "id": "S27",
+      "pesan": "halo tolong carikan saya MUA daerah denpasar selatan yang available tanggal 25 november 2026 dengan range harga 300.000",
+      "label": {
+        "jenis": "perlu_klarifikasi",
+        "sub_kategori": null
+      },
+      "asal": "teman"
+    },
+    {
+      "id": "S28",
+      "pesan": "Besok sore aku ada acara prewedding dan perlu orang untuk mendokumentasikan. Adakah yang bisa? Saya mencari di range 1-2jt.",
+      "label": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "fotografi/foto-prewedding",
+        "slot": {
+          "waktu_jenis": "TERJADWAL",
+          "budget_maks": 2000000
+        }
+      },
+      "asal": "penyusun"
+    },
+    {
+      "id": "R01",
+      "pesan": "fotonya buat jualan online saya di shopee",
+      "riwayat": [
+        {
+          "role": "USER",
+          "content": "mau tanya dong, ada jasa untuk foto-foto ga ya?"
+        },
+        {
+          "role": "ASSISTANT",
+          "content": "Fotonya untuk apa? Foto produk, prewedding, atau dokumentasi acara?"
+        }
+      ],
+      "label": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "fotografi/foto-produk",
+        "slot": {
+          "waktu_jenis": "TIDAK_DISEBUT",
+          "budget_maks": null
+        }
+      },
+      "asal": "penyusun"
+    },
+    {
+      "id": "R02",
+      "pesan": "yg mesin cuci kak, kayaknya rusak",
+      "riwayat": [
+        {
+          "role": "USER",
+          "content": "halo, saya butuh orang untuk servis"
+        },
+        {
+          "role": "ASSISTANT",
+          "content": "Servis apa yang kamu butuhkan? AC, mesin cuci, motor, atau listrik?"
+        }
+      ],
+      "label": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "perbaikan/servis-mesin-cuci",
+        "slot": {
+          "waktu_jenis": "TIDAK_DISEBUT",
+          "budget_maks": null
+        }
+      },
+      "asal": "penyusun"
+    },
+    {
+      "id": "R03",
+      "pesan": "buat nikahan ku sendiri, apakah ada yang harganya murah?",
+      "riwayat": [
+        {
+          "role": "USER",
+          "content": "aku butuh MUA, bisa bantu carikan?"
+        },
+        {
+          "role": "ASSISTANT",
+          "content": "Makeup untuk acara apa? Pengantin atau acara lain seperti wisuda dan kondangan?"
+        }
+      ],
+      "label": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "kecantikan/makeup-pengantin",
+        "slot": {
+          "waktu_jenis": "TIDAK_DISEBUT",
+          "budget_maks": null
+        }
+      },
+      "asal": "penyusun"
+    },
+    {
+      "id": "K01",
+      "pesan": "perlu orang untuk servis",
+      "label": {
+        "jenis": "perlu_klarifikasi",
+        "sub_kategori": null
+      },
+      "asal": "penyusun"
+    },
+    {
+      "id": "K02",
+      "pesan": "mau orang untuk nemenin aku bermain dong",
+      "label": {
+        "jenis": "jasa_tidak_tersedia",
+        "sub_kategori": null
+      },
+      "asal": "penyusun"
+    },
+    {
+      "id": "K03",
+      "pesan": "saya perlu bantuan tukang untuk di rumah",
+      "label": {
+        "jenis": "perlu_klarifikasi",
+        "sub_kategori": null
+      },
+      "asal": "penyusun"
+    },
+    {
+      "id": "K04",
+      "pesan": "ada tukang yang bisa bantu saya?",
+      "label": {
+        "jenis": "perlu_klarifikasi",
+        "sub_kategori": null
+      },
+      "asal": "penyusun"
+    },
+    {
+      "id": "K05",
+      "pesan": "kendaraan kesayangan ku perlu dirawat nih",
+      "label": {
+        "jenis": "perlu_klarifikasi",
+        "sub_kategori": null
+      },
+      "asal": "penyusun"
+    },
+    {
+      "id": "K06",
+      "pesan": "halo ada yg bisa bantu benerin barang elektronik di rumah?",
+      "label": {
+        "jenis": "perlu_klarifikasi",
+        "sub_kategori": null
+      },
+      "asal": "penyusun"
+    },
+    {
+      "id": "N01",
+      "pesan": "jasa pindahan rumah besok pagi apa ada?",
+      "label": {
+        "jenis": "jasa_tidak_tersedia",
+        "sub_kategori": null
+      },
+      "asal": "penyusun"
+    },
+    {
+      "id": "N02",
+      "pesan": "sy mau cari guru les mata pelajaran matematika untuk anak saya yang kelas 3 smp.",
+      "label": {
+        "jenis": "jasa_tidak_tersedia",
+        "sub_kategori": null
+      },
+      "asal": "penyusun"
+    },
+    {
+      "id": "N03",
+      "pesan": "kulkas ga dingin, ada teknisi yang bisa perbaiki sekarang?",
+      "label": {
+        "jenis": "jasa_tidak_tersedia",
+        "sub_kategori": null
+      },
+      "asal": "penyusun",
+      "catatan": "Jebakan: kulkas tidak ada di katalog walau mirip servis mesin cuci"
+    },
+    {
+      "id": "N04",
+      "pesan": "hola",
+      "label": {
+        "jenis": "sapaan",
+        "sub_kategori": null
+      },
+      "asal": "teman"
+    },
+    {
+      "id": "N05",
+      "pesan": "malam min",
+      "label": {
+        "jenis": "sapaan",
+        "sub_kategori": null
+      },
+      "asal": "teman"
+    },
+    {
+      "id": "N06",
+      "pesan": "apa rumus pythagoras",
+      "label": {
+        "jenis": "di_luar_cakupan",
+        "sub_kategori": null
+      },
+      "asal": "teman"
+    },
+    {
+      "id": "N07",
+      "pesan": "cuaca denpasar hari ini gmna?",
+      "label": {
+        "jenis": "di_luar_cakupan",
+        "sub_kategori": null
+      },
+      "asal": "penyusun"
+    },
+    {
+      "id": "N08",
+      "pesan": "bantu bikinin caption ig buat feeds aku dong",
+      "label": {
+        "jenis": "di_luar_cakupan",
+        "sub_kategori": null
+      },
+      "asal": "teman"
+    },
+    {
+      "id": "N09",
+      "pesan": "p",
+      "label": {
+        "jenis": "sapaan",
+        "sub_kategori": null
+      },
+      "asal": "teman"
+    },
+    {
+      "id": "N10",
+      "pesan": "skrang tgl berapa?",
+      "label": {
+        "jenis": "di_luar_cakupan",
+        "sub_kategori": null
+      },
+      "asal": "teman"
+    },
+    {
+      "id": "N11",
+      "pesan": "sira adan tiang?",
+      "label": {
+        "jenis": "di_luar_cakupan",
+        "sub_kategori": null
+      },
+      "asal": "teman",
+      "catatan": "artinya: siapa nama saya?"
+    },
+    {
+      "id": "N12",
+      "pesan": "om swastyastu",
+      "label": {
+        "jenis": "sapaan",
+        "sub_kategori": null
+      },
+      "asal": "penyusun"
     }
   ]
 }

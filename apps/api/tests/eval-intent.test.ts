@@ -28,6 +28,13 @@ const SUBCATEGORIES = [
   { key: 'fotografi/dokumentasi-acara', name: 'Dokumentasi Acara', categoryName: 'Fotografi' },
 ];
 const KEYS = SUBCATEGORIES.map((s) => s.key);
+/** Dua belas kunci resmi Lampiran B (scripts/catalog-data.mjs), untuk memeriksa dataset di repo. */
+const CATALOG_KEYS = [
+  'otomotif/cuci-mobil-panggilan', 'otomotif/servis-motor-panggilan', 'otomotif/ganti-oli-panggilan',
+  'fotografi/foto-produk', 'fotografi/foto-prewedding', 'fotografi/dokumentasi-acara',
+  'kecantikan/makeup-artist-acara', 'kecantikan/makeup-pengantin', 'kecantikan/potong-rambut-panggilan',
+  'perbaikan/servis-ac', 'perbaikan/tukang-listrik', 'perbaikan/servis-mesin-cuci',
+];
 
 const scenario = (overrides: Partial<Scenario> = {}): Scenario => ({
   id: 's1',
@@ -54,17 +61,17 @@ const intent = (overrides: Partial<Intent> = {}, slot: Partial<Intent['slot']> =
 const parse = (skenario: unknown[]) => datasetSchema.safeParse({ versi: 1, skenario });
 
 describe('dataset (H15)', () => {
-  it('template di repo sah, lima contoh mencakup kelima jenis intent, dan semuanya punya asal', () => {
+  it('dataset di repo sah, 30 sampai 50 skenario (D85) mencakup kelima jenis intent, dan semuanya punya asal', () => {
     const file = readFileSync(resolve(__dirname, '../eval/intent-dataset.json'), 'utf8');
     const dataset = datasetSchema.parse(JSON.parse(file));
-    expect(dataset.skenario).toHaveLength(5);
+    expect(dataset.skenario.length).toBeGreaterThanOrEqual(30);
+    expect(dataset.skenario.length).toBeLessThanOrEqual(50);
     expect(new Set(dataset.skenario.map((s) => s.label.jenis))).toEqual(
       new Set(['cari_jasa', 'perlu_klarifikasi', 'jasa_tidak_tersedia', 'sapaan', 'di_luar_cakupan']),
     );
     expect(dataset.skenario.every((s) => s.asal !== undefined)).toBe(true);
     expect(dataset.skenario.some((s) => s.riwayat?.length)).toBe(true);
-    expect(dataset.catatan).toContain('akan diganti dataset penyusun');
-    expect(catalogIssues(dataset, KEYS)).toEqual([]);
+    expect(catalogIssues(dataset, CATALOG_KEYS)).toEqual([]);
   });
 
   it.each([

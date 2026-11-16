@@ -4,9 +4,9 @@
 **Nama sistem:** Jasana
 **Penyusun:** I Nyoman Gede Candra Wikananta (2305551065)
 **Bidang Keahlian:** Sistem Informasi, Teknologi Informasi, Universitas Udayana
-**Versi:** 2.33
-**Terakhir diperbarui:** 16 November 2026 (versi 2.33)
-**Tahap saat ini:** Implementasi backend. Fase 0 sampai Fase 8 selesai, Fase 9 berjalan (sesi 9a sampai 9c selesai, menunggu uji sandbox 9c dan evaluasi akurasi)
+**Versi:** 2.34
+**Terakhir diperbarui:** 16 November 2026 (versi 2.34)
+**Tahap saat ini:** Implementasi backend. Fase 0 sampai Fase 8 selesai, Fase 9 berjalan (sesi 9a sampai 9c dan uji sandbox 9c selesai, menunggu evaluasi akurasi penuh)
 
 ---
 
@@ -51,6 +51,10 @@
 | Hasil sandbox chatbot (D165 sampai D166) | 2 | 0 |
 | Klaim, personalisasi, dan evaluasi chatbot (D167 sampai D175) | 9 | 0 |
 | Keputusan terbuka tanpa nomor D (Bagian 7) | | 0 |
+
+**Perubahan pada versi 2.34:**
+
+1. Hasil uji sandbox 9c: klaim, personalisasi, dan retry terbukti dengan Gemini sungguhan, taksonomi demo dinonaktifkan di Supabase dev
 
 **Perubahan pada versi 2.33:**
 
@@ -1691,6 +1695,25 @@ Dari sesi 9c. D168 sampai D173 dijawab penyusun sebelum rencana disusun, D167, D
 
 **Hasil sesi 9c:** typecheck bersih, 888 test di 46 berkas lulus, 52 dari 53 mutan tertangkap (satu mutan setara, lihat di atas). Postman Fase 1 sampai 9 tanpa gagal, Fase 9 dengan 50 request dan 122 assertion. `db:verify` lulus di `jasana_test`. Uji sandbox 9c dengan Gemini sungguhan, migrasi D175 ke Supabase dev, dan evaluasi akurasi penuh dijalankan penyusun.
 
+**Hasil uji sandbox 9c (16 November 2026, dijalankan penyusun di Supabase dev dengan Gemini sungguhan):**
+
+| Langkah | Hasil |
+|---|---|
+| Migrasi D175 | Hanya `20261116120000_guest_session_expiry_unclaimed` yang diterapkan, migrasi lain sudah sinkron |
+| Nonaktif taksonomi demo (D173) | Dry-run menampilkan 7 target, semuanya demo berawalan `postman-` (3 kategori, 4 sub-kategori), lalu diterapkan. Dua listing ACTIVE di bawah sub-kategori demo tetap aktif karena skrip hanya mengubah taksonomi, dicek sebelum UAT |
+| Pesan sebelum klaim | `sapaan`, sesi tamu |
+| Klaim | 200, `claimed_at` terisi, `expires_at` null, tipe menjadi REGISTERED, snapshot dihitung dengan sumber `klaim` |
+| Personalisasi | "mau pesan yang kayak kemarin lagi dong" tanpa menyebut jenis jasa menghasilkan `cari_jasa` `fotografi/dokumentasi-acara` dari riwayat akun, dengan 2 rekomendasi lewat alamat default |
+| Retry (D165, D167) | Panggilan untuk pesan personalisasi gagal pada percobaan pertama dan berhasil pada percobaan kedua (`llm_attempts` 2, latensi total 4.848 ms termasuk jeda) |
+| Token tamu lama | 404 `NOT_FOUND` |
+| Klaim ulang | 409 `CHAT_SESSION_ALREADY_CLAIMED` |
+| Isi snapshot | Riwayat `fotografi/dokumentasi-acara`, rentang harga dasar Rp1.500.000, tanpa koordinat dan alamat. `kota_alamat_default` null karena kolom kota pada alamat seed kosong |
+| Evaluasi `--check` dan `--limit 5` | Lima skenario template benar (100 persen), dua di antaranya baru berhasil setelah retry. Hasil uji coba ini tidak dipakai untuk Bab IV |
+| `db:verify` | Kueri integritas lulus. V3 menghitung pesan sebelum klaim sebagai tamu (D171). V9: 2 sesi tamu, 1 diklaim akun lama, konversi akun baru 0 persen (D172) |
+
+- **Overhead server (H111).** Giliran `cari_jasa` terdaftar pada sandbox 9c: total 6.346 ms, Gemini 4.848 ms, overhead 1.498 ms. Pada sandbox 9b overhead `cari_jasa` 2.460 sampai 3.134 ms. Penurunan sekitar 1 sampai 1,6 detik sejalan dengan D174, tetapi baru dari satu sampel
+- **503 dari Gemini sering muncul.** Tiga dari tujuh panggilan pada malam itu butuh retry. Tanpa D165, ketiganya akan berakhir sebagai `GEMINI_UNAVAILABLE`
+
 ---
 
 ## 5. Alur Sistem End-to-End
@@ -2370,7 +2393,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 
 ## 11. Langkah Berikutnya
 
-1. Fase 9 (chatbot) dalam tiga sesi menurut Bagian 4W. Sesi 9a sampai 9c selesai. Tersisa uji sandbox 9c oleh penyusun: migrasi D175 ke Supabase dev, nonaktif taksonomi demo (D173), klaim dan personalisasi dengan Gemini sungguhan, lalu evaluasi akurasi penuh dengan dataset penyusun (H15). Paralel: penyusun menyusun dataset 30 sampai 50 skenario berlabel (H15, D153) dan mencatat model serta batas kuota project Gemini di AI Studio
+1. Fase 9 (chatbot) dalam tiga sesi menurut Bagian 4W. Sesi 9a sampai 9c selesai. Uji sandbox 9c lulus. Tersisa evaluasi akurasi penuh dengan dataset penyusun (H15), lalu penutupan Fase 9. Paralel: penyusun menyusun dataset 30 sampai 50 skenario berlabel (H15, D153) dan mencatat model serta batas kuota project Gemini di AI Studio
 2. Selesai: Fase 8 (15 November 2026, 751 test lulus, D131 sampai D150) beserta uji sandbox payout dan refund. Uji sandbox refund PARTIAL hasil putusan sengketa lulus. Sebelumnya Fase 7 (11 November 2026, 627 test lulus) beserta uji sandbox Xendit sungguhan (12 November 2026), sebelumnya audit hutang teknis (9 November 2026) dan sesi perapian (10 November 2026)
 3. Susun data simulasi untuk dua belas sub-kategori di Lampiran B, termasuk skenario perebutan Available Now dan pendamping pada dokumentasi acara
 4. Riset ringan rentang harga pasaran untuk dua belas sub-kategori tersebut, catat sumbernya
@@ -2417,6 +2440,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 | 2.31 | 16 November 2026 | Empat keputusan dari sesi 9b: baris ASSISTANT saat Gemini gagal (D161), kode galat akses sesi (D162), urutan batas tamu (D163), dan definisi tamu untuk rem global (D164). H19 dan H67 ditutup. Tanpa perubahan skema |
 | 2.32 | 16 November 2026 | Hasil uji sandbox 9b dengan Gemini sungguhan: semua jenis intent lulus, dua kegagalan 503 dari server Gemini ditangani sesuai D161, analisis latensi terhadap target 3 detik. Dua keputusan baru: retry 5xx (D165) dan saran templat kosong (D166). H111 baru. Tanpa perubahan skema |
 | 2.33 | 16 November 2026 | Sembilan keputusan dari sesi 9c: rincian retry (D167), snapshot personalisasi (D168, D169), kode galat klaim (D170), V3 per pesan yang merevisi catatan D164 (D171), V9 akun baru (D172), kriteria taksonomi demo (D173), relasi kartu paralel (D174), dan constraint sesi tamu yang diklaim (D175). H66 dan H111 ditutup, H112 dan H113 baru. Satu migrasi constraint |
+| 2.34 | 16 November 2026 | Hasil uji sandbox 9c dengan Gemini sungguhan: klaim sesi, personalisasi dari riwayat, dan retry 5xx terbukti, taksonomi demo dinonaktifkan, V3 dan V9 sesuai D171 dan D172. Tanpa keputusan baru dan tanpa perubahan skema |
 
 ---
 
