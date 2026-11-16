@@ -60,6 +60,7 @@
 1. Tabel event notifikasi (D182), endpoint notifikasi (D183), dan whitelist serta render generik retry email yang merevisi D177 (D184)
 2. Hitungan dan klaim retry termasuk baris PENDING yatim (D185), dan enum `ORDER_MESSAGE` (D186)
 3. Catatan sesi 10a. H37 ditutup, H114 sampai H116 baru
+4. Hasil uji sandbox 10a dengan SMTP sungguhan dan empat temuan yang diperbaiki di sesi 10b
 
 **Perubahan pada versi 2.36:**
 
@@ -1805,6 +1806,23 @@ Dari sesi 10a. Semua dijawab penyusun sebelum rencana disusun, kecuali tambahan 
 
 **Hasil sesi 10a:** typecheck bersih, 909 test di 48 berkas lulus, 13 dari 13 mutan tertangkap. Postman Fase 1 sampai 10 tanpa gagal, Fase 10 dengan 17 request dan 30 assertion. Migrasi diuji ke basis data kosong dan ke `jasana_test` tanpa drift, `db:verify` dan `check-constraints` lulus.
 
+**Hasil uji sandbox 10a (17 November 2026, dijalankan penyusun di Supabase dev dengan SMTP Ethereal sungguhan):**
+
+| Langkah | Hasil |
+|---|---|
+| Migrasi `20261116180000_notifications_10a` | Diterapkan, `db:verify` lulus |
+| Order Scheduled `ORD-20261116-EB9FD5ED` dibuat saat kredensial SMTP sengaja salah | Order tetap terbuat. Pemilik mendapat baris IN_APP "Order baru masuk", dan baris EMAIL tercatat FAILED dengan galat `535 Authentication failed` dan `email_attempts` 0 (D58) |
+| `GET /notifications` sebagai pemilik | Hanya baris IN_APP yang tampil, `unread_count` 1, lalu 0 setelah ditandai dibaca (D183) |
+| Kredensial diperbaiki, retry dipicu | Baris EMAIL menjadi SENT dengan `email_attempts` 1. Email diterima Ethereal dengan subjek "Jasana: Order baru masuk (ORD-20261116-EB9FD5ED)", sapaan, isi notifikasi, dan baris "Nomor order" (D184) |
+| Order dibatalkan client | Pemilik mendapat IN_APP dan EMAIL "Order dibatalkan", email langsung SENT dengan `email_attempts` 0 |
+
+**Temuan sandbox 10a, diperbaiki di sesi 10b:**
+
+1. **Retry tanpa batas umur.** Supabase dev menyimpan tumpukan email FAILED dari uji Fase 7 dan Fase 8. Cron mengirim semuanya, termasuk email sejak 31 Oktober 2026. Email seperti "Pembayaran berhasil" yang datang dua minggu terlambat menyesatkan pengguna
+2. **Jatah retry habis terlalu cepat.** Selama kredensial SMTP salah sekitar 15 menit, cron tiap 5 menit menghabiskan jatah 3 retry pada 50 email lama. Gangguan SMTP yang sedikit lebih lama membuat email gagal permanen. Jeda retry perlu makin panjang
+3. **Waktu di isi notifikasi ditulis sebagai ISO UTC mentah**, misalnya batas respons `2026-11-17T16:24:03.779Z` yang sebenarnya 18 November pukul 00.24 WITA. Berasal dari template sejak Fase 6, berlaku untuk email maupun notifikasi in-app
+4. **Tanggal di nomor order memakai UTC.** Order yang dibuat 17 November pukul 00.24 WITA bernomor `ORD-20261116-...`, sedangkan hari bisnis memakai WITA (D154, D180)
+
 ---
 
 ## 5. Alur Sistem End-to-End
@@ -2537,7 +2555,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 | 2.34 | 16 November 2026 | Hasil uji sandbox 9c dengan Gemini sungguhan: klaim sesi, personalisasi dari riwayat, dan retry 5xx terbukti, taksonomi demo dinonaktifkan, V3 dan V9 sesuai D171 dan D172. Tanpa keputusan baru dan tanpa perubahan skema |
 | 2.35 | 16 November 2026 | Protokol evaluasi akurasi tiga run (D176) dan hasil run 1: 69,39 persen dengan kegagalan dihitung salah, 97,1 persen atas skenario yang dijawab, 14 kegagalan merespons dari Gemini. Tanpa perubahan kode dan skema |
 | 2.36 | 16 November 2026 | Lima keputusan sebelum Fase 10: retry email dengan render ulang (D177), notifikasi in-app selektif (D178), aturan review (D179), laporan admin per hari WITA (D180), dan validasi parameter (D181). Pembagian Fase 10 dalam tiga sesi. Satu kolom dan satu parameter baru, dibuat di sesi implementasinya |
-| 2.37 | 17 November 2026 | Lima keputusan dari sesi 10a: tabel event notifikasi (D182), endpoint notifikasi (D183), whitelist dan render generik retry yang merevisi D177 (D184), hitungan dan klaim retry (D185), dan enum `ORDER_MESSAGE` (D186). H37 ditutup, H114 sampai H116 baru. Satu migrasi |
+| 2.37 | 17 November 2026 | Lima keputusan dari sesi 10a: tabel event notifikasi (D182), endpoint notifikasi (D183), whitelist dan render generik retry yang merevisi D177 (D184), hitungan dan klaim retry (D185), dan enum `ORDER_MESSAGE` (D186). H37 ditutup, H114 sampai H116 baru. Satu migrasi Ditambah hasil uji sandbox 10a dan empat temuannya |
 
 ---
 
