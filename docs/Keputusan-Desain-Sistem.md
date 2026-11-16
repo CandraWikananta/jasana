@@ -4,9 +4,9 @@
 **Nama sistem:** Jasana
 **Penyusun:** I Nyoman Gede Candra Wikananta (2305551065)
 **Bidang Keahlian:** Sistem Informasi, Teknologi Informasi, Universitas Udayana
-**Versi:** 2.35
-**Terakhir diperbarui:** 16 November 2026 (versi 2.35)
-**Tahap saat ini:** Implementasi backend. Fase 0 sampai Fase 8 selesai, Fase 9 berjalan (implementasi dan uji sandbox selesai, evaluasi akurasi run 1 dari 3 selesai)
+**Versi:** 2.36
+**Terakhir diperbarui:** 16 November 2026 (versi 2.36)
+**Tahap saat ini:** Implementasi backend. Fase 0 sampai Fase 8 selesai. Fase 9 menunggu evaluasi akurasi run 2 dan 3 (D176). Fase 10 dimulai
 
 ---
 
@@ -51,7 +51,14 @@
 | Hasil sandbox chatbot (D165 sampai D166) | 2 | 0 |
 | Klaim, personalisasi, dan evaluasi chatbot (D167 sampai D175) | 9 | 0 |
 | Protokol evaluasi akurasi (D176) | 1 | 0 |
+| Pelengkap: notifikasi, review, laporan, dan parameter (D177 sampai D181) | 5 | 0 |
 | Keputusan terbuka tanpa nomor D (Bagian 7) | | 0 |
+
+**Perubahan pada versi 2.36:**
+
+1. Retry email dengan render ulang (D177), notifikasi in-app selektif (D178), dan aturan review (D179)
+2. Laporan admin per hari WITA yang dibuktikan cocok dengan V4 dan ledger (D180), dan validasi `PATCH /admin/settings` (D181)
+3. Pembagian Fase 10 dalam tiga sesi
 
 **Perubahan pada versi 2.35:**
 
@@ -1749,6 +1756,28 @@ Ditetapkan penyusun setelah run 1 dan **sebelum** run berikutnya dijalankan. Tan
 
 ---
 
+## 4AC. Keputusan Versi 2.36 (D177 sampai D181)
+
+Diputuskan sebelum Fase 10 (pelengkap). Satu kolom baru (`notifications.email_attempts`) dan satu parameter sistem baru (`review_window_days`), keduanya dibuat di sesi yang mengimplementasikannya.
+
+| # | Keputusan | Alasan |
+|---|---|---|
+| D177 | **Retry email (H37) lewat kolom `email_attempts` dan render ulang.** Cron mengirim ulang baris email FAILED sampai `email_retry_max_attempts`. Isi email tidak disimpan, melainkan dirender ulang dari `reference_type` dan `reference_id` saat retry. Email yang memuat token (verifikasi email, reset password, ganti email) tidak di-retry cron, karena pengguna cukup meminta kirim ulang | Menyimpan isi email lengkap berarti menyimpan token mentah, padahal token selalu disimpan sebagai hash (D63). Token yang dikirim ulang oleh cron juga bisa sudah kedaluwarsa. Render ulang menjaga isi email selalu sesuai data terbaru. Menutup catatan skema di Bagian 4L |
+| D178 | **Notifikasi in-app selektif.** Notifikasi dibuat hanya untuk event yang membutuhkan perhatian pihak tertentu, bukan untuk setiap transisi. Daftar event ditetapkan di sesi 10a dan ditulis di dokumen. Barisnya ditulis di dalam transaksi yang memicunya, mengikuti pola D58. Untuk pesan dalam order, notifikasi ke sisi lawan hanya dibuat kalau belum ada notifikasi pesan yang belum dibaca untuk order itu | Notifikasi untuk setiap transisi menenggelamkan yang penting, sehingga pengguna berhenti membacanya. Penulisan di dalam transaksi menjamin notifikasi tidak pernah ada tanpa event-nya dan sebaliknya. Aturan anti-spam pesan mencegah 20 pesan menghasilkan 20 notifikasi |
+| D179 | **Aturan review.** Client bisa memberi review setelah order mencapai COMPLETED (T16 membuka form review), termasuk order yang kemudian disengketakan, dalam `review_window_days` (14 hari) sejak `completed_at`. Satu review per order dan tidak bisa diedit. Penyedia bisa membalas sekali. `rating_average` dan `rating_count` listing dan penyedia diperbarui di transaksi yang sama dengan review. Admin bisa menyembunyikan review lewat `is_visible`, dan review yang disembunyikan keluar dari hitungan rating | Pengalaman buruk yang berujung sengketa justru informasi paling berguna bagi calon client. Review yang tidak bisa diedit dan dibatasi satu per order mencegah manipulasi rating. Batas waktu menjaga review tetap mencerminkan pengalaman yang masih segar. Cache diperbarui di transaksi yang sama supaya angka di pencarian selalu cocok dengan baris review |
+| D180 | **Laporan admin dihitung per hari kalender WITA** dan diambil dari sumber yang sama dengan V4 dan ledger. Test membuktikan total laporan identik dengan V4 dan ledger untuk data yang sama | Kriteria selesai Fase 10 adalah laporan cocok dengan data transaksi. Sumber yang sama dan pembuktian lewat test menjadikan kecocokan itu bukti, bukan asumsi. Zona WITA sama dengan D154 |
+| D181 | **`PATCH /admin/settings` hanya menerima kunci terdaftar**, dengan validasi tipe dan rentang per kunci, misalnya radius 10 sampai 1.000 meter dan komisi 0 sampai 30 persen. Setiap perubahan mencatat `updated_by`, dan cache parameter langsung diinvalidasi | Parameter penelitian memang dirancang bisa diubah tanpa deploy, tetapi nilai di luar akal sehat bisa merusak alur uang dan validasi kedatangan. Jejak `updated_by` menjawab pertanyaan siapa yang mengubah parameter saat eksperimen |
+
+**Pembagian Fase 10 dalam tiga sesi:**
+
+- **10a. Notifikasi.** Layanan notifikasi in-app terpusat, daftar event (D178), `GET /notifications` serta tandai dibaca satu dan semua, kolom `email_attempts`, dan cron retry email (D177, H37)
+- **10b. Pesan dan review.** Pesan dalam order dengan masa aktif, peserta, dan rate limit (H70 sampai H72), realtime lewat room `order:<id>`, `read_at`, dan notifikasi ke sisi lawan. Review: buat, daftar per listing, balasan penyedia, sembunyikan oleh admin, dan cache rating (D179)
+- **10c. Admin dan penutupan.** `GET` dan `PATCH /admin/settings` (D181), empat laporan admin (D180), Postman, regresi, dan penutupan Fase 10
+
+**Batasan selama run 2 dan run 3 evaluasi akurasi (D176) belum selesai:** Fase 10 tidak boleh mengubah berkas yang membentuk prompt Gemini (`llm-prompt.ts`, `llm-intent.ts`, perilaku `llm-gateway.ts`), dataset evaluasi, maupun daftar sub-kategori aktif di Supabase dev.
+
+---
+
 ## 5. Alur Sistem End-to-End
 
 ### 5.1 Onboarding
@@ -2307,7 +2336,7 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 - [x] **H13** **(ditutup di sesi 7b)** Verifikasi header `x-callback-token` pada setiap webhook
 - [x] **H14** **(ditutup di sesi 9a: Interactions API dengan structured output, dibuktikan smoke 12 dari 12 tanpa output tidak valid, D159)** Gemini dipanggil dengan structured output atau function calling
 - [x] **H19** **(ditutup di sesi 9b: tiga lapis teruji termasuk paralel di batas sesi dan batas hari WITA, D163, D164)** **Prioritas tinggi setelah D77.** Rate limiting chatbot tiga lapis: per `guest_token`, per alamat IP, dan rem global harian. Tanpa identitas login, endpoint chatbot terbuka untuk siapa saja sedangkan tiap pesan memanggil Gemini yang ada biayanya
-- [ ] **H37** Pengiriman email dilakukan setelah commit, bukan di dalam transaksi **(baru, D58)**. Cron mengirim ulang baris FAILED maksimal tiga kali **(bagian pertama selesai di sesi perapian 10 November 2026: SMTP gagal tidak membatalkan operasi dan baris tercatat FAILED, dijaga test; bagian cron butuh keputusan skema di awal Fase 10, lihat catatan Bagian 4L)**
+- [ ] **H37** Pengiriman email dilakukan setelah commit, bukan di dalam transaksi **(baru, D58)**. Cron mengirim ulang baris FAILED maksimal tiga kali **(bagian pertama selesai di sesi perapian 10 November 2026: SMTP gagal tidak membatalkan operasi dan baris tercatat FAILED, dijaga test; bagian cron diputuskan lewat D177 dan dikerjakan di sesi 10a)**
 - [x] **H96** **(ditutup di sesi 7a: timeout 10 detik di setiap panggilan gateway)** Tugas `afterCommit` dijalankan berurutan sebelum respons dikirim. Saat Xendit dipasang di Fase 7, setiap panggilan `PaymentGateway` wajib punya timeout, supaya Xendit yang lambat tidak menahan respons transisi **(baru, sesi 6b)**
 - [x] **H99** **(bagian pembayaran telat ditutup di sesi 8c; pembayaran dobel menjadi batasan H104)** Pembayaran yang masuk setelah order tidak lagi ACCEPTED (D119) di-refund otomatis lewat Refund API, dikerjakan di Fase 8 bersama refund lainnya. Sampai saat itu, kasusnya tercatat sebagai payment PAID pada order yang sudah mati dan harus terlihat di log. Mencakup juga pembayaran dobel dari invoice yatim (D125), yang tidak bisa dicatat sebagai payment PAID kedua; cara mencatat refund-nya diputuskan di Fase 8 **(baru, D119, diperluas D125)**
 
@@ -2426,7 +2455,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 
 ## 11. Langkah Berikutnya
 
-1. Fase 9 (chatbot) dalam tiga sesi menurut Bagian 4W. Sesi 9a sampai 9c selesai. Uji sandbox 9c lulus dan evaluasi run 1 selesai. Tersisa run 2 (pagi WITA) dan run 3 (siang atau sore WITA) menurut D176, lalu penutupan Fase 9. Paralel: penyusun menyusun dataset 30 sampai 50 skenario berlabel (H15, D153) dan mencatat model serta batas kuota project Gemini di AI Studio
+1. Fase 9 (chatbot) dalam tiga sesi menurut Bagian 4W. Sesi 9a sampai 9c selesai. Uji sandbox 9c lulus dan evaluasi run 1 selesai. Tersisa run 2 (pagi WITA) dan run 3 (siang atau sore WITA) menurut D176, lalu penutupan Fase 9. Paralel: Fase 10 dalam tiga sesi menurut Bagian 4AC, dengan batasan selama evaluasi belum selesai. Paralel: penyusun menyusun dataset 30 sampai 50 skenario berlabel (H15, D153) dan mencatat model serta batas kuota project Gemini di AI Studio
 2. Selesai: Fase 8 (15 November 2026, 751 test lulus, D131 sampai D150) beserta uji sandbox payout dan refund. Uji sandbox refund PARTIAL hasil putusan sengketa lulus. Sebelumnya Fase 7 (11 November 2026, 627 test lulus) beserta uji sandbox Xendit sungguhan (12 November 2026), sebelumnya audit hutang teknis (9 November 2026) dan sesi perapian (10 November 2026)
 3. Susun data simulasi untuk dua belas sub-kategori di Lampiran B, termasuk skenario perebutan Available Now dan pendamping pada dokumentasi acara
 4. Riset ringan rentang harga pasaran untuk dua belas sub-kategori tersebut, catat sumbernya
@@ -2475,6 +2504,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 | 2.33 | 16 November 2026 | Sembilan keputusan dari sesi 9c: rincian retry (D167), snapshot personalisasi (D168, D169), kode galat klaim (D170), V3 per pesan yang merevisi catatan D164 (D171), V9 akun baru (D172), kriteria taksonomi demo (D173), relasi kartu paralel (D174), dan constraint sesi tamu yang diklaim (D175). H66 dan H111 ditutup, H112 dan H113 baru. Satu migrasi constraint |
 | 2.34 | 16 November 2026 | Hasil uji sandbox 9c dengan Gemini sungguhan: klaim sesi, personalisasi dari riwayat, dan retry 5xx terbukti, taksonomi demo dinonaktifkan, V3 dan V9 sesuai D171 dan D172. Tanpa keputusan baru dan tanpa perubahan skema |
 | 2.35 | 16 November 2026 | Protokol evaluasi akurasi tiga run (D176) dan hasil run 1: 69,39 persen dengan kegagalan dihitung salah, 97,1 persen atas skenario yang dijawab, 14 kegagalan merespons dari Gemini. Tanpa perubahan kode dan skema |
+| 2.36 | 16 November 2026 | Lima keputusan sebelum Fase 10: retry email dengan render ulang (D177), notifikasi in-app selektif (D178), aturan review (D179), laporan admin per hari WITA (D180), dan validasi parameter (D181). Pembagian Fase 10 dalam tiga sesi. Satu kolom dan satu parameter baru, dibuat di sesi implementasinya |
 
 ---
 
