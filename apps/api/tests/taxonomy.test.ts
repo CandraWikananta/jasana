@@ -400,7 +400,7 @@ describe.skipIf(!hasTestDatabase)('usulan taksonomi', () => {
         sent.find((mail) => mail.to === provider.owner.email && mail.subject.includes('Cuci Sofa Panggilan'));
       await vi.waitFor(() => expect(decisionMail()).toBeDefined());
       expect(decisionMail()!.text).toContain(`/subcategories/${subcategoryId}`);
-      const notification = await prisma.notification.findFirstOrThrow({ where: { referenceId: id } });
+      const notification = await prisma.notification.findFirstOrThrow({ where: { channel: 'EMAIL', referenceId: id } });
       expect(notification).toMatchObject({ type: 'TAXONOMY_REQUEST', channel: 'EMAIL', referenceType: 'taxonomy_request' });
       await vi.waitFor(async () =>
         expect((await prisma.notification.findUniqueOrThrow({ where: { id: notification.id } })).emailStatus).toBe('SENT'),

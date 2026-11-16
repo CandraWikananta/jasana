@@ -13,7 +13,7 @@ import { prisma } from '@jasana/database';
 import { AppError, Errors } from '../../lib/errors';
 import { hashPassword, verifyPassword } from '../../lib/crypto';
 import { isUniqueViolation } from '../../lib/prisma-errors';
-import { dispatchEmails, recordEmail } from '../notifications/email-outbox';
+import { dispatchNotifications, recordEmail } from '../notifications/email-outbox';
 import { emailChangeConfirmationEmail, emailChangeNoticeEmail } from '../auth/account-emails';
 import { revokeAllSessions } from '../auth/session.service';
 import { consumeToken, invalidateTokens, issueToken } from '../auth/verification-token.service';
@@ -142,7 +142,7 @@ export async function requestEmailChange(
     return { emails: [confirmation, notice], expiresAt: token.expiresAt };
   });
 
-  void dispatchEmails(emails);
+  void dispatchNotifications(emails);
   return { pending_email: newEmail, expires_at: expiresAt.toISOString() };
 }
 

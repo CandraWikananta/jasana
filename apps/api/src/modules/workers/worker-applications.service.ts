@@ -16,7 +16,7 @@ import { prisma } from '@jasana/database';
 import { AppError, Errors } from '../../lib/errors';
 import { isActiveMembershipViolation } from '../../lib/prisma-errors';
 import type { ProviderContext } from '../access/access.service';
-import { dispatchEmails, recordEmail, type OutgoingEmail } from '../notifications/email-outbox';
+import { dispatchNotifications, recordNotificationWithEmail, type Outgoing } from '../notifications/email-outbox';
 import {
   workerApplicationDecisionEmail,
   workerApplicationReceivedEmail,
@@ -39,7 +39,7 @@ export async function applyAsWorker(
   providerProfileId: string,
   body: WorkerApplicationBody,
 ): Promise<WorkerDto> {
-  const emails: OutgoingEmail[] = [];
+  const emails: Outgoing[] = [];
 
   const row = await prisma.$transaction(async (tx) => {
     // Menyerialkan lamaran ke usaha yang sama, supaya dua klik bersamaan
@@ -104,20 +104,20 @@ export async function applyAsWorker(
     });
 
     emails.push(
-      await recordEmail(tx, {
+      ...(await recordNotificationWithEmail(tx, {
         userId: provider.user.id,
         to: provider.user.email,
         type: 'WORKER_APPLICATION',
         referenceType: 'provider_worker',
         referenceId: created.id,
         ...workerApplicationReceivedEmail(provider.user.fullName, applicant.fullName),
-      }),
+      })),
     );
 
     return created;
   });
 
-  void dispatchEmails(emails);
+  void dispatchNotifications(emails);
   return toWorkerDto(row);
 }
 
@@ -127,7 +127,7 @@ export async function approveApplication(
   workerId: string,
   body: ApproveWorkerBody,
 ): Promise<WorkerDto> {
-  const emails: OutgoingEmail[] = [];
+  const emails: Outgoing[] = [];
 
   try {
     const row = await prisma.$transaction(async (tx) => {
@@ -180,7 +180,7 @@ export async function approveApplication(
       await withdrawPendingApplications(tx, worker.userId, workerId);
 
       emails.push(
-        await recordEmail(tx, {
+        ...(await recordNotificationWithEmail(tx, {
           userId: worker.userId,
           to: worker.user.email,
           type: 'WORKER_APPLICATION',
@@ -192,13 +192,13 @@ export async function approveApplication(
             true,
             null,
           ),
-        }),
+        })),
       );
 
       return tx.providerWorker.findUniqueOrThrow({ where: { id: workerId }, select: WORKER_SELECT });
     });
 
-    void dispatchEmails(emails);
+    void dispatchNotifications(emails);
     return toWorkerDto(row);
   } catch (error) {
     // Dua usaha menyetujui orang yang sama bersamaan: yang kedua menabrak H23.
@@ -215,7 +215,7 @@ export async function rejectApplication(
   workerId: string,
   reason: string | undefined,
 ): Promise<WorkerDto> {
-  const emails: OutgoingEmail[] = [];
+  const emails: Outgoing[] = [];
 
   const row = await prisma.$transaction(async (tx) => {
     const worker = await tx.providerWorker.findFirst({
@@ -238,7 +238,7 @@ export async function rejectApplication(
     }
 
     emails.push(
-      await recordEmail(tx, {
+      ...(await recordNotificationWithEmail(tx, {
         userId: worker.userId,
         to: worker.user.email,
         type: 'WORKER_APPLICATION',
@@ -250,12 +250,12 @@ export async function rejectApplication(
           false,
           reason ?? null,
         ),
-      }),
+      })),
     );
 
     return tx.providerWorker.findUniqueOrThrow({ where: { id: workerId }, select: WORKER_SELECT });
   });
 
-  void dispatchEmails(emails);
+  void dispatchNotifications(emails);
   return toWorkerDto(row);
 }

@@ -60,7 +60,7 @@ export async function resetDatabase(): Promise<void> {
     prisma.kycDocument.deleteMany(),
     prisma.providerProfile.deleteMany(),
     prisma.platformSetting.deleteMany({
-      where: { key: { in: ['kyc_document_max_size_mb', 'listing_faq_max_items', 'orphan_upload_cleanup_hours', 'schedule_conflict_buffer_minutes', 'platform_fee_percentage', 'available_now_offer_limit', 'geolocation_radius_meters', 'withdrawal_min_amount', 'withdrawal_admin_fee', 'guest_chat_message_limit', 'guest_chat_ip_hourly_limit', 'guest_chat_daily_global_limit', 'guest_chat_session_hours'] } },
+      where: { key: { in: ['kyc_document_max_size_mb', 'listing_faq_max_items', 'orphan_upload_cleanup_hours', 'schedule_conflict_buffer_minutes', 'platform_fee_percentage', 'available_now_offer_limit', 'geolocation_radius_meters', 'withdrawal_min_amount', 'withdrawal_admin_fee', 'guest_chat_message_limit', 'guest_chat_ip_hourly_limit', 'guest_chat_daily_global_limit', 'guest_chat_session_hours', 'email_retry_max_attempts'] } },
     }),
     prisma.refreshToken.deleteMany(),
     prisma.verificationToken.deleteMany(),

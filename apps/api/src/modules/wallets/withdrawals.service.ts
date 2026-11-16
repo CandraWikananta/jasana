@@ -16,7 +16,7 @@ import { AppError, Errors } from '../../lib/errors';
 import { logger } from '../../lib/logger';
 import { pageMeta, skipTake, type Page, type Paginated } from '../../lib/pagination';
 import { paymentGateway, type PayoutResult } from '../../lib/payment-gateway';
-import { dispatchEmails, recordEmail, type OutgoingEmail } from '../notifications/email-outbox';
+import { dispatchNotifications, recordNotificationWithEmail } from '../notifications/email-outbox';
 import { withOrderTransaction, type AfterCommitTask } from '../orders/order-transition.service';
 import { getNumberSetting } from '../settings/settings.service';
 import type { PayoutCallback } from '../webhooks/webhooks.schema';
@@ -98,7 +98,7 @@ async function notifyOwner(tx: Tx, afterCommit: AfterCommit, w: Withdrawal, titl
     select: { providerProfile: { select: { user: { select: { id: true, email: true, fullName: true } } } } },
   });
   const user = providerProfile.user;
-  const email: OutgoingEmail = await recordEmail(tx, {
+  const outgoing = await recordNotificationWithEmail(tx, {
     userId: user.id,
     to: user.email,
     type: 'WITHDRAWAL',
@@ -109,7 +109,7 @@ async function notifyOwner(tx: Tx, afterCommit: AfterCommit, w: Withdrawal, titl
     referenceType: 'withdrawal',
     referenceId: w.id,
   });
-  afterCommit(() => void dispatchEmails([email]));
+  afterCommit(() => void dispatchNotifications(outgoing));
 }
 
 const account = (w: Withdrawal) => `${w.bankCode} ****${w.bankAccountNumber.slice(-4)}`;

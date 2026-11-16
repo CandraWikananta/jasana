@@ -5,7 +5,8 @@ Project jasana {
   yang Terintegrasi dengan Kecerdasan Buatan
   I Nyoman Gede Candra Wikananta - 2305551065
 
-  VERSI 2.13. 35 tabel, 35 enum. Versi 2.13 mengubah refunds (D141, D142).
+  VERSI 2.14. 35 tabel, 35 enum. Versi 2.14 (sesi 10a) menambah notifications.email_attempts
+  dan nilai enum ORDER_MESSAGE (D177, D178). Versi 2.13 mengubah refunds (D141, D142).
   Versi 2.12 menambah order_offers (D102).
   Rujukan lengkap: Keputusan-Desain-Sistem.md (D1 sampai D102)
 
@@ -275,6 +276,7 @@ Enum notification_type {
   TAXONOMY_REQUEST
   ACCOUNT
   SYSTEM
+  ORDER_MESSAGE [note: 'D178, sesi 10a. Pesan dalam order (10b), dipakai aturan anti-spam']
 }
 
 Enum notification_channel {
@@ -1310,6 +1312,7 @@ Table notifications {
   read_at         timestamptz            [note: 'Kapan dibaca']
   email_status    email_delivery_status  [note: 'D58. Hanya untuk channel EMAIL']
   email_error     text                   [note: 'Pesan galat pengiriman email, untuk diagnostik dan percobaan ulang']
+  email_attempts  int                    [not null, default: 0, note: 'D177, sesi 10a. Hanya menghitung RETRY oleh cron, pengiriman pertama tidak ikut. CHECK: >= 0, dan selalu 0 untuk IN_APP']
   sent_at         timestamptz            [note: 'Kapan email benar-benar terkirim']
   created_at      timestamptz            [not null, default: `now()`, note: 'Kapan notifikasi dibuat, yaitu di dalam transaksi order']
 
@@ -1323,6 +1326,15 @@ Table notifications {
   Panggilan API eksternal tidak boleh berada di dalam transaksi basis data.
   Kegagalan kirim email TIDAK PERNAH membatalkan transisi order, karena uang dan status
   pekerjaan tidak boleh bergantung pada SMTP. Cron mengirim ulang baris FAILED maksimal 3 kali.
+
+  D177 (sesi 10a). Retry hanya untuk reference_type yang punya renderer (order, withdrawal,
+  provider_profile, provider_worker, taxonomy_request). Isi email dirender ulang dari title, body,
+  dan referensinya, karena isi lengkap (yang bisa memuat token) tidak pernah disimpan. Email
+  bertoken (reference_type verification_token) tidak pernah dikirim ulang. Baris PENDING dengan
+  email_attempts 0 yang lebih tua dari 15 menit ikut diambil (proses mati sebelum dispatch).
+
+  D178 (sesi 10a). GET /notifications hanya menampilkan baris IN_APP. Baris EMAIL adalah log
+  pengiriman. Satu event bisa menulis dua baris, IN_APP dan EMAIL, di transaksi yang sama.
 
   D59. Email adalah kanal PELENGKAP untuk Available Now yang SLA-nya 5 menit,
   karena email butuh belasan detik sampai beberapa menit dan bisa masuk spam.

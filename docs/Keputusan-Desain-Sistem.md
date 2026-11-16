@@ -4,9 +4,9 @@
 **Nama sistem:** Jasana
 **Penyusun:** I Nyoman Gede Candra Wikananta (2305551065)
 **Bidang Keahlian:** Sistem Informasi, Teknologi Informasi, Universitas Udayana
-**Versi:** 2.36
-**Terakhir diperbarui:** 16 November 2026 (versi 2.36)
-**Tahap saat ini:** Implementasi backend. Fase 0 sampai Fase 8 selesai. Fase 9 menunggu evaluasi akurasi run 2 dan 3 (D176). Fase 10 dimulai
+**Versi:** 2.37
+**Terakhir diperbarui:** 17 November 2026 (versi 2.37)
+**Tahap saat ini:** Implementasi backend. Fase 0 sampai Fase 8 selesai. Fase 9 menunggu evaluasi akurasi run 2 dan 3 (D176). Fase 10 berjalan (sesi 10a selesai)
 
 ---
 
@@ -52,7 +52,14 @@
 | Klaim, personalisasi, dan evaluasi chatbot (D167 sampai D175) | 9 | 0 |
 | Protokol evaluasi akurasi (D176) | 1 | 0 |
 | Pelengkap: notifikasi, review, laporan, dan parameter (D177 sampai D181) | 5 | 0 |
+| Notifikasi dan retry email (D182 sampai D186) | 5 | 0 |
 | Keputusan terbuka tanpa nomor D (Bagian 7) | | 0 |
+
+**Perubahan pada versi 2.37:**
+
+1. Tabel event notifikasi (D182), endpoint notifikasi (D183), dan whitelist serta render generik retry email yang merevisi D177 (D184)
+2. Hitungan dan klaim retry termasuk baris PENDING yatim (D185), dan enum `ORDER_MESSAGE` (D186)
+3. Catatan sesi 10a. H37 ditutup, H114 sampai H116 baru
 
 **Perubahan pada versi 2.36:**
 
@@ -1762,7 +1769,7 @@ Diputuskan sebelum Fase 10 (pelengkap). Satu kolom baru (`notifications.email_at
 
 | # | Keputusan | Alasan |
 |---|---|---|
-| D177 | **Retry email (H37) lewat kolom `email_attempts` dan render ulang.** Cron mengirim ulang baris email FAILED sampai `email_retry_max_attempts`. Isi email tidak disimpan, melainkan dirender ulang dari `reference_type` dan `reference_id` saat retry. Email yang memuat token (verifikasi email, reset password, ganti email) tidak di-retry cron, karena pengguna cukup meminta kirim ulang | Menyimpan isi email lengkap berarti menyimpan token mentah, padahal token selalu disimpan sebagai hash (D63). Token yang dikirim ulang oleh cron juga bisa sudah kedaluwarsa. Render ulang menjaga isi email selalu sesuai data terbaru. Menutup catatan skema di Bagian 4L |
+| D177 | **Retry email (H37) lewat kolom `email_attempts` dan render ulang.** Cron mengirim ulang baris email FAILED sampai `email_retry_max_attempts`. Isi email tidak disimpan, melainkan dirender ulang dari `reference_type` dan `reference_id` saat retry. Email yang memuat token (verifikasi email, reset password, ganti email) tidak di-retry cron, karena pengguna cukup meminta kirim ulang | Menyimpan isi email lengkap berarti menyimpan token mentah, padahal token selalu disimpan sebagai hash (D63). Token yang dikirim ulang oleh cron juga bisa sudah kedaluwarsa. Render ulang menjaga isi email selalu sesuai data terbaru. Menutup catatan skema di Bagian 4L **Direvisi D184:** isi email retry disusun ulang dari `title` dan `body` yang tersimpan, bukan dari referensi |
 | D178 | **Notifikasi in-app selektif.** Notifikasi dibuat hanya untuk event yang membutuhkan perhatian pihak tertentu, bukan untuk setiap transisi. Daftar event ditetapkan di sesi 10a dan ditulis di dokumen. Barisnya ditulis di dalam transaksi yang memicunya, mengikuti pola D58. Untuk pesan dalam order, notifikasi ke sisi lawan hanya dibuat kalau belum ada notifikasi pesan yang belum dibaca untuk order itu | Notifikasi untuk setiap transisi menenggelamkan yang penting, sehingga pengguna berhenti membacanya. Penulisan di dalam transaksi menjamin notifikasi tidak pernah ada tanpa event-nya dan sebaliknya. Aturan anti-spam pesan mencegah 20 pesan menghasilkan 20 notifikasi |
 | D179 | **Aturan review.** Client bisa memberi review setelah order mencapai COMPLETED (T16 membuka form review), termasuk order yang kemudian disengketakan, dalam `review_window_days` (14 hari) sejak `completed_at`. Satu review per order dan tidak bisa diedit. Penyedia bisa membalas sekali. `rating_average` dan `rating_count` listing dan penyedia diperbarui di transaksi yang sama dengan review. Admin bisa menyembunyikan review lewat `is_visible`, dan review yang disembunyikan keluar dari hitungan rating | Pengalaman buruk yang berujung sengketa justru informasi paling berguna bagi calon client. Review yang tidak bisa diedit dan dibatasi satu per order mencegah manipulasi rating. Batas waktu menjaga review tetap mencerminkan pengalaman yang masih segar. Cache diperbarui di transaksi yang sama supaya angka di pencarian selalu cocok dengan baris review |
 | D180 | **Laporan admin dihitung per hari kalender WITA** dan diambil dari sumber yang sama dengan V4 dan ledger. Test membuktikan total laporan identik dengan V4 dan ledger untuk data yang sama | Kriteria selesai Fase 10 adalah laporan cocok dengan data transaksi. Sumber yang sama dan pembuktian lewat test menjadikan kecocokan itu bukti, bukan asumsi. Zona WITA sama dengan D154 |
@@ -1775,6 +1782,28 @@ Diputuskan sebelum Fase 10 (pelengkap). Satu kolom baru (`notifications.email_at
 - **10c. Admin dan penutupan.** `GET` dan `PATCH /admin/settings` (D181), empat laporan admin (D180), Postman, regresi, dan penutupan Fase 10
 
 **Batasan selama run 2 dan run 3 evaluasi akurasi (D176) belum selesai:** Fase 10 tidak boleh mengubah berkas yang membentuk prompt Gemini (`llm-prompt.ts`, `llm-intent.ts`, perilaku `llm-gateway.ts`), dataset evaluasi, maupun daftar sub-kategori aktif di Supabase dev.
+
+---
+
+## 4AD. Keputusan Versi 2.37 (D182 sampai D186)
+
+Dari sesi 10a. Semua dijawab penyusun sebelum rencana disusun, kecuali tambahan pada D185 yang berasal dari review rencana. Satu migrasi (`20261116180000_notifications_10a`): kolom `notifications.email_attempts`, nilai enum `ORDER_MESSAGE`, dan CHECK `chk_notification_email_attempts`.
+
+| # | Keputusan | Alasan |
+|---|---|---|
+| D182 | **Tabel event notifikasi (D178)** ditulis lengkap di PRD Bagian 7.3. Setiap event non-akun yang sudah punya email kini juga punya kembaran IN_APP, kecuali T12 (pekerjaan dimulai) yang tetap email saja. Pekerja pendamping baru mendapat notifikasi in-app saat ditambahkan lewat accept dengan kru atau `PUT /orders/:id/crew`, hanya untuk yang belum ada di kru sebelumnya. Sengketa dibuka kini juga memberi tahu pihak lawan, menutup selisih dengan peta D58. Empat email akun tetap email saja | Saat T12, client sedang bersama pekerja di lokasi dan perubahan status sudah sampai realtime, sehingga notifikasi in-app tidak menambah informasi. Pendamping sebelumnya tidak diberi tahu sama sekali, padahal dialah yang harus datang. Notifikasi antrean untuk admin dan lamaran yang gugur tidak dibuat (H115) |
+| D183 | **`GET /notifications` dan kedua endpoint tandai-dibaca hanya menyentuh baris IN_APP milik pemanggil.** Notifikasi milik orang lain dan baris EMAIL dibalas 404 `NOT_FOUND` yang sama. `unread_count` di meta selalu menghitung seluruh IN_APP yang belum dibaca, tidak terpengaruh filter. Tandai dibaca bersifat idempoten | Baris EMAIL adalah catatan pengiriman, bukan isi kotak notifikasi. Kalau ikut tampil, setiap event muncul dua kali dan email reset password ikut masuk daftar. 404 yang sama untuk milik orang lain mencegah penebakan id, mengikuti pola D162 |
+| D184 | **Retry hanya untuk `reference_type` yang terdaftar** (order, withdrawal, provider_profile, provider_worker, taxonomy_request), dan isinya disusun ulang secara generik dari `title` dan `body` yang tersimpan, ditambah baris referensi, ke `users.email` terkini. Referensi yang sudah hilang langsung ditandai FAILED tanpa dikirim. **Merevisi rumusan D177** | Daftar yang diizinkan lebih aman daripada daftar yang dikecualikan: jenis email bertoken baru di masa depan tidak akan ikut di-retry tanpa sengaja, dan email bertoken (`verification_token`) maupun pemberitahuan ganti email (`reference_type` NULL) tidak pernah lolos. `title` dan `body` sudah bebas token dan mencatat isi saat event terjadi, sedangkan template per jenis harus menebak varian email dari kondisi terkini yang mungkin sudah berubah. Akibatnya email retry untuk KYC, lamaran, dan taksonomi lebih ringkas daripada email pertamanya |
+| D185 | **`email_attempts` hanya menghitung retry**, maksimal `email_retry_max_attempts` (3) setelah pengiriman pertama, dan nilai 0 mematikan retry. Cron berjalan tiap 5 menit dan mengklaim setiap baris lewat UPDATE bersyarat. Baris PENDING dengan `email_attempts` 0 yang berumur lebih dari 15 menit ikut diambil | Sesuai D58 ("maksimal tiga kali") dan pola `retry_count` pada `webhook_events`. Klaim bersyarat membuat dua instance cron tidak bisa mengirim email yang sama dua kali, dibuktikan test paralel. Baris PENDING lama adalah email yang tidak pernah terkirim karena proses mati setelah commit dan sebelum pengiriman, dan pengiriman normal selesai jauh di bawah 15 menit |
+| D186 | **Nilai enum `notification_type` `ORDER_MESSAGE`** untuk notifikasi pesan dalam order, dipakai pemeriksa anti-spam D178 di sesi 10b | Jenis notifikasinya jelas dan bisa difilter klien, sedangkan `reference_type` tetap jujur menunjuk ke order |
+
+**Catatan implementasi sesi 10a tanpa nomor D:**
+
+- Satu fungsi terpusat `recordNotification` menulis baris IN_APP dan, kalau event-nya juga dikirim email, baris EMAIL lewat jalur D58 yang sama, keduanya di dalam transaksi pemicu. `dispatchNotifications` setelah commit mengirim email dan event Socket.IO `notification:new` ke room `user:<id>`
+- Fungsi `hasUnreadMessageNotification` disiapkan untuk aturan anti-spam pesan di sesi 10b
+- Runner newman sesi ini memakai SMTP palsu. Run newman sebelum sesi 10a kemungkinan memakai SMTP dari `.env`, sehingga ada email yang terkirim ke alamat uji `@postman.jasana.test` yang tidak ada
+
+**Hasil sesi 10a:** typecheck bersih, 909 test di 48 berkas lulus, 13 dari 13 mutan tertangkap. Postman Fase 1 sampai 10 tanpa gagal, Fase 10 dengan 17 request dan 30 assertion. Migrasi diuji ke basis data kosong dan ke `jasana_test` tanpa drift, `db:verify` dan `check-constraints` lulus.
 
 ---
 
@@ -2336,7 +2365,7 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 - [x] **H13** **(ditutup di sesi 7b)** Verifikasi header `x-callback-token` pada setiap webhook
 - [x] **H14** **(ditutup di sesi 9a: Interactions API dengan structured output, dibuktikan smoke 12 dari 12 tanpa output tidak valid, D159)** Gemini dipanggil dengan structured output atau function calling
 - [x] **H19** **(ditutup di sesi 9b: tiga lapis teruji termasuk paralel di batas sesi dan batas hari WITA, D163, D164)** **Prioritas tinggi setelah D77.** Rate limiting chatbot tiga lapis: per `guest_token`, per alamat IP, dan rem global harian. Tanpa identitas login, endpoint chatbot terbuka untuk siapa saja sedangkan tiap pesan memanggil Gemini yang ada biayanya
-- [ ] **H37** Pengiriman email dilakukan setelah commit, bukan di dalam transaksi **(baru, D58)**. Cron mengirim ulang baris FAILED maksimal tiga kali **(bagian pertama selesai di sesi perapian 10 November 2026: SMTP gagal tidak membatalkan operasi dan baris tercatat FAILED, dijaga test; bagian cron diputuskan lewat D177 dan dikerjakan di sesi 10a)**
+- [x] **H37** **(ditutup di sesi 10a lewat D184 dan D185, cron tiap 5 menit dengan klaim bersyarat yang teruji paralel)** Pengiriman email dilakukan setelah commit, bukan di dalam transaksi **(baru, D58)**. Cron mengirim ulang baris FAILED maksimal tiga kali **(bagian pertama selesai di sesi perapian 10 November 2026: SMTP gagal tidak membatalkan operasi dan baris tercatat FAILED, dijaga test; bagian cron diputuskan lewat D177 dan dikerjakan di sesi 10a)**
 - [x] **H96** **(ditutup di sesi 7a: timeout 10 detik di setiap panggilan gateway)** Tugas `afterCommit` dijalankan berurutan sebelum respons dikirim. Saat Xendit dipasang di Fase 7, setiap panggilan `PaymentGateway` wajib punya timeout, supaya Xendit yang lambat tidak menahan respons transisi **(baru, sesi 6b)**
 - [x] **H99** **(bagian pembayaran telat ditutup di sesi 8c; pembayaran dobel menjadi batasan H104)** Pembayaran yang masuk setelah order tidak lagi ACCEPTED (D119) di-refund otomatis lewat Refund API, dikerjakan di Fase 8 bersama refund lainnya. Sampai saat itu, kasusnya tercatat sebagai payment PAID pada order yang sudah mati dan harus terlihat di log. Mencakup juga pembayaran dobel dari invoice yatim (D125), yang tidak bisa dicatat sebagai payment PAID kedua; cara mencatat refund-nya diputuskan di Fase 8 **(baru, D119, diperluas D125)**
 
@@ -2419,6 +2448,9 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 - [x] **H111** **(ditutup di sesi 9c lewat D174 dan pemangkasan kueri jalur chat. Penghematan waktu di Supabase dev diukur di uji sandbox 9c)** Overhead server pada giliran `cari_jasa` 2,5 sampai 3,1 detik di Supabase dev, sekitar 1,7 sampai 2,4 detik lebih besar dari jawaban templat. Sesi 9c menghitung jumlah kueri pada jalur pencarian dan penyusunan kartu rekomendasi, lalu memangkas kueri berulang kalau ada **(baru, uji sandbox 9b)**
 - [ ] **H112** Urutan ulang berdasarkan rentang harga (D168) hanya berlaku atas 5 hasil teratas berdasarkan jarak, sehingga listing yang cocok harganya tetapi di luar 5 terdekat tidak ikut naik **(baru, sesi 9c)**
 - [ ] **H113** `rata_pesan_per_sesi` di V9 ikut menghitung pesan sesudah klaim **(baru, sesi 9c)**
+- [ ] **H114** Baris EMAIL yang macet di PENDING di tengah retry (`email_attempts` 1 atau lebih), karena proses mati saat mengirim, tidak pernah diambil lagi. Tidak ada kolom waktu klaim untuk mendeteksinya. Pengiriman pertama yang macet sudah ditangani D185 **(baru, sesi 10a)**
+- [ ] **H115** Lamaran ke usaha lain yang gugur otomatis saat pelamar diterima di satu usaha (D36) tidak diberi notifikasi **(baru, sesi 10a)**
+- [ ] **H116** Baris `notifications` lama tidak pernah dibersihkan **(baru, sesi 10a)**
 - [ ] **H82** Admin fee withdrawal berupa nilai flat yang mengikuti perkiraan biaya payout Xendit **(baru, D84)**. Untuk nominal di atas Rp250.000 biaya sebenarnya sedikit lebih besar dan selisihnya ditanggung platform
 
 ---
@@ -2505,6 +2537,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 | 2.34 | 16 November 2026 | Hasil uji sandbox 9c dengan Gemini sungguhan: klaim sesi, personalisasi dari riwayat, dan retry 5xx terbukti, taksonomi demo dinonaktifkan, V3 dan V9 sesuai D171 dan D172. Tanpa keputusan baru dan tanpa perubahan skema |
 | 2.35 | 16 November 2026 | Protokol evaluasi akurasi tiga run (D176) dan hasil run 1: 69,39 persen dengan kegagalan dihitung salah, 97,1 persen atas skenario yang dijawab, 14 kegagalan merespons dari Gemini. Tanpa perubahan kode dan skema |
 | 2.36 | 16 November 2026 | Lima keputusan sebelum Fase 10: retry email dengan render ulang (D177), notifikasi in-app selektif (D178), aturan review (D179), laporan admin per hari WITA (D180), dan validasi parameter (D181). Pembagian Fase 10 dalam tiga sesi. Satu kolom dan satu parameter baru, dibuat di sesi implementasinya |
+| 2.37 | 17 November 2026 | Lima keputusan dari sesi 10a: tabel event notifikasi (D182), endpoint notifikasi (D183), whitelist dan render generik retry yang merevisi D177 (D184), hitungan dan klaim retry (D185), dan enum `ORDER_MESSAGE` (D186). H37 ditutup, H114 sampai H116 baru. Satu migrasi |
 
 ---
 

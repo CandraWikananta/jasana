@@ -69,7 +69,7 @@ describe.skipIf(!hasTestDatabase)('settlement T18 (7c)', () => {
 
     const history = await prisma.orderStatusHistory.findFirstOrThrow({ where: { orderId: id, toStatus: 'SETTLED' } });
     expect(history).toMatchObject({ fromStatus: 'COMPLETED', actor: 'SYSTEM', changedByUserId: null });
-    const notified = await prisma.notification.findMany({ where: { referenceId: id, title: { startsWith: 'Dana order cair' } } });
+    const notified = await prisma.notification.findMany({ where: { channel: 'EMAIL', referenceId: id, title: { startsWith: 'Dana order cair' } } });
     expect(notified.map((n) => n.userId)).toEqual([w.owner.id]);
   });
 

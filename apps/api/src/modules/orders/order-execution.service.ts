@@ -17,7 +17,7 @@ import { decryptVerificationCode, encryptVerificationCode, generateVerificationC
 import { AppError } from '../../lib/errors';
 import { haversineKm } from '../../lib/haversine';
 import { actorFrom, type OrderAccess } from '../access/access.service';
-import { dispatchEmails } from '../notifications/email-outbox';
+import { dispatchNotifications } from '../notifications/email-outbox';
 import { getNumberSetting } from '../settings/settings.service';
 import { notifyUsers } from './order-notify';
 import { assertTransition, lockOrder, transitionOrder, withOrderTransaction, type AfterCommitTask } from './order-transition.service';
@@ -37,8 +37,8 @@ const CODE_TTL_MINUTES = 60;
 
 const notAllowed = (message: string) => new AppError('ORDER_TRANSITION_NOT_ALLOWED', message);
 
-/** Notifikasi peta D58. `withOwnerAndWorker` hanya untuk COMPLETED. */
-async function notify(tx: Tx, afterCommit: AfterCommit, order: Order, title: string, detail: string, withOwnerAndWorker = false) {
+/** Notifikasi tabel event D178. `withOwnerAndWorker` hanya untuk COMPLETED. */
+async function notify(tx: Tx, afterCommit: AfterCommit, order: Order, title: string, detail: string, withOwnerAndWorker = false, inApp = true) {
   let recipients: Array<string | undefined> = [order.clientId];
   if (withOwnerAndWorker) {
     const who = await tx.order.findUniqueOrThrow({
@@ -47,8 +47,8 @@ async function notify(tx: Tx, afterCommit: AfterCommit, order: Order, title: str
     });
     recipients = [...recipients, who.providerProfile.userId, who.assignedWorker?.userId];
   }
-  const emails = await notifyUsers(tx, recipients, order, title, detail);
-  afterCommit(() => void dispatchEmails(emails));
+  const outgoing = await notifyUsers(tx, recipients, order, title, detail, 'ORDER_STATUS', { inApp });
+  afterCommit(() => void dispatchNotifications(outgoing));
 }
 
 /** Transisi pelaksanaan sederhana (T8, T12, T14) oleh penanggung jawab. */
@@ -60,6 +60,7 @@ async function workerTransition(
     data?: Prisma.OrderUncheckedUpdateManyInput;
     title: string;
     detail: string;
+    inApp?: boolean;
   },
 ): Promise<OrderDto> {
   const actor = actorFrom(access, ['WORKER']);
@@ -72,7 +73,7 @@ async function workerTransition(
       actorUserId: access.userId,
       ...(options.data ? { data: options.data } : {}),
       ...(options.guard ? { guard: options.guard } : {}),
-      effects: (tx, order) => notify(tx, afterCommit, order, options.title, options.detail),
+      effects: (tx, order) => notify(tx, afterCommit, order, options.title, options.detail, false, options.inApp),
     });
   });
   return getOrder(access.orderId);
@@ -100,6 +101,8 @@ export function startWork(access: OrderAccess): Promise<OrderDto> {
   return workerTransition(access, 'IN_PROGRESS', {
     title: 'Pekerjaan dimulai',
     detail: 'Pekerja mulai mengerjakan pesanan Anda.',
+    // D178 opsi B: client sudah bersama pekerja di lokasi, cukup email.
+    inApp: false,
     guard: async (tx, order) => {
       if (!(await tx.orderCheckin.count({ where: { orderId: order.id, isValid: true } }))) {
         throw notAllowed('Belum ada check-in yang sah untuk order ini');

@@ -298,7 +298,7 @@ describe.skipIf(!hasTestDatabase)('pelaksanaan order (6e)', () => {
       const listing = await prisma.listing.findUniqueOrThrow({ where: { id: w.listingId } });
       expect(listing.orderCount).toBe(1);
       expect((await prisma.providerProfile.findUniqueOrThrow({ where: { id: w.provider.id } })).completedOrdersCount).toBe(1);
-      const notified = await prisma.notification.findMany({ where: { referenceId: id, title: { startsWith: 'Order selesai' } } });
+      const notified = await prisma.notification.findMany({ where: { channel: 'EMAIL', referenceId: id, title: { startsWith: 'Order selesai' } } });
       expect(notified.map((n) => n.userId).sort()).toEqual([w.client.id, w.owner.id, w.w2.id].sort());
 
       // Setelah COMPLETED keduanya bebas lagi di jam yang sama.

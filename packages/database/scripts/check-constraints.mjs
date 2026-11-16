@@ -37,6 +37,7 @@ const EXPECTED_CHECKS = [
   ['chk_order_message_content_length', 'H69 panjang pesan 1 sampai 2000'],
   ['chk_listing_faq_content', 'H73 panjang pertanyaan dan jawaban FAQ'],
   ['chk_order_offer_outcome', 'H94 tawaran tidak sekaligus ditolak dan SLA miss'],
+  ['chk_notification_email_attempts', 'H37 hitungan retry email hanya untuk baris EMAIL (10a)'],
 ];
 
 /**

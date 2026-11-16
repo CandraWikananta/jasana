@@ -99,7 +99,7 @@ describe.skipIf(!hasTestDatabase)('webhook refund Xendit (8c)', () => {
     expect((await send(body)).status).toBe(200);
     expect(await prisma.webhookEvent.count()).toBe(1);
     expect(await t22(id)).toBe(1);
-    expect(await prisma.notification.count({ where: { userId: w.client.id, title: { startsWith: 'Refund selesai' } } })).toBe(1);
+    expect(await prisma.notification.count({ where: { channel: 'EMAIL', userId: w.client.id, title: { startsWith: 'Refund selesai' } } })).toBe(1);
   });
 
   it('fixture sandbox refund_succeeded_ewallet dengan reference_id diganti: diproses, id Xendit mengisi refund yang timeout', async () => {

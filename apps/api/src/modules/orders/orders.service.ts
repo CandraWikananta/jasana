@@ -17,7 +17,7 @@ import { pageMeta, skipTake, type Paginated } from '../../lib/pagination';
 import { resolveProvider, resolveWorker } from '../access/access.service';
 import { toDefinition } from '../catalog/catalog.mapper';
 import { PUBLIC_WHERE } from '../listings/listings.service';
-import { dispatchEmails } from '../notifications/email-outbox';
+import { dispatchNotifications } from '../notifications/email-outbox';
 import { currentOnlineWorkerIds } from '../../realtime/presence';
 import { emit } from '../../realtime/socket';
 import { findBusyWorkers } from './order-schedule';
@@ -206,7 +206,7 @@ export async function createOrder(userId: string, body: CreateOrderBody): Promis
     if (scheduled) {
       const emails = await notifyUsers(tx, [listing.providerProfile.userId], order, 'Order baru masuk',
         `Ada order terjadwal baru untuk "${listing.title}". Terima atau tolak sebelum ${responseDeadlineAt.toISOString()}.`);
-      afterCommit(() => void dispatchEmails(emails));
+      afterCommit(() => void dispatchNotifications(emails));
       return order.id;
     }
 
@@ -229,7 +229,7 @@ export async function createOrder(userId: string, body: CreateOrderBody): Promis
       for (const w of recipients) emit(`user:${w.userId}`, 'order:offer', { ...summary, distance_meters: Math.round(w.km * 1000) });
       emit(`provider:${listing.providerProfileId}`, 'order:offer', { ...summary, recipient_count: recipients.length });
     });
-    afterCommit(() => void dispatchEmails(emails));
+    afterCommit(() => void dispatchNotifications(emails));
     return order.id;
   });
 

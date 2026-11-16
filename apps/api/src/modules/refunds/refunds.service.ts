@@ -17,7 +17,7 @@ import { AppError, Errors } from '../../lib/errors';
 import { logger } from '../../lib/logger';
 import { pageMeta, skipTake, type Paginated } from '../../lib/pagination';
 import { paymentGateway, type GatewayRecord } from '../../lib/payment-gateway';
-import { dispatchEmails } from '../notifications/email-outbox';
+import { dispatchNotifications } from '../notifications/email-outbox';
 import { notifyUsers } from '../orders/order-notify';
 import { lockOrder, transitionOrder, withOrderTransaction, type AfterCommitTask } from '../orders/order-transition.service';
 import type { RefundCallback } from '../webhooks/webhooks.schema';
@@ -190,7 +190,7 @@ async function completeRefund(tx: Tx, afterCommit: AfterCommit, refund: Refund, 
   }
 
   const emails = await notifyUsers(tx, [order.clientId], order, 'Refund selesai', `Dana ${rupiah(refund.amount)} sudah dikembalikan.`);
-  afterCommit(() => void dispatchEmails(emails));
+  afterCommit(() => void dispatchNotifications(emails));
 }
 
 export interface RefundOutcome {

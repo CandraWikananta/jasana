@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| Versi | 2.26 |
+| Versi | 2.27 |
 | Penyusun | I Nyoman Gede Candra Wikananta (2305551065) |
 | Program Studi | Teknologi Informasi, Universitas Udayana |
 | Bidang Keahlian | Sistem Informasi |
@@ -496,7 +496,7 @@ Disimpan sebagai key-value JSONB supaya bisa diubah saat eksperimen tanpa deploy
 | `worker_location_move_threshold_meters` | 200 | Perpindahan minimum sebelum koordinat dikirim ulang |
 | `worker_location_max_interval_minutes` | 5 | Batas waktu antar pengiriman koordinat |
 | `schedule_conflict_buffer_minutes` | 30 | Jeda perjalanan antar order Scheduled |
-| `email_retry_max_attempts` | 3 | Percobaan ulang pengiriman email gagal |
+| `email_retry_max_attempts` | 3 | Percobaan ulang oleh cron untuk email gagal, di luar pengiriman pertama. Nol mematikan retry (sesi 10a) |
 | `guest_chat_message_limit` | 20 | Batas pesan per sesi chatbot tamu |
 | `guest_chat_ip_hourly_limit` | 50 | Batas pesan chatbot per alamat IP per jam |
 | `guest_chat_daily_global_limit` | 250 (D160) | Rem darurat seluruh chatbot tamu, menyesuaikan kuota API key Gemini. Dihitung per hari kalender WITA (D154) |
@@ -834,9 +834,9 @@ Akses **P** pada endpoint chatbot berarti sesi tamu, yang diidentifikasi lewat h
 
 | Method | Path | Akses | Fungsi |
 |---|---|---|---|
-| GET | `/notifications` | C | Daftar notifikasi, filter `is_read` |
-| PATCH | `/notifications/:id/read` | C | Tandai dibaca |
-| PATCH | `/notifications/read-all` | C | Tandai semua dibaca |
+| GET | `/notifications` | C | Daftar notifikasi IN_APP milik pemanggil, filter `is_read`, terpaginasi. `meta` memuat `unread_count` |
+| PATCH | `/notifications/:id/read` | C | Tandai dibaca. Idempoten. Milik orang lain dan baris EMAIL dibalas 404 |
+| PATCH | `/notifications/read-all` | C | Tandai semua IN_APP milik pemanggil dibaca, balasan `{ updated }` |
 | POST | `/uploads/signed-url` | C | Signed URL Supabase Storage untuk unggah langsung. **Hanya untuk foto listing** (D80) |
 | GET | `/admin/reports/transactions` | A | Laporan transaksi, filter periode |
 | GET | `/admin/reports/providers` | A | Laporan performa penyedia termasuk SLA miss |
@@ -845,6 +845,8 @@ Akses **P** pada endpoint chatbot berarti sesi tamu, yang diidentifikasi lewat h
 | GET | `/admin/settings` | A | Baca `platform_settings` |
 | PATCH | `/admin/settings` | A | Ubah parameter sistem |
 | GET | `/health` | P | Health check (status API dan basis data) |
+
+**Notifikasi (sesi 10a).** Endpoint notifikasi hanya menampilkan baris `channel = IN_APP`. Baris EMAIL adalah log pengiriman (`email_status`, `email_attempts`, `email_error`) dan tidak pernah tampil. Butir daftar: `id` (string, bigserial), `type`, `title`, `body`, `reference_type`, `reference_id`, `is_read`, `read_at`, `created_at`, urut terbaru dulu. `meta` = `{ page, limit, total, unread_count }`, dan `unread_count` selalu menghitung seluruh IN_APP yang belum dibaca, tidak terpengaruh filter. Event yang menghasilkan notifikasi ada di Bagian 7.3.
 
 ### 4.4 Kontrak Endpoint Kritikal
 
@@ -1328,7 +1330,7 @@ Ringkasan aturan yang tidak boleh dilanggar implementasi mana pun:
 | Sweep settlement | tiap 5 menit | Order `COMPLETED` yang `settlement_due_at` lewat dan tidak punya dispute `OPEN` atau `UNDER_REVIEW` menjadi `SETTLED` beserta `ESCROW_RELEASE`. Jalur pesan jadi read-only |
 | Sweep presence pekerja | tiap 2 menit | Pekerja yang koneksi Socket.IO-nya putus lebih dari `worker_presence_timeout_minutes` dimatikan `is_available`-nya, supaya tampilan dashboard jujur |
 | Pemulihan webhook macet | tiap 5 menit | `webhook_events` berstatus `PROCESSING` dengan `locked_at` lebih dari 5 menit dikembalikan ke `FAILED`, lalu event `FAILED` diproses ulang dari payload tersimpan maksimal 3 kali lewat `retry_count` (D121). Event selisih nominal (D120) tidak diulang |
-| Percobaan ulang email | tiap 5 menit | `notifications` dengan `email_status = FAILED` dan percobaan kurang dari `email_retry_max_attempts` dikirim ulang |
+| Percobaan ulang email | tiap 5 menit | Baris EMAIL berstatus `FAILED` dengan `email_attempts < email_retry_max_attempts`, ditambah baris `PENDING` dengan `email_attempts = 0` yang lebih tua dari 15 menit (proses mati setelah commit sebelum dispatch), dikirim ulang. Hanya `reference_type` yang punya renderer: `order`, `withdrawal`, `provider_profile`, `provider_worker`, `taxonomy_request`. Email bertoken (`verification_token`) dan baris tanpa referensi tidak pernah dikirim ulang (D177). Isi dirender ulang: subjek `Jasana: <title>`, isi `Halo <nama>`, `body`, dan baris referensi, ke `users.email` terkini. `email_attempts` hanya menghitung retry, dan klaimnya UPDATE bersyarat pada status dan hitungan, jadi dua instance tidak mengirim email yang sama dua kali. Pengiriman di luar transaksi |
 | Pembersihan sesi tamu | tiap 1 jam | `chat_sessions` tamu yang `expires_at` lewat ditandai `ENDED`. Datanya tidak dihapus, karena jadi bahan pengukuran Bab IV |
 | Pembersihan token kedaluwarsa | tiap 1 hari | `verification_tokens` dan `refresh_tokens` yang sudah lewat masa berlaku dihapus |
 | Pembersihan berkas yatim | tiap 1 hari | Berkas di bucket foto listing yang lebih tua dari `orphan_upload_cleanup_hours` dan tidak punya baris `listing_photos` yang merujuknya dihapus dari Storage |
@@ -1355,9 +1357,45 @@ Autentikasi koneksi memakai access token yang sama. Room yang dipakai:
 | `order:message` | server ke room order | Pesan baru dalam order |
 | `worker:presence` | pekerja ke server | Denyut koneksi, dasar penentuan online |
 | `order:join` | client ke server | Masuk room `order:<id>`, dengan ack. Hanya client, pemilik, dan penanggung jawab yang diterima (D109) |
-| `notification:new` | server ke `user:<id>` | Notifikasi baru |
+| `notification:new` | server ke `user:<id>` | Notifikasi IN_APP baru, setelah commit. Isinya sama dengan butir `GET /notifications` |
 
 Socket.IO hanya mengirim pemberitahuan. **Seluruh perubahan state tetap lewat REST API**, supaya ada satu jalur otorisasi dan satu jalur audit. Satu-satunya pengecualian adalah `worker:presence`, yang memang tidak mengubah state apa pun.
+
+### 7.3 Event Notifikasi (D178, sesi 10a)
+
+Notifikasi hanya untuk event yang butuh perhatian pihak tertentu, bukan untuk setiap transisi. Baris IN_APP dan EMAIL ditulis lewat satu fungsi terpusat (`recordNotification`) di transaksi pemicunya (D58). Setelah commit, email dikirim dan `notification:new` diumumkan. Judul event order diberi akhiran ` (<nomor order>)`. C = client, P = pemilik usaha, W = penanggung jawab.
+
+| # | Event | Penerima | `type` / `reference_type` | Kanal |
+|---|---|---|---|---|
+| 1 | Order baru masuk | P | ORDER_STATUS / order | in-app + email |
+| 2 | Tawaran order sekarang | Pekerja yang ditawari | ORDER_STATUS / order | in-app + email |
+| 3 | Order diterima | C, P, W | ORDER_STATUS / order | in-app + email |
+| 4 | Order ditolak | C, P | ORDER_STATUS / order | in-app + email |
+| 5 | Order kedaluwarsa | C, P | ORDER_STATUS / order | in-app + email |
+| 6 | Toggle Available Now dimatikan (D116) | Pekerja yang SLA miss | ORDER_STATUS / order | in-app + email |
+| 7 | Pembayaran berhasil | C, P, W | ORDER_STATUS / order | in-app + email |
+| 8 | Pembayaran kedaluwarsa | C, P, W | ORDER_STATUS / order | in-app + email |
+| 9 | Order dibatalkan | Pihak lawan pembatal (keduanya kalau admin), W | ORDER_STATUS / order | in-app + email |
+| 10 | Penanggung jawab diganti | C, W lama, W baru | ORDER_STATUS / order | in-app + email |
+| 11 | Pekerja berangkat | C | ORDER_STATUS / order | in-app + email |
+| 12 | Pekerja tiba | C | ORDER_STATUS / order | in-app + email |
+| 13 | Pekerjaan dimulai | C | ORDER_STATUS / order | **email saja**, client sudah bersama pekerja |
+| 14 | Pekerjaan selesai, kode bisa dilihat | C | ORDER_STATUS / order | in-app + email |
+| 15 | Order selesai | C, P, W | ORDER_STATUS / order | in-app + email |
+| 16 | Dana order cair | P | ORDER_STATUS / order | in-app + email |
+| 17 | Refund selesai | C | ORDER_STATUS / order | in-app + email |
+| 18 | Sengketa dibuka | Admin aktif dan pihak lawan | DISPUTE / order | in-app + email |
+| 19 | Sengketa diputus | C, P | DISPUTE / order | in-app + email |
+| 20 | Withdrawal berhasil, ditolak, gagal, atau dikembalikan bank | P | WITHDRAWAL / withdrawal | in-app + email |
+| 21 | Pengajuan provider disetujui atau ditolak | Pemohon | KYC / provider_profile | in-app + email |
+| 22 | Perubahan tipe usaha disetujui atau ditolak | Pemilik | KYC / provider_profile | in-app + email |
+| 23 | Lamaran pekerja baru | P | WORKER_APPLICATION / provider_worker | in-app + email |
+| 24 | Lamaran pekerja disetujui atau ditolak, termasuk yang gugur saat usaha turun ke INDIVIDUAL | Pelamar | WORKER_APPLICATION / provider_worker | in-app + email |
+| 25 | Usulan taksonomi disetujui, ditolak, atau sudah tersedia | Pengusul | TAXONOMY_REQUEST / taxonomy_request | in-app + email |
+| 26 | Anda ditambahkan sebagai pendamping | Pendamping yang baru masuk kru (accept dengan kru, atau `PUT /orders/:id/crew`) | ORDER_STATUS / order | **in-app saja** |
+| – | Verifikasi email, reset password, konfirmasi email baru, pemberitahuan ganti email | Pemilik akun | ACCOUNT / verification_token atau kosong | **email saja**, tidak pernah di-retry |
+
+Notifikasi pesan dalam order (sesi 10b) memakai `type = ORDER_MESSAGE` dan `reference_type = order`, dan hanya dibuat kalau penerima belum punya notifikasi pesan yang belum dibaca untuk order itu (`hasUnreadMessageNotification`).
 
 ---
 
@@ -1574,3 +1612,4 @@ Tidak menyangkut aturan bisnis, dibentuk oleh middleware bersama pada Fase 0.
 | 2.24 | 16 November 2026 | Sinkron dengan register keputusan versi 2.31. Urutan batas tamu (D163, D164), header `X-Guest-Token`, dan kode error `CHAT_SESSION_ENDED` (D162) |
 | 2.25 | 16 November 2026 | Sinkron dengan register keputusan versi 2.32. Retry 5xx Gemini (D165) dan saran templat hasil kosong (D166) |
 | 2.26 | 16 November 2026 | Sinkron dengan register keputusan versi 2.33 (D167 sampai D175). Alur klaim sesi dan kode error `CHAT_SESSION_ALREADY_CLAIMED`, isi dan pemakaian `personalization_snapshot`, kolom V3 dan V9 |
+| 2.27 | 17 November 2026 | Sesi 10a. Respons tiga endpoint notifikasi, tabel event notifikasi (Bagian 7.3), aturan cron retry email (whitelist `reference_type`, render ulang, PENDING yatim 15 menit, klaim bersyarat), payload `notification:new`, dan makna `email_retry_max_attempts`. Menunggu pencatatan usulan D182 sampai D186 di register |

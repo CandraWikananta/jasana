@@ -428,6 +428,19 @@ ALTER TABLE order_offers
 
 
 -- ------------------------------------------------------------
+-- 11e. Hitungan retry email                                [H37]
+-- ------------------------------------------------------------
+-- D177, sesi 10a. email_attempts hanya menghitung retry oleh cron. Baris
+-- IN_APP tidak pernah dikirim, jadi hitungannya selalu nol. Kolom ini
+-- ditambahkan di sesi 10a, sehingga constraint ini dipasang di migration
+-- notifications_10a.
+
+ALTER TABLE notifications
+  ADD CONSTRAINT chk_notification_email_attempts
+  CHECK (email_attempts >= 0 AND (channel = 'EMAIL' OR email_attempts = 0));
+
+
+-- ------------------------------------------------------------
 -- 12. Index GIN untuk atribut dinamis                      [H18]
 -- ------------------------------------------------------------
 -- Tanpa ini, fitur filter berbasis atribut dinamis akan melakukan

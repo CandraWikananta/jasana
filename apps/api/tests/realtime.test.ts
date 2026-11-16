@@ -188,4 +188,27 @@ describe.skipIf(!hasTestDatabase)('Socket.IO', () => {
     const worker = await prisma.providerWorker.findUniqueOrThrow({ where: { id: w.w2.workerId } });
     expect(worker.currentLatitude!.toNumber()).not.toBe(-8.68);
   });
+
+  it('notification:new sampai ke room user penerima setelah commit, tidak ke pengguna lain (D178)', async () => {
+    const owner = await connected(w.owner);
+    const outsider = await connected(w.w4);
+    const [ownerSeen, outsiderSeen] = [collect(owner, 'notification:new'), collect(outsider, 'notification:new')];
+
+    const res = await api().post('/api/v1/orders').set(...auth(w.client)).send({
+      listing_id: w.listingId,
+      booking_mode: 'SCHEDULED',
+      scheduled_at: new Date(Date.now() + 2 * HOUR).toISOString(),
+      location_source: 'SAVED_ADDRESS',
+      address_id: w.addressId,
+      selected_options: { durasi_liputan: '2 Jam' },
+    });
+    expect(res.status, JSON.stringify(res.body)).toBe(201);
+    await settle();
+
+    const row = await prisma.notification.findFirstOrThrow({ where: { userId: w.owner.id, channel: 'IN_APP' } });
+    expect(ownerSeen).toEqual([
+      { id: row.id.toString(), type: 'ORDER_STATUS', title: expect.stringMatching(/^Order baru masuk/), body: row.body, reference_type: 'order', reference_id: res.body.data.id, is_read: false, read_at: null, created_at: row.createdAt.toISOString() },
+    ]);
+    expect(outsiderSeen).toEqual([]);
+  });
 });

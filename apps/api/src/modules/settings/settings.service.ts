@@ -36,15 +36,16 @@ export const NUMERIC_SETTING_DEFAULTS = {
   guest_chat_ip_hourly_limit: 50,
   guest_chat_daily_global_limit: 250,
   guest_chat_session_hours: 24,
+  email_retry_max_attempts: 3,
 } as const;
 
 export type NumericSettingKey = keyof typeof NUMERIC_SETTING_DEFAULTS;
 
 /**
- * H89. Kunci yang nol-nya bermakna (tanpa jeda, tanpa admin fee). Kunci lain tetap wajib > 0:
+ * H89. Kunci yang nol-nya bermakna (tanpa jeda, tanpa admin fee, retry email mati). Kunci lain tetap wajib > 0:
  * misalnya `orphan_upload_cleanup_hours = 0` akan menghapus unggahan yang baru masuk.
  */
-const ZERO_ALLOWED = new Set<NumericSettingKey>(['schedule_conflict_buffer_minutes', 'withdrawal_admin_fee']);
+const ZERO_ALLOWED = new Set<NumericSettingKey>(['schedule_conflict_buffer_minutes', 'withdrawal_admin_fee', 'email_retry_max_attempts']);
 
 /** JSONB boleh berisi angka mentah atau string angka. */
 function asValidNumber(value: unknown, allowZero: boolean): number | null {

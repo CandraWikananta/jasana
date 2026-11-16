@@ -233,7 +233,7 @@ describe.skipIf(!hasTestDatabase)('refund (8c)', () => {
       expect(t22).toMatchObject({ fromStatus: 'CANCELLED', actor: 'SYSTEM', changedByUserId: null });
       expect(t22.metadata).toEqual({ operation: 'REFUND_COMPLETED_MANUALLY', admin_user_id: admin.id, refund_id: refund.id });
       expect(await prisma.walletTransaction.count({ where: { orderId: id } })).toBe(ledgerBefore);
-      expect(await prisma.notification.count({ where: { userId: w.client.id, title: { startsWith: 'Refund selesai' } } })).toBe(1);
+      expect(await prisma.notification.count({ where: { channel: 'EMAIL', userId: w.client.id, title: { startsWith: 'Refund selesai' } } })).toBe(1);
 
       const again = await complete(refund.id);
       expect(again.status).toBe(409);

@@ -12,7 +12,7 @@ import { burnPasswordCheck, hashPassword, verifyPassword } from '../../lib/crypt
 import { accessTokenTtlSeconds, signAccessToken, type AccessTokenClaims } from '../../lib/jwt';
 import { isUniqueViolation } from '../../lib/prisma-errors';
 import { logger } from '../../lib/logger';
-import { dispatchEmails, recordEmail } from '../notifications/email-outbox';
+import { dispatchNotifications, recordEmail } from '../notifications/email-outbox';
 import { toUserDto, USER_PUBLIC_SELECT, type UserDto } from '../users/user.mapper';
 import { emailVerificationEmail, passwordResetEmail } from './account-emails';
 import type { LoginBody, RegisterBody } from './auth.schema';
@@ -133,7 +133,7 @@ export async function register(input: RegisterBody): Promise<UserDto> {
       return { user, email };
     });
 
-    void dispatchEmails([email]);
+    void dispatchNotifications([email]);
     return toUserDto(user);
   } catch (error) {
     // Dua pendaftaran bersamaan dengan email yang sama bisa sama-sama lolos
@@ -322,7 +322,7 @@ export async function resendVerification(
     });
   });
 
-  void dispatchEmails([email]);
+  void dispatchNotifications([email]);
   return { sent: true, email_verified: false };
 }
 
@@ -373,7 +373,7 @@ export async function forgotPassword(emailAddress: string): Promise<void> {
     });
   });
 
-  void dispatchEmails([email]);
+  void dispatchNotifications([email]);
 }
 
 /**

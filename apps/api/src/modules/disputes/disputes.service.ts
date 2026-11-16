@@ -25,7 +25,7 @@ import { pageMeta, skipTake, type Paginated } from '../../lib/pagination';
 import { isUniqueViolation } from '../../lib/prisma-errors';
 import { storage } from '../../lib/supabase';
 import { actorFrom, resolveOrderAccess, type OrderAccess } from '../access/access.service';
-import { dispatchEmails } from '../notifications/email-outbox';
+import { dispatchNotifications } from '../notifications/email-outbox';
 import { notifyUsers, parties } from '../orders/order-notify';
 import { writeEscrow } from '../orders/order-payment.service';
 import { lockOrder, transitionOrder, withOrderTransaction } from '../orders/order-transition.service';
@@ -118,9 +118,12 @@ export async function openDispute(access: OrderAccess, body: OpenDisputeBody): P
           });
         disputeId = dispute.id;
         const admins = await tx.user.findMany({ where: { role: 'ADMIN', isActive: true }, select: { id: true } });
-        const emails = await notifyUsers(tx, admins.map((a) => a.id), order, 'Sengketa dibuka',
+        // D178: pihak lawan ikut diberi tahu, sesuai peta D58 (sebelumnya hanya admin).
+        const who = await parties(tx, orderId);
+        const counterpart = actor === 'CLIENT' ? who.providerProfile.userId : order.clientId;
+        const emails = await notifyUsers(tx, [...admins.map((a) => a.id), counterpart], order, 'Sengketa dibuka',
           `Sengketa ${body.category} dibuka oleh ${actor === 'CLIENT' ? 'client' : 'penyedia'} dan menunggu pemeriksaan admin.`, 'DISPUTE');
-        afterCommit(() => void dispatchEmails(emails));
+        afterCommit(() => void dispatchNotifications(emails));
       },
     });
     return disputeId;
@@ -373,7 +376,7 @@ export async function resolveDispute(adminId: string, id: string, body: ResolveD
         const who = await parties(tx, orderId);
         const emails = await notifyUsers(tx, [order.clientId, who.providerProfile.userId], order, 'Sengketa diputus',
           `${note} Catatan admin: ${body.resolution_note}`, 'DISPUTE');
-        afterCommit(() => void dispatchEmails(emails));
+        afterCommit(() => void dispatchNotifications(emails));
       },
     });
   });

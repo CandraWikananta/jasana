@@ -18,7 +18,7 @@
 import { prisma, type Prisma, type ProviderType } from '@jasana/database';
 import { AppError, Errors } from '../../lib/errors';
 import { isUniqueViolation } from '../../lib/prisma-errors';
-import { dispatchEmails, recordEmail, type OutgoingEmail } from '../notifications/email-outbox';
+import { dispatchNotifications, recordNotificationWithEmail, type Outgoing } from '../notifications/email-outbox';
 import type { ProviderContext } from '../access/access.service';
 import {
   assertNoActiveMembership,
@@ -195,7 +195,7 @@ export async function requestTypeChange(
   provider: ProviderContext,
   body: TypeUpgradeBody,
 ): Promise<ProviderDto> {
-  const emails: OutgoingEmail[] = [];
+  const emails: Outgoing[] = [];
 
   const result = await prisma.$transaction(async (tx) => {
     await lockProviderProfile(tx, provider.id);
@@ -240,7 +240,7 @@ export async function requestTypeChange(
     });
   });
 
-  void dispatchEmails(emails);
+  void dispatchNotifications(emails);
   return toProviderDto(result);
 }
 
@@ -260,7 +260,7 @@ async function rejectPendingApplications(
   tx: Prisma.TransactionClient,
   providerProfileId: string,
   businessName: string | null,
-): Promise<OutgoingEmail[]> {
+): Promise<Outgoing[]> {
   const pending = await tx.providerWorker.findMany({
     where: { providerProfileId, membershipStatus: 'PENDING' },
     select: { id: true, user: { select: { id: true, fullName: true, email: true } } },
@@ -273,18 +273,20 @@ async function rejectPendingApplications(
   });
 
   const reason = 'Usaha berubah menjadi perorangan dan tidak lagi menerima pekerja';
-  return Promise.all(
-    pending.map((row) =>
-      recordEmail(tx, {
+  const out: Outgoing[] = [];
+  for (const row of pending) {
+    out.push(
+      ...(await recordNotificationWithEmail(tx, {
         userId: row.user.id,
         to: row.user.email,
         type: 'WORKER_APPLICATION',
         referenceType: 'provider_worker',
         referenceId: row.id,
         ...workerApplicationDecisionEmail(row.user.fullName, businessName ?? 'usaha tersebut', false, reason),
-      }),
-    ),
-  );
+      })),
+    );
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------------------

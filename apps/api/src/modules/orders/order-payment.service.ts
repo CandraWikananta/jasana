@@ -17,7 +17,7 @@ import { AppError } from '../../lib/errors';
 import { actorFrom, type OrderAccess } from '../access/access.service';
 import { logger } from '../../lib/logger';
 import { paymentGateway } from '../../lib/payment-gateway';
-import { dispatchEmails } from '../notifications/email-outbox';
+import { dispatchNotifications } from '../notifications/email-outbox';
 import { createRefund } from '../refunds/refunds.service';
 import { notifyUsers } from './order-notify';
 import { PAYMENT_SELECT, toPaymentDto } from './orders.mapper';
@@ -218,7 +218,7 @@ async function settlePaid(tx: Tx, afterCommit: AfterCommit, orderId: string, pay
         'Pembayaran berhasil',
         'Pembayaran order sudah diterima dan jadwal pekerja terkunci.',
       );
-      afterCommit(() => void dispatchEmails(emails));
+      afterCommit(() => void dispatchNotifications(emails));
     },
   });
 }

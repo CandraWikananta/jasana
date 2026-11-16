@@ -199,7 +199,7 @@ describe.skipIf(!hasTestDatabase)('withdrawal (8b)', () => {
     expect(rows[1]!.amountAvailableDelta.toNumber()).toBe(100000);
     expect(rows[1]!.createdBy).toBe('ADMIN');
 
-    const notes = await prisma.notification.findMany({ where: { referenceId: id } });
+    const notes = await prisma.notification.findMany({ where: { channel: 'EMAIL', referenceId: id } });
     expect(notes).toHaveLength(1);
     expect(notes[0]).toMatchObject({ userId: w.owner.id, type: 'WITHDRAWAL', referenceType: 'withdrawal' });
     expect(notes[0]!.body).toContain('Nama rekening tidak sesuai');
@@ -289,7 +289,7 @@ describe.skipIf(!hasTestDatabase)('withdrawal (8b)', () => {
     expect(res.body.data).toMatchObject({ status: 'FAILED', failure_code: 'API_VALIDATION_ERROR', xendit_payout_id: null });
     expect(await available()).toBe(earning);
     expect((await ledgerOf(id)).map((r) => r.type)).toEqual(['WITHDRAWAL', 'WITHDRAWAL_REVERSAL']);
-    expect(await prisma.notification.count({ where: { referenceId: id, type: 'WITHDRAWAL' } })).toBe(1);
+    expect(await prisma.notification.count({ where: { channel: 'EMAIL', referenceId: id, type: 'WITHDRAWAL' } })).toBe(1);
 
     expect((await approve(id)).status).toBe(409);
   });
@@ -331,7 +331,7 @@ describe.skipIf(!hasTestDatabase)('withdrawal (8b)', () => {
       expect(res.body.data.sync).toMatchObject({ gateway_status: 'SUCCEEDED', outcome: 'PROCESSED' });
       expect(res.body.data.withdrawal).toMatchObject({ status: 'COMPLETED', xendit_payout_status: 'SUCCEEDED' });
       expect(await available()).toBe(earning - 100000);
-      expect(await prisma.notification.count({ where: { referenceId: id, type: 'WITHDRAWAL' } })).toBe(1);
+      expect(await prisma.notification.count({ where: { channel: 'EMAIL', referenceId: id, type: 'WITHDRAWAL' } })).toBe(1);
     });
 
     it('APPROVED tanpa id (timeout saat approve): dicari lewat reference_id, FAILED dengan tepat satu reversal', async () => {

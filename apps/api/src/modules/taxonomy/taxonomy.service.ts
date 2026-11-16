@@ -29,7 +29,7 @@ import {
 } from '../catalog/catalog.service';
 import { isTimed } from '../catalog/attribute-rules';
 import { createAttributeSchema } from '../catalog/catalog.schema';
-import { dispatchEmails, recordEmail, type OutgoingEmail } from '../notifications/email-outbox';
+import { dispatchNotifications, recordNotificationWithEmail, type Outgoing } from '../notifications/email-outbox';
 import { lockProviderProfile } from '../workers/workforce';
 import { taxonomyDecisionEmail } from './taxonomy-emails';
 import {
@@ -321,7 +321,7 @@ export async function decideRequest(
   requestId: string,
   body: DecisionBody,
 ): Promise<TaxonomyRequestDto> {
-  const emails: OutgoingEmail[] = [];
+  const emails: Outgoing[] = [];
 
   const dto = await prisma
     .$transaction(async (tx) => {
@@ -374,19 +374,19 @@ export async function decideRequest(
         body.decision === 'MERGED' ? outcome!.subcategoryId : null,
       );
       emails.push(
-        await recordEmail(tx, {
+        ...(await recordNotificationWithEmail(tx, {
           userId: owner.id,
           to: owner.email,
           type: 'TAXONOMY_REQUEST',
           referenceType: 'taxonomy_request',
           referenceId: requestId,
           ...content,
-        }),
+        })),
       );
       return toRequestDto(row);
     })
     .catch(translateCatalogError);
 
-  void dispatchEmails(emails);
+  void dispatchNotifications(emails);
   return dto;
 }

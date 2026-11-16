@@ -101,7 +101,7 @@ describe.skipIf(!hasTestDatabase)('order Available Now (6d)', () => {
       const deadline = new Date(order.response_deadline_at).getTime() - Date.now();
       expect(deadline).toBeGreaterThan(4 * MINUTE);
       expect(deadline).toBeLessThanOrEqual(5 * MINUTE);
-      expect(await prisma.notification.count({ where: { referenceId: order.id, title: { startsWith: 'Tawaran order sekarang' } } })).toBe(3);
+      expect(await prisma.notification.count({ where: { channel: 'EMAIL', referenceId: order.id, title: { startsWith: 'Tawaran order sekarang' } } })).toBe(3);
     });
 
     it('dibatasi available_now_offer_limit', async () => {

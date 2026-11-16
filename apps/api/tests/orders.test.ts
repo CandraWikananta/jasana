@@ -99,7 +99,7 @@ describe.skipIf(!hasTestDatabase)('order Scheduled (6c)', () => {
       });
       expect((order.price as { options: unknown[] }).options).toHaveLength(4);
       // D58: order Scheduled masuk memberi tahu pemilik.
-      expect(await prisma.notification.count({ where: { userId: w.owner.id, referenceId: order.id } })).toBe(1);
+      expect(await prisma.notification.count({ where: { channel: 'EMAIL', userId: w.owner.id, referenceId: order.id } })).toBe(1);
       expect(await prisma.orderStatusHistory.count({ where: { orderId: order.id, toStatus: 'PENDING_ACCEPTANCE' } })).toBe(1);
     });
 
@@ -231,7 +231,7 @@ describe.skipIf(!hasTestDatabase)('order Scheduled (6c)', () => {
       expect(order.payment.invoice_url).toMatch(/^https:\/\/fake-gateway/);
       expect(order.payment_deadline_at).not.toBeNull();
       // D58: client, pemilik, dan pekerja.
-      expect(await prisma.notification.count({ where: { referenceId: order.id, title: { startsWith: 'Order diterima' } } })).toBe(3);
+      expect(await prisma.notification.count({ where: { channel: 'EMAIL', referenceId: order.id, title: { startsWith: 'Order diterima' } } })).toBe(3);
     });
 
     it('invoice gagal dibuat tidak membatalkan T1 (usulan D104)', async () => {
@@ -381,7 +381,7 @@ describe.skipIf(!hasTestDatabase)('order Scheduled (6c)', () => {
       const res = await post(`/${order.id}/cancel`, w.client);
       expect(res.body.data).toMatchObject({ status: 'CANCELLED', cancelled_by: 'CLIENT' });
       // Usulan D106 no. 3: pemilik diberi tahu.
-      expect(await prisma.notification.count({ where: { userId: w.owner.id, title: { startsWith: 'Order dibatalkan' } } })).toBe(1);
+      expect(await prisma.notification.count({ where: { channel: 'EMAIL', userId: w.owner.id, title: { startsWith: 'Order dibatalkan' } } })).toBe(1);
     });
 
     it('T7 meng-expire invoice dan melepas slot pekerja serta pendamping (H26)', async () => {
@@ -434,7 +434,7 @@ describe.skipIf(!hasTestDatabase)('order Scheduled (6c)', () => {
       const history = await prisma.orderStatusHistory.findFirstOrThrow({ where: { orderId: order.id }, orderBy: { id: 'desc' } });
       expect(history).toMatchObject({ fromStatus: 'ACCEPTED', toStatus: 'ACCEPTED', metadata: { operation: 'ASSIGNMENT_CHANGED', to_worker_id: w.w3.workerId } });
       for (const user of [w.client, w.w2, w.w3]) {
-        expect(await prisma.notification.count({ where: { userId: user.id, title: { startsWith: 'Penanggung jawab diganti' } } })).toBe(1);
+        expect(await prisma.notification.count({ where: { channel: 'EMAIL', userId: user.id, title: { startsWith: 'Penanggung jawab diganti' } } })).toBe(1);
       }
     });
 

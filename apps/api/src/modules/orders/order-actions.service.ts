@@ -13,7 +13,7 @@ import { prisma, type Order, type Payment, type Prisma } from '@jasana/database'
 import { AppError, Errors } from '../../lib/errors';
 import { emit, leaveRoom } from '../../realtime/socket';
 import { actorFrom, type OrderAccess } from '../access/access.service';
-import { dispatchEmails } from '../notifications/email-outbox';
+import { dispatchNotifications } from '../notifications/email-outbox';
 import { getNumberSetting } from '../settings/settings.service';
 import { expireUnanswered } from './order-expiry.service';
 import { notifyUsers, parties } from './order-notify';
@@ -95,13 +95,22 @@ type Assignee = Awaited<ReturnType<typeof assertAssignable>>;
 type AfterCommit = (task: AfterCommitTask) => void;
 
 /** Efek T1 yang sama di kedua mode (State Machine 3, T1). */
+/** D178 event 26: hanya in-app, hanya untuk pendamping yang baru masuk kru. */
+async function notifyNewCrew(tx: Tx, afterCommit: AfterCommit, order: Order, workerIds: string[]) {
+  if (workerIds.length === 0) return;
+  const workers = await tx.providerWorker.findMany({ where: { id: { in: workerIds } }, select: { userId: true } });
+  const outgoing = await notifyUsers(tx, workers.map((w) => w.userId), order, 'Anda ditambahkan sebagai pendamping',
+    `Anda menjadi pendamping untuk order ini, terjadwal ${order.scheduledAt?.toISOString() ?? '-'}.`, 'ORDER_STATUS', { email: false });
+  afterCommit(() => void dispatchNotifications(outgoing));
+}
+
 async function applyAcceptance(tx: Tx, afterCommit: AfterCommit, order: Order, assignee: Assignee, paymentDeadlineAt: Date) {
   await tx.order.update({ where: { id: order.id }, data: { snapshotAssigneeName: assignee.displayName } });
   const payment = await createPendingPayment(tx, order, paymentDeadlineAt);
   const who = await parties(tx, order.id);
   const emails = await notifyUsers(tx, [order.clientId, who.providerProfile.userId, assignee.userId], order, 'Order diterima',
     `Order diterima dan ditangani ${assignee.displayName}. Selesaikan pembayaran sebelum ${paymentDeadlineAt.toISOString()}.`);
-  afterCommit(() => void dispatchEmails(emails));
+  afterCommit(() => void dispatchNotifications(emails));
   // Usulan D104: gagal di sini tidak membatalkan T1, invoice_url tetap null.
   afterCommit(() => issueInvoice(payment.id));
 }
@@ -148,6 +157,7 @@ async function acceptScheduled(access: OrderAccess, orderId: string, body: Accep
           await tx.orderCrew.createMany({
             data: body.crew_worker_ids.map((workerId) => ({ orderId, workerId, addedBy: access.userId })),
           });
+          await notifyNewCrew(tx, afterCommit, order, body.crew_worker_ids);
         }
         await applyAcceptance(tx, afterCommit, order, assignee, paymentDeadlineAt);
       },
@@ -287,7 +297,7 @@ export async function rejectOrder(access: OrderAccess, orderId: string, body: Re
       effects: async (tx, order) => {
         const emails = await notifyUsers(tx, [order.clientId, access.userId], order, 'Order ditolak',
           `Order ditolak penyedia.${body.reason ? ` Alasan: ${body.reason}` : ''}`);
-        afterCommit(() => void dispatchEmails(emails));
+        afterCommit(() => void dispatchNotifications(emails));
       },
     });
   });
@@ -344,7 +354,7 @@ export async function cancelOrder(access: OrderAccess, orderId: string, body: Re
         }
         const emails = await notifyUsers(tx, [...recipients, who.assignedWorker?.userId], order, 'Order dibatalkan',
           `Order dibatalkan oleh ${by}.${body.reason ? ` Alasan: ${body.reason}` : ''}${refundNote}`);
-        afterCommit(() => void dispatchEmails(emails));
+        afterCommit(() => void dispatchNotifications(emails));
       },
     });
   });
@@ -387,7 +397,7 @@ export async function changeAssignment(access: OrderAccess, orderId: string, wor
     });
     const emails = await notifyUsers(tx, [order.clientId, before.assignedWorker?.userId, assignee.userId], order,
       'Penanggung jawab diganti', `Penanggung jawab order sekarang ${assignee.displayName}.`);
-    afterCommit(() => void dispatchEmails(emails));
+    afterCommit(() => void dispatchNotifications(emails));
     afterCommit(() => {
       emit(`order:${orderId}`, 'order:assignment_changed', {
         order_id: orderId,
@@ -405,7 +415,7 @@ export async function changeAssignment(access: OrderAccess, orderId: string, wor
 /** PUT /orders/:id/crew (D69, State Machine 4.2). Ditulis ulang seluruhnya. */
 export async function setCrew(access: OrderAccess, orderId: string, crewIds: string[]): Promise<OrderDto> {
   actorFrom(access, ['PROVIDER']);
-  await withOrderTransaction(async (tx) => {
+  await withOrderTransaction(async (tx, afterCommit) => {
     const order = await lockOrder(tx, orderId);
     if (order.bookingMode !== 'SCHEDULED') {
       throw new AppError('CREW_NOT_ALLOWED_FOR_MODE', 'Pendamping hanya tersedia pada mode Scheduled');
@@ -415,8 +425,10 @@ export async function setCrew(access: OrderAccess, orderId: string, crewIds: str
     await assertCrew(tx, order, crewIds, order.assignedWorkerId!);
     await assertWorkersFree(tx, crewIds, slotOf(order));
 
+    const before = new Set((await tx.orderCrew.findMany({ where: { orderId }, select: { workerId: true } })).map((c) => c.workerId));
     await tx.orderCrew.deleteMany({ where: { orderId } });
     await tx.orderCrew.createMany({ data: crewIds.map((workerId) => ({ orderId, workerId, addedBy: access.userId })) });
+    await notifyNewCrew(tx, afterCommit, order, crewIds.filter((id) => !before.has(id)));
     await tx.orderStatusHistory.create({
       data: {
         orderId,

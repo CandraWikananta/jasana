@@ -362,6 +362,8 @@ enum NotificationType {
   TAXONOMY_REQUEST
   ACCOUNT
   SYSTEM
+  /// D178, sesi 10a. Dipakai pemeriksa anti-spam pesan dalam order (10b).
+  ORDER_MESSAGE
 
   @@map("notification_type")
 }
@@ -1818,6 +1820,8 @@ model Notification {
   /// Hanya untuk channel EMAIL.
   emailStatus   EmailDeliveryStatus? @map("email_status")
   emailError    String?              @map("email_error")
+  /// D177. Hanya menghitung RETRY oleh cron, pengiriman pertama tidak ikut.
+  emailAttempts Int                  @default(0) @map("email_attempts")
   sentAt        DateTime?            @map("sent_at") @db.Timestamptz(6)
   createdAt     DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
 

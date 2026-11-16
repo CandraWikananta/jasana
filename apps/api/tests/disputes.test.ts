@@ -118,7 +118,7 @@ describe.skipIf(!hasTestDatabase)('sengketa (8d)', () => {
       ['T15', 'IN_PROGRESS', 'owner'],
       ['T17', 'AWAITING_VERIFICATION', 'client'],
       ['T19', 'COMPLETED', 'owner'],
-    ] as const)('%s dari %s oleh %s: DISPUTED, dispute OPEN, histori, notifikasi admin', async (_t, stage, who) => {
+    ] as const)('%s dari %s oleh %s: DISPUTED, dispute OPEN, histori, notifikasi admin dan pihak lawan', async (_t, stage, who) => {
       const orderId = await orderAt(stage);
       const as = who === 'client' ? w.client : w.owner;
       const res = await open(orderId, as);
@@ -134,8 +134,11 @@ describe.skipIf(!hasTestDatabase)('sengketa (8d)', () => {
       expect((await orderOf(orderId)).status).toBe('DISPUTED');
       const history = await prisma.orderStatusHistory.findFirstOrThrow({ where: { orderId, toStatus: 'DISPUTED' } });
       expect(history).toMatchObject({ fromStatus: stage, actor: who === 'client' ? 'CLIENT' : 'PROVIDER', changedByUserId: as.id });
-      const notified = await prisma.notification.findMany({ where: { referenceId: orderId, title: { startsWith: 'Sengketa dibuka' } } });
-      expect(notified.map((n) => [n.userId, n.type])).toEqual([[admin.id, 'DISPUTE']]);
+      const notified = await prisma.notification.findMany({ where: { channel: 'EMAIL', referenceId: orderId, title: { startsWith: 'Sengketa dibuka' } } });
+      // D178: pihak lawan ikut diberi tahu, bukan hanya admin.
+      const counterpart = who === 'client' ? w.owner.id : w.client.id;
+      expect(notified.map((n) => [n.userId, n.type]).sort()).toEqual([[admin.id, 'DISPUTE'], [counterpart, 'DISPUTE']].sort());
+      expect(await prisma.notification.count({ where: { channel: 'IN_APP', userId: counterpart, referenceId: orderId, title: { startsWith: 'Sengketa dibuka' } } })).toBe(1);
     });
 
     it('penanggung jawab dan orang luar: 403, tanpa baris dispute', async () => {
@@ -352,7 +355,7 @@ describe.skipIf(!hasTestDatabase)('sengketa (8d)', () => {
       expect([after.balanceAvailable.toNumber(), after.balancePending.toNumber()]).toEqual([450000, 0]);
       const history = await prisma.orderStatusHistory.findFirstOrThrow({ where: { orderId, toStatus: 'SETTLED' } });
       expect(history).toMatchObject({ fromStatus: 'DISPUTED', actor: 'ADMIN', changedByUserId: admin.id });
-      const notified = await prisma.notification.findMany({ where: { referenceId: orderId, title: { startsWith: 'Sengketa diputus' } } });
+      const notified = await prisma.notification.findMany({ where: { channel: 'EMAIL', referenceId: orderId, title: { startsWith: 'Sengketa diputus' } } });
       expect(notified.map((n) => n.userId).sort()).toEqual([w.client.id, w.owner.id].sort());
     });
 

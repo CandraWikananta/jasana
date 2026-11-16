@@ -27,7 +27,7 @@ import { logger } from '../../lib/logger';
 import { pageMeta, skipTake, type Page, type Paginated } from '../../lib/pagination';
 import { isActiveMembershipViolation } from '../../lib/prisma-errors';
 import { storage } from '../../lib/supabase';
-import { dispatchEmails, recordEmail, type OutgoingEmail } from '../notifications/email-outbox';
+import { dispatchNotifications, recordNotificationWithEmail, type Outgoing } from '../notifications/email-outbox';
 import { BUSINESS_DOCUMENT_TYPES, missingDocuments } from '../providers/kyc-rules';
 import {
   kycRejectedEmail,
@@ -193,7 +193,7 @@ const APPROVE_MEMBERSHIP_MESSAGE =
 
 /** POST /admin/provider-applications/:id/approve. */
 export async function approveApplication(adminId: string, id: string): Promise<ApprovalResultDto> {
-  const emails: OutgoingEmail[] = [];
+  const emails: Outgoing[] = [];
 
   try {
     const result = await prisma.$transaction(async (tx) => {
@@ -275,20 +275,20 @@ export async function approveApplication(adminId: string, id: string): Promise<A
 
       // 5. Notifikasi, dikirim setelah commit (D58).
       emails.push(
-        await recordEmail(tx, {
+        ...(await recordNotificationWithEmail(tx, {
           userId: profile.userId,
           to: profile.user.email,
           type: 'KYC',
           referenceType: 'provider_profile',
           referenceId: id,
           ...kycApprovedEmail(profile.user.fullName),
-        }),
+        })),
       );
 
       return { provider, wallet, ownerWorker };
     });
 
-    void dispatchEmails(emails);
+    void dispatchNotifications(emails);
     return {
       provider: toProviderDto(result.provider),
       wallet: {
@@ -309,7 +309,7 @@ export async function approveApplication(adminId: string, id: string): Promise<A
 
 /** POST /admin/provider-applications/:id/reject. */
 export async function rejectApplication(id: string, reason: string): Promise<ProviderDto> {
-  const emails: OutgoingEmail[] = [];
+  const emails: Outgoing[] = [];
 
   const provider = await prisma.$transaction(async (tx) => {
     if (!(await lockProviderProfile(tx, id))) {
@@ -338,19 +338,19 @@ export async function rejectApplication(id: string, reason: string): Promise<Pro
     });
 
     emails.push(
-      await recordEmail(tx, {
+      ...(await recordNotificationWithEmail(tx, {
         userId: profile.userId,
         to: profile.user.email,
         type: 'KYC',
         referenceType: 'provider_profile',
         referenceId: id,
         ...kycRejectedEmail(profile.user.fullName, reason),
-      }),
+      })),
     );
     return updated;
   });
 
-  void dispatchEmails(emails);
+  void dispatchNotifications(emails);
   return toProviderDto(provider);
 }
 
@@ -417,7 +417,7 @@ export async function decideTypeUpgrade(
   id: string,
   body: TypeUpgradeDecisionBody,
 ): Promise<ProviderDto> {
-  const emails: OutgoingEmail[] = [];
+  const emails: Outgoing[] = [];
   const approved = body.decision === 'APPROVED';
 
   const provider = await prisma.$transaction(async (tx) => {
@@ -469,18 +469,18 @@ export async function decideTypeUpgrade(
     });
 
     emails.push(
-      await recordEmail(tx, {
+      ...(await recordNotificationWithEmail(tx, {
         userId: profile.userId,
         to: profile.user.email,
         type: 'KYC',
         referenceType: 'provider_profile',
         referenceId: id,
         ...typeUpgradeDecisionEmail(profile.user.fullName, approved, body.reason ?? null),
-      }),
+      })),
     );
     return updated;
   });
 
-  void dispatchEmails(emails);
+  void dispatchNotifications(emails);
   return toProviderDto(provider);
 }

@@ -16,8 +16,9 @@ import { prisma, type Prisma } from '@jasana/database';
 import { AppError } from '../../lib/errors';
 import { logger } from '../../lib/logger';
 import { emit } from '../../realtime/socket';
-import { dispatchEmails } from '../notifications/email-outbox';
+import { dispatchNotifications } from '../notifications/email-outbox';
 import { recoverWebhookEvents } from '../webhooks/webhooks.service';
+import { retryFailedEmails } from '../notifications/email-retry';
 import { notifyUsers, parties } from './order-notify';
 import { expireInvoices, expirePendingPayments, writeEscrow } from './order-payment.service';
 import { lockWorkers } from './order-schedule';
@@ -72,7 +73,7 @@ export async function expireUnanswered(
       // Usulan D116: pekerja tahu kenapa tawaran berhenti masuk.
       emails.push(...(await notifyUsers(tx, missed.map((m) => m.worker.userId), order, 'Toggle Available Now dimatikan',
         'Anda tidak merespons tawaran order ini sebelum batas waktu, jadi toggle Available Now Anda dimatikan. Nyalakan lagi saat siap menerima order.')));
-      afterCommit(() => void dispatchEmails(emails));
+      afterCommit(() => void dispatchNotifications(emails));
       afterCommit(() =>
         emit([...missed.map((m) => `user:${m.worker.userId}`), `provider:${order.providerProfileId}`], 'order:offer_closed', {
           order_id: orderId,
@@ -105,7 +106,7 @@ async function expireUnpaid(tx: Tx, afterCommit: AfterCommit, orderId: string): 
       const who = await parties(tx, orderId);
       const emails = await notifyUsers(tx, [order.clientId, who.providerProfile.userId, who.assignedWorker?.userId], order,
         'Pembayaran kedaluwarsa', 'Batas waktu pembayaran lewat, order dibatalkan otomatis dan jadwal pekerja dilepas.');
-      afterCommit(() => void dispatchEmails(emails));
+      afterCommit(() => void dispatchNotifications(emails));
       if (invoiceIds.length > 0) afterCommit(() => expireInvoices(invoiceIds));
     },
   });
@@ -139,7 +140,7 @@ export async function settleOrder(tx: Tx, afterCommit: AfterCommit, orderId: str
       const who = await parties(tx, orderId);
       const emails = await notifyUsers(tx, [who.providerProfile.userId], order, 'Dana order cair',
         'Holding window sudah lewat, pendapatan order ini dipindahkan ke saldo yang bisa ditarik.');
-      afterCommit(() => void dispatchEmails(emails));
+      afterCommit(() => void dispatchNotifications(emails));
     },
   });
 }
@@ -260,6 +261,7 @@ export const DEV_JOBS = {
   'payment-deadline': sweepPaymentDeadlines,
   settlement: sweepSettlements,
   'webhook-recovery': recoverWebhookEvents,
+  'email-retry': retryFailedEmails,
 } as const;
 export type DevJob = keyof typeof DEV_JOBS;
 

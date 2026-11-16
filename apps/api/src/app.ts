@@ -40,6 +40,7 @@ import { createDevRouter, createOrdersRouter } from './modules/orders/orders.rou
 import { createWebhooksRouter } from './modules/webhooks/webhooks.routes';
 import { createDisputesRouter } from './modules/disputes/disputes.routes';
 import { createChatRouter } from './modules/chat/chat.routes';
+import { createNotificationsRouter } from './modules/notifications/notifications.routes';
 import {
   createProviderListingsRouter,
   createPublicListingsRouter,
@@ -108,6 +109,7 @@ export function createApp(): Express {
   app.use(`${API_PREFIX}/disputes`, createDisputesRouter());
   app.use(`${API_PREFIX}/webhooks`, createWebhooksRouter());
   app.use(`${API_PREFIX}/chat`, createChatRouter());
+  app.use(`${API_PREFIX}/notifications`, createNotificationsRouter());
   // D101: simulasi pembayaran tidak pernah ada di luar gateway palsu.
   if (env.PAYMENT_GATEWAY === 'fake') app.use(`${API_PREFIX}/dev`, createDevRouter());
   // /categories dan /subcategories, publik.

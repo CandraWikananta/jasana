@@ -104,7 +104,7 @@ describe.skipIf(!hasTestDatabase)('webhook payout Xendit (8b)', () => {
     expect(await reversals(id)).toBe(0);
     expect(await available()).toBe(earning - 100000);
     expect(await event(body)).toMatchObject({ domain: 'PAYOUT', eventType: 'SUCCEEDED', referenceId: body.data.id, processingStatus: 'PROCESSED' });
-    expect(await prisma.notification.count({ where: { referenceId: id, type: 'WITHDRAWAL' } })).toBe(1);
+    expect(await prisma.notification.count({ where: { channel: 'EMAIL', referenceId: id, type: 'WITHDRAWAL' } })).toBe(1);
   });
 
   it('SUCCEEDED yang mendahului respons API saat withdrawal masih APPROVED: COMPLETED dan tidak ditimpa DISBURSING', async () => {
@@ -131,7 +131,7 @@ describe.skipIf(!hasTestDatabase)('webhook payout Xendit (8b)', () => {
     expect(await withdrawalOf(id)).toMatchObject({ status: 'FAILED', failureCode: 'INVALID_DESTINATION', xenditPayoutStatus: 'FAILED' });
     expect(await reversals(id)).toBe(1);
     expect(await available()).toBe(earning);
-    const notes = await prisma.notification.findMany({ where: { referenceId: id, type: 'WITHDRAWAL' } });
+    const notes = await prisma.notification.findMany({ where: { channel: 'EMAIL', referenceId: id, type: 'WITHDRAWAL' } });
     expect(notes).toHaveLength(1);
     expect(notes[0]!.body).toContain('sudah dikembalikan');
 
@@ -163,7 +163,7 @@ describe.skipIf(!hasTestDatabase)('webhook payout Xendit (8b)', () => {
     expect(row.reversedAt).not.toBeNull();
     expect(await reversals(id)).toBe(1);
     expect(await available()).toBe(earning);
-    const notes = await prisma.notification.findMany({ where: { referenceId: id, type: 'WITHDRAWAL' }, orderBy: { id: 'asc' } });
+    const notes = await prisma.notification.findMany({ where: { channel: 'EMAIL', referenceId: id, type: 'WITHDRAWAL' }, orderBy: { id: 'asc' } });
     expect(notes.at(-1)!.body).toContain('sudah dikembalikan');
 
     const other = await disbursing(60000);

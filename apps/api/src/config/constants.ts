@@ -122,3 +122,14 @@ export const CHAT_RECOMMENDATION_LIMIT = 5;
 
 /** PRD: cache daftar sub-kategori aktif untuk prompt, di-invalidasi saat admin mengubah katalog. */
 export const SUBCATEGORY_CACHE_TTL_MS = 5 * 60 * 1000;
+
+/**
+ * Sebagian H114 (sesi 10a). Baris EMAIL yang masih PENDING tanpa retry dan lebih tua dari
+ * ini dianggap yatim: proses mati setelah commit sebelum dispatch. Cron retry mengambilnya.
+ * Jauh di atas batas waktu SMTP (`mailer.ts`, sekitar 35 detik), jadi pengiriman pertama
+ * yang masih berjalan tidak ikut terambil.
+ */
+export const EMAIL_PENDING_STALE_MINUTES = 15;
+
+/** Baris email per putaran cron retry. */
+export const EMAIL_RETRY_BATCH = 50;

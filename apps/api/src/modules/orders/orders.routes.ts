@@ -8,7 +8,7 @@
  *   /orders/:id/disputes        C/PR, buka sengketa T13, T15, T17, T19 (8d). Pekerja tidak berhak
  *   /dev/orders/:id/simulate-payment
  *   /dev/workers/presence       hanya terdaftar saat PAYMENT_GATEWAY=fake (D101, H92)
- *   /dev/orders/:id/deadline, /dev/jobs/:job/run   pemicu sweep T3, T6, T18, dan pemulihan webhook untuk Postman (6f, 7c)
+ *   /dev/orders/:id/deadline, /dev/jobs/:job/run   pemicu sweep T3, T6, T18, pemulihan webhook, dan retry email untuk Postman (6f, 7c, 10a)
  */
 
 import { Router, type RequestHandler } from 'express';
