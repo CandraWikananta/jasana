@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| Versi | 2.29 |
+| Versi | 2.30 |
 | Penyusun | I Nyoman Gede Candra Wikananta (2305551065) |
 | Program Studi | Teknologi Informasi, Universitas Udayana |
 | Bidang Keahlian | Sistem Informasi |
@@ -195,7 +195,7 @@ Setiap modul berisi `*.routes.ts`, `*.controller.ts`, `*.service.ts`, `*.schema.
 |---|---|---|---|
 | Local | Supabase project dev | Test mode | Webhook diteruskan lewat ngrok |
 | Staging / demo | Supabase project dev | Test mode | Dipakai untuk UAT responden |
-| Pengujian beban | Supabase project dev | Test mode (webhook di-mock) | Data seed diperbesar |
+| Pengujian beban | PostgreSQL lokal untuk data massal, Supabase project dev untuk data simulasi ukuran sedang | Test mode (webhook di-mock) | Data massal `seed:simulasi --bulk` hanya di basis data lokal (usulan D207). Lihat `docs/Data-Simulasi.md` |
 
 Produksi komersial di luar cakupan penelitian.
 
@@ -1574,6 +1574,8 @@ Data seed harus menyertakan kombinasi yang memungkinkan skenario di atas dijalan
 - Listing servis AC dengan `PER_UNIT` plus dua `SELECT` berbayar, sebagai kasus utama test perhitungan harga
 - Koordinat client dan pekerja yang menghasilkan check-in lolos maupun gagal
 
+Seluruh kebutuhan di atas dipenuhi skrip `npm run seed:simulasi` (H16): 40 penyedia, 100 pekerja, 130 listing di dua belas sub-kategori, 41 client, dan 293 order di Bali, lewat service layer dengan gateway palsu. Isi data, akun demo, cara menjalankan, reset, dan pemetaan tiap butir di atas ada di `docs/Data-Simulasi.md`.
+
 ---
 
 ## 9. Milestone Implementasi
@@ -1733,3 +1735,4 @@ Tidak menyangkut aturan bisnis, dibentuk oleh middleware bersama pada Fase 0.
 | 2.27 | 17 November 2026 | Sesi 10a. Respons tiga endpoint notifikasi, tabel event notifikasi (Bagian 7.3), aturan cron retry email (whitelist `reference_type`, render ulang, PENDING yatim 15 menit, klaim bersyarat), payload `notification:new`, dan makna `email_retry_max_attempts`. Menunggu pencatatan usulan D182 sampai D186 di register |
 | 2.28 | 17 November 2026 | Sesi 10b. Kontrak pesan dalam order dengan tabel masa aktif per status (DISPUTED read-only), kontrak review dan balasan, dua endpoint admin review, parameter `review_window_days`, baris 27 sampai 29 tabel event (in-app saja), revisi V11, empat kode error review, cron retry dengan batas umur 24 jam dan backoff, format waktu WITA, dan tanggal `order_number` per hari WITA. Menunggu pencatatan usulan D187 sampai D197 dan H117 di register |
 | 2.29 | 17 November 2026 | Sesi 10c. Rentang parameter dan empat kunci yang tidak dibaca server (Bagian 3.5), kontrak `GET` dan `PATCH /admin/settings`, kontrak empat laporan admin beserta aturan periode per kejadian, V4 per bulan WITA (H121), kode error `SETTING_CONFLICTS_WITH_DATA`, dan status Fase 10 selesai. Menunggu pencatatan usulan D198 sampai D203 di register |
+| 2.30 | 17 November 2026 | Sesi data simulasi (H16). Bagian 8.4 merujuk `docs/Data-Simulasi.md`, dan baris pengujian beban di Bagian 2.4 menyebut data massal hanya di basis data lokal. Menunggu pencatatan usulan D204 sampai D208 di register |

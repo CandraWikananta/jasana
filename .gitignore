@@ -19,3 +19,7 @@ npm-debug.log*
 .DS_Store
 Thumbs.db
 tmp/
+
+# Gambar override seed simulasi (D206): hanya README yang masuk repo
+scripts/sim-photos/*
+!scripts/sim-photos/README.md

@@ -85,8 +85,11 @@ export async function expireUnanswered(
   return slaMissed;
 }
 
-/** T6 ACCEPTED -> PAYMENT_EXPIRED. Slot lepas sendiri karena status keluar dari ACCEPTED (H26). */
-async function expireUnpaid(tx: Tx, afterCommit: AfterCommit, orderId: string): Promise<void> {
+/**
+ * T6 ACCEPTED -> PAYMENT_EXPIRED. Slot lepas sendiri karena status keluar dari ACCEPTED (H26).
+ * Diekspor untuk seed simulasi, supaya kedaluwarsa bayar bisa dipicu per order tanpa menyapu order lain.
+ */
+export async function expireUnpaid(tx: Tx, afterCommit: AfterCommit, orderId: string): Promise<void> {
   await transitionOrder(tx, {
     orderId,
     afterCommit,

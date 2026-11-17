@@ -4,8 +4,8 @@
 **Nama sistem:** Jasana
 **Penyusun:** I Nyoman Gede Candra Wikananta (2305551065)
 **Bidang Keahlian:** Sistem Informasi, Teknologi Informasi, Universitas Udayana
-**Versi:** 2.40
-**Terakhir diperbarui:** 17 November 2026 (versi 2.40)
+**Versi:** 2.41
+**Terakhir diperbarui:** 17 November 2026 (versi 2.41)
 **Tahap saat ini:** Implementasi backend Fase 0 sampai Fase 10 selesai. Berikutnya stress test k6, data simulasi, dan UAT
 
 ---
@@ -55,7 +55,13 @@
 | Notifikasi dan retry email (D182 sampai D186) | 5 | 0 |
 | Pesan, review, dan perbaikan sandbox 10a (D187 sampai D197) | 11 | 0 |
 | Parameter dan laporan admin (D198 sampai D203) | 6 | 0 |
+| Data simulasi (D204 sampai D208) | 5 | 0 |
 | Keputusan terbuka tanpa nomor D (Bagian 7) | | 0 |
+
+**Perubahan pada versi 2.41:**
+
+1. Data simulasi Bali (D204), pengecualian ledger untuk data simulasi yang memperluas D130 (D205), foto simulasi (D206), `--bulk` hanya lokal (D207), dan penonaktifan listing akun uji (D208)
+2. H16 ditutup setelah dijalankan ke Supabase dev, H122 baru
 
 **Perubahan pada versi 2.40:**
 
@@ -1393,7 +1399,7 @@ Keduanya diusulkan di sesi 7c dan sudah diterapkan di kode. Tidak ada perubahan 
 | # | Keputusan | Alasan |
 |---|---|---|
 | D129 | **`GET /providers/me/wallet` dan `GET /providers/me/wallet/transactions` dimajukan dari Fase 8 ke Fase 7.** Keduanya hanya membaca dan hanya untuk pemilik usaha (`requireProvider`). Riwayat transaksi dipaginasi sesuai PRD 4.1, urut terbaru dulu, nominal dalam rupiah bulat. Withdrawal tetap di Fase 8 | Kriteria Fase 7 (satu `ESCROW_HOLD`, saldo available bertambah setelah T18) harus bisa dibuktikan lewat API di Postman, bukan hanya lewat kueri basis data. Endpoint baca tidak mengubah alur uang, jadi memajukannya tidak menggeser lingkup Fase 8 |
-| D130 | **Seed demo Fase 6 dan Fase 7 menghapus `wallet_transactions` milik wallet akun demo** sebelum menghapus akun itu. Akun demo dikenali dari email yang persis tercantum di daftar `ACTORS`. Seed menolak jalan saat `NODE_ENV=production`. Ini satu-satunya pengecualian aturan ledger append-only (CLAUDE.md aturan 3), dan kodenya diberi komentar yang menyebut itu | Sejak 7b, simulate-payment menulis ledger. Menghapus akun demo ikut menghapus wallet lewat cascade, sedangkan `wallet_transactions` memakai RESTRICT, sehingga seed tidak bisa dijalankan dua kali. Data yang dihapus adalah data buatan tanpa nilai audit, dan cakupannya dibatasi ke email yang dikenal persis. Terbukti di sesi 7c: seed dijalankan ulang setelah newman, ledger demo kembali 0, dan baris lain tidak tersentuh |
+| D130 | **Seed demo Fase 6 dan Fase 7 menghapus `wallet_transactions` milik wallet akun demo** sebelum menghapus akun itu. Akun demo dikenali dari email yang persis tercantum di daftar `ACTORS`. Seed menolak jalan saat `NODE_ENV=production`. Ini satu-satunya pengecualian aturan ledger append-only (CLAUDE.md aturan 3), dan kodenya diberi komentar yang menyebut itu | Sejak 7b, simulate-payment menulis ledger. Menghapus akun demo ikut menghapus wallet lewat cascade, sedangkan `wallet_transactions` memakai RESTRICT, sehingga seed tidak bisa dijalankan dua kali. Data yang dihapus adalah data buatan tanpa nilai audit, dan cakupannya dibatasi ke email yang dikenal persis. Terbukti di sesi 7c: seed dijalankan ulang setelah newman, ledger demo kembali 0, dan baris lain tidak tersentuh **Diperluas D205:** data simulasi `@sim.jasana.test` |
 
 **Catatan implementasi sesi 7c tanpa nomor D:**
 
@@ -2003,6 +2009,31 @@ Fase 9 ditutup. Seluruh hasil evaluasi tiga run tersimpan di `apps/api/eval/resu
 
 ---
 
+## 4AH. Keputusan Versi 2.41 (D204 sampai D208): Data Simulasi
+
+Dari sesi data simulasi (H16). Semua dijawab penyusun sebelum dan saat review rencana. Tanpa migrasi. Panduannya di `docs/Data-Simulasi.md`.
+
+| # | Keputusan | Alasan |
+|---|---|---|
+| D204 | **Data simulasi Bali** lewat `npm run seed:simulasi`. Wilayahnya Denpasar, Badung selatan, dan Gianyar (Ubud). Semua akun simulasi memakai domain `@sim.jasana.test`. Seluruh order yang menyangkut uang dibuat lewat service layer dengan gateway fake, bukan insert langsung. Jalan normal berarti reset lalu bangun ulang secara deterministik (PRNG berseed tetap). Reset menolak jalan kalau ada data akun non-simulasi yang terkait data simulasi. Target lokal (`localhost` dengan nama basis data memuat `test`) langsung jalan, host lain wajib `--confirm-host` yang sama persis, dan `NODE_ENV=production` ditolak. Akun admin UAT (`uat-admin-01` sampai `03@uat.jasana.test`) disiapkan skrip dan tidak pernah dihapus reset, sedangkan responden client, penyedia, dan pekerja mendaftar sendiri | Satu order SETTLED melibatkan payment, ledger, saldo, dan riwayat status. Membuatnya lewat service menjaga V1 tetap nol dan laporan admin tetap cocok. Penanda domain memungkinkan reset tanpa menyentuh data lain. Pengaman data asing mencegah reset menghapus jejak transaksi responden UAT. Pendaftaran dan e-KYC adalah alur yang diuji responden, sedangkan akun ADMIN tidak punya jalur daftar sendiri |
+| D205 | **Pengecualian kedua aturan ledger (perluasan D130), hanya untuk wallet milik akun `@sim.jasana.test`:** kolom waktu `wallet_transactions` digeser bersama order-nya saat riwayat disebar ke 60 hari terakhir, dan reset menghapus ledger simulasi. Nominal tidak pernah diubah. Notifikasi milik order yang digeser dihapus, karena teksnya memuat jam saat skrip dijalankan | Tanpa pergeseran waktu, grafik laporan admin hanya berisi satu hari dan batas review 14 hari tidak bisa ditunjukkan. Karena nominal tetap, V1 tetap nol, dan pengecualiannya hanya berlaku di skrip simulasi, tidak pernah di kode aplikasi |
+| D206 | **Foto listing simulasi berupa PNG buatan lokal** (gradien per kategori dan pola per sub-kategori, tanpa dependensi baru), dengan folder override `scripts/sim-photos/<sub-kategori>/` yang di-gitignore. Isi folder override hanya gambar tanpa wajah orang, milik sendiri atau berlisensi bebas | Tidak memakai foto orang sungguhan dari internet. Gambar buatan cukup untuk pengerjaan frontend, dan bisa diganti foto yang lebih menarik sebelum UAT tanpa mengubah skrip |
+| D207 | **`--bulk N` hanya untuk basis data lokal stress test** (insert massal penyedia dan listing tanpa order dan foto, tetap mematuhi V6 dan V7). Skrip berhenti sebelum koneksi kalau target bukan lokal | Stress test mengukur kinerja API, bukan latensi jaringan ke Supabase (H109, H111). Ribuan listing massal juga akan mengotori data UAT dan kuota free tier |
+| D208 | **Listing ACTIVE milik akun uji Postman dan sandbox di Supabase dev dinonaktifkan** lewat `npm run listings:deactivate-test` (dry-run lebih dulu), termasuk dua listing di bawah sub-kategori demo yang sudah nonaktif (temuan 9c). Akunnya dibiarkan | Responden UAT tidak melihat listing uji di pencarian, tetapi akun uji tetap bisa login kalau suatu saat diperlukan |
+
+**Catatan implementasi tanpa nomor D:**
+
+- Isi satu jalan normal: 40 penyedia (26 BUSINESS, 14 INDIVIDUAL), 100 pekerja, 130 listing di seluruh dua belas sub-kategori dengan kepadatan berbeda, 276 foto, 293 order (280 riwayat dan 13 order hidup), 154 review (71 dibalas), 473 baris ledger, dan 5 withdrawal. Akun demo per peran tercatat di panduan
+- Order hidup berubah sendiri lewat cron (misalnya ACCEPTED kedaluwarsa sekitar 10 menit), sehingga seed dijalankan ulang sebelum sesi demo frontend, selama UAT belum dimulai. Tabelnya di panduan
+- Langkah di dalam satu order riwayat hanya berjarak beberapa detik, kecuali pencairan dana yang sehari setelah selesai, sebagai konsekuensi pergeseran waktu yang sama rata
+- `expireUnpaid` di `order-expiry.service.ts` diekspor supaya skrip bisa mengedaluwarsakan satu order tanpa menyapu order lain
+- Penyedia simulasi dibuat VERIFIED tanpa dokumen e-KYC, dan endpoint detail penyedia admin tetap berjalan (smoke 200)
+- Peringatan di panduan: seed Postman tidak boleh dijalankan ke Supabase dev karena akan mengaktifkan lagi listing uji
+
+**Hasil uji di `jasana_test`:** jalan normal 236 sampai 297 detik, jalan ulang identik kecuali UUID dan nomor order, reset menghapus 142 akun, 293 order, dan 276 berkas foto, pengaman reset berhenti dengan exit 1, `--bulk 2000` menghasilkan 4.173 listing ACTIVE dengan V6 dan V7 lulus, smoke HTTP 21 pemeriksaan lulus, `db:verify` lulus di setiap tahap, 1.012 test lulus, dan mutan 15 dari 15 (skrip simulasi) serta 4 dari 4 (skrip penonaktif) tertangkap.
+
+---
+
 ## 5. Alur Sistem End-to-End
 
 ### 5.1 Onboarding
@@ -2604,7 +2635,7 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 
 - [x] **H15** **(ditutup 17 November 2026: dataset 49 skenario dan evaluasi tiga run, D176, Bagian 4AB)** Kumpulkan 30 sampai 50 skenario percakapan berlabel untuk mengukur akurasi intent extraction. Mulai sekarang, jangan tunggu bulan ke-5 **(alat siap di sesi 9c: dataset berformat, validator `--check`, dan skrip evaluasi. Dataset 49 skenario selesai dan run 1 dijalankan, tersisa run 2 dan 3 menurut D176)**
 - [ ] **H68** Ukur konversi sesi chat tamu jadi pendaftaran akun lewat `chat_sessions.claimed_at` **(baru, D77)**. Metrik ini menjawab pertanyaan kegunaan chatbot dengan angka **(alat siap di sesi 9c: klaim sesi D170 dan V9 D172. Datanya terkumpul saat UAT)**
-- [ ] **H16** Siapkan data simulasi, termasuk beberapa usaha BUSINESS dengan jumlah pekerja berbeda dan pemetaan listing yang tumpang tindih, supaya skenario order paralel dan perebutan bisa diuji
+- [ ] **H16** Siapkan data simulasi, termasuk beberapa usaha BUSINESS dengan jumlah pekerja berbeda dan pemetaan listing yang tumpang tindih, supaya skenario order paralel dan perebutan bisa diuji **(skrip siap di sesi data simulasi, D204 sampai D208, ditutup setelah dijalankan ke Supabase dev)**
 - [ ] **H20** Jalankan kueri verifikasi V1 sampai V5 setelah seeding dan setelah pengujian
 - [ ] **H91** Rate limiter dihitung per alamat IP, sedangkan k6 menembak seluruh request dari satu IP. Sediakan pengaturan khusus lingkungan pengujian beban, misalnya batas yang dinaikkan lewat env, supaya yang terukur adalah API dan bukan rate limiter-nya. Pengaturan itu ditulis di laporan **(baru)**
 - [x] **H92** **(ditutup di sesi 6d)** Sediakan cara menandai pekerja hasil seed sebagai online, hanya aktif di lingkungan pengujian, supaya skenario pencarian `available_now` di stress test tidak selalu kosong. Dibangun di Fase 6 bersama pelacak status online (D99). Sebaiknya k6 juga tidak dijalankan di mesin yang sama dengan API, dan kalau terpaksa, kondisinya ditulis di laporan **(baru)**
@@ -2650,6 +2681,7 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 - [ ] **H117** Keanggotaan room `order:<id>` hanya diperiksa saat bergabung. Anggota yang keanggotaannya menjadi nonaktif, atau penyedia yang kehilangan status VERIFIED, tetap menerima event room sampai koneksinya putus **(baru, sesi 10b)**
 - [ ] **H118** Penurunan `listing_faq_max_items` bisa berbalapan dengan penulisan FAQ yang berjalan bersamaan, karena jalur FAQ tidak memakai advisory lock D199. Pelanggarannya terdeteksi V12 **(baru, sesi 10c)**
 - [ ] **H120** Belum ada index `order_status_histories(to_status, created_at)` untuk laporan yang membaca waktu status dari riwayat (D203). Belum diperlukan untuk skala data penelitian **(baru, sesi 10c)**
+- [ ] **H122** Pengaman reset data simulasi hanya menghitung relasi yang terdaftar di skrip. Reset tidak boleh dijalankan selama dan sesudah UAT (D204) **(baru, sesi data simulasi)**
 - [ ] **H82** Admin fee withdrawal berupa nilai flat yang mengikuti perkiraan biaya payout Xendit **(baru, D84)**. Untuk nominal di atas Rp250.000 biaya sebenarnya sedikit lebih besar dan selisihnya ditanggung platform
 
 ---
@@ -2740,6 +2772,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 | 2.38 | 17 November 2026 | Sebelas keputusan dari sesi 10b: masa aktif pesan yang merevisi D79 (D187), notifikasi pesan dan review (D188), admin review (D189), revisi V11 (D190), batas teks dan nama disamarkan (D191), review di detail listing (D192), perbaikan sandbox 10a (D193 sampai D196), dan urutan kunci seragam (D197). H70 sampai H72 ditutup, H117 baru. Tanpa migrasi Ditambah hasil uji sandbox 10b |
 | 2.39 | 17 November 2026 | Enam keputusan dari sesi 10c: registri dan rentang parameter (D198), PATCH atomik dengan advisory lock (D199), periode laporan per hari WITA dan V4 per bulan WITA (D200), definisi kolom laporan (D201), SQL mentah terikat (D202), dan waktu status dari riwayat (D203). Penutupan Fase 10. H118 dan H120 baru. Tanpa migrasi Ditambah hasil evaluasi run 2 |
 | 2.40 | 17 November 2026 | Hasil evaluasi run 3, rekap tiga run, dan kesimpulan terhadap D85. Penutupan Fase 9. H15 ditutup. Tanpa keputusan baru dan tanpa perubahan kode Ditambah hasil uji sandbox 10c |
+| 2.41 | 17 November 2026 | Lima keputusan data simulasi: data Bali lewat service layer (D204), pengecualian ledger simulasi yang memperluas D130 (D205), foto simulasi (D206), `--bulk` hanya lokal (D207), dan penonaktifan listing akun uji (D208). H122 baru. Tanpa migrasi |
 
 ---
 
