@@ -339,9 +339,21 @@ async function uploadPhoto(provider: RtProvider, slug: SubSlug, variant: number)
   const own = overrideImages(slug);
   const { bytes: png, mime } = own.length > 0 ? own[variant % own.length]! : { bytes: makePng(640, 480, from, to, SUB_ORDER.indexOf(slug), variant), mime: 'image/png' };
   // Folder milik pemilik, persis bentuk signed-url, supaya addPhoto menerimanya.
-  const path = `${provider.ctx.userId}/${randomUUID()}`;
-  await storage.upload(LISTING_PHOTO_BUCKET, path, png, mime);
-  return storage.publicUrl(LISTING_PHOTO_BUCKET, path);
+  // Koneksi ke Storage dev kadang lambat (timeout 15 detik). Coba ulang dengan
+  // nama baru setiap percobaan, karena unggahan yang timeout bisa saja sudah
+  // tersimpan dan x-upsert false menolak nama yang sama. Berkas yatim dari
+  // percobaan yang gagal disapu cron berkas yatim.
+  for (let attempt = 1; ; attempt += 1) {
+    const path = `${provider.ctx.userId}/${randomUUID()}`;
+    try {
+      await storage.upload(LISTING_PHOTO_BUCKET, path, png, mime);
+      return storage.publicUrl(LISTING_PHOTO_BUCKET, path);
+    } catch (error) {
+      if (attempt >= 4) throw error;
+      console.warn(`Unggah foto gagal (percobaan ${attempt} dari 4), dicoba lagi: ${error instanceof Error ? error.message : String(error)}`);
+      await new Promise((resolve) => setTimeout(resolve, 2_000 * attempt));
+    }
+  }
 }
 
 async function createListings(providers: RtProvider[]) {
