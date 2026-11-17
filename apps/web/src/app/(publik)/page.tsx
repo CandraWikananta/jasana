@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { listCategories } from "@/features/catalog/api"
 import { searchListings } from "@/features/listings/api"
+import { getCategoryIcon } from "@/lib/category-icons"
 
 // FE2: Server Component. Data diambil tanpa `use cache` di dalam Suspense, jadi selalu segar dan
 // `next build` tidak butuh API hidup. Kegagalan fetch ditangkap (publik)/error.tsx.
@@ -103,21 +104,23 @@ async function CategoryGrid() {
   }
   return (
     <ul className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-      {categories.map((c) => (
-        <li key={c.id}>
-          {/* /kategori/[id] belum dibuat, jadi ubin langsung membuka pencarian berfilter. */}
-          <Link
-            href={`/cari?category_id=${c.id}`}
-            className="flex h-full items-center gap-3 rounded-lg border border-border bg-card p-4 font-semibold outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-          >
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary-subtle text-primary-subtle-foreground">
-              {/* icon_name kosong di seluruh data saat ini; ikon generik dulu. */}
-              <Shapes aria-hidden className="size-5" />
-            </span>
-            <span className="min-w-0 truncate">{c.name}</span>
-          </Link>
-        </li>
-      ))}
+      {categories.map((c) => {
+        const Icon = getCategoryIcon(c.icon_name)
+        return (
+          <li key={c.id}>
+            {/* /kategori/[id] belum dibuat, jadi ubin langsung membuka pencarian berfilter. */}
+            <Link
+              href={`/cari?category_id=${c.id}`}
+              className="flex h-full items-center gap-3 rounded-lg border border-border bg-card p-4 font-semibold outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            >
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary-subtle text-primary-subtle-foreground">
+                <Icon aria-hidden className="size-5" />
+              </span>
+              <span className="min-w-0 truncate">{c.name}</span>
+            </Link>
+          </li>
+        )
+      })}
     </ul>
   )
 }

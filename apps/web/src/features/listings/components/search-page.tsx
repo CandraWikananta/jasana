@@ -3,7 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
-import { ChevronLeft, ChevronRight, LocateFixed, MapPin, SearchX, SlidersHorizontal, X } from "lucide-react"
+import { ChevronLeft, ChevronRight, LocateFixed, MapPin, SearchX, SlidersHorizontal, X, type LucideIcon } from "lucide-react"
 import { EmptyState } from "@/components/shared/empty-state"
 import { ErrorState } from "@/components/shared/error-state"
 import { ListingCard, ListingCardSkeleton } from "@/components/shared/listing-card"
@@ -13,6 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
 import { useCategories } from "@/features/catalog/queries"
 import { ApiError } from "@/lib/api-client"
+import { getCategoryIcon } from "@/lib/category-icons"
 import { getErrorMessage } from "@/lib/error-messages"
 import { SORT_LABEL } from "@/lib/enum-labels"
 import { BOOKING_MODE_META } from "@/lib/order-status"
@@ -246,7 +247,7 @@ function FilterPanel({
           <ChipGroup
             label="Kategori"
             value={params.category_id ?? null}
-            options={[{ value: null, label: "Semua" }, ...categories.data.data.map((c) => ({ value: c.id, label: c.name }))]}
+            options={[{ value: null, label: "Semua" }, ...categories.data.data.map((c) => ({ value: c.id, label: c.name, icon: getCategoryIcon(c.icon_name) }))]}
             onSelect={(v) => onChange({ category_id: v })}
           />
         )}
@@ -313,7 +314,7 @@ function ChipGroup({
 }: {
   label: string
   value: string | null
-  options: { value: string | null; label: string }[]
+  options: { value: string | null; label: string; icon?: LucideIcon }[]
   onSelect: (value: string | null) => void
 }) {
   return (
@@ -327,12 +328,13 @@ function ChipGroup({
             aria-pressed={active}
             onClick={() => onSelect(o.value)}
             className={cn(
-              "min-h-11 rounded-full border px-4 text-sm font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+              "inline-flex min-h-11 items-center gap-1.5 rounded-full border px-4 text-sm font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
               active
                 ? "border-primary bg-primary-subtle text-primary-subtle-foreground"
                 : "border-border bg-card text-foreground hover:bg-accent",
             )}
           >
+            {o.icon && <o.icon aria-hidden className="size-4" />}
             {o.label}
           </button>
         )
