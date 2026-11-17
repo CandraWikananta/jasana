@@ -2,7 +2,7 @@
 
 **Artefak frontend 2 dari 4**
 Platform Jasana, Tugas Akhir I Nyoman Gede Candra Wikananta (2305551065)
-**Versi 1.4 (disetujui)**, 18 November 2026
+**Versi 1.5 (disetujui)**, 18 November 2026
 
 Dokumen ini menetapkan bahasa visual dan bahasa teks seluruh antarmuka Jasana: warna, tipografi, jarak, komponen, label status, format angka dan waktu, serta glosarium. Tujuannya satu: **empat area (publik dan client, usaha, pekerja, admin) terlihat dan terbaca seperti satu produk**, walaupun dibangun dalam belasan sesi Claude Code yang terpisah.
 
@@ -158,7 +158,7 @@ Kenapa hijau utamanya tidak lebih terang lagi: hijau yang lebih cerah dari `#008
 | `body` | 16 / 24 px | 400 | Teks utama, **seluruh input** |
 | `body-sm` | 14 / 20 px | 400 | Teks sekunder, isi tabel, deskripsi kartu |
 | `caption` | 12 / 16 px | 500 | Label kecil, metadata, keterangan di bawah input |
-| `code-xl` | 32 / 40 px | 700, `tabular-nums`, jarak huruf 0,2em | Kode verifikasi 6 digit di layar client |
+| `code-xl` | 32 / 40 px | 700, `tabular-nums`, jarak huruf 0,2em | Kode verifikasi 6 digit di layar client. Kelas: `text-code-xl tracking-code font-bold tabular-nums` |
 
 Aturan:
 
@@ -253,7 +253,7 @@ Dasar komponen dari **shadcn/ui** (disalin ke `src/components/ui`, berbasis Radi
 | `Skeleton` | | Mengikuti bentuk konten yang dimuat, bukan blok abu-abu tunggal |
 | `Toast` (sonner) | sukses, error, info | Pesan maksimal satu kalimat. Posisi bawah tengah di HP, kanan bawah di desktop |
 | `Alert` / banner | info, warning, destructive, now | Banner status di atas halaman detail order |
-| `Badge` | lihat Bagian 7 | Selalu teks + ikon |
+| `Badge` | lihat Bagian 7 | Selalu teks + ikon. Teks `caption` 12 px, tinggi 28 px. Mockup memakai 13 px, yang berlaku dokumen ini |
 | `Avatar`, `Tooltip`, `Popover`, `Accordion`, `Pagination`, `Breadcrumb` | | Sesuai bawaan |
 
 ### 6.2 Komponen domain
@@ -300,7 +300,7 @@ Satu sumber di kode: `ORDER_STATUS_META` di `src/lib/order-status.ts`. Tidak ada
 |---|---|---|---|
 | `PENDING_ACCEPTANCE` | Menunggu konfirmasi | `warning` | `Hourglass` |
 | `ACCEPTED` | Menunggu pembayaran | `warning` | `Wallet` |
-| `PAID` | Terjadwal | `info` | `CalendarCheck` |
+| `PAID` | Sudah dibayar | `info` | `Banknote` |
 | `ON_THE_WAY` | Dalam perjalanan | `info` | `Navigation` |
 | `ARRIVED` | Tiba di lokasi | `info` | `MapPinCheck` |
 | `IN_PROGRESS` | Sedang dikerjakan | `info` | `Wrench` |
@@ -316,7 +316,7 @@ Satu sumber di kode: `ORDER_STATUS_META` di `src/lib/order-status.ts`. Tidak ada
 
 Setiap nada memakai pasangan subtle masing-masing dari Bagian 1.4. **Warna merek tidak dipakai untuk status.** Urutannya terbaca sebagai alur: kuning (menunggu seseorang bertindak), biru (terjadwal dan sedang berjalan), hijau (selesai), merah (komplain), abu (berakhir tanpa hasil). Nama ikon dicek ke versi `lucide-react` yang terpasang, karena beberapa nama berubah antarversi.
 
-Kenapa `PAID` berlabel "Terjadwal": D43 menamai slot yang sudah pasti dengan "terjadwal". Pada mode Available Now status ini hanya beberapa menit, dan banner di detail order (Matriks Bagian 2.3) yang menjelaskan konteksnya.
+Kenapa `PAID` berlabel "Sudah dibayar", bukan "Terjadwal": label "Terjadwal" sudah dipakai `ModeBadge` untuk mode `SCHEDULED`, dan keduanya sering tampil berdampingan di kartu pesanan. "Sudah dibayar" berlaku untuk kedua mode. Jadwal kunjungan tetap ditampilkan di banner detail order (Matriks Bagian 2.3) lewat `scheduled_at`.
 
 ### 7.2 Enum lain
 
@@ -450,6 +450,8 @@ Setelah `shadcn init`, ganti nilai variabel di `src/app/globals.css` dengan isi 
 
 ```css
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
 :root {
   --radius: 0.625rem;
@@ -568,16 +570,36 @@ Setelah `shadcn init`, ganti nilai variabel di `src/app/globals.css` dengan isi 
   --radius-md: var(--radius);
   --radius-lg: calc(var(--radius) + 4px);
   --radius-xl: calc(var(--radius) + 10px);
+
+  --text-code-xl: 2rem;
+  --text-code-xl--line-height: 2.5rem;
+  --tracking-code: 0.2em;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
 }
 ```
 
-Hasilnya, kelas seperti `bg-primary`, `text-muted-foreground`, `bg-now-subtle`, `text-now-strong`, `bg-warning-surface`, `text-success-subtle-foreground`, dan `rounded-lg` langsung tersedia.
+Tiga tambahan di luar token warna:
+
+- `tw-animate-css` menyediakan kelas animasi (`animate-in`, `fade-in`, `slide-in-from-bottom`) yang dipakai Dialog, Sheet, Popover, dan Dropdown dari shadcn
+- `shadcn/tailwind.css` menyediakan varian seperti `data-open:` yang dipakai komponen shadcn versi 4. Isinya varian, bukan warna, jadi tidak melanggar aturan token
+- `@layer base` menjadikan `--border` sebagai warna garis bawaan. Tanpa ini, Tailwind v4 memakai `currentColor`, sehingga setiap `border` yang lupa diberi `border-border` tampil hitam pekat
+
+Hasilnya, kelas seperti `bg-primary`, `text-muted-foreground`, `bg-now-subtle`, `text-now-strong`, `bg-warning-surface`, `text-success-subtle-foreground`, `text-code-xl`, dan `rounded-lg` langsung tersedia.
 
 **Aturan untuk kode:**
 
 - Tidak ada warna hex, `rgb()`, atau nilai arbitrer seperti `bg-[#00814B]` dan `p-[13px]` di `className`
 - Tidak memakai palet bawaan Tailwind (`bg-teal-700`, `text-gray-500`) di komponen. Semua lewat token di atas
 - Butuh warna atau ukuran baru: tambahkan dulu ke dokumen ini dan ke `globals.css`, baru dipakai
+- Pengecualian yang benar-benar perlu (misalnya `grid-cols-[1fr_auto]`) ditandai komentar `// token-check-ignore: <alasan>` di baris yang sama. Tanpa alasan, `npm run lint` tetap gagal
 
 ---
 
@@ -590,3 +612,4 @@ Hasilnya, kelas seperti `bg-primary`, `text-muted-foreground`, `bg-now-subtle`, 
 | 1.2 | 18 November 2026 | Mode Sekarang dari kuning jadi ungu (`#7C3AED`), token `--now-strong` dihapus. Warning kembali kuning dengan latar lebih pekat (`#FEF08A`). Alasannya: dua kuning tidak bisa dibedakan dengan andal |
 | 1.3 | 18 November 2026 | Mode Sekarang jadi oranye terang (`#F97316`, teks gelap, selalu solid) dengan `--now-strong` kembali. Warning jadi kuning keemasan (amber) yang selalu pucat. Pola banner status berlapis untuk semua nada (Bagian 1.4b), mengikuti referensi yang dipilih |
 | 1.4 | 18 November 2026 | Mode Sekarang jadi hijau neon (lime `#D4F034`) dengan teks hijau tua `#00432A`, terinspirasi gaya kartu Grab. Kartu tawaran memakai latar lime solid dengan tombol Ambil hijau tua. **Disetujui** sebagai acuan implementasi |
+| 1.5 | 18 November 2026 | Hasil W0 bagian 1. Bagian 13 ditambah impor `tw-animate-css` dan `shadcn/tailwind.css`, `@layer base` (garis bawaan `--border`, gaya `body`), serta token `text-code-xl` dan `tracking-code`. Label `PAID` diganti "Sudah dibayar" (ikon `Banknote`) karena bentrok dengan `ModeBadge` "Terjadwal". Ukuran teks badge ditegaskan 12 px. Aturan pengecualian `token-check-ignore` |
