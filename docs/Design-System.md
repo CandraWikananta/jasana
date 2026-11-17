@@ -253,7 +253,7 @@ Dasar komponen dari **shadcn/ui** (disalin ke `src/components/ui`, berbasis Radi
 | `Skeleton` | | Mengikuti bentuk konten yang dimuat, bukan blok abu-abu tunggal |
 | `Toast` (sonner) | sukses, error, info | Pesan maksimal satu kalimat. Posisi bawah tengah di HP, kanan bawah di desktop |
 | `Alert` / banner | info, warning, destructive, now | Banner status di atas halaman detail order |
-| `Badge` | lihat Bagian 7 | Selalu teks + ikon. Teks `caption` 12 px, tinggi 28 px. Mockup memakai 13 px, yang berlaku dokumen ini |
+| `Badge` | nada `warning`, `info`, `success`, `destructive`, `neutral`, `now` (lihat Bagian 7), plus `outline` (latar `--card`, garis `--border`, teks `--muted-foreground`) | Selalu teks + ikon. Teks `caption` 12 px, tinggi 28 px. Mockup memakai 13 px, yang berlaku dokumen ini |
 | `Avatar`, `Tooltip`, `Popover`, `Accordion`, `Pagination`, `Breadcrumb` | | Sesuai bawaan |
 
 ### 6.2 Komponen domain
@@ -261,7 +261,7 @@ Dasar komponen dari **shadcn/ui** (disalin ke `src/components/ui`, berbasis Radi
 | Komponen | Isi | Dipakai di |
 |---|---|---|
 | `StatusBadge` | Badge status order dari `ORDER_STATUS_META` | Semua daftar dan detail order |
-| `ModeBadge` | "Terjadwal" (ikon `CalendarClock`, nada `info`) atau "Sekarang" (ikon `Zap`, nada `now`) | Kartu listing, order, tawaran |
+| `ModeBadge` | "Terjadwal" (ikon `CalendarClock`, varian `outline`) atau "Sekarang" (ikon `Zap`, nada `now`, solid) | Kartu listing, order, tawaran |
 | `MoneyText` | Rupiah terformat, `tabular-nums` | Seluruh angka uang |
 | `PriceBreakdown` | Baris harga dasar, tiap opsi beserta deltanya, total. Prop `estimate` menambahkan label "Perkiraan" | Form pesan (perkiraan), detail order (dari server) |
 | `Countdown` | Sisa waktu dari timestamp server. Nada `now` kalau di bawah 5 menit | Tawaran, batas bayar, batas komplain, kode |
@@ -316,7 +316,7 @@ Satu sumber di kode: `ORDER_STATUS_META` di `src/lib/order-status.ts`. Tidak ada
 
 Setiap nada memakai pasangan subtle masing-masing dari Bagian 1.4. **Warna merek tidak dipakai untuk status.** Urutannya terbaca sebagai alur: kuning (menunggu seseorang bertindak), biru (terjadwal dan sedang berjalan), hijau (selesai), merah (komplain), abu (berakhir tanpa hasil). Nama ikon dicek ke versi `lucide-react` yang terpasang, karena beberapa nama berubah antarversi.
 
-Kenapa `PAID` berlabel "Sudah dibayar", bukan "Terjadwal": label "Terjadwal" sudah dipakai `ModeBadge` untuk mode `SCHEDULED`, dan keduanya sering tampil berdampingan di kartu pesanan. "Sudah dibayar" berlaku untuk kedua mode. Jadwal kunjungan tetap ditampilkan di banner detail order (Matriks Bagian 2.3) lewat `scheduled_at`.
+Kenapa `PAID` berlabel "Sudah dibayar", bukan "Terjadwal": label "Terjadwal" sudah dipakai `ModeBadge` untuk mode `SCHEDULED`, dan keduanya sering tampil berdampingan di kartu pesanan. Untuk alasan yang sama, `ModeBadge` "Terjadwal" memakai varian `outline`, bukan nada `info`: **pill berwarna selalu berarti status**, sedangkan mode Terjadwal tampil sebagai label bergaris. Mode Sekarang tetap lime solid karena memang harus paling menonjol. "Sudah dibayar" berlaku untuk kedua mode. Jadwal kunjungan tetap ditampilkan di banner detail order (Matriks Bagian 2.3) lewat `scheduled_at`.
 
 ### 7.2 Enum lain
 
@@ -612,4 +612,4 @@ Hasilnya, kelas seperti `bg-primary`, `text-muted-foreground`, `bg-now-subtle`, 
 | 1.2 | 18 November 2026 | Mode Sekarang dari kuning jadi ungu (`#7C3AED`), token `--now-strong` dihapus. Warning kembali kuning dengan latar lebih pekat (`#FEF08A`). Alasannya: dua kuning tidak bisa dibedakan dengan andal |
 | 1.3 | 18 November 2026 | Mode Sekarang jadi oranye terang (`#F97316`, teks gelap, selalu solid) dengan `--now-strong` kembali. Warning jadi kuning keemasan (amber) yang selalu pucat. Pola banner status berlapis untuk semua nada (Bagian 1.4b), mengikuti referensi yang dipilih |
 | 1.4 | 18 November 2026 | Mode Sekarang jadi hijau neon (lime `#D4F034`) dengan teks hijau tua `#00432A`, terinspirasi gaya kartu Grab. Kartu tawaran memakai latar lime solid dengan tombol Ambil hijau tua. **Disetujui** sebagai acuan implementasi |
-| 1.5 | 18 November 2026 | Hasil W0 bagian 1. Bagian 13 ditambah impor `tw-animate-css` dan `shadcn/tailwind.css`, `@layer base` (garis bawaan `--border`, gaya `body`), serta token `text-code-xl` dan `tracking-code`. Label `PAID` diganti "Sudah dibayar" (ikon `Banknote`) karena bentrok dengan `ModeBadge` "Terjadwal". Ukuran teks badge ditegaskan 12 px. Aturan pengecualian `token-check-ignore` |
+| 1.5 | 18 November 2026 | Hasil W0 bagian 1. Bagian 13 ditambah impor `tw-animate-css` dan `shadcn/tailwind.css`, `@layer base` (garis bawaan `--border`, gaya `body`), serta token `text-code-xl` dan `tracking-code`. Label `PAID` diganti "Sudah dibayar" (ikon `Banknote`) karena bentrok dengan `ModeBadge` "Terjadwal". `ModeBadge` "Terjadwal" pindah ke varian `outline` baru, supaya tidak sewarna dengan badge status `info`. Ukuran teks badge ditegaskan 12 px. Aturan pengecualian `token-check-ignore` |
