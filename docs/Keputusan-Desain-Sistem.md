@@ -4,9 +4,9 @@
 **Nama sistem:** Jasana
 **Penyusun:** I Nyoman Gede Candra Wikananta (2305551065)
 **Bidang Keahlian:** Sistem Informasi, Teknologi Informasi, Universitas Udayana
-**Versi:** 2.41
-**Terakhir diperbarui:** 17 November 2026 (versi 2.41)
-**Tahap saat ini:** Implementasi backend Fase 0 sampai Fase 10 selesai. Berikutnya stress test k6, data simulasi, dan UAT
+**Versi:** 2.42
+**Terakhir diperbarui:** 18 November 2026 (versi 2.42)
+**Tahap saat ini:** Implementasi backend Fase 0 sampai Fase 10 selesai, data simulasi sudah terisi di Supabase dev. Berikutnya frontend, stress test k6, dan UAT
 
 ---
 
@@ -55,8 +55,13 @@
 | Notifikasi dan retry email (D182 sampai D186) | 5 | 0 |
 | Pesan, review, dan perbaikan sandbox 10a (D187 sampai D197) | 11 | 0 |
 | Parameter dan laporan admin (D198 sampai D203) | 6 | 0 |
-| Data simulasi (D204 sampai D208) | 5 | 0 |
+| Data simulasi (D204 sampai D209) | 6 | 0 |
 | Keputusan terbuka tanpa nomor D (Bagian 7) | | 0 |
+
+**Perubahan pada versi 2.42:**
+
+1. Opsi skala data simulasi untuk Supabase dev (D209) dan hasil jalannya (Bagian 4AI)
+2. H16 ditutup, H123 baru
 
 **Perubahan pada versi 2.41:**
 
@@ -2034,6 +2039,25 @@ Dari sesi data simulasi (H16). Semua dijawab penyusun sebelum dan saat review re
 
 ---
 
+## 4AI. Keputusan Versi 2.42 (D209): Jalan Data Simulasi ke Supabase Dev
+
+Dari jalan seed ke Supabase dev, 18 November 2026. Tanpa migrasi.
+
+| # | Keputusan | Alasan |
+|---|---|---|
+| D209 | **Supabase dev diisi dengan skala 0,25 dan satu foto per listing** lewat dua flag baru: `--skala <angka di atas 0 sampai 1>` mengalikan jumlah tiap jenis order riwayat (minimal 1 per jenis), dan `--foto-maks <1 sampai 3>` membatasi foto per listing. Penyedia, pekerja, listing, client, dan 13 order hidup tidak ikut dikecilkan. Angka acak jumlah foto tetap diambil dari PRNG supaya urutan acak data lainnya sama dengan jalan penuh. Unggah foto dicoba ulang sampai empat kali dengan nama berkas baru | Satu order riwayat butuh sekitar satu menit ke Supabase di Seoul, sehingga jalan penuh 293 order makan sekitar lima jam dan rawan putus. Dengan skala 0,25 setiap jenis status tetap ada untuk frontend dan UAT. Stress test tidak terpengaruh karena memakai basis data lokal (D207). Jalan penuh tetap bisa dilakukan sebelum UAT (H123) |
+
+**Hasil jalan ke Supabase dev (18 November 2026):**
+
+- Perintah: `npm run seed:simulasi -- --skala 0.25 --foto-maks 1 --confirm-host aws-0-ap-northeast-2.pooler.supabase.com`, selesai dalam 3.427 detik (sekitar 57 menit)
+- Tiga percobaan sebelumnya berhenti di tengah: timeout unggah Storage sebelum ada coba ulang, jalan penuh yang dihentikan manual di order ke-51 karena lambat, dan proses yang ikut tertutup bersama editor. Reset di awal jalan berikutnya membersihkan sisanya
+- Isi: 142 akun `@sim`, 40 penyedia, 130 listing di dua belas sub-kategori, 130 foto, 86 order (73 riwayat dan 13 order hidup), 38 review (21 dibalas), 133 baris ledger, dan withdrawal COMPLETED 3, REQUESTED 1, REJECTED 1
+- Status akhir riwayat: SETTLED 55 (termasuk dispute dirilis dan dibagi), EXPIRED 5, CANCELLED 4, PAYMENT_EXPIRED 3, REJECTED 3, dan REFUNDED 3 (termasuk dispute refund). Kesebelas jenis riwayat terbentuk
+- Satu koneksi ke Supabase terputus (`ConnectionReset`) saat menandai notifikasi email terkirim. Errornya ditangkap `deliver`, dan seluruh order tetap terbentuk
+- `db:verify` lulus (V1, V5 sampai V8, V11, dan V12 nol baris), dan 10 test `seed-simulasi` lulus
+
+---
+
 ## 5. Alur Sistem End-to-End
 
 ### 5.1 Onboarding
@@ -2635,7 +2659,7 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 
 - [x] **H15** **(ditutup 17 November 2026: dataset 49 skenario dan evaluasi tiga run, D176, Bagian 4AB)** Kumpulkan 30 sampai 50 skenario percakapan berlabel untuk mengukur akurasi intent extraction. Mulai sekarang, jangan tunggu bulan ke-5 **(alat siap di sesi 9c: dataset berformat, validator `--check`, dan skrip evaluasi. Dataset 49 skenario selesai dan run 1 dijalankan, tersisa run 2 dan 3 menurut D176)**
 - [ ] **H68** Ukur konversi sesi chat tamu jadi pendaftaran akun lewat `chat_sessions.claimed_at` **(baru, D77)**. Metrik ini menjawab pertanyaan kegunaan chatbot dengan angka **(alat siap di sesi 9c: klaim sesi D170 dan V9 D172. Datanya terkumpul saat UAT)**
-- [ ] **H16** Siapkan data simulasi, termasuk beberapa usaha BUSINESS dengan jumlah pekerja berbeda dan pemetaan listing yang tumpang tindih, supaya skenario order paralel dan perebutan bisa diuji **(skrip siap di sesi data simulasi, D204 sampai D208, ditutup setelah dijalankan ke Supabase dev)**
+- [x] **H16** **(ditutup 18 November 2026: dijalankan ke Supabase dev dengan skala 0,25, D209, Bagian 4AI)** Siapkan data simulasi, termasuk beberapa usaha BUSINESS dengan jumlah pekerja berbeda dan pemetaan listing yang tumpang tindih, supaya skenario order paralel dan perebutan bisa diuji **(skrip siap di sesi data simulasi, D204 sampai D208, ditutup setelah dijalankan ke Supabase dev)**
 - [ ] **H20** Jalankan kueri verifikasi V1 sampai V5 setelah seeding dan setelah pengujian
 - [ ] **H91** Rate limiter dihitung per alamat IP, sedangkan k6 menembak seluruh request dari satu IP. Sediakan pengaturan khusus lingkungan pengujian beban, misalnya batas yang dinaikkan lewat env, supaya yang terukur adalah API dan bukan rate limiter-nya. Pengaturan itu ditulis di laporan **(baru)**
 - [x] **H92** **(ditutup di sesi 6d)** Sediakan cara menandai pekerja hasil seed sebagai online, hanya aktif di lingkungan pengujian, supaya skenario pencarian `available_now` di stress test tidak selalu kosong. Dibangun di Fase 6 bersama pelacak status online (D99). Sebaiknya k6 juga tidak dijalankan di mesin yang sama dengan API, dan kalau terpaksa, kondisinya ditulis di laporan **(baru)**
@@ -2682,6 +2706,7 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 - [ ] **H118** Penurunan `listing_faq_max_items` bisa berbalapan dengan penulisan FAQ yang berjalan bersamaan, karena jalur FAQ tidak memakai advisory lock D199. Pelanggarannya terdeteksi V12 **(baru, sesi 10c)**
 - [ ] **H120** Belum ada index `order_status_histories(to_status, created_at)` untuk laporan yang membaca waktu status dari riwayat (D203). Belum diperlukan untuk skala data penelitian **(baru, sesi 10c)**
 - [ ] **H122** Pengaman reset data simulasi hanya menghitung relasi yang terdaftar di skrip. Reset tidak boleh dijalankan selama dan sesudah UAT (D204) **(baru, sesi data simulasi)**
+- [ ] **H123** Opsional: jalankan data simulasi skala penuh (293 order) ke Supabase dev sebelum UAT dimulai, kalau waktunya ada. Reset ikut menghapus order dan review yang dibuat dengan akun `@sim` saat mencoba frontend (D209) **(baru, jalan data simulasi)**
 - [ ] **H82** Admin fee withdrawal berupa nilai flat yang mengikuti perkiraan biaya payout Xendit **(baru, D84)**. Untuk nominal di atas Rp250.000 biaya sebenarnya sedikit lebih besar dan selisihnya ditanggung platform
 
 ---
@@ -2773,6 +2798,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 | 2.39 | 17 November 2026 | Enam keputusan dari sesi 10c: registri dan rentang parameter (D198), PATCH atomik dengan advisory lock (D199), periode laporan per hari WITA dan V4 per bulan WITA (D200), definisi kolom laporan (D201), SQL mentah terikat (D202), dan waktu status dari riwayat (D203). Penutupan Fase 10. H118 dan H120 baru. Tanpa migrasi Ditambah hasil evaluasi run 2 |
 | 2.40 | 17 November 2026 | Hasil evaluasi run 3, rekap tiga run, dan kesimpulan terhadap D85. Penutupan Fase 9. H15 ditutup. Tanpa keputusan baru dan tanpa perubahan kode Ditambah hasil uji sandbox 10c |
 | 2.41 | 17 November 2026 | Lima keputusan data simulasi: data Bali lewat service layer (D204), pengecualian ledger simulasi yang memperluas D130 (D205), foto simulasi (D206), `--bulk` hanya lokal (D207), dan penonaktifan listing akun uji (D208). H122 baru. Tanpa migrasi |
+| 2.42 | 18 November 2026 | Opsi skala data simulasi untuk Supabase dev (D209) dan hasil jalannya: 86 order, 130 foto, `db:verify` lulus. H16 ditutup, H123 baru. Tanpa migrasi |
 
 ---
 
