@@ -201,7 +201,7 @@ Deskripsi jasa, FAQ, ulasan, pesan dalam order, dan jawaban Asisten dirender seb
 4. Kerjakan satu fase, atau satu bagian fase yang sudah disepakati
 5. **Verifikasi visual:** jalankan dev server, ambil screenshot di **390 px dan 1280 px** (tambah 768 px untuk area usaha) lewat Playwright, bandingkan dengan Design System dan mockup acuan (tautan di `Design-System.md` bagian atas). Perbaiki yang meleset sebelum melapor selesai
 6. Jalankan typecheck, lint, dan test. Semua hijau
-7. Laporkan: apa yang selesai, apa yang berbeda dari dokumen, dan usulan keputusan baru kalau ada
+7. Laporkan: apa yang selesai, usulan pesan commit, apa yang berbeda dari dokumen, dan usulan keputusan baru kalau ada
 
 **Skill `frontend-design`.** Kalau aktif, arah estetika sudah ditetapkan di `Design-System.md` Bagian 0. Jangan memilih arah, palet, atau huruf baru. Kreativitas dipakai untuk komposisi dan detail interaksi di dalam batas token.
 
@@ -212,8 +212,8 @@ Seluruh pekerjaan frontend dilakukan di branch **`feat/frontend`**, bukan di `ma
 - Sebelum mulai sesi, pastikan `git branch --show-current` menampilkan `feat/frontend`. Kalau tidak, berhenti dan laporkan
 - Perubahan hanya di `apps/web/`. Jangan mengubah `apps/api/`, `packages/database/`, atau skema Prisma dari branch ini
 - Kalau butuh perubahan di `packages/shared` atau backend (endpoint kurang, field tidak ada, bug API), **jangan dikerjakan di sini**. Catat di laporan sesi. Perubahan itu dikerjakan di `main`, lalu `main` di-merge ke `feat/frontend`
-- Satu commit per bagian yang selesai dan lolos typecheck, lint, test. Format pesan sama dengan backend: `feat(web): ...`, `fix(web): ...`, `docs(web): ...`
-- Jangan push dan jangan merge ke `main` kecuali diminta
+- **Jangan commit, push, atau merge.** Commit dilakukan sendiri oleh Candra. Di akhir sesi, berikan daftar berkas yang berubah dan usulan pesan commit (format `feat(web): ...`, `fix(web): ...`, `docs(web): ...`). Kalau pekerjaannya lebih rapi dipecah, usulkan beberapa commit beserta berkasnya masing-masing
+- Jangan menjalankan `git add`, `git commit`, `git stash`, `git reset`, atau `git checkout` yang mengubah working tree
 
 ## Urutan pengerjaan
 
