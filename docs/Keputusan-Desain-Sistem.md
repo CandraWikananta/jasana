@@ -4,9 +4,9 @@
 **Nama sistem:** Jasana
 **Penyusun:** I Nyoman Gede Candra Wikananta (2305551065)
 **Bidang Keahlian:** Sistem Informasi, Teknologi Informasi, Universitas Udayana
-**Versi:** 2.39
-**Terakhir diperbarui:** 17 November 2026 (versi 2.39)
-**Tahap saat ini:** Implementasi backend. Fase 0 sampai Fase 8 selesai. Fase 9 menunggu evaluasi akurasi run 2 dan 3 (D176). Fase 10 selesai
+**Versi:** 2.40
+**Terakhir diperbarui:** 17 November 2026 (versi 2.40)
+**Tahap saat ini:** Implementasi backend Fase 0 sampai Fase 10 selesai. Berikutnya stress test k6, data simulasi, dan UAT
 
 ---
 
@@ -56,6 +56,11 @@
 | Pesan, review, dan perbaikan sandbox 10a (D187 sampai D197) | 11 | 0 |
 | Parameter dan laporan admin (D198 sampai D203) | 6 | 0 |
 | Keputusan terbuka tanpa nomor D (Bagian 7) | | 0 |
+
+**Perubahan pada versi 2.40:**
+
+1. Hasil evaluasi run 3 dan rekap tiga run (D176): 74,15 persen, target D85 tidak tercapai, 94,0 persen atas skenario yang dijawab
+2. Penutupan Fase 9 (Bagian 4AG). H15 ditutup
 
 **Perubahan pada versi 2.39:**
 
@@ -1798,6 +1803,31 @@ Ditetapkan penyusun setelah run 1 dan **sebelum** run berikutnya dijalankan. Tan
 - **Jawaban berbeda antar run untuk input yang sama.** S26 dan K02 benar di run 1 tetapi salah di run 2 (K03 dan K06 gagal merespons di run 1, sedangkan S21 salah di kedua run). Adapter tidak mengirim `temperature` (catatan kode: diabaikan model 3.6 ke atas), sehingga model memakai nilai bawaannya dan keluarannya tidak deterministik. Karena protokol D176 mewajibkan konfigurasi yang sama di ketiga run, ini tidak diubah selama evaluasi. Variasi antar run justru menjadi alasan protokol tiga run, dan dilaporkan di Bab IV
 - Semua kegagalan run 2 adalah timeout 8 detik (D156), dengan p95 latensi yang berhasil 6,8 detik. Ketersediaan layanan pagi hari lebih baik daripada malam hari (tidak ada 503 yang tersisa setelah retry)
 
+**Hasil evaluasi run 3 (17 November 2026, 13.26 sampai 13.37 WITA, commit `a8b2f45` bersih, hash dataset dan prompt identik):** 37/49, **75,51 persen**. Satu salah klasifikasi (S21, sama dengan run 1 dan run 2) dan 11 gagal merespons, semuanya timeout. Dua skenario berhasil setelah retry. Latensi Gemini rata-rata 4.454 ms, p50 4.914 ms, p95 7.788 ms, paling lambat di antara ketiga run dan mendekati timeout 8 detik.
+
+**Rekap evaluasi akurasi tiga run (D176):**
+
+| Metrik | Run 1 (23.00 WITA) | Run 2 (07.13 WITA) | Run 3 (13.26 WITA) | Gabungan |
+|---|---|---|---|---|
+| **Akurasi utama, kegagalan dihitung salah (D85, D161)** | 69,39% | 77,55% | 75,51% | **74,15%** (rata-rata; 109/147) |
+| Akurasi atas skenario yang dijawab (kualitas ekstraksi) | 97,1% (34/35) | 88,4% (38/43) | 97,4% (37/38) | **94,0%** (109/116) |
+| Tingkat respons berhasil (ketersediaan layanan) | 71,4% | 87,8% | 77,6% | **78,9%** (116/147) |
+| Salah klasifikasi | 1 | 5 | 1 | 7 |
+| Gagal merespons | 14 (9 timeout, 5 HTTP 503) | 6 timeout | 11 timeout | 31 (26 timeout, 5 HTTP 503) |
+| Berhasil setelah retry (D165) | 6 | 1 | 2 | 9 |
+| Latensi Gemini p95 | 7.224 ms | 6.788 ms | 7.788 ms | |
+
+| Jenis (gabungan tiga run, benar/n) | Hasil |
+|---|---|
+| `cari_jasa` | 77/90 (85,6%) |
+| `perlu_klarifikasi` | 7/18 (38,9%) |
+| `jasa_tidak_tersedia` | 8/12 (66,7%) |
+| `sapaan` | 9/12 (75,0%) |
+| `di_luar_cakupan` | 8/15 (53,3%) |
+| Slot `waktu_jenis` / `budget_maks` | 76/90 (84,4%) / 78/87 (89,7%) |
+
+**Kesimpulan terhadap D85:** target akurasi intent extraction 80 persen **tidak tercapai** menurut definisi yang ditetapkan sebelum pengujian (rata-rata 74,15 persen dengan kegagalan dihitung salah). Dari 38 skenario yang tidak benar di ketiga run, **31 (81,6 persen) adalah kegagalan Gemini merespons** (timeout 8 detik dan 503), dan hanya 7 yang salah klasifikasi. Pada skenario yang dijawab, Gemini mengklasifikasikan dengan benar 94,0 persen. Artinya kemampuan model memahami pesan berbahasa Indonesia sudah melampaui target, sedangkan yang menahan angka utama adalah ketersediaan dan latensi layanan model preview pada free tier, yang bervariasi menurut jam. Kesalahan klasifikasi berkumpul di batas antar jenis non-pencarian, terutama `perlu_klarifikasi`, bukan pada pemilihan sub-kategori. S21 salah di ketiga run dan menjadi kasus batas yang konsisten. Hasil ini dilaporkan apa adanya di Bab IV. Saran pengembangan: tier berbayar atau model yang sudah stabil, peninjauan ulang timeout D156 terhadap latensi p95 yang terukur, dan pengaturan `temperature` supaya keluaran deterministik
+
 ---
 
 ## 4AC. Keputusan Versi 2.36 (D177 sampai D181)
@@ -1941,6 +1971,20 @@ Dari sesi 10c. Semua dijawab penyusun sebelum rencana disusun, kecuali advisory 
 | `platform_settings` | `admin-settings.test.ts`, Postman folder 04 | Lulus |
 
 Hitungan akhir Fase 10: 1.004 test (dari 888 sebelum Fase 10), mutan 13 dari 13 (10a), 42 dari 42 (10b), dan 38 dari 38 (10c). H37, H66, H70 sampai H72, dan H111 ditutup sepanjang Fase 9 dan 10.
+
+---
+
+## 4AG. Penutupan Fase 9 (17 November 2026)
+
+| Kriteria PRD Bagian 9 | Bukti | Status |
+|---|---|---|
+| Intent terekam beserta confidence dan latensi | Setiap giliran mencatat `extracted_intent`, `intent_confidence`, `latency_ms`, `token_usage`, dan model. V3 menampilkan latensi Gemini, latensi total, dan overhead per jenis sesi (per pesan, D171) dan per jenis intent | Lulus |
+| Batas tamu terbukti menahan pemakaian berlebih | Tiga lapis (IP, global WITA, per sesi) teruji termasuk paralel di batas sesi dan batas hari (D163, D164), Postman Fase 9 | Lulus |
+| Klaim sesi dan personalisasi | Test dan uji sandbox 9c dengan Gemini sungguhan: klaim, token lama 404, klaim ulang 409, rujukan riwayat "kayak kemarin" dipahami (D168 sampai D170) | Lulus |
+| Ketahanan terhadap kegagalan Gemini | Kegagalan tercatat sebagai baris ASSISTANT dan dibalas 502 (D161), retry 5xx terbukti di sandbox dan evaluasi (D165, D167) | Lulus |
+| Akurasi intent extraction (D85) | Protokol tiga run D176, dataset 49 skenario (H15): 74,15 persen, target 80 persen tidak tercapai, dengan 94,0 persen atas skenario yang dijawab. Penyebab utama dan kesimpulannya di Bagian 4AB | Dilaporkan, target tidak tercapai |
+
+Fase 9 ditutup. Seluruh hasil evaluasi tiga run tersimpan di `apps/api/eval/results/` beserta meta dan hash yang bisa ditelusuri.
 
 ---
 
@@ -2543,7 +2587,7 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 
 ### 8.5 Persiapan Data Pengujian
 
-- [ ] **H15** Kumpulkan 30 sampai 50 skenario percakapan berlabel untuk mengukur akurasi intent extraction. Mulai sekarang, jangan tunggu bulan ke-5 **(alat siap di sesi 9c: dataset berformat, validator `--check`, dan skrip evaluasi. Dataset 49 skenario selesai dan run 1 dijalankan, tersisa run 2 dan 3 menurut D176)**
+- [x] **H15** **(ditutup 17 November 2026: dataset 49 skenario dan evaluasi tiga run, D176, Bagian 4AB)** Kumpulkan 30 sampai 50 skenario percakapan berlabel untuk mengukur akurasi intent extraction. Mulai sekarang, jangan tunggu bulan ke-5 **(alat siap di sesi 9c: dataset berformat, validator `--check`, dan skrip evaluasi. Dataset 49 skenario selesai dan run 1 dijalankan, tersisa run 2 dan 3 menurut D176)**
 - [ ] **H68** Ukur konversi sesi chat tamu jadi pendaftaran akun lewat `chat_sessions.claimed_at` **(baru, D77)**. Metrik ini menjawab pertanyaan kegunaan chatbot dengan angka **(alat siap di sesi 9c: klaim sesi D170 dan V9 D172. Datanya terkumpul saat UAT)**
 - [ ] **H16** Siapkan data simulasi, termasuk beberapa usaha BUSINESS dengan jumlah pekerja berbeda dan pemetaan listing yang tumpang tindih, supaya skenario order paralel dan perebutan bisa diuji
 - [ ] **H20** Jalankan kueri verifikasi V1 sampai V5 setelah seeding dan setelah pengujian
@@ -2627,7 +2671,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 
 ## 11. Langkah Berikutnya
 
-1. Fase 9 (chatbot): implementasi dan uji sandbox selesai, evaluasi run 1 selesai. Tersisa run 2 (pagi WITA) dan run 3 (siang atau sore WITA) menurut D176, lalu penutupan Fase 9. Fase 10 selesai 17 November 2026 (1.004 test lulus, D177 sampai D203), dengan uji sandbox 10a dan 10b lulus dan uji sandbox 10c dijalankan penyusun. Paralel: penyusun menyusun dataset 30 sampai 50 skenario berlabel (H15, D153) dan mencatat model serta batas kuota project Gemini di AI Studio
+1. Fase 9 selesai 17 November 2026 setelah evaluasi tiga run (Bagian 4AB dan 4AG). Fase 10 selesai 17 November 2026 (1.004 test lulus, D177 sampai D203), dengan uji sandbox 10a dan 10b lulus dan uji sandbox 10c dijalankan penyusun. Paralel: penyusun menyusun dataset 30 sampai 50 skenario berlabel (H15, D153) dan mencatat model serta batas kuota project Gemini di AI Studio
 2. Selesai: Fase 8 (15 November 2026, 751 test lulus, D131 sampai D150) beserta uji sandbox payout dan refund. Uji sandbox refund PARTIAL hasil putusan sengketa lulus. Sebelumnya Fase 7 (11 November 2026, 627 test lulus) beserta uji sandbox Xendit sungguhan (12 November 2026), sebelumnya audit hutang teknis (9 November 2026) dan sesi perapian (10 November 2026)
 3. Susun data simulasi untuk dua belas sub-kategori di Lampiran B, termasuk skenario perebutan Available Now dan pendamping pada dokumentasi acara
 4. Riset ringan rentang harga pasaran untuk dua belas sub-kategori tersebut, catat sumbernya
@@ -2680,6 +2724,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 | 2.37 | 17 November 2026 | Lima keputusan dari sesi 10a: tabel event notifikasi (D182), endpoint notifikasi (D183), whitelist dan render generik retry yang merevisi D177 (D184), hitungan dan klaim retry (D185), dan enum `ORDER_MESSAGE` (D186). H37 ditutup, H114 sampai H116 baru. Satu migrasi Ditambah hasil uji sandbox 10a dan empat temuannya |
 | 2.38 | 17 November 2026 | Sebelas keputusan dari sesi 10b: masa aktif pesan yang merevisi D79 (D187), notifikasi pesan dan review (D188), admin review (D189), revisi V11 (D190), batas teks dan nama disamarkan (D191), review di detail listing (D192), perbaikan sandbox 10a (D193 sampai D196), dan urutan kunci seragam (D197). H70 sampai H72 ditutup, H117 baru. Tanpa migrasi Ditambah hasil uji sandbox 10b |
 | 2.39 | 17 November 2026 | Enam keputusan dari sesi 10c: registri dan rentang parameter (D198), PATCH atomik dengan advisory lock (D199), periode laporan per hari WITA dan V4 per bulan WITA (D200), definisi kolom laporan (D201), SQL mentah terikat (D202), dan waktu status dari riwayat (D203). Penutupan Fase 10. H118 dan H120 baru. Tanpa migrasi Ditambah hasil evaluasi run 2 |
+| 2.40 | 17 November 2026 | Hasil evaluasi run 3, rekap tiga run, dan kesimpulan terhadap D85. Penutupan Fase 9. H15 ditutup. Tanpa keputusan baru dan tanpa perubahan kode |
 
 ---
 

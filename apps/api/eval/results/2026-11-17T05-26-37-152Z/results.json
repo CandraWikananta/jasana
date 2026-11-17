@@ -1,0 +1,2382 @@
+{
+  "meta": {
+    "gateway": "gemini",
+    "model_dikonfigurasi": "gemini-3.5-flash-lite",
+    "model_menjawab": [
+      "gemini-3.5-flash-lite"
+    ],
+    "dimulai": "2026-11-17T05:26:37.152Z",
+    "selesai": "2026-11-17T05:37:19.111Z",
+    "commit": "a8b2f459fd973408520a1b4c4135f541579934ba",
+    "commit_dirty": false,
+    "sha256_system_instruction": "b060690947797e385c0196021e1c20596abcfb68cb8fc9e0fc4cb6d4e3a16f6b",
+    "sha256_skema_intent": "ffbe00a88f64da43c2a54fbe2b039d32c69928dccd1f3ab03f91785225843569",
+    "sha256_seluruh_prompt": "8f3ce7c5d65989b4a455dfa2312faf5092dd0d9585725fa66c5696700f115503",
+    "sha256_dataset": "db96721973ebc58c1c9bb10dce62d47266a5cd4e5d706684680761e3c4a6510c",
+    "jumlah_sub_kategori_aktif": 12,
+    "jumlah_skenario_dataset": 49,
+    "jumlah_skenario_dijalankan": 49,
+    "skenario_per_asal": {
+      "penyusun": 38,
+      "teman": 11
+    }
+  },
+  "ringkasan": {
+    "total": {
+      "n": 49,
+      "benar": 37,
+      "persen": 75.51,
+      "target_persen": 80,
+      "lulus_target": false
+    },
+    "gagal": 11,
+    "berhasil_setelah_retry": 2,
+    "last_intent_turunan": 3,
+    "per_jenis": {
+      "cari_jasa": {
+        "n": 30,
+        "benar": 26,
+        "persen": 86.67
+      },
+      "perlu_klarifikasi": {
+        "n": 6,
+        "benar": 3,
+        "persen": 50
+      },
+      "jasa_tidak_tersedia": {
+        "n": 4,
+        "benar": 3,
+        "persen": 75
+      },
+      "sapaan": {
+        "n": 4,
+        "benar": 2,
+        "persen": 50
+      },
+      "di_luar_cakupan": {
+        "n": 5,
+        "benar": 3,
+        "persen": 60
+      }
+    },
+    "per_asal": {
+      "penyusun": {
+        "n": 38,
+        "benar": 29,
+        "persen": 76.32
+      },
+      "teman": {
+        "n": 11,
+        "benar": 8,
+        "persen": 72.73
+      }
+    },
+    "confusion": {
+      "cari_jasa": {
+        "cari_jasa": 26,
+        "perlu_klarifikasi": 0,
+        "jasa_tidak_tersedia": 0,
+        "sapaan": 0,
+        "di_luar_cakupan": 1,
+        "(gagal)": 3
+      },
+      "perlu_klarifikasi": {
+        "cari_jasa": 0,
+        "perlu_klarifikasi": 3,
+        "jasa_tidak_tersedia": 0,
+        "sapaan": 0,
+        "di_luar_cakupan": 0,
+        "(gagal)": 3
+      },
+      "jasa_tidak_tersedia": {
+        "cari_jasa": 0,
+        "perlu_klarifikasi": 0,
+        "jasa_tidak_tersedia": 3,
+        "sapaan": 0,
+        "di_luar_cakupan": 0,
+        "(gagal)": 1
+      },
+      "sapaan": {
+        "cari_jasa": 0,
+        "perlu_klarifikasi": 0,
+        "jasa_tidak_tersedia": 0,
+        "sapaan": 2,
+        "di_luar_cakupan": 0,
+        "(gagal)": 2
+      },
+      "di_luar_cakupan": {
+        "cari_jasa": 0,
+        "perlu_klarifikasi": 0,
+        "jasa_tidak_tersedia": 0,
+        "sapaan": 0,
+        "di_luar_cakupan": 3,
+        "(gagal)": 2
+      }
+    },
+    "slot": {
+      "lokasi_teks": {
+        "n": 0,
+        "benar": 0,
+        "persen": null
+      },
+      "waktu_jenis": {
+        "n": 30,
+        "benar": 26,
+        "persen": 86.67
+      },
+      "budget_maks": {
+        "n": 29,
+        "benar": 26,
+        "persen": 89.66
+      },
+      "atribut": {
+        "n": 0,
+        "benar": 0,
+        "persen": null
+      }
+    },
+    "latensi_ms": {
+      "n": 38,
+      "rata": 4454,
+      "p50": 4914,
+      "p95": 7788
+    },
+    "token": {
+      "rata_total_per_panggilan": 1145,
+      "jumlah_input": 37824,
+      "jumlah_output": 5688,
+      "jumlah_total": 43512
+    }
+  },
+  "hasil": [
+    {
+      "id": "S01",
+      "asal": "penyusun",
+      "pesan": "halo, mau nyari jasa pembersihan mobil apakah ada yang di sekitar jimbaran",
+      "label": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "otomotif/cuci-mobil-panggilan",
+        "slot": {
+          "waktu_jenis": "TIDAK_DISEBUT",
+          "budget_maks": null
+        }
+      },
+      "lastIntentDerived": false,
+      "promptHash": "252b92de0acc45d426e04b284d66347d867d8d316e91bfa83682ceaf7ac38628",
+      "predicted": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "otomotif/cuci-mobil-panggilan",
+        "slot": {
+          "lokasi": {
+            "teks": "Jimbaran",
+            "pakai_lokasi_saat_ini": false
+          },
+          "waktu": {
+            "jenis": "TIDAK_DISEBUT",
+            "teks": null
+          },
+          "budget_maks": null,
+          "atribut": []
+        },
+        "confidence": 0.95,
+        "pertanyaan_klarifikasi": null
+      },
+      "model": "gemini-3.5-flash-lite",
+      "error": null,
+      "attempts": 1,
+      "latencyMs": 1676,
+      "usage": {
+        "inputTokens": 984,
+        "outputTokens": 146,
+        "thoughtTokens": 0,
+        "totalTokens": 1130
+      },
+      "score": {
+        "correct": true,
+        "slot": {
+          "waktu_jenis": true,
+          "budget_maks": true
+        }
+      }
+    },
+    {
+      "id": "S02",
+      "asal": "penyusun",
+      "pesan": "cariin jasa cuci mobil panggilan di daerah renon, budget 75rb",
+      "label": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "otomotif/cuci-mobil-panggilan",
+        "slot": {
+          "waktu_jenis": "TIDAK_DISEBUT",
+          "budget_maks": 75000
+        }
+      },
+      "lastIntentDerived": false,
+      "promptHash": "a335e242c063faae3373a25843751440906e8850ea0d7588b7ac012c5ad12ef6",
+      "predicted": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "otomotif/cuci-mobil-panggilan",
+        "slot": {
+          "lokasi": {
+            "teks": "renon",
+            "pakai_lokasi_saat_ini": false
+          },
+          "waktu": {
+            "jenis": "TIDAK_DISEBUT",
+            "teks": null
+          },
+          "budget_maks": 75000,
+          "atribut": []
+        },
+        "confidence": 0.99,
+        "pertanyaan_klarifikasi": null
+      },
+      "model": "gemini-3.5-flash-lite",
+      "error": null,
+      "attempts": 1,
+      "latencyMs": 2529,
+      "usage": {
+        "inputTokens": 985,
+        "outputTokens": 151,
+        "thoughtTokens": 0,
+        "totalTokens": 1136
+      },
+      "score": {
+        "correct": true,
+        "slot": {
+          "waktu_jenis": true,
+          "budget_maks": true
+        }
+      }
+    },
+    {
+      "id": "S03",
+      "asal": "teman",
+      "pesan": "motor sy mogok di jalan ga bisa nyala sama sekali, butuh bengkel skrg",
+      "label": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "otomotif/servis-motor-panggilan",
+        "slot": {
+          "waktu_jenis": "SEKARANG",
+          "budget_maks": null
+        }
+      },
+      "lastIntentDerived": false,
+      "promptHash": "722e596f5d8344558786621414de688761f64415368f7fab61af2e2d43bc075c",
+      "predicted": null,
+      "model": null,
+      "attempts": null,
+      "latencyMs": null,
+      "usage": null,
+      "error": {
+        "reason": "timeout",
+        "status": null,
+        "attempts": 1
+      },
+      "score": {
+        "correct": false,
+        "slot": {
+          "waktu_jenis": false,
+          "budget_maks": false
+        }
+      }
+    },
+    {
+      "id": "S04",
+      "asal": "penyusun",
+      "pesan": "servis rutin vario besok pagi ada yang bisa datang ke rumah",
+      "label": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "otomotif/servis-motor-panggilan",
+        "slot": {
+          "waktu_jenis": "TERJADWAL",
+          "budget_maks": null
+        }
+      },
+      "lastIntentDerived": false,
+      "promptHash": "96d3218d7b07ab354bb4783f3d3afdf8365e9facf866e60b285d58ad1dbb047c",
+      "predicted": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "otomotif/servis-motor-panggilan",
+        "slot": {
+          "lokasi": {
+            "teks": "rumah",
+            "pakai_lokasi_saat_ini": false
+          },
+          "waktu": {
+            "jenis": "TERJADWAL",
+            "teks": "besok pagi"
+          },
+          "budget_maks": null,
+          "atribut": [
+            {
+              "kunci": "jenis_kendaraan",
+              "nilai": "vario"
+            },
+            {
+              "kunci": "jenis_servis",
+              "nilai": "servis rutin"
+            }
+          ]
+        },
+        "confidence": 0.95,
+        "pertanyaan_klarifikasi": null
+      },
+      "model": "gemini-3.5-flash-lite",
+      "error": null,
+      "attempts": 1,
+      "latencyMs": 1714,
+      "usage": {
+        "inputTokens": 982,
+        "outputTokens": 142,
+        "thoughtTokens": 0,
+        "totalTokens": 1124
+      },
+      "score": {
+        "correct": true,
+        "slot": {
+          "waktu_jenis": true,
+          "budget_maks": true
+        }
+      }
+    },
+    {
+      "id": "S05",
+      "asal": "penyusun",
+      "pesan": "mau ganti oli motor tapi males antre di bengkel tolong cariin skrang",
+      "label": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "otomotif/ganti-oli-panggilan",
+        "slot": {
+          "waktu_jenis": "SEKARANG",
+          "budget_maks": null
+        }
+      },
+      "lastIntentDerived": false,
+      "promptHash": "f5887216a9935ea6fcef6892de55c1809d3cc418a22a7c74bdb7df1a2942e310",
+      "predicted": null,
+      "model": null,
+      "attempts": null,
+      "latencyMs": null,
+      "usage": null,
+      "error": {
+        "reason": "timeout",
+        "status": null,
+        "attempts": 1
+      },
+      "score": {
+        "correct": false,
+        "slot": {
+          "waktu_jenis": false,
+          "budget_maks": false
+        }
+      }
+    },
+    {
+      "id": "S06",
+      "asal": "penyusun",
+      "pesan": "mau ganti oli avanza di kantor jumat siang, maks 400 ribu",
+      "label": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "otomotif/ganti-oli-panggilan",
+        "slot": {
+          "waktu_jenis": "TERJADWAL",
+          "budget_maks": 400000
+        }
+      },
+      "lastIntentDerived": false,
+      "promptHash": "7de2fd4b88c874884fea3de7b9e6f0ec740ca73ff8fd2283c1edebebe7dc2660",
+      "predicted": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "otomotif/ganti-oli-panggilan",
+        "slot": {
+          "lokasi": {
+            "teks": "kantor",
+            "pakai_lokasi_saat_ini": false
+          },
+          "waktu": {
+            "jenis": "TERJADWAL",
+            "teks": "jumat siang"
+          },
+          "budget_maks": 400000,
+          "atribut": [
+            {
+              "kunci": "kendaraan",
+              "nilai": "avanza"
+            }
+          ]
+        },
+        "confidence": 0.95,
+        "pertanyaan_klarifikasi": null
+      },
+      "model": "gemini-3.5-flash-lite",
+      "error": null,
+      "attempts": 1,
+      "latencyMs": 1844,
+      "usage": {
+        "inputTokens": 986,
+        "outputTokens": 181,
+        "thoughtTokens": 0,
+        "totalTokens": 1167
+      },
+      "score": {
+        "correct": true,
+        "slot": {
+          "waktu_jenis": true,
+          "budget_maks": true
+        }
+      }
+    },
+    {
+      "id": "S07",
+      "asal": "teman",
+      "pesan": "butuh fotografer buat foto produk skincare olshop ku",
+      "label": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "fotografi/foto-produk",
+        "slot": {
+          "waktu_jenis": "TIDAK_DISEBUT",
+          "budget_maks": null
+        }
+      },
+      "lastIntentDerived": false,
+      "promptHash": "828bae45d2fd6409937aa493d80e1bf32d612c3fff1c6ef90adb446a72c37cb2",
+      "predicted": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "fotografi/foto-produk",
+        "slot": {
+          "lokasi": {
+            "teks": null,
+            "pakai_lokasi_saat_ini": false
+          },
+          "waktu": {
+            "jenis": "TIDAK_DISEBUT",
+            "teks": null
+          },
+          "budget_maks": null,
+          "atribut": [
+            {
+              "kunci": "jenis_produk",
+              "nilai": "skincare"
+            }
+          ]
+        },
+        "confidence": 0.95,
+        "pertanyaan_klarifikasi": null
+      },
+      "model": "gemini-3.5-flash-lite",
+      "error": null,
+      "attempts": 1,
+      "latencyMs": 7429,
+      "usage": {
+        "inputTokens": 980,
+        "outputTokens": 168,
+        "thoughtTokens": 0,
+        "totalTokens": 1148
+      },
+      "score": {
+        "correct": true,
+        "slot": {
+          "waktu_jenis": true,
+          "budget_maks": true
+        }
+      }
+    },
+    {
+      "id": "S08",
+      "asal": "penyusun",
+      "pesan": "cari jasa foto katalog baju sekitar 50 item, berapa harga untuk 50 item?",
+      "label": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "fotografi/foto-produk",
+        "slot": {
+          "waktu_jenis": "TIDAK_DISEBUT",
+          "budget_maks": null
+        }
+      },
+      "lastIntentDerived": false,
+      "promptHash": "1a8229c67b92f67b009979bee21c752eb2df4f6f1f70269fc276711547ae51cc",
+      "predicted": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "fotografi/foto-produk",
+        "slot": {
+          "lokasi": {
+            "teks": null,
+            "pakai_lokasi_saat_ini": false
+          },
+          "waktu": {
+            "jenis": "TIDAK_DISEBUT",
+            "teks": null
+          },
+          "budget_maks": null,
+          "atribut": [
+            {
+              "kunci": "jumlah_item",
+              "nilai": "50"
+            }
+          ]
+        },
+        "confidence": 0.95,
+        "pertanyaan_klarifikasi": null
+      },
+      "model": "gemini-3.5-flash-lite",
+      "error": null,
+      "attempts": 1,
+      "latencyMs": 1826,
+      "usage": {
+        "inputTokens": 987,
+        "outputTokens": 168,
+        "thoughtTokens": 0,
+        "totalTokens": 1155
+      },
+      "score": {
+        "correct": true,
+        "slot": {
+          "waktu_jenis": true,
+          "budget_maks": true
+        }
+      }
+    },
+    {
+      "id": "S09",
+      "asal": "penyusun",
+      "pesan": "mau cari fotografer untuk acara pernikahan di ubud bulan depan",
+      "label": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "fotografi/dokumentasi-acara",
+        "slot": {
+          "waktu_jenis": "TERJADWAL",
+          "budget_maks": null
+        }
+      },
+      "lastIntentDerived": false,
+      "promptHash": "dd0d1db6f9979c5347c9e4d785b51a5b3da50aee8d1871100f8794708b964996",
+      "predicted": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "fotografi/dokumentasi-acara",
+        "slot": {
+          "lokasi": {
+            "teks": "ubud",
+            "pakai_lokasi_saat_ini": false
+          },
+          "waktu": {
+            "jenis": "TERJADWAL",
+            "teks": "bulan depan"
+          },
+          "budget_maks": null,
+          "atribut": [
+            {
+              "kunci": "jenis_acara",
+              "nilai": "pernikahan"
+            }
+          ]
+        },
+        "confidence": 0.95,
+        "pertanyaan_klarifikasi": null
+      },
+      "model": "gemini-3.5-flash-lite",
+      "error": null,
+      "attempts": 2,
+      "latencyMs": 5147,
+      "usage": {
+        "inputTokens": 981,
+        "outputTokens": 120,
+        "thoughtTokens": 0,
+        "totalTokens": 1101
+      },
+      "score": {
+        "correct": true,
+        "slot": {
+          "waktu_jenis": true,
+          "budget_maks": true
+        }
+      }
+    },
+    {
+      "id": "S10",
+      "asal": "penyusun",
+      "pesan": "aku butuh seorang fotografer untuk acara pre wedding aku di tanggal 19 desember 2026, lokasi fotoshoot di pantai melasti. Tolong cariin fotografer yang murah dan hasilnya yang bagus",
+      "label": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "fotografi/foto-prewedding",
+        "slot": {
+          "waktu_jenis": "TERJADWAL",
+          "budget_maks": null
+        }
+      },
+      "lastIntentDerived": false,
+      "promptHash": "a5a0c044535bd873a9c208dd81687d80754c8935a05d6a3f523c159aba8ccf22",
+      "predicted": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "fotografi/foto-prewedding",
+        "slot": {
+          "lokasi": {
+            "teks": "pantai melasti",
+            "pakai_lokasi_saat_ini": false
+          },
+          "waktu": {
+            "jenis": "TERJADWAL",
+            "teks": "19 desember 2026"
+          },
+          "budget_maks": null,
+          "atribut": []
+        },
+        "confidence": 1,
+        "pertanyaan_klarifikasi": null
+      },
+      "model": "gemini-3.5-flash-lite",
+      "error": null,
+      "attempts": 1,
+      "latencyMs": 1716,
+      "usage": {
+        "inputTokens": 1013,
+        "outputTokens": 149,
+        "thoughtTokens": 0,
+        "totalTokens": 1162
+      },
+      "score": {
+        "correct": true,
+        "slot": {
+          "waktu_jenis": true,
+          "budget_maks": true
+        }
+      }
+    },
+    {
+      "id": "S11",
+      "asal": "penyusun",
+      "pesan": "ak mw cri dokumentasi utk ultah ank ak d jam 8 mlm nnti. crikan yg pling murah",
+      "label": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "fotografi/dokumentasi-acara",
+        "slot": {
+          "waktu_jenis": "TERJADWAL",
+          "budget_maks": null
+        }
+      },
+      "lastIntentDerived": false,
+      "promptHash": "ec1c70c98a9a175aba478d4cc1d3dbb15b064f18d19d219bff5325e15676dbf0",
+      "predicted": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "fotografi/dokumentasi-acara",
+        "slot": {
+          "lokasi": {
+            "teks": null,
+            "pakai_lokasi_saat_ini": false
+          },
+          "waktu": {
+            "jenis": "TERJADWAL",
+            "teks": "jam 8 mlm nnti"
+          },
+          "budget_maks": null,
+          "atribut": [
+            {
+              "kunci": "acara",
+              "nilai": "ultah anak"
+            }
+          ]
+        },
+        "confidence": 0.95,
+        "pertanyaan_klarifikasi": null
+      },
+      "model": "gemini-3.5-flash-lite",
+      "error": null,
+      "attempts": 1,
+      "latencyMs": 4968,
+      "usage": {
+        "inputTokens": 993,
+        "outputTokens": 121,
+        "thoughtTokens": 0,
+        "totalTokens": 1114
+      },
+      "score": {
+        "correct": true,
+        "slot": {
+          "waktu_jenis": true,
+          "budget_maks": true
+        }
+      }
+    },
+    {
+      "id": "S12",
+      "asal": "penyusun",
+      "pesan": "hello, I want to look for a photographer that can do a photoshoot on Saturday morning for my company gathering event with a budget of 100 dollars usd. Is there anyone available for me?",
+      "label": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "fotografi/dokumentasi-acara",
+        "slot": {
+          "waktu_jenis": "TERJADWAL"
+        }
+      },
+      "lastIntentDerived": false,
+      "promptHash": "56b95973e2eda5ecefb610bac2ff0d8dd1f46060781e4646c2dbcc3bd4628e35",
+      "predicted": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "fotografi/dokumentasi-acara",
+        "slot": {
+          "lokasi": {
+            "teks": null,
+            "pakai_lokasi_saat_ini": false
+          },
+          "waktu": {
+            "jenis": "TERJADWAL",
+            "teks": "Saturday morning"
+          },
+          "budget_maks": null,
+          "atribut": [
+            {
+              "kunci": "event",
+              "nilai": "company gathering"
+            }
+          ]
+        },
+        "confidence": 0.9,
+        "pertanyaan_klarifikasi": null
+      },
+      "model": "gemini-3.5-flash-lite",
+      "error": null,
+      "attempts": 1,
+      "latencyMs": 1916,
+      "usage": {
+        "inputTokens": 1008,
+        "outputTokens": 166,
+        "thoughtTokens": 0,
+        "totalTokens": 1174
+      },
+      "score": {
+        "correct": true,
+        "slot": {
+          "waktu_jenis": true
+        }
+      }
+    },
+    {
+      "id": "S13",
+      "asal": "penyusun",
+      "pesan": "halo jasana, aku mau cari mua buat wisuda sabtu depan, budget aku max 500rb",
+      "label": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "kecantikan/makeup-artist-acara",
+        "slot": {
+          "waktu_jenis": "TERJADWAL",
+          "budget_maks": 500000
+        }
+      },
+      "lastIntentDerived": false,
+      "promptHash": "9522fc9dc0a2d0aa9de049c300c791e41e3f693c4ed58514b08f1add0c18627f",
+      "predicted": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "kecantikan/makeup-artist-acara",
+        "slot": {
+          "lokasi": {
+            "teks": null,
+            "pakai_lokasi_saat_ini": false
+          },
+          "waktu": {
+            "jenis": "TERJADWAL",
+            "teks": "sabtu depan"
+          },
+          "budget_maks": 500000,
+          "atribut": [
+            {
+              "kunci": "keperluan",
+              "nilai": "wisuda"
+            }
+          ]
+        },
+        "confidence": 0.95,
+        "pertanyaan_klarifikasi": null
+      },
+      "model": "gemini-3.5-flash-lite",
+      "error": null,
+      "attempts": 1,
+      "latencyMs": 1758,
+      "usage": {
+        "inputTokens": 991,
+        "outputTokens": 176,
+        "thoughtTokens": 0,
+        "totalTokens": 1167
+      },
+      "score": {
+        "correct": true,
+        "slot": {
+          "waktu_jenis": true,
+          "budget_maks": true
+        }
+      }
+    },
+    {
+      "id": "S14",
+      "asal": "penyusun",
+      "pesan": "apakah ada makeup buat kondangan nanti malem yang bisa dateng ke rumah?",
+      "label": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "kecantikan/makeup-artist-acara",
+        "slot": {
+          "waktu_jenis": "TERJADWAL",
+          "budget_maks": null
+        }
+      },
+      "lastIntentDerived": false,
+      "promptHash": "39f881e1338cf26c372cb800f5f444d4a35586e9aa7626e389b642006e88d865",
+      "predicted": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "kecantikan/makeup-artist-acara",
+        "slot": {
+          "lokasi": {
+            "teks": "rumah",
+            "pakai_lokasi_saat_ini": false
+          },
+          "waktu": {
+            "jenis": "TERJADWAL",
+            "teks": "nanti malem"
+          },
+          "budget_maks": null,
+          "atribut": []
+        },
+        "confidence": 0.95,
+        "pertanyaan_klarifikasi": null
+      },
+      "model": "gemini-3.5-flash-lite",
+      "error": null,
+      "attempts": 1,
+      "latencyMs": 4859,
+      "usage": {
+        "inputTokens": 985,
+        "outputTokens": 144,
+        "thoughtTokens": 0,
+        "totalTokens": 1129
+      },
+      "score": {
+        "correct": true,
+        "slot": {
+          "waktu_jenis": true,
+          "budget_maks": true
+        }
+      }
+    },
+    {
+      "id": "S15",
+      "asal": "penyusun",
+      "pesan": "butuh mua pengantin adat bali segera karena mua sebelumnya nge cancel",
+      "label": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "kecantikan/makeup-pengantin",
+        "slot": {
+          "waktu_jenis": "SEKARANG",
+          "budget_maks": null
+        }
+      },
+      "lastIntentDerived": false,
+      "promptHash": "ff07cf900b6baa6118a28e26d8f07b3921a1833c83ecbe3324e4b0ad882c448a",
+      "predicted": null,
+      "model": null,
+      "attempts": null,
+      "latencyMs": null,
+      "usage": null,
+      "error": {
+        "reason": "timeout",
+        "status": null,
+        "attempts": 1
+      },
+      "score": {
+        "correct": false,
+        "slot": {
+          "waktu_jenis": false,
+          "budget_maks": false
+        }
+      }
+    },
+    {
+      "id": "S16",
+      "asal": "penyusun",
+      "pesan": "Hi, I'm looking for a bridal makeup for the wedding ceremony, including makeup for the mothers and female family members. Is there any available?",
+      "label": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "kecantikan/makeup-pengantin",
+        "slot": {
+          "waktu_jenis": "TIDAK_DISEBUT",
+          "budget_maks": null
+        }
+      },
+      "lastIntentDerived": false,
+      "promptHash": "c1d0e0f031ba0e65e78a9c659009d77fbc36e245a095f431c8a63ea97c3fed9b",
+      "predicted": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "kecantikan/makeup-pengantin",
+        "slot": {
+          "lokasi": {
+            "teks": null,
+            "pakai_lokasi_saat_ini": false
+          },
+          "waktu": {
+            "jenis": "TIDAK_DISEBUT",
+            "teks": null
+          },
+          "budget_maks": null,
+          "atribut": [
+            {
+              "kunci": "tambahan_keluarga",
+              "nilai": "ibu dan anggota keluarga wanita"
+            }
+          ]
+        },
+        "confidence": 0.95,
+        "pertanyaan_klarifikasi": null
+      },
+      "model": "gemini-3.5-flash-lite",
+      "error": null,
+      "attempts": 1,
+      "latencyMs": 1362,
+      "usage": {
+        "inputTokens": 998,
+        "outputTokens": 124,
+        "thoughtTokens": 0,
+        "totalTokens": 1122
+      },
+      "score": {
+        "correct": true,
+        "slot": {
+          "waktu_jenis": true,
+          "budget_maks": true
+        }
+      }
+    },
+    {
+      "id": "S17",
+      "asal": "penyusun",
+      "pesan": "aku mau cari jasa potong rambut yang bisa dateng kerumah soalnya mager keluar. Cariin yang terdekat",
+      "label": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "kecantikan/potong-rambut-panggilan",
+        "slot": {
+          "waktu_jenis": "TIDAK_DISEBUT",
+          "budget_maks": null
+        }
+      },
+      "lastIntentDerived": false,
+      "promptHash": "edaee7c75d8059cf0cda326f116b09268e09fba1b5484aaff1a7f98247ce51fd",
+      "predicted": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "kecantikan/potong-rambut-panggilan",
+        "slot": {
+          "lokasi": {
+            "teks": null,
+            "pakai_lokasi_saat_ini": true
+          },
+          "waktu": {
+            "jenis": "TIDAK_DISEBUT",
+            "teks": null
+          },
+          "budget_maks": null,
+          "atribut": []
+        },
+        "confidence": 0.99,
+        "pertanyaan_klarifikasi": null
+      },
+      "model": "gemini-3.5-flash-lite",
+      "error": null,
+      "attempts": 1,
+      "latencyMs": 1584,
+      "usage": {
+        "inputTokens": 993,
+        "outputTokens": 144,
+        "thoughtTokens": 0,
+        "totalTokens": 1137
+      },
+      "score": {
+        "correct": true,
+        "slot": {
+          "waktu_jenis": true,
+          "budget_maks": true
+        }
+      }
+    },
+    {
+      "id": "S18",
+      "asal": "penyusun",
+      "pesan": "mau potram yang murah",
+      "label": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "kecantikan/potong-rambut-panggilan",
+        "slot": {
+          "waktu_jenis": "TIDAK_DISEBUT",
+          "budget_maks": null
+        }
+      },
+      "lastIntentDerived": false,
+      "promptHash": "767c40dc3097a4b9f3699d45108994a59e30b8c20026a760fe6fd4507827ff44",
+      "predicted": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "kecantikan/potong-rambut-panggilan",
+        "slot": {
+          "lokasi": {
+            "teks": null,
+            "pakai_lokasi_saat_ini": false
+          },
+          "waktu": {
+            "jenis": "TIDAK_DISEBUT",
+            "teks": null
+          },
+          "budget_maks": null,
+          "atribut": [
+            {
+              "kunci": "preferensi",
+              "nilai": "murah"
+            }
+          ]
+        },
+        "confidence": 0.95,
+        "pertanyaan_klarifikasi": null
+      },
+      "model": "gemini-3.5-flash-lite",
+      "error": null,
+      "attempts": 2,
+      "latencyMs": 4309,
+      "usage": {
+        "inputTokens": 973,
+        "outputTokens": 172,
+        "thoughtTokens": 0,
+        "totalTokens": 1145
+      },
+      "score": {
+        "correct": true,
+        "slot": {
+          "waktu_jenis": true,
+          "budget_maks": true
+        }
+      }
+    },
+    {
+      "id": "S19",
+      "asal": "penyusun",
+      "pesan": "ac kamar gak dingin, ada jasa perbaikan yang bisa dateng sekarang?",
+      "label": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "perbaikan/servis-ac",
+        "slot": {
+          "waktu_jenis": "SEKARANG",
+          "budget_maks": null
+        }
+      },
+      "lastIntentDerived": false,
+      "promptHash": "c0a483049396df9b1b6b6e31a49f3a5415d326fafabe9e53defde67b21e93d6c",
+      "predicted": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "perbaikan/servis-ac",
+        "slot": {
+          "lokasi": {
+            "teks": null,
+            "pakai_lokasi_saat_ini": false
+          },
+          "waktu": {
+            "jenis": "SEKARANG",
+            "teks": "sekarang"
+          },
+          "budget_maks": null,
+          "atribut": [
+            {
+              "kunci": "keluhan",
+              "nilai": "gak dingin"
+            }
+          ]
+        },
+        "confidence": 0.98,
+        "pertanyaan_klarifikasi": null
+      },
+      "model": "gemini-3.5-flash-lite",
+      "error": null,
+      "attempts": 1,
+      "latencyMs": 1823,
+      "usage": {
+        "inputTokens": 983,
+        "outputTokens": 168,
+        "thoughtTokens": 0,
+        "totalTokens": 1151
+      },
+      "score": {
+        "correct": true,
+        "slot": {
+          "waktu_jenis": true,
+          "budget_maks": true
+        }
+      }
+    },
+    {
+      "id": "S20",
+      "asal": "penyusun",
+      "pesan": "butuh jasa cuci ac 3 unit di ruko saya, budget nya 500rb",
+      "label": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "perbaikan/servis-ac",
+        "slot": {
+          "waktu_jenis": "TIDAK_DISEBUT",
+          "budget_maks": 500000
+        }
+      },
+      "lastIntentDerived": false,
+      "promptHash": "2131e58e24a4cd5c2a9e52d5c050a781bfbd7219a91bbb3a7a28ff6c1620dd04",
+      "predicted": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "perbaikan/servis-ac",
+        "slot": {
+          "lokasi": {
+            "teks": "ruko saya",
+            "pakai_lokasi_saat_ini": false
+          },
+          "waktu": {
+            "jenis": "TIDAK_DISEBUT",
+            "teks": null
+          },
+          "budget_maks": 500000,
+          "atribut": [
+            {
+              "kunci": "jumlah_unit",
+              "nilai": "3"
+            }
+          ]
+        },
+        "confidence": 0.95,
+        "pertanyaan_klarifikasi": null
+      },
+      "model": "gemini-3.5-flash-lite",
+      "error": null,
+      "attempts": 1,
+      "latencyMs": 6636,
+      "usage": {
+        "inputTokens": 989,
+        "outputTokens": 177,
+        "thoughtTokens": 0,
+        "totalTokens": 1166
+      },
+      "score": {
+        "correct": true,
+        "slot": {
+          "waktu_jenis": true,
+          "budget_maks": true
+        }
+      }
+    },
+    {
+      "id": "S21",
+      "asal": "penyusun",
+      "pesan": "listrik rumah turun terus tiap nyalain rice cooker, kenapa ya?",
+      "label": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "perbaikan/tukang-listrik",
+        "slot": {
+          "waktu_jenis": "TIDAK_DISEBUT",
+          "budget_maks": null
+        }
+      },
+      "lastIntentDerived": false,
+      "promptHash": "205373fed046eac37d30f6f78fbfb85a532f7f2bcabe29560aa1d9533cb54e45",
+      "predicted": {
+        "jenis": "di_luar_cakupan",
+        "sub_kategori": null,
+        "slot": {
+          "lokasi": {
+            "teks": null,
+            "pakai_lokasi_saat_ini": false
+          },
+          "waktu": {
+            "jenis": "TIDAK_DISEBUT",
+            "teks": null
+          },
+          "budget_maks": null,
+          "atribut": []
+        },
+        "confidence": 0.95,
+        "pertanyaan_klarifikasi": null
+      },
+      "model": "gemini-3.5-flash-lite",
+      "error": null,
+      "attempts": 1,
+      "latencyMs": 1518,
+      "usage": {
+        "inputTokens": 983,
+        "outputTokens": 99,
+        "thoughtTokens": 0,
+        "totalTokens": 1082
+      },
+      "score": {
+        "correct": false,
+        "slot": {
+          "waktu_jenis": true,
+          "budget_maks": true
+        }
+      }
+    },
+    {
+      "id": "S22",
+      "asal": "penyusun",
+      "pesan": "saya butuh orang buat pasang lampu teras rumah",
+      "label": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "perbaikan/tukang-listrik",
+        "slot": {
+          "waktu_jenis": "TIDAK_DISEBUT",
+          "budget_maks": null
+        }
+      },
+      "lastIntentDerived": false,
+      "promptHash": "fc03aff31471fbeb7586f4b1591c9a3aadcd5175f4f6c6d71a57514500c23a68",
+      "predicted": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "perbaikan/tukang-listrik",
+        "slot": {
+          "lokasi": {
+            "teks": null,
+            "pakai_lokasi_saat_ini": false
+          },
+          "waktu": {
+            "jenis": "TIDAK_DISEBUT",
+            "teks": null
+          },
+          "budget_maks": null,
+          "atribut": [
+            {
+              "kunci": "pekerjaan",
+              "nilai": "pasang lampu teras rumah"
+            }
+          ]
+        },
+        "confidence": 0.85,
+        "pertanyaan_klarifikasi": null
+      },
+      "model": "gemini-3.5-flash-lite",
+      "error": null,
+      "attempts": 1,
+      "latencyMs": 1408,
+      "usage": {
+        "inputTokens": 979,
+        "outputTokens": 174,
+        "thoughtTokens": 0,
+        "totalTokens": 1153
+      },
+      "score": {
+        "correct": true,
+        "slot": {
+          "waktu_jenis": true,
+          "budget_maks": true
+        }
+      }
+    },
+    {
+      "id": "S23",
+      "asal": "penyusun",
+      "pesan": "mesin cuci bunyi kenceng bgt pas muter. Cariin orang untuk perbaiki",
+      "label": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "perbaikan/servis-mesin-cuci",
+        "slot": {
+          "waktu_jenis": "TIDAK_DISEBUT",
+          "budget_maks": null
+        }
+      },
+      "lastIntentDerived": false,
+      "promptHash": "eba67a69cbef4fa34e660f053f29762eab0c2c552bc87f53a188865fc56abeb9",
+      "predicted": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "perbaikan/servis-mesin-cuci",
+        "slot": {
+          "lokasi": {
+            "teks": null,
+            "pakai_lokasi_saat_ini": false
+          },
+          "waktu": {
+            "jenis": "TIDAK_DISEBUT",
+            "teks": null
+          },
+          "budget_maks": null,
+          "atribut": [
+            {
+              "kunci": "keluhan",
+              "nilai": "bunyi kenceng bgt pas muter"
+            }
+          ]
+        },
+        "confidence": 0.95,
+        "pertanyaan_klarifikasi": null
+      },
+      "model": "gemini-3.5-flash-lite",
+      "error": null,
+      "attempts": 1,
+      "latencyMs": 7252,
+      "usage": {
+        "inputTokens": 988,
+        "outputTokens": 180,
+        "thoughtTokens": 0,
+        "totalTokens": 1168
+      },
+      "score": {
+        "correct": true,
+        "slot": {
+          "waktu_jenis": true,
+          "budget_maks": true
+        }
+      }
+    },
+    {
+      "id": "S24",
+      "asal": "penyusun",
+      "pesan": "mesin cuci ku seperti nya rusak, gk mau buang air, sekarang sudah malam apakah ada orang yang tersedia? Kalau tidak ada carikan untuk besok sore",
+      "label": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "perbaikan/servis-mesin-cuci",
+        "slot": {
+          "waktu_jenis": "SEKARANG",
+          "budget_maks": null
+        }
+      },
+      "lastIntentDerived": false,
+      "promptHash": "9bb79b9dacc74c017ef2703be1a366e5fc5f6e24f87aa645c4df2cb3c7f2804a",
+      "predicted": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "perbaikan/servis-mesin-cuci",
+        "slot": {
+          "lokasi": {
+            "teks": null,
+            "pakai_lokasi_saat_ini": false
+          },
+          "waktu": {
+            "jenis": "TERJADWAL",
+            "teks": "besok sore"
+          },
+          "budget_maks": null,
+          "atribut": [
+            {
+              "kunci": "keluhan",
+              "nilai": "tidak mau buang air"
+            }
+          ]
+        },
+        "confidence": 0.95,
+        "pertanyaan_klarifikasi": null
+      },
+      "model": "gemini-3.5-flash-lite",
+      "error": null,
+      "attempts": 1,
+      "latencyMs": 2132,
+      "usage": {
+        "inputTokens": 1001,
+        "outputTokens": 124,
+        "thoughtTokens": 0,
+        "totalTokens": 1125
+      },
+      "score": {
+        "correct": true,
+        "slot": {
+          "waktu_jenis": false,
+          "budget_maks": true
+        }
+      }
+    },
+    {
+      "id": "S25",
+      "asal": "penyusun",
+      "pesan": "halo kak, aku butuh fotografer full day untuk acara pernikahan. Apakah ada yang tersedia?",
+      "label": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "fotografi/dokumentasi-acara",
+        "slot": {
+          "waktu_jenis": "TIDAK_DISEBUT",
+          "budget_maks": null
+        }
+      },
+      "lastIntentDerived": false,
+      "promptHash": "7c7960fb497eee41aba6d5ba303c86360ab18d73f0e969160c6f017fe3eef293",
+      "predicted": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "fotografi/dokumentasi-acara",
+        "slot": {
+          "lokasi": {
+            "teks": null,
+            "pakai_lokasi_saat_ini": false
+          },
+          "waktu": {
+            "jenis": "TIDAK_DISEBUT",
+            "teks": null
+          },
+          "budget_maks": null,
+          "atribut": [
+            {
+              "kunci": "durasi",
+              "nilai": "full day"
+            },
+            {
+              "kunci": "jenis_acara",
+              "nilai": "pernikahan"
+            }
+          ]
+        },
+        "confidence": 0.95,
+        "pertanyaan_klarifikasi": null
+      },
+      "model": "gemini-3.5-flash-lite",
+      "error": null,
+      "attempts": 1,
+      "latencyMs": 6125,
+      "usage": {
+        "inputTokens": 988,
+        "outputTokens": 196,
+        "thoughtTokens": 0,
+        "totalTokens": 1184
+      },
+      "score": {
+        "correct": true,
+        "slot": {
+          "waktu_jenis": true,
+          "budget_maks": true
+        }
+      }
+    },
+    {
+      "id": "S26",
+      "asal": "teman",
+      "pesan": "aki motor kayaknya tekor, ga bisa distarter",
+      "label": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "otomotif/servis-motor-panggilan",
+        "slot": {
+          "waktu_jenis": "TIDAK_DISEBUT",
+          "budget_maks": null
+        }
+      },
+      "lastIntentDerived": false,
+      "promptHash": "cdc1336098b8769f5507a428136a1528647749ead8d971c60ad8c13f3379de53",
+      "predicted": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "otomotif/servis-motor-panggilan",
+        "slot": {
+          "lokasi": {
+            "teks": null,
+            "pakai_lokasi_saat_ini": false
+          },
+          "waktu": {
+            "jenis": "TIDAK_DISEBUT",
+            "teks": null
+          },
+          "budget_maks": null,
+          "atribut": [
+            {
+              "kunci": "keluhan",
+              "nilai": "aki tekor dan tidak bisa di starter"
+            }
+          ]
+        },
+        "confidence": 0.85,
+        "pertanyaan_klarifikasi": null
+      },
+      "model": "gemini-3.5-flash-lite",
+      "error": null,
+      "attempts": 1,
+      "latencyMs": 7752,
+      "usage": {
+        "inputTokens": 979,
+        "outputTokens": 178,
+        "thoughtTokens": 0,
+        "totalTokens": 1157
+      },
+      "score": {
+        "correct": true,
+        "slot": {
+          "waktu_jenis": true,
+          "budget_maks": true
+        }
+      }
+    },
+    {
+      "id": "S27",
+      "asal": "teman",
+      "pesan": "halo tolong carikan saya MUA daerah denpasar selatan yang available tanggal 25 november 2026 dengan range harga 300.000",
+      "label": {
+        "jenis": "perlu_klarifikasi",
+        "sub_kategori": null
+      },
+      "lastIntentDerived": false,
+      "promptHash": "6335d2ad62a1dc6ef2835a7457b2fa03c84079af7aee3f704a3f77633c1c1f98",
+      "predicted": {
+        "jenis": "perlu_klarifikasi",
+        "sub_kategori": null,
+        "slot": {
+          "lokasi": {
+            "teks": "denpasar selatan",
+            "pakai_lokasi_saat_ini": false
+          },
+          "waktu": {
+            "jenis": "TERJADWAL",
+            "teks": "tanggal 25 november 2026"
+          },
+          "budget_maks": 300000,
+          "atribut": []
+        },
+        "confidence": 0.95,
+        "pertanyaan_klarifikasi": "Apakah Anda membutuhkan MUA untuk acara atau makeup pengantin?"
+      },
+      "model": "gemini-3.5-flash-lite",
+      "error": null,
+      "attempts": 1,
+      "latencyMs": 4482,
+      "usage": {
+        "inputTokens": 1003,
+        "outputTokens": 163,
+        "thoughtTokens": 0,
+        "totalTokens": 1166
+      },
+      "score": {
+        "correct": true,
+        "slot": {}
+      }
+    },
+    {
+      "id": "S28",
+      "asal": "penyusun",
+      "pesan": "Besok sore aku ada acara prewedding dan perlu orang untuk mendokumentasikan. Adakah yang bisa? Saya mencari di range 1-2jt.",
+      "label": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "fotografi/foto-prewedding",
+        "slot": {
+          "waktu_jenis": "TERJADWAL",
+          "budget_maks": 2000000
+        }
+      },
+      "lastIntentDerived": false,
+      "promptHash": "ffdbe75bd50ef62da14788aa6df898d4d0cc1b16437fd83d160ed76dfcfce168",
+      "predicted": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "fotografi/foto-prewedding",
+        "slot": {
+          "lokasi": {
+            "teks": null,
+            "pakai_lokasi_saat_ini": false
+          },
+          "waktu": {
+            "jenis": "TERJADWAL",
+            "teks": "Besok sore"
+          },
+          "budget_maks": 2000000,
+          "atribut": []
+        },
+        "confidence": 0.95,
+        "pertanyaan_klarifikasi": null
+      },
+      "model": "gemini-3.5-flash-lite",
+      "error": null,
+      "attempts": 1,
+      "latencyMs": 4999,
+      "usage": {
+        "inputTokens": 1000,
+        "outputTokens": 148,
+        "thoughtTokens": 0,
+        "totalTokens": 1148
+      },
+      "score": {
+        "correct": true,
+        "slot": {
+          "waktu_jenis": true,
+          "budget_maks": true
+        }
+      }
+    },
+    {
+      "id": "R01",
+      "asal": "penyusun",
+      "pesan": "fotonya buat jualan online saya di shopee",
+      "label": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "fotografi/foto-produk",
+        "slot": {
+          "waktu_jenis": "TIDAK_DISEBUT",
+          "budget_maks": null
+        }
+      },
+      "lastIntentDerived": true,
+      "promptHash": "3f5da5b155ac46b8dde12d6849227ee666763fb52dd2ae19f2b325d1fdd56f65",
+      "predicted": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "fotografi/foto-produk",
+        "slot": {
+          "lokasi": {
+            "teks": null,
+            "pakai_lokasi_saat_ini": false
+          },
+          "waktu": {
+            "jenis": "TIDAK_DISEBUT",
+            "teks": null
+          },
+          "budget_maks": null,
+          "atribut": [
+            {
+              "kunci": "keperluan",
+              "nilai": "jualan online di shopee"
+            }
+          ]
+        },
+        "confidence": 0.98,
+        "pertanyaan_klarifikasi": null
+      },
+      "model": "gemini-3.5-flash-lite",
+      "error": null,
+      "attempts": 1,
+      "latencyMs": 3487,
+      "usage": {
+        "inputTokens": 1109,
+        "outputTokens": 171,
+        "thoughtTokens": 0,
+        "totalTokens": 1280
+      },
+      "score": {
+        "correct": true,
+        "slot": {
+          "waktu_jenis": true,
+          "budget_maks": true
+        }
+      }
+    },
+    {
+      "id": "R02",
+      "asal": "penyusun",
+      "pesan": "yg mesin cuci kak, kayaknya rusak",
+      "label": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "perbaikan/servis-mesin-cuci",
+        "slot": {
+          "waktu_jenis": "TIDAK_DISEBUT",
+          "budget_maks": null
+        }
+      },
+      "lastIntentDerived": true,
+      "promptHash": "92dea9bce106932d8e0b1d0cb59918e7894fe7397f95373dc9a614e91a0a6fb9",
+      "predicted": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "perbaikan/servis-mesin-cuci",
+        "slot": {
+          "lokasi": {
+            "teks": null,
+            "pakai_lokasi_saat_ini": false
+          },
+          "waktu": {
+            "jenis": "TIDAK_DISEBUT",
+            "teks": null
+          },
+          "budget_maks": null,
+          "atribut": []
+        },
+        "confidence": 0.99,
+        "pertanyaan_klarifikasi": null
+      },
+      "model": "gemini-3.5-flash-lite",
+      "error": null,
+      "attempts": 1,
+      "latencyMs": 7614,
+      "usage": {
+        "inputTokens": 1106,
+        "outputTokens": 144,
+        "thoughtTokens": 0,
+        "totalTokens": 1250
+      },
+      "score": {
+        "correct": true,
+        "slot": {
+          "waktu_jenis": true,
+          "budget_maks": true
+        }
+      }
+    },
+    {
+      "id": "R03",
+      "asal": "penyusun",
+      "pesan": "buat nikahan ku sendiri, apakah ada yang harganya murah?",
+      "label": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "kecantikan/makeup-pengantin",
+        "slot": {
+          "waktu_jenis": "TIDAK_DISEBUT",
+          "budget_maks": null
+        }
+      },
+      "lastIntentDerived": true,
+      "promptHash": "7042654b6dd178bda3449ffb54575dfb26c77f2dcaf0590a34cda7afc2fb657d",
+      "predicted": {
+        "jenis": "cari_jasa",
+        "sub_kategori": "kecantikan/makeup-pengantin",
+        "slot": {
+          "lokasi": {
+            "teks": null,
+            "pakai_lokasi_saat_ini": false
+          },
+          "waktu": {
+            "jenis": "TIDAK_DISEBUT",
+            "teks": null
+          },
+          "budget_maks": null,
+          "atribut": []
+        },
+        "confidence": 0.98,
+        "pertanyaan_klarifikasi": null
+      },
+      "model": "gemini-3.5-flash-lite",
+      "error": null,
+      "attempts": 1,
+      "latencyMs": 5922,
+      "usage": {
+        "inputTokens": 1109,
+        "outputTokens": 140,
+        "thoughtTokens": 0,
+        "totalTokens": 1249
+      },
+      "score": {
+        "correct": true,
+        "slot": {
+          "waktu_jenis": true,
+          "budget_maks": true
+        }
+      }
+    },
+    {
+      "id": "K01",
+      "asal": "penyusun",
+      "pesan": "perlu orang untuk servis",
+      "label": {
+        "jenis": "perlu_klarifikasi",
+        "sub_kategori": null
+      },
+      "lastIntentDerived": false,
+      "promptHash": "5972dedad560584ec01f6b7bd5fad458b83640dee81973c7e068bbb80710a752",
+      "predicted": null,
+      "model": null,
+      "attempts": null,
+      "latencyMs": null,
+      "usage": null,
+      "error": {
+        "reason": "timeout",
+        "status": null,
+        "attempts": 1
+      },
+      "score": {
+        "correct": false,
+        "slot": {}
+      }
+    },
+    {
+      "id": "K02",
+      "asal": "penyusun",
+      "pesan": "mau orang untuk nemenin aku bermain dong",
+      "label": {
+        "jenis": "jasa_tidak_tersedia",
+        "sub_kategori": null
+      },
+      "lastIntentDerived": false,
+      "promptHash": "1f66c784d45928579b354c9c71990991d123f7b2e7ed37f969dbabf16150e352",
+      "predicted": null,
+      "model": null,
+      "attempts": null,
+      "latencyMs": null,
+      "usage": null,
+      "error": {
+        "reason": "timeout",
+        "status": null,
+        "attempts": 1
+      },
+      "score": {
+        "correct": false,
+        "slot": {}
+      }
+    },
+    {
+      "id": "K03",
+      "asal": "penyusun",
+      "pesan": "saya perlu bantuan tukang untuk di rumah",
+      "label": {
+        "jenis": "perlu_klarifikasi",
+        "sub_kategori": null
+      },
+      "lastIntentDerived": false,
+      "promptHash": "fd0373631a045ae28c4edaeca5711444a34157200fa44b2c9199f70d2c0c44dd",
+      "predicted": null,
+      "model": null,
+      "attempts": null,
+      "latencyMs": null,
+      "usage": null,
+      "error": {
+        "reason": "timeout",
+        "status": null,
+        "attempts": 1
+      },
+      "score": {
+        "correct": false,
+        "slot": {}
+      }
+    },
+    {
+      "id": "K04",
+      "asal": "penyusun",
+      "pesan": "ada tukang yang bisa bantu saya?",
+      "label": {
+        "jenis": "perlu_klarifikasi",
+        "sub_kategori": null
+      },
+      "lastIntentDerived": false,
+      "promptHash": "927ccd0692a9dfec9aeb8833ad17a985301020aa4d2e56370d93df37346cb5df",
+      "predicted": {
+        "jenis": "perlu_klarifikasi",
+        "sub_kategori": null,
+        "slot": {
+          "lokasi": {
+            "teks": null,
+            "pakai_lokasi_saat_ini": false
+          },
+          "waktu": {
+            "jenis": "TIDAK_DISEBUT",
+            "teks": null
+          },
+          "budget_maks": null,
+          "atribut": []
+        },
+        "confidence": 0.8,
+        "pertanyaan_klarifikasi": "Tukang apa yang Anda cari? (servis AC, tukang listrik, atau servis mesin cuci?)"
+      },
+      "model": "gemini-3.5-flash-lite",
+      "error": null,
+      "attempts": 1,
+      "latencyMs": 6089,
+      "usage": {
+        "inputTokens": 976,
+        "outputTokens": 120,
+        "thoughtTokens": 0,
+        "totalTokens": 1096
+      },
+      "score": {
+        "correct": true,
+        "slot": {}
+      }
+    },
+    {
+      "id": "K05",
+      "asal": "penyusun",
+      "pesan": "kendaraan kesayangan ku perlu dirawat nih",
+      "label": {
+        "jenis": "perlu_klarifikasi",
+        "sub_kategori": null
+      },
+      "lastIntentDerived": false,
+      "promptHash": "3195099d4924eeb5d1130fd84cd44f400bcbaf60da69f28318ea85605562268e",
+      "predicted": {
+        "jenis": "perlu_klarifikasi",
+        "sub_kategori": null,
+        "slot": {
+          "lokasi": {
+            "teks": null,
+            "pakai_lokasi_saat_ini": false
+          },
+          "waktu": {
+            "jenis": "TIDAK_DISEBUT",
+            "teks": null
+          },
+          "budget_maks": null,
+          "atribut": []
+        },
+        "confidence": 0.8,
+        "pertanyaan_klarifikasi": "Apakah Anda butuh cuci mobil panggilan, servis motor panggilan, atau ganti oli panggilan?"
+      },
+      "model": "gemini-3.5-flash-lite",
+      "error": null,
+      "attempts": 1,
+      "latencyMs": 5508,
+      "usage": {
+        "inputTokens": 978,
+        "outputTokens": 152,
+        "thoughtTokens": 0,
+        "totalTokens": 1130
+      },
+      "score": {
+        "correct": true,
+        "slot": {}
+      }
+    },
+    {
+      "id": "K06",
+      "asal": "penyusun",
+      "pesan": "halo ada yg bisa bantu benerin barang elektronik di rumah?",
+      "label": {
+        "jenis": "perlu_klarifikasi",
+        "sub_kategori": null
+      },
+      "lastIntentDerived": false,
+      "promptHash": "4b32d6be604e88aa5efc5b27f294d104f02a0794b2c193730301ae3d21a3593f",
+      "predicted": null,
+      "model": null,
+      "attempts": null,
+      "latencyMs": null,
+      "usage": null,
+      "error": {
+        "reason": "timeout",
+        "status": null,
+        "attempts": 1
+      },
+      "score": {
+        "correct": false,
+        "slot": {}
+      }
+    },
+    {
+      "id": "N01",
+      "asal": "penyusun",
+      "pesan": "jasa pindahan rumah besok pagi apa ada?",
+      "label": {
+        "jenis": "jasa_tidak_tersedia",
+        "sub_kategori": null
+      },
+      "lastIntentDerived": false,
+      "promptHash": "9b57b2f48ea54f65e2090a03242bae76554857fac28dcf0ddb857e94df19883f",
+      "predicted": {
+        "jenis": "jasa_tidak_tersedia",
+        "sub_kategori": null,
+        "slot": {
+          "lokasi": {
+            "teks": null,
+            "pakai_lokasi_saat_ini": false
+          },
+          "waktu": {
+            "jenis": "TERJADWAL",
+            "teks": "besok pagi"
+          },
+          "budget_maks": null,
+          "atribut": []
+        },
+        "confidence": 1,
+        "pertanyaan_klarifikasi": null
+      },
+      "model": "gemini-3.5-flash-lite",
+      "error": null,
+      "attempts": 1,
+      "latencyMs": 2905,
+      "usage": {
+        "inputTokens": 979,
+        "outputTokens": 136,
+        "thoughtTokens": 0,
+        "totalTokens": 1115
+      },
+      "score": {
+        "correct": true,
+        "slot": {}
+      }
+    },
+    {
+      "id": "N02",
+      "asal": "penyusun",
+      "pesan": "sy mau cari guru les mata pelajaran matematika untuk anak saya yang kelas 3 smp.",
+      "label": {
+        "jenis": "jasa_tidak_tersedia",
+        "sub_kategori": null
+      },
+      "lastIntentDerived": false,
+      "promptHash": "506ced2fd5625a6a097b872b5911948e1785df81d3aef56fbbab29a73ede8cfc",
+      "predicted": {
+        "jenis": "jasa_tidak_tersedia",
+        "sub_kategori": null,
+        "slot": {
+          "lokasi": {
+            "teks": null,
+            "pakai_lokasi_saat_ini": false
+          },
+          "waktu": {
+            "jenis": "TIDAK_DISEBUT",
+            "teks": null
+          },
+          "budget_maks": null,
+          "atribut": [
+            {
+              "kunci": "mata_pelajaran",
+              "nilai": "matematika"
+            },
+            {
+              "kunci": "jenjang_pendidikan",
+              "nilai": "kelas 3 smp"
+            }
+          ]
+        },
+        "confidence": 0.95,
+        "pertanyaan_klarifikasi": null
+      },
+      "model": "gemini-3.5-flash-lite",
+      "error": null,
+      "attempts": 1,
+      "latencyMs": 6261,
+      "usage": {
+        "inputTokens": 986,
+        "outputTokens": 198,
+        "thoughtTokens": 0,
+        "totalTokens": 1184
+      },
+      "score": {
+        "correct": true,
+        "slot": {}
+      }
+    },
+    {
+      "id": "N03",
+      "asal": "penyusun",
+      "pesan": "kulkas ga dingin, ada teknisi yang bisa perbaiki sekarang?",
+      "label": {
+        "jenis": "jasa_tidak_tersedia",
+        "sub_kategori": null
+      },
+      "lastIntentDerived": false,
+      "promptHash": "d11edcb38510772f3dd0e3212a0605a43befa05e1a3d9ecf337df2caa796f7a2",
+      "predicted": {
+        "jenis": "jasa_tidak_tersedia",
+        "sub_kategori": null,
+        "slot": {
+          "lokasi": {
+            "teks": null,
+            "pakai_lokasi_saat_ini": false
+          },
+          "waktu": {
+            "jenis": "SEKARANG",
+            "teks": "sekarang"
+          },
+          "budget_maks": null,
+          "atribut": [
+            {
+              "kunci": "masalah",
+              "nilai": "kulkas ga dingin"
+            }
+          ]
+        },
+        "confidence": 0.95,
+        "pertanyaan_klarifikasi": null
+      },
+      "model": "gemini-3.5-flash-lite",
+      "error": null,
+      "attempts": 1,
+      "latencyMs": 5731,
+      "usage": {
+        "inputTokens": 983,
+        "outputTokens": 115,
+        "thoughtTokens": 0,
+        "totalTokens": 1098
+      },
+      "score": {
+        "correct": true,
+        "slot": {}
+      }
+    },
+    {
+      "id": "N04",
+      "asal": "teman",
+      "pesan": "hola",
+      "label": {
+        "jenis": "sapaan",
+        "sub_kategori": null
+      },
+      "lastIntentDerived": false,
+      "promptHash": "25f5363208724a8d3d21da2f158617b48e2d824f3d29397226629fd0e719e192",
+      "predicted": {
+        "jenis": "sapaan",
+        "sub_kategori": null,
+        "slot": {
+          "lokasi": {
+            "teks": null,
+            "pakai_lokasi_saat_ini": false
+          },
+          "waktu": {
+            "jenis": "TIDAK_DISEBUT",
+            "teks": null
+          },
+          "budget_maks": null,
+          "atribut": []
+        },
+        "confidence": 1,
+        "pertanyaan_klarifikasi": null
+      },
+      "model": "gemini-3.5-flash-lite",
+      "error": null,
+      "attempts": 1,
+      "latencyMs": 7781,
+      "usage": {
+        "inputTokens": 969,
+        "outputTokens": 131,
+        "thoughtTokens": 0,
+        "totalTokens": 1100
+      },
+      "score": {
+        "correct": true,
+        "slot": {}
+      }
+    },
+    {
+      "id": "N05",
+      "asal": "teman",
+      "pesan": "malam min",
+      "label": {
+        "jenis": "sapaan",
+        "sub_kategori": null
+      },
+      "lastIntentDerived": false,
+      "promptHash": "7bcaa6eb0205896a83c2209179f076bd47fd559e32c2e548e44d3da3e654230c",
+      "predicted": {
+        "jenis": "sapaan",
+        "sub_kategori": null,
+        "slot": {
+          "lokasi": {
+            "teks": null,
+            "pakai_lokasi_saat_ini": false
+          },
+          "waktu": {
+            "jenis": "TIDAK_DISEBUT",
+            "teks": null
+          },
+          "budget_maks": null,
+          "atribut": []
+        },
+        "confidence": 0.99,
+        "pertanyaan_klarifikasi": null
+      },
+      "model": "gemini-3.5-flash-lite",
+      "error": null,
+      "attempts": 1,
+      "latencyMs": 7969,
+      "usage": {
+        "inputTokens": 971,
+        "outputTokens": 132,
+        "thoughtTokens": 0,
+        "totalTokens": 1103
+      },
+      "score": {
+        "correct": true,
+        "slot": {}
+      }
+    },
+    {
+      "id": "N06",
+      "asal": "teman",
+      "pesan": "apa rumus pythagoras",
+      "label": {
+        "jenis": "di_luar_cakupan",
+        "sub_kategori": null
+      },
+      "lastIntentDerived": false,
+      "promptHash": "9361beb298ec38958dc083bd1e4cfca9ee5aa5c9bb9da6bf991e5b19376a127f",
+      "predicted": {
+        "jenis": "di_luar_cakupan",
+        "sub_kategori": null,
+        "slot": {
+          "lokasi": {
+            "teks": null,
+            "pakai_lokasi_saat_ini": false
+          },
+          "waktu": {
+            "jenis": "TIDAK_DISEBUT",
+            "teks": null
+          },
+          "budget_maks": null,
+          "atribut": []
+        },
+        "confidence": 1,
+        "pertanyaan_klarifikasi": null
+      },
+      "model": "gemini-3.5-flash-lite",
+      "error": null,
+      "attempts": 1,
+      "latencyMs": 6530,
+      "usage": {
+        "inputTokens": 973,
+        "outputTokens": 135,
+        "thoughtTokens": 0,
+        "totalTokens": 1108
+      },
+      "score": {
+        "correct": true,
+        "slot": {}
+      }
+    },
+    {
+      "id": "N07",
+      "asal": "penyusun",
+      "pesan": "cuaca denpasar hari ini gmna?",
+      "label": {
+        "jenis": "di_luar_cakupan",
+        "sub_kategori": null
+      },
+      "lastIntentDerived": false,
+      "promptHash": "9f4029ff82faae2c200888ced77b0e26e714c3f7f07620fb3da47373a0d7096a",
+      "predicted": null,
+      "model": null,
+      "attempts": null,
+      "latencyMs": null,
+      "usage": null,
+      "error": {
+        "reason": "timeout",
+        "status": null,
+        "attempts": 1
+      },
+      "score": {
+        "correct": false,
+        "slot": {}
+      }
+    },
+    {
+      "id": "N08",
+      "asal": "teman",
+      "pesan": "bantu bikinin caption ig buat feeds aku dong",
+      "label": {
+        "jenis": "di_luar_cakupan",
+        "sub_kategori": null
+      },
+      "lastIntentDerived": false,
+      "promptHash": "144b54d1780ff2ea99dfadfe9652e8235e4270f1e9c23a85eb01339c47312308",
+      "predicted": {
+        "jenis": "di_luar_cakupan",
+        "sub_kategori": null,
+        "slot": {
+          "lokasi": {
+            "teks": null,
+            "pakai_lokasi_saat_ini": false
+          },
+          "waktu": {
+            "jenis": "TIDAK_DISEBUT",
+            "teks": null
+          },
+          "budget_maks": null,
+          "atribut": []
+        },
+        "confidence": 0.95,
+        "pertanyaan_klarifikasi": null
+      },
+      "model": "gemini-3.5-flash-lite",
+      "error": null,
+      "attempts": 1,
+      "latencyMs": 7829,
+      "usage": {
+        "inputTokens": 978,
+        "outputTokens": 136,
+        "thoughtTokens": 0,
+        "totalTokens": 1114
+      },
+      "score": {
+        "correct": true,
+        "slot": {}
+      }
+    },
+    {
+      "id": "N09",
+      "asal": "teman",
+      "pesan": "p",
+      "label": {
+        "jenis": "sapaan",
+        "sub_kategori": null
+      },
+      "lastIntentDerived": false,
+      "promptHash": "7e6f9cd3871cfd12740d52204d55878c07a0eceee43ad2716c769a68b7afe8fd",
+      "predicted": null,
+      "model": null,
+      "attempts": null,
+      "latencyMs": null,
+      "usage": null,
+      "error": {
+        "reason": "timeout",
+        "status": null,
+        "attempts": 1
+      },
+      "score": {
+        "correct": false,
+        "slot": {}
+      }
+    },
+    {
+      "id": "N10",
+      "asal": "teman",
+      "pesan": "skrang tgl berapa?",
+      "label": {
+        "jenis": "di_luar_cakupan",
+        "sub_kategori": null
+      },
+      "lastIntentDerived": false,
+      "promptHash": "2303eeb2ae5f9b0518c141f08fc88f89175c9f088d4bd4b05603dbd1b3c3b163",
+      "predicted": null,
+      "model": null,
+      "attempts": null,
+      "latencyMs": null,
+      "usage": null,
+      "error": {
+        "reason": "timeout",
+        "status": null,
+        "attempts": 1
+      },
+      "score": {
+        "correct": false,
+        "slot": {}
+      }
+    },
+    {
+      "id": "N11",
+      "asal": "teman",
+      "pesan": "sira adan tiang?",
+      "label": {
+        "jenis": "di_luar_cakupan",
+        "sub_kategori": null
+      },
+      "lastIntentDerived": false,
+      "promptHash": "e0675022a142aa5a2d6bcfeb126e799d98793e5cee5de5462b67127c2c91076f",
+      "predicted": {
+        "jenis": "di_luar_cakupan",
+        "sub_kategori": null,
+        "slot": {
+          "lokasi": {
+            "teks": null,
+            "pakai_lokasi_saat_ini": false
+          },
+          "waktu": {
+            "jenis": "TIDAK_DISEBUT",
+            "teks": null
+          },
+          "budget_maks": null,
+          "atribut": []
+        },
+        "confidence": 0.95,
+        "pertanyaan_klarifikasi": null
+      },
+      "model": "gemini-3.5-flash-lite",
+      "error": null,
+      "attempts": 1,
+      "latencyMs": 6844,
+      "usage": {
+        "inputTokens": 975,
+        "outputTokens": 99,
+        "thoughtTokens": 0,
+        "totalTokens": 1074
+      },
+      "score": {
+        "correct": true,
+        "slot": {}
+      }
+    },
+    {
+      "id": "N12",
+      "asal": "penyusun",
+      "pesan": "om swastyastu",
+      "label": {
+        "jenis": "sapaan",
+        "sub_kategori": null
+      },
+      "lastIntentDerived": false,
+      "promptHash": "7388e5d717cc57fd124e8195e91ef843599cb176f1cd6fc6fc3959f965dc7d2c",
+      "predicted": null,
+      "model": null,
+      "attempts": null,
+      "latencyMs": null,
+      "usage": null,
+      "error": {
+        "reason": "timeout",
+        "status": null,
+        "attempts": 1
+      },
+      "score": {
+        "correct": false,
+        "slot": {}
+      }
+    }
+  ]
+}

@@ -1578,7 +1578,7 @@ Data seed harus menyertakan kombinasi yang memungkinkan skenario di atas dijalan
 
 ## 9. Milestone Implementasi
 
-Status per 17 November 2026: **Fase 0 sampai Fase 8 selesai, dan Fase 10 selesai di tingkat kode pada sesi 10c** (uji sandbox penyusun menyusul). Fase 9 selesai di tingkat kode, tetapi penutupannya menunggu evaluasi akurasi run 2 dan run 3 (D176). Urutan mengikuti dependency tree, bukan urutan tabel jadwal pada usulan ide.
+Status per 17 November 2026: **Fase 0 sampai Fase 10 selesai.** Evaluasi akurasi intent extraction tiga run (D176) menghasilkan 74,15 persen dengan kegagalan dihitung salah dan 94,0 persen atas skenario yang dijawab, dicatat di register Bagian 4AB. Urutan mengikuti dependency tree, bukan urutan tabel jadwal pada usulan ide.
 
 | Fase | Keluaran backend | Kriteria selesai |
 |---|---|---|
