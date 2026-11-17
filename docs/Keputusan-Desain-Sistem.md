@@ -61,6 +61,7 @@
 
 1. Hasil evaluasi run 3 dan rekap tiga run (D176): 74,15 persen, target D85 tidak tercapai, 94,0 persen atas skenario yang dijawab
 2. Penutupan Fase 9 (Bagian 4AG). H15 ditutup
+3. Hasil uji sandbox 10c
 
 **Perubahan pada versi 2.39:**
 
@@ -1972,6 +1973,20 @@ Dari sesi 10c. Semua dijawab penyusun sebelum rencana disusun, kecuali advisory 
 
 Hitungan akhir Fase 10: 1.004 test (dari 888 sebelum Fase 10), mutan 13 dari 13 (10a), 42 dari 42 (10b), dan 38 dari 38 (10c). H37, H66, H70 sampai H72, dan H111 ditutup sepanjang Fase 9 dan 10.
 
+**Hasil uji sandbox 10c (17 November 2026, dijalankan penyusun di Supabase dev, tanpa migrasi):**
+
+| Uji | Hasil |
+|---|---|
+| `GET /admin/settings` | 25 kunci, kunci TTL tidak tampil (D198) |
+| PATCH ditolak | Fee 60.000 ditolak rentang (maksimal 50.000). Fee 50.000 sendirian ditolak relasi ("harus lebih kecil dari `withdrawal_min_amount` (50000)"). Kunci `access_token_ttl_minutes` ditolak sebagai kunci tak dikenal. Radius 5 ditolak rentang. Client ditolak 403 `FORBIDDEN_ACTOR` |
+| PATCH dua kunci sekaligus | Minimum 100.000 dan fee 50.000 diterima bersama, keduanya `DATABASE` dengan `updated_by` Admin Jasana (D199) |
+| Perubahan langsung berlaku | `order_message_max_length` diturunkan ke 100 tanpa restart server. Pada order baru yang diterima, pesan 101 karakter ditolak 422 dan pesan 100 karakter terkirim |
+| Laporan pendapatan November | Totals identik dengan baris V4 November (2 order, nilai transaksi Rp3.000.000, fee Rp300.000, fee dikembalikan Rp12.346, pendapatan bersih Rp287.654). Identitas tiga suku terpenuhi: 287.654 + 2.588.889 (dana dilepas) + 123.457 (dikembalikan ke client, sama dengan refund PARTIAL sandbox 8d) = 3.000.000 |
+| Laporan transaksi 16 sampai 17 November | Tiga order uji masuk ke 17 November, termasuk `ORD-20261116-EB9FD5ED` yang dibuat 16 November pukul 16.24 UTC (00.24 WITA), bukti pengelompokan per hari WITA (D200) |
+| Laporan penyedia dan pekerja | Dana dilepas penyedia sama dengan total laporan pendapatan, check-in pekerja (2 dari 2 valid) sama dengan V2 |
+| Periode terbalik | 422 "to tidak boleh sebelum from" |
+| Pengembalian parameter | Minimum Rp50.000, fee Rp6.500, dan batas pesan 2.000 karakter dipulihkan, `db:verify` lulus |
+
 ---
 
 ## 4AG. Penutupan Fase 9 (17 November 2026)
@@ -2724,7 +2739,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 | 2.37 | 17 November 2026 | Lima keputusan dari sesi 10a: tabel event notifikasi (D182), endpoint notifikasi (D183), whitelist dan render generik retry yang merevisi D177 (D184), hitungan dan klaim retry (D185), dan enum `ORDER_MESSAGE` (D186). H37 ditutup, H114 sampai H116 baru. Satu migrasi Ditambah hasil uji sandbox 10a dan empat temuannya |
 | 2.38 | 17 November 2026 | Sebelas keputusan dari sesi 10b: masa aktif pesan yang merevisi D79 (D187), notifikasi pesan dan review (D188), admin review (D189), revisi V11 (D190), batas teks dan nama disamarkan (D191), review di detail listing (D192), perbaikan sandbox 10a (D193 sampai D196), dan urutan kunci seragam (D197). H70 sampai H72 ditutup, H117 baru. Tanpa migrasi Ditambah hasil uji sandbox 10b |
 | 2.39 | 17 November 2026 | Enam keputusan dari sesi 10c: registri dan rentang parameter (D198), PATCH atomik dengan advisory lock (D199), periode laporan per hari WITA dan V4 per bulan WITA (D200), definisi kolom laporan (D201), SQL mentah terikat (D202), dan waktu status dari riwayat (D203). Penutupan Fase 10. H118 dan H120 baru. Tanpa migrasi Ditambah hasil evaluasi run 2 |
-| 2.40 | 17 November 2026 | Hasil evaluasi run 3, rekap tiga run, dan kesimpulan terhadap D85. Penutupan Fase 9. H15 ditutup. Tanpa keputusan baru dan tanpa perubahan kode |
+| 2.40 | 17 November 2026 | Hasil evaluasi run 3, rekap tiga run, dan kesimpulan terhadap D85. Penutupan Fase 9. H15 ditutup. Tanpa keputusan baru dan tanpa perubahan kode Ditambah hasil uji sandbox 10c |
 
 ---
 
