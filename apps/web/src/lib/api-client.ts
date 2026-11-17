@@ -47,3 +47,17 @@ export async function apiFetch<T>(
   if (body?.success === false) throw new ApiError(res.status, body.error.code, body.error.details ?? [])
   throw new ApiError(res.status, null)
 }
+
+/**
+ * 404, atau 422 VALIDATION_ERROR karena id di URL bukan UUID: keduanya "tidak ditemukan".
+ * Hanya untuk GET berdasarkan id, yang satu-satunya inputnya adalah id itu.
+ */
+export function isNotFound(err: unknown): boolean {
+  return err instanceof ApiError && (err.status === 404 || err.code === "VALIDATION_ERROR")
+}
+
+/** Kebijakan retry TanStack Query: sekali untuk jaringan putus atau 5xx. 4xx tidak berubah kalau diulang, jadi langsung error state. */
+export function shouldRetry(failureCount: number, error: unknown): boolean {
+  if (error instanceof ApiError && error.status >= 400 && error.status < 500) return false
+  return failureCount < 1
+}

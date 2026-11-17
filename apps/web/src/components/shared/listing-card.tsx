@@ -8,7 +8,8 @@ import { formatJarak, formatRating } from "@/lib/format"
 import type { ListingCard as ListingCardData } from "@/types/api/listing"
 
 // Design System 6.2: foto 4:3, judul, nama usaha, rating, "Mulai Rp...", jarak, ModeBadge.
-export function ListingCard({ listing }: { listing: ListingCardData }) {
+/** `eager` untuk kartu di atas lipatan, supaya fotonya tidak menunggu lazy load (LCP). */
+export function ListingCard({ listing, eager = false }: { listing: ListingCardData; eager?: boolean }) {
   const { provider } = listing
   return (
     <Link
@@ -21,6 +22,7 @@ export function ListingCard({ listing }: { listing: ListingCardData }) {
             src={listing.primary_photo_url}
             alt=""
             fill
+            loading={eager ? "eager" : "lazy"}
             sizes="(min-width: 1024px) 368px, (min-width: 640px) 50vw, 100vw"
             className="object-cover"
           />

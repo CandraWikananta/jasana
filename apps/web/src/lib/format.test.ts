@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { formatDelta, formatJarak, formatRating, formatRupiah } from "./format"
+import { formatDelta, formatDurasi, formatJarak, formatNilaiAtribut, formatRating, formatRupiah } from "./format"
 
 describe("formatRupiah", () => {
   it("memformat integer rupiah tanpa spasi", () => {
@@ -37,5 +37,27 @@ describe("formatRating", () => {
     expect(formatRating(4.8)).toBe("4,8")
     expect(formatRating(5)).toBe("5,0")
     expect(formatRating(4.25)).toBe("4,3")
+  })
+})
+
+describe("formatDurasi", () => {
+  it("menit, jam bulat, jam dan menit", () => {
+    expect(formatDurasi(0)).toBe("0 menit")
+    expect(formatDurasi(45)).toBe("45 menit")
+    expect(formatDurasi(120)).toBe("2 jam")
+    expect(formatDurasi(90)).toBe("1 jam 30 menit")
+  })
+})
+
+describe("formatNilaiAtribut", () => {
+  it("daftar, boolean, angka bersatuan, kosong", () => {
+    expect(formatNilaiAtribut(["Sport", "Matic"], null)).toBe("Sport, Matic")
+    expect(formatNilaiAtribut(true, null)).toBe("Ya")
+    expect(formatNilaiAtribut(false, null)).toBe("Tidak")
+    expect(formatNilaiAtribut(2, "PK")).toBe("2 PK")
+    expect(formatNilaiAtribut("Keduanya bisa", null)).toBe("Keduanya bisa")
+    expect(formatNilaiAtribut([], null)).toBeNull()
+    expect(formatNilaiAtribut("", null)).toBeNull()
+    expect(formatNilaiAtribut(undefined, null)).toBeNull()
   })
 })

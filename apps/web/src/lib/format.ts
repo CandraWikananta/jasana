@@ -24,3 +24,19 @@ export function formatJarak(meter: number): string {
 export function formatRating(value: number): string {
   return satuDesimal.format(value)
 }
+
+/** `45 menit`, `2 jam`, `1 jam 30 menit` dari menit. */
+export function formatDurasi(menit: number): string {
+  const jam = Math.floor(menit / 60)
+  const sisa = menit % 60
+  if (jam === 0) return `${sisa} menit`
+  return sisa === 0 ? `${jam} jam` : `${jam} jam ${sisa} menit`
+}
+
+/** Nilai atribut SPEC untuk dibaca: daftar digabung koma, boolean Ya/Tidak, satuan di belakang. Kosong → null. */
+export function formatNilaiAtribut(value: unknown, unit: string | null): string | null {
+  if (value === null || value === undefined || value === "") return null
+  if (Array.isArray(value)) return value.length === 0 ? null : value.map(String).join(", ")
+  if (typeof value === "boolean") return value ? "Ya" : "Tidak"
+  return unit ? `${String(value)} ${unit}` : String(value)
+}
