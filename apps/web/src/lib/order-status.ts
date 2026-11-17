@@ -2,7 +2,7 @@ import type { BookingMode, OrderStatus } from "@jasana/shared"
 import {
   Ban,
   BadgeCheck,
-  CalendarCheck,
+  Banknote,
   CalendarClock,
   CircleCheck,
   CircleX,
@@ -26,7 +26,7 @@ export type StatusMeta = { label: string; tone: BadgeTone; icon: LucideIcon }
 export const ORDER_STATUS_META: Record<OrderStatus, StatusMeta> = {
   PENDING_ACCEPTANCE: { label: "Menunggu konfirmasi", tone: "warning", icon: Hourglass },
   ACCEPTED: { label: "Menunggu pembayaran", tone: "warning", icon: Wallet },
-  PAID: { label: "Terjadwal", tone: "info", icon: CalendarCheck },
+  PAID: { label: "Sudah dibayar", tone: "info", icon: Banknote },
   ON_THE_WAY: { label: "Dalam perjalanan", tone: "info", icon: Navigation },
   ARRIVED: { label: "Tiba di lokasi", tone: "info", icon: MapPinCheck },
   IN_PROGRESS: { label: "Sedang dikerjakan", tone: "info", icon: Wrench },
@@ -41,8 +41,8 @@ export const ORDER_STATUS_META: Record<OrderStatus, StatusMeta> = {
   REFUNDED: { label: "Dana dikembalikan", tone: "neutral", icon: Undo2 },
 }
 
-// Design System 6.2, ModeBadge.
+// Design System 6.2, ModeBadge. Terjadwal bergaris, karena pill berwarna selalu berarti status (DS 7.1).
 export const BOOKING_MODE_META: Record<BookingMode, StatusMeta> = {
-  SCHEDULED: { label: "Terjadwal", tone: "info", icon: CalendarClock },
+  SCHEDULED: { label: "Terjadwal", tone: "outline", icon: CalendarClock },
   AVAILABLE_NOW: { label: "Sekarang", tone: "now", icon: Zap },
 }

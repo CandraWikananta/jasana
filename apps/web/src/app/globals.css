@@ -1,6 +1,7 @@
 @import "tailwindcss";
-/* Usulan DS v1.5: animasi masuk/keluar Dialog, Sheet, Popover shadcn. */
+/* DS v1.5 Bagian 13: animasi Dialog, Sheet, Popover dan varian data-* shadcn v4. */
 @import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
 :root {
   --radius: 0.625rem;
@@ -119,9 +120,13 @@
   --radius-md: var(--radius);
   --radius-lg: calc(var(--radius) + 4px);
   --radius-xl: calc(var(--radius) + 10px);
+
+  --text-code-xl: 2rem;
+  --text-code-xl--line-height: 2.5rem;
+  --tracking-code: 0.2em;
 }
 
-/* Usulan DS v1.5: warna garis bawaan dan latar halaman dari token, supaya
+/* DS v1.5: warna garis bawaan dan latar halaman dari token, supaya
    komponen shadcn yang hanya menulis `border` tidak memakai currentColor. */
 @layer base {
   * {

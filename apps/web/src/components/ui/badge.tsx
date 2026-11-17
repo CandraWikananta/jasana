@@ -4,7 +4,7 @@ import { cn } from "cn"
 import { Slot } from "radix-ui"
 
 // Diubah dari bawaan shadcn: varian berupa nada Design System 1.4 dan 7
-// (pasangan subtle), plus now yang selalu solid lime (1.3).
+// (pasangan subtle), now yang selalu solid lime (1.3), dan outline (DS v1.5 6.1).
 const badgeVariants = cva(
   "inline-flex h-7 w-fit shrink-0 items-center gap-1.5 rounded-full pr-3 pl-2.5 text-xs font-semibold whitespace-nowrap [&>svg]:pointer-events-none [&>svg]:size-3.5 [&>svg]:shrink-0",
   {
@@ -16,6 +16,7 @@ const badgeVariants = cva(
         destructive: "bg-destructive-subtle text-destructive-subtle-foreground",
         neutral: "bg-neutral-subtle text-neutral-subtle-foreground",
         now: "bg-now text-now-foreground",
+        outline: "border border-border bg-card text-muted-foreground",
       },
     },
     defaultVariants: {

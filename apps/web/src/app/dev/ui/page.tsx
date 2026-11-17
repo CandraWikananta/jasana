@@ -2,7 +2,7 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import type { OrderStatus } from "@jasana/shared"
-import { CircleAlert, CircleCheck, CircleX, Inbox, Info, TriangleAlert, Zap, type LucideIcon } from "lucide-react"
+import { CalendarClock, CircleAlert, CircleCheck, CircleX, Inbox, Info, TriangleAlert, Zap, type LucideIcon } from "lucide-react"
 import { Badge, type BadgeTone } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -12,6 +12,7 @@ import { EmptyState } from "@/components/shared/empty-state"
 import { ModeBadge } from "@/components/shared/mode-badge"
 import { StatusBadge } from "@/components/shared/status-badge"
 import { ORDER_STATUS_META } from "@/lib/order-status"
+import { ListingDemo } from "./listing-demo"
 
 export const metadata: Metadata = { title: "Galeri komponen" }
 
@@ -32,6 +33,7 @@ const TONES: { tone: BadgeTone; label: string; icon: LucideIcon }[] = [
   { tone: "destructive", label: "Gagal", icon: CircleX },
   { tone: "neutral", label: "Berakhir", icon: CircleX },
   { tone: "now", label: "Sekarang", icon: Zap },
+  { tone: "outline", label: "Label", icon: CalendarClock },
 ]
 
 const STATUSES = Object.keys(ORDER_STATUS_META) as OrderStatus[]
@@ -53,7 +55,7 @@ export default function DevUiPage() {
     <main className="mx-auto flex max-w-6xl flex-col gap-12 px-4 py-10 md:px-6">
       <header className="flex flex-col gap-1">
         <h1 className="text-2xl font-bold">Galeri komponen</h1>
-        <p className="text-sm text-muted-foreground">Design System v1.4. Hanya tampil di development.</p>
+        <p className="text-sm text-muted-foreground">Design System v1.5. Hanya tampil di development.</p>
       </header>
 
       <Section title="Tipografi">
@@ -66,6 +68,8 @@ export default function DevUiPage() {
           <p className="text-sm">body-sm 14/20 Dikerjakan oleh penanggung jawab yang ditugaskan usaha.</p>
           <p className="text-xs font-medium text-muted-foreground">caption 12/16 Terakhir diperbarui 5 menit lalu</p>
           <p className="font-mono text-sm tabular-nums">ORD-20261117-0001</p>
+          <p className="text-code-xl font-bold tracking-code tabular-nums">482915</p>
+          <p className="text-xs font-medium text-muted-foreground">code-xl 32/40 kode verifikasi</p>
         </div>
       </Section>
 
@@ -122,10 +126,27 @@ export default function DevUiPage() {
       </Section>
 
       <Section title="Mode pesanan">
-        <div className="flex flex-wrap gap-2">
-          <ModeBadge mode="SCHEDULED" />
-          <ModeBadge mode="AVAILABLE_NOW" />
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap gap-2">
+            <ModeBadge mode="SCHEDULED" />
+            <ModeBadge mode="AVAILABLE_NOW" />
+          </div>
+          <p className="text-xs font-medium text-muted-foreground">
+            Berdampingan dengan status PAID: pill berwarna berarti status, Terjadwal bergaris (DS 7.1)
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <ModeBadge mode="SCHEDULED" />
+            <StatusBadge status="PAID" />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <ModeBadge mode="AVAILABLE_NOW" />
+            <StatusBadge status="PAID" />
+          </div>
         </div>
+      </Section>
+
+      <Section title="Kartu jasa (data GET /listings)">
+        <ListingDemo />
       </Section>
 
       <Section title="Kartu">
