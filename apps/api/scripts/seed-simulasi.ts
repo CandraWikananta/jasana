@@ -7,6 +7,8 @@
  *   npm run seed:simulasi -- --confirm-host <host>           target selain localhost "test" (Supabase dev)
  *   npm run seed:simulasi -- --reset [--confirm-host <host>] hapus seluruh data simulasi beserta fotonya
  *   npm run seed:simulasi -- --bulk 20000                    + penyedia dan listing massal (DB lokal k6)
+ *   npm run seed:simulasi -- --skala 0.25                    order riwayat dikali 0,25 (minimal 1 per jenis)
+ *   npm run seed:simulasi -- --foto-maks 1                   paling banyak 1 foto per listing (bawaan 3)
  *
  * Seluruh akun ber-email @sim.jasana.test. Penyedia, pekerja, dan wallet di-insert
  * langsung (pola seed Fase 6). Listing lewat listings.service. Seluruh order lewat
@@ -74,6 +76,16 @@ const RESET_ONLY = flag('--reset');
 const BULK = Number(value('--bulk') ?? 0);
 if (!Number.isInteger(BULK) || BULK < 0) {
   console.error('--bulk harus bilangan bulat positif.');
+  process.exit(1);
+}
+const SKALA = Number(value('--skala') ?? 1);
+if (!(SKALA > 0 && SKALA <= 1)) {
+  console.error('--skala harus angka di atas 0 sampai 1, misalnya 0.25.');
+  process.exit(1);
+}
+const FOTO_MAKS = Number(value('--foto-maks') ?? 3);
+if (![1, 2, 3].includes(FOTO_MAKS)) {
+  console.error('--foto-maks harus 1, 2, atau 3.');
   process.exit(1);
 }
 
@@ -175,10 +187,12 @@ function makePlan() {
 type Kind =
   | 'SETTLED' | 'REJECTED' | 'EXPIRED_S' | 'EXPIRED_AN' | 'PAYMENT_EXPIRED' | 'CANCEL_CLIENT' | 'CANCEL_PROVIDER'
   | 'REFUNDED' | 'DISPUTE_RELEASE' | 'DISPUTE_PARTIAL' | 'DISPUTE_REFUND';
-const HISTORY: [Kind, number][] = [
+const HISTORY_FULL: [Kind, number][] = [
   ['SETTLED', 210], ['REJECTED', 12], ['EXPIRED_S', 10], ['EXPIRED_AN', 6], ['PAYMENT_EXPIRED', 10], ['CANCEL_CLIENT', 10],
   ['CANCEL_PROVIDER', 5], ['REFUNDED', 8], ['DISPUTE_RELEASE', 3], ['DISPUTE_PARTIAL', 3], ['DISPUTE_REFUND', 3],
 ];
+/** --skala memperkecil order riwayat untuk target yang lambat (Supabase dev), setiap jenis tetap ada minimal satu. */
+const HISTORY: [Kind, number][] = HISTORY_FULL.map(([k, n]) => [k, Math.max(1, Math.round(n * SKALA))]);
 const LIVE = [
   'PENDING_ACCEPTANCE (Scheduled)', 'PENDING_ACCEPTANCE (Available Now, satu menolak)', 'ACCEPTED (menunggu bayar)',
   'PAID besok dengan pendamping', 'PAID 30 menit lagi', 'ON_THE_WAY', 'ARRIVED (check-in kedua)', 'IN_PROGRESS',
@@ -399,7 +413,8 @@ async function createListings(providers: RtProvider[]) {
       } else {
         mapped = [p.workers[0]!]; // D53: INDIVIDUAL terpetakan otomatis saat createListing.
       }
-      for (let n = rng.int(1, 3); n > 0; n -= 1) {
+      // rng.int tetap dipanggil supaya urutan acak sisa data sama dengan run tanpa --foto-maks.
+      for (let n = Math.min(rng.int(1, 3), FOTO_MAKS); n > 0; n -= 1) {
         await addPhoto(p.ctx, listing.id, { file_url: await uploadPhoto(p, slug, (variant += 1)) });
       }
       if (rng.chance(0.55)) await setFaqs(p.ctx, listing.id, { faqs: rng.shuffle(FAQS[slug]).slice(0, rng.int(1, Math.min(3, FAQS[slug].length))) });
@@ -657,7 +672,7 @@ async function runHistory(providers: RtProvider[], clients: RtClient[]) {
     const status = await historyOrder(kind, l, c);
     tally.set(status, (tally.get(status) ?? 0) + 1);
     done += 1;
-    if (done % 20 === 0) console.log(`  riwayat ${done}/${queue.length}`);
+    if (done % 10 === 0) console.log(`  riwayat ${done}/${queue.length}`);
   }
   return tally;
 }

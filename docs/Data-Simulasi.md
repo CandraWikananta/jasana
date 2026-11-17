@@ -6,7 +6,9 @@ Panduan skrip `apps/api/scripts/seed-simulasi.ts`. Skrip ini mengisi basis data 
 2. **Stress test k6 (D85).** Ada mode `--bulk` khusus basis data lokal.
 3. **UAT dengan 30 responden (D85).**
 
-Usulan keputusan yang terkait panduan ini adalah D204 sampai D208. Usulan itu belum dicatat di register, rinciannya ada di laporan sesi data simulasi.
+Keputusan yang terkait panduan ini adalah D204 sampai D209, tercatat di register Bagian 4AH dan 4AI.
+
+Jumlah di bawah adalah jalan penuh. Supabase dev saat ini diisi dengan `--skala 0.25 --foto-maks 1` (D209): 86 order (73 riwayat dan 13 order hidup), 130 foto, 38 review, dan 5 withdrawal. Penyedia, pekerja, listing, dan client tetap sama.
 
 ---
 
@@ -178,6 +180,8 @@ Prasyarat:
 | `npm run seed:simulasi -- --confirm-host <host>` | Sama, untuk host lain (Supabase dev). `<host>` wajib sama persis dengan host yang dicetak `--dry-run` |
 | `npm run seed:simulasi -- --reset [--confirm-host <host>]` | Hanya menghapus data simulasi beserta berkas fotonya |
 | `npm run seed:simulasi -- --bulk <N>` | Jalan normal, lalu menambah N penyedia massal (Bagian 7). Hanya untuk basis data lokal |
+| `... --skala <0 sampai 1>` | Jumlah tiap jenis order riwayat dikali skala, minimal 1 per jenis. Order hidup tidak ikut dikecilkan (D209) |
+| `... --foto-maks <1 sampai 3>` | Paling banyak sekian foto per listing, bawaannya 3 (D209) |
 
 Sifat skrip:
 

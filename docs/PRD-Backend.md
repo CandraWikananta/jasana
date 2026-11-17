@@ -1574,7 +1574,7 @@ Data seed harus menyertakan kombinasi yang memungkinkan skenario di atas dijalan
 - Listing servis AC dengan `PER_UNIT` plus dua `SELECT` berbayar, sebagai kasus utama test perhitungan harga
 - Koordinat client dan pekerja yang menghasilkan check-in lolos maupun gagal
 
-Seluruh kebutuhan di atas dipenuhi skrip `npm run seed:simulasi` (H16): 40 penyedia, 100 pekerja, 130 listing di dua belas sub-kategori, 41 client, dan 293 order di Bali, lewat service layer dengan gateway palsu. Isi data, akun demo, cara menjalankan, reset, dan pemetaan tiap butir di atas ada di `docs/Data-Simulasi.md`.
+Seluruh kebutuhan di atas dipenuhi skrip `npm run seed:simulasi` (H16): 40 penyedia, 100 pekerja, 130 listing di dua belas sub-kategori, 41 client, dan 293 order di Bali, lewat service layer dengan gateway palsu. Supabase dev diisi dengan skala 0,25 (86 order, D209). Isi data, akun demo, cara menjalankan, reset, dan pemetaan tiap butir di atas ada di `docs/Data-Simulasi.md`.
 
 ---
 
