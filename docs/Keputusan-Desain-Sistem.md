@@ -1779,6 +1779,25 @@ Ditetapkan penyusun setelah run 1 dan **sebelum** run berikutnya dijalankan. Tan
 - Kegagalan menumpuk mulai skenario ke-16, sejalan dengan 503 yang sering muncul pada sandbox 9b dan 9c di jam yang sama. p95 latensi yang mendekati timeout 8 detik (D156) menunjukkan sebagian timeout adalah panggilan yang sangat lambat, bukan ditolak
 - Meta run 1 mencatat `commit_dirty` true karena dataset belum di-commit saat run dijalankan. Hash dataset dan prompt tetap tercatat dan menjadi acuan run 2 dan run 3
 
+**Hasil evaluasi run 2 (17 November 2026, 07.13 sampai 07.23 WITA, commit `60ee854` bersih, hash dataset dan prompt identik dengan run 1):**
+
+| Metrik | Run 1 | Run 2 |
+|---|---|---|
+| Akurasi (kegagalan dihitung salah, D161) | 34/49, 69,39 persen | 38/49, **77,55 persen** |
+| Salah klasifikasi | 1 | 5 |
+| Gagal merespons | 14 (9 timeout, 5 HTTP 503) | 6 (semuanya timeout) |
+| Berhasil setelah retry (D165) | 6 | 1 |
+| Akurasi atas skenario yang dijawab | 34/35, 97,1 persen | 38/43, 88,4 persen |
+| Tingkat respons berhasil | 35/49, 71,4 persen | 43/49, 87,8 persen |
+| Per jenis (benar/n) | `cari_jasa` 25/30, `perlu_klarifikasi` 2/6, `jasa_tidak_tersedia` 3/4, `sapaan` 3/4, `di_luar_cakupan` 1/5 | `cari_jasa` 26/30, `perlu_klarifikasi` 2/6, `jasa_tidak_tersedia` 2/4, `sapaan` 4/4, `di_luar_cakupan` 4/5 |
+| Per asal | penyusun 71,05, teman 63,64 persen | penyusun 76,32, teman 81,82 persen |
+| Slot `waktu_jenis` / `budget_maks` | 80 / 86,21 persen | 86,67 / 93,1 persen |
+| Latensi Gemini rata-rata / p50 / p95 | 3.589 / 3.257 / 7.224 ms | 3.739 / 3.902 / 6.788 ms |
+
+- Lima salah klasifikasi run 2: S21 ("listrik turun ... kenapa ya?") dan S26 ("aki motor tekor") dibaca bukan `cari_jasa`, K02 ("nemenin aku bermain") dibaca `di_luar_cakupan` alih-alih `jasa_tidak_tersedia`, serta K03 dan K06 (permintaan perbaikan yang ambigu) dibaca `jasa_tidak_tersedia` atau `di_luar_cakupan` alih-alih `perlu_klarifikasi`. Kesalahannya berkumpul di batas antar jenis non-pencarian, bukan di pemilihan sub-kategori
+- **Jawaban berbeda antar run untuk input yang sama.** S26 dan K02 benar di run 1 tetapi salah di run 2 (K03 dan K06 gagal merespons di run 1, sedangkan S21 salah di kedua run). Adapter tidak mengirim `temperature` (catatan kode: diabaikan model 3.6 ke atas), sehingga model memakai nilai bawaannya dan keluarannya tidak deterministik. Karena protokol D176 mewajibkan konfigurasi yang sama di ketiga run, ini tidak diubah selama evaluasi. Variasi antar run justru menjadi alasan protokol tiga run, dan dilaporkan di Bab IV
+- Semua kegagalan run 2 adalah timeout 8 detik (D156), dengan p95 latensi yang berhasil 6,8 detik. Ketersediaan layanan pagi hari lebih baik daripada malam hari (tidak ada 503 yang tersisa setelah retry)
+
 ---
 
 ## 4AC. Keputusan Versi 2.36 (D177 sampai D181)
@@ -2660,7 +2679,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 | 2.36 | 16 November 2026 | Lima keputusan sebelum Fase 10: retry email dengan render ulang (D177), notifikasi in-app selektif (D178), aturan review (D179), laporan admin per hari WITA (D180), dan validasi parameter (D181). Pembagian Fase 10 dalam tiga sesi. Satu kolom dan satu parameter baru, dibuat di sesi implementasinya |
 | 2.37 | 17 November 2026 | Lima keputusan dari sesi 10a: tabel event notifikasi (D182), endpoint notifikasi (D183), whitelist dan render generik retry yang merevisi D177 (D184), hitungan dan klaim retry (D185), dan enum `ORDER_MESSAGE` (D186). H37 ditutup, H114 sampai H116 baru. Satu migrasi Ditambah hasil uji sandbox 10a dan empat temuannya |
 | 2.38 | 17 November 2026 | Sebelas keputusan dari sesi 10b: masa aktif pesan yang merevisi D79 (D187), notifikasi pesan dan review (D188), admin review (D189), revisi V11 (D190), batas teks dan nama disamarkan (D191), review di detail listing (D192), perbaikan sandbox 10a (D193 sampai D196), dan urutan kunci seragam (D197). H70 sampai H72 ditutup, H117 baru. Tanpa migrasi Ditambah hasil uji sandbox 10b |
-| 2.39 | 17 November 2026 | Enam keputusan dari sesi 10c: registri dan rentang parameter (D198), PATCH atomik dengan advisory lock (D199), periode laporan per hari WITA dan V4 per bulan WITA (D200), definisi kolom laporan (D201), SQL mentah terikat (D202), dan waktu status dari riwayat (D203). Penutupan Fase 10. H118 dan H120 baru. Tanpa migrasi |
+| 2.39 | 17 November 2026 | Enam keputusan dari sesi 10c: registri dan rentang parameter (D198), PATCH atomik dengan advisory lock (D199), periode laporan per hari WITA dan V4 per bulan WITA (D200), definisi kolom laporan (D201), SQL mentah terikat (D202), dan waktu status dari riwayat (D203). Penutupan Fase 10. H118 dan H120 baru. Tanpa migrasi Ditambah hasil evaluasi run 2 |
 
 ---
 

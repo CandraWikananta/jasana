@@ -1,0 +1,50 @@
+id,asal,label_jenis,label_sub_kategori,prediksi_jenis,prediksi_sub_kategori,benar,gagal,alasan_gagal,status_gagal,percobaan,latensi_ms,total_token,confidence,last_intent_turunan,slot_lokasi_teks,slot_waktu_jenis,slot_budget_maks,slot_atribut,pesan
+S01,penyusun,cari_jasa,otomotif/cuci-mobil-panggilan,cari_jasa,otomotif/cuci-mobil-panggilan,1,0,,,1,1633,1130,0.95,0,,1,1,,"halo, mau nyari jasa pembersihan mobil apakah ada yang di sekitar jimbaran"
+S02,penyusun,cari_jasa,otomotif/cuci-mobil-panggilan,cari_jasa,otomotif/cuci-mobil-panggilan,1,0,,,1,5369,1135,1,0,,1,1,,"cariin jasa cuci mobil panggilan di daerah renon, budget 75rb"
+S03,teman,cari_jasa,otomotif/servis-motor-panggilan,cari_jasa,otomotif/servis-motor-panggilan,1,0,,,1,1730,1166,0.95,0,,1,1,,"motor sy mogok di jalan ga bisa nyala sama sekali, butuh bengkel skrg"
+S04,penyusun,cari_jasa,otomotif/servis-motor-panggilan,cari_jasa,otomotif/servis-motor-panggilan,1,0,,,1,5016,1187,0.95,0,,1,1,,servis rutin vario besok pagi ada yang bisa datang ke rumah
+S05,penyusun,cari_jasa,otomotif/ganti-oli-panggilan,cari_jasa,otomotif/ganti-oli-panggilan,1,0,,,1,2545,1129,0.98,0,,1,1,,mau ganti oli motor tapi males antre di bengkel tolong cariin skrang
+S06,penyusun,cari_jasa,otomotif/ganti-oli-panggilan,cari_jasa,otomotif/ganti-oli-panggilan,1,0,,,1,3808,1167,0.95,0,,1,1,,"mau ganti oli avanza di kantor jumat siang, maks 400 ribu"
+S07,teman,cari_jasa,fotografi/foto-produk,cari_jasa,fotografi/foto-produk,1,0,,,1,1172,1096,0.95,0,,1,1,,butuh fotografer buat foto produk skincare olshop ku
+S08,penyusun,cari_jasa,fotografi/foto-produk,cari_jasa,fotografi/foto-produk,1,0,,,1,4727,1155,0.95,0,,1,1,,"cari jasa foto katalog baju sekitar 50 item, berapa harga untuk 50 item?"
+S09,penyusun,cari_jasa,fotografi/dokumentasi-acara,cari_jasa,fotografi/dokumentasi-acara,1,0,,,1,2565,1081,0.95,0,,1,1,,mau cari fotografer untuk acara pernikahan di ubud bulan depan
+S10,penyusun,cari_jasa,fotografi/foto-prewedding,cari_jasa,fotografi/foto-prewedding,1,0,,,1,2118,1165,0.98,0,,1,1,,"aku butuh seorang fotografer untuk acara pre wedding aku di tanggal 19 desember 2026, lokasi fotoshoot di pantai melasti. Tolong cariin fotografer yang murah dan hasilnya yang bagus"
+S11,penyusun,cari_jasa,fotografi/dokumentasi-acara,(gagal),,0,1,timeout,,1,,,,0,,0,0,,ak mw cri dokumentasi utk ultah ank ak d jam 8 mlm nnti. crikan yg pling murah
+S12,penyusun,cari_jasa,fotografi/dokumentasi-acara,cari_jasa,fotografi/dokumentasi-acara,1,0,,,1,1540,1176,0.9,0,,1,,,"hello, I want to look for a photographer that can do a photoshoot on Saturday morning for my company gathering event with a budget of 100 dollars usd. Is there anyone available for me?"
+S13,penyusun,cari_jasa,kecantikan/makeup-artist-acara,cari_jasa,kecantikan/makeup-artist-acara,1,0,,,1,1496,1167,0.95,0,,1,1,,"halo jasana, aku mau cari mua buat wisuda sabtu depan, budget aku max 500rb"
+S14,penyusun,cari_jasa,kecantikan/makeup-artist-acara,cari_jasa,kecantikan/makeup-artist-acara,1,0,,,1,1364,1128,0.95,0,,0,1,,apakah ada makeup buat kondangan nanti malem yang bisa dateng ke rumah?
+S15,penyusun,cari_jasa,kecantikan/makeup-pengantin,cari_jasa,kecantikan/makeup-pengantin,1,0,,,1,7682,1147,0.95,0,,1,1,,butuh mua pengantin adat bali segera karena mua sebelumnya nge cancel
+S16,penyusun,cari_jasa,kecantikan/makeup-pengantin,(gagal),,0,1,timeout,,1,,,,0,,0,0,,"Hi, I'm looking for a bridal makeup for the wedding ceremony, including makeup for the mothers and female family members. Is there any available?"
+S17,penyusun,cari_jasa,kecantikan/potong-rambut-panggilan,cari_jasa,kecantikan/potong-rambut-panggilan,1,0,,,1,6798,1137,0.99,0,,1,1,,aku mau cari jasa potong rambut yang bisa dateng kerumah soalnya mager keluar. Cariin yang terdekat
+S18,penyusun,cari_jasa,kecantikan/potong-rambut-panggilan,cari_jasa,kecantikan/potong-rambut-panggilan,1,0,,,1,3902,1117,0.95,0,,1,1,,mau potram yang murah
+S19,penyusun,cari_jasa,perbaikan/servis-ac,cari_jasa,perbaikan/servis-ac,1,0,,,1,1274,1150,1,0,,1,1,,"ac kamar gak dingin, ada jasa perbaikan yang bisa dateng sekarang?"
+S20,penyusun,cari_jasa,perbaikan/servis-ac,cari_jasa,perbaikan/servis-ac,1,0,,,1,4979,1166,0.95,0,,1,1,,"butuh jasa cuci ac 3 unit di ruko saya, budget nya 500rb"
+S21,penyusun,cari_jasa,perbaikan/tukang-listrik,di_luar_cakupan,,0,0,,,1,5225,1082,0.95,0,,1,1,,"listrik rumah turun terus tiap nyalain rice cooker, kenapa ya?"
+S22,penyusun,cari_jasa,perbaikan/tukang-listrik,cari_jasa,perbaikan/tukang-listrik,1,0,,,1,1616,1153,0.85,0,,1,1,,saya butuh orang buat pasang lampu teras rumah
+S23,penyusun,cari_jasa,perbaikan/servis-mesin-cuci,cari_jasa,perbaikan/servis-mesin-cuci,1,0,,,1,5871,1168,0.95,0,,1,1,,mesin cuci bunyi kenceng bgt pas muter. Cariin orang untuk perbaiki
+S24,penyusun,cari_jasa,perbaikan/servis-mesin-cuci,cari_jasa,perbaikan/servis-mesin-cuci,1,0,,,1,6009,1125,0.95,0,,0,1,,"mesin cuci ku seperti nya rusak, gk mau buang air, sekarang sudah malam apakah ada orang yang tersedia? Kalau tidak ada carikan untuk besok sore"
+S25,penyusun,cari_jasa,fotografi/dokumentasi-acara,cari_jasa,fotografi/dokumentasi-acara,1,0,,,2,4053,1184,0.95,0,,1,1,,"halo kak, aku butuh fotografer full day untuk acara pernikahan. Apakah ada yang tersedia?"
+S26,teman,cari_jasa,otomotif/servis-motor-panggilan,jasa_tidak_tersedia,,0,0,,,1,6476,1115,0.85,0,,1,1,,"aki motor kayaknya tekor, ga bisa distarter"
+S27,teman,perlu_klarifikasi,,perlu_klarifikasi,,1,0,,,1,1487,1167,0.95,0,,,,,halo tolong carikan saya MUA daerah denpasar selatan yang available tanggal 25 november 2026 dengan range harga 300.000
+S28,penyusun,cari_jasa,fotografi/foto-prewedding,cari_jasa,fotografi/foto-prewedding,1,0,,,1,1732,1148,0.95,0,,1,1,,Besok sore aku ada acara prewedding dan perlu orang untuk mendokumentasikan. Adakah yang bisa? Saya mencari di range 1-2jt.
+R01,penyusun,cari_jasa,fotografi/foto-produk,cari_jasa,fotografi/foto-produk,1,0,,,1,5417,1280,0.98,1,,1,1,,fotonya buat jualan online saya di shopee
+R02,penyusun,cari_jasa,perbaikan/servis-mesin-cuci,cari_jasa,perbaikan/servis-mesin-cuci,1,0,,,1,1545,1250,0.99,1,,1,1,,"yg mesin cuci kak, kayaknya rusak"
+R03,penyusun,cari_jasa,kecantikan/makeup-pengantin,cari_jasa,kecantikan/makeup-pengantin,1,0,,,1,3973,1227,0.98,1,,1,1,,"buat nikahan ku sendiri, apakah ada yang harganya murah?"
+K01,penyusun,perlu_klarifikasi,,perlu_klarifikasi,,1,0,,,1,4349,1086,0.8,0,,,,,perlu orang untuk servis
+K02,penyusun,jasa_tidak_tersedia,,di_luar_cakupan,,0,0,,,1,6702,1112,0.95,0,,,,,mau orang untuk nemenin aku bermain dong
+K03,penyusun,perlu_klarifikasi,,di_luar_cakupan,,0,0,,,1,6448,1111,0.8,0,,,,,saya perlu bantuan tukang untuk di rumah
+K04,penyusun,perlu_klarifikasi,,(gagal),,0,1,timeout,,1,,,,0,,,,,ada tukang yang bisa bantu saya?
+K05,penyusun,perlu_klarifikasi,,(gagal),,0,1,timeout,,1,,,,0,,,,,kendaraan kesayangan ku perlu dirawat nih
+K06,penyusun,perlu_klarifikasi,,jasa_tidak_tersedia,,0,0,,,1,1149,1116,0.9,0,,,,,halo ada yg bisa bantu benerin barang elektronik di rumah?
+N01,penyusun,jasa_tidak_tersedia,,jasa_tidak_tersedia,,1,0,,,1,5419,1116,0.95,0,,,,,jasa pindahan rumah besok pagi apa ada?
+N02,penyusun,jasa_tidak_tersedia,,jasa_tidak_tersedia,,1,0,,,1,5338,1121,1,0,,,,,sy mau cari guru les mata pelajaran matematika untuk anak saya yang kelas 3 smp.
+N03,penyusun,jasa_tidak_tersedia,,(gagal),,0,1,timeout,,1,,,,0,,,,,"kulkas ga dingin, ada teknisi yang bisa perbaiki sekarang?"
+N04,teman,sapaan,,sapaan,,1,0,,,1,4910,1063,1,0,,,,,hola
+N05,teman,sapaan,,sapaan,,1,0,,,1,1366,1065,1,0,,,,,malam min
+N06,teman,di_luar_cakupan,,di_luar_cakupan,,1,0,,,1,1771,1108,1,0,,,,,apa rumus pythagoras
+N07,penyusun,di_luar_cakupan,,di_luar_cakupan,,1,0,,,1,7877,1112,1,0,,,,,cuaca denpasar hari ini gmna?
+N08,teman,di_luar_cakupan,,di_luar_cakupan,,1,0,,,1,2153,1114,0.95,0,,,,,bantu bikinin caption ig buat feeds aku dong
+N09,teman,sapaan,,sapaan,,1,0,,,1,2217,1063,0.9,0,,,,,p
+N10,teman,di_luar_cakupan,,(gagal),,0,1,timeout,,1,,,,0,,,,,skrang tgl berapa?
+N11,teman,di_luar_cakupan,,di_luar_cakupan,,1,0,,,1,6344,1110,0.9,0,,,,,sira adan tiang?
+N12,penyusun,sapaan,,sapaan,,1,0,,,1,1617,1066,1,0,,,,,om swastyastu
