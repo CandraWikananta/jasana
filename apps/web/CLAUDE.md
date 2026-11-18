@@ -16,7 +16,7 @@ Aturan dari `CLAUDE.md` di root repo tetap berlaku: **dokumen desain adalah sumb
 | `docs/Keputusan-Desain-Sistem.md` | Register keputusan D1 sampai terbaru | Kalau ragu kenapa sesuatu dirancang begitu |
 | `apps/api/src/modules/*/*.routes.ts` dan `*.schema.ts` | **Kontrak endpoint yang benar-benar berjalan** | Sebelum memanggil endpoint apa pun |
 
-Dokumen frontend disusun dari register v2.11 dan sudah disinkronkan ke register v2.44 (keputusan frontend D210 sampai D235). Kalau isinya berbeda dengan register atau route terbaru di repo, **register dan route yang menang**. Laporkan perbedaannya di awal sesi, jangan diam-diam menyesuaikan.
+Dokumen frontend disusun dari register v2.11 dan sudah disinkronkan ke register v2.44 (keputusan frontend D210 sampai D239). Kalau isinya berbeda dengan register atau route terbaru di repo, **register dan route yang menang**. Laporkan perbedaannya di awal sesi, jangan diam-diam menyesuaikan.
 
 ## Stack
 
@@ -61,7 +61,7 @@ apps/web/src/
 10. **Setiap halaman data punya empat state:** memuat (skeleton), kosong, error (dengan Coba lagi), berhasil
 11. **Lokasi check-in diambil dari GPS saat tombol ditekan.** Frontend tidak pernah mengirim jarak. Jarak yang ditampilkan ke pekerja hanya panduan
 12. **Pola unggah mengikuti D80.** e-KYC dan bukti komplain: multipart ke API. Foto listing: signed URL, PUT ke Storage, lalu **wajib** memanggil endpoint pencatat foto
-13. **Socket.IO hanya pemicu.** Event masuk memicu invalidasi cache. Client hanya mengirim `worker:presence` dan `order:location_update`. Tidak ada perubahan state lewat socket
+13. **Socket.IO hanya pemicu.** Event masuk memicu invalidasi cache. Client hanya mengirim `worker:presence`, `order:location_update`, dan `order:join` (masuk room order tanpa mengubah state, D236). Tidak ada perubahan state lewat socket
 
 ---
 

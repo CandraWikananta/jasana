@@ -2,9 +2,12 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { useEffect, useState } from "react"
+import { RealtimeIndicator } from "@/components/layout/realtime-indicator"
 import { shouldRetry } from "@/lib/api-client"
 import { qk } from "@/lib/query-keys"
 import { bootstrapSession, getSessionStatus, listenForLogout, subscribeSession } from "@/lib/session"
+import { startRealtime } from "@/lib/socket"
+import { createRealtimeHandlers } from "@/lib/socket-events"
 
 // Satu QueryClient per tab. useState, bukan konstanta modul, supaya render server tidak berbagi cache antar request.
 export function Providers({ children }: { children: React.ReactNode }) {
@@ -29,5 +32,13 @@ export function Providers({ children }: { children: React.ReactNode }) {
     }
   }, [client])
 
-  return <QueryClientProvider client={client}>{children}</QueryClientProvider>
+  // Satu koneksi Socket.IO per tab (D217). Event hanya memicu invalidasi.
+  useEffect(() => startRealtime(createRealtimeHandlers(client)), [client])
+
+  return (
+    <QueryClientProvider client={client}>
+      {children}
+      <RealtimeIndicator />
+    </QueryClientProvider>
+  )
 }

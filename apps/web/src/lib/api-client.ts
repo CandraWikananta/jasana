@@ -54,12 +54,9 @@ export async function apiFetch<T>(
   // 401: refresh sekali (single-flight, D212), lalu ulangi. Hanya kalau memang ada sesi, supaya
   // tamu di halaman publik tidak pernah dialihkan ke /masuk.
   if (res.status === 401 && isBrowser() && (bearer !== null || hasSessionFlag())) {
-    let refreshed = false
-    try {
-      refreshed = await refreshSession()
-    } catch {
-      refreshed = false
-    }
+    // Refresh yang melempar (API mati atau 5xx) bukan bukti sesi berakhir (D231): errornya
+    // diteruskan ke pemanggil, sesi dan cookie dibiarkan, tidak dialihkan ke /masuk (H137).
+    const refreshed = await refreshSession()
     if (refreshed) res = await send(url, init, await currentBearer())
     if (!refreshed || res.status === 401) {
       clearSession()

@@ -1,7 +1,7 @@
 "use client"
 
 import { useQueryClient } from "@tanstack/react-query"
-import { LogOut } from "lucide-react"
+import { Briefcase, HardHat, LogOut, ShieldCheck, ShoppingBag, type LucideIcon } from "lucide-react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { Suspense, useState } from "react"
@@ -15,6 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Skeleton } from "@/components/ui/skeleton"
+import { getCapabilities, type Area } from "@/features/auth/capabilities"
 import { useMe } from "@/features/auth/queries"
 import { loginHref } from "@/lib/safe-next"
 import { logout } from "@/lib/session"
@@ -26,9 +27,16 @@ export function initials(fullName: string | undefined): string {
   return words.slice(0, 2).map((word) => word[0]!.toUpperCase()).join("") || "?"
 }
 
-// Bagian kanan header publik. Status sesi baru diketahui di browser, jadi selama "unknown"
-// tampil kerangka seukuran tombol supaya header tidak meloncat. Pengalih area (RoleSwitcher)
-// dan banner email belum terverifikasi menyusul bersama layout area.
+// Pengalih area di menu avatar (PRD Frontend 4.1, D220): hanya area yang dimiliki akun ini.
+const AREA_LINKS: Record<Area, { href: string; label: string; icon: LucideIcon }> = {
+  pelanggan: { href: "/pesanan", label: "Mode pelanggan", icon: ShoppingBag },
+  usaha: { href: "/usaha", label: "Usaha saya", icon: Briefcase },
+  pekerja: { href: "/pekerja", label: "Mode pekerja", icon: HardHat },
+  admin: { href: "/admin", label: "Panel admin", icon: ShieldCheck },
+}
+
+// Bagian kanan header. Status sesi baru diketahui di browser, jadi selama "unknown"
+// tampil kerangka seukuran tombol supaya header tidak meloncat.
 export function HeaderAccount() {
   // usePathname di rute dinamis (/listing/[id]) menghambat prerender Cache Components tanpa batas
   // Suspense. Kerangkanya sama dengan status "unknown", jadi tidak ada loncatan tampilan.
@@ -96,6 +104,18 @@ function AccountMenu() {
           {me && <span className="truncate text-xs text-muted-foreground">{me.email}</span>}
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
+        {getCapabilities(me).areas.map((area) => {
+          const { href, label, icon: Icon } = AREA_LINKS[area]
+          return (
+            <DropdownMenuItem key={area} asChild>
+              <Link href={href}>
+                <Icon aria-hidden />
+                {label}
+              </Link>
+            </DropdownMenuItem>
+          )
+        })}
+        {me && <DropdownMenuSeparator />}
         <DropdownMenuItem
           disabled={leaving}
           onSelect={(event) => {

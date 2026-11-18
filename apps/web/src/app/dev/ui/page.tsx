@@ -10,9 +10,11 @@ import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { EmptyState } from "@/components/shared/empty-state"
 import { ModeBadge } from "@/components/shared/mode-badge"
-import { StatusBadge } from "@/components/shared/status-badge"
+import { EnumBadge, StatusBadge } from "@/components/shared/status-badge"
+import { ENUM_META_GROUPS } from "@/lib/enum-labels"
 import { ORDER_STATUS_META } from "@/lib/order-status"
 import { ListingDemo } from "./listing-demo"
+import { OrderActionsDemo } from "./order-actions-demo"
 
 export const metadata: Metadata = { title: "Galeri komponen" }
 
@@ -123,6 +125,25 @@ export default function DevUiPage() {
             </li>
           ))}
         </ul>
+      </Section>
+
+      <Section title="Badge enum lain">
+        <div className="flex flex-col gap-4">
+          {ENUM_META_GROUPS.map(({ name, meta }) => (
+            <div key={name} className="flex flex-col gap-2">
+              <p className="text-xs font-medium text-muted-foreground">{name}</p>
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(meta).map(([value, m]) => (
+                  <EnumBadge key={value} meta={m} />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      <Section title="Aksi pesanan (getOrderActions)">
+        <OrderActionsDemo />
       </Section>
 
       <Section title="Mode pesanan">

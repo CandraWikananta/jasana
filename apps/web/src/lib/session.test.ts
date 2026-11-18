@@ -5,6 +5,7 @@ import {
   ensureAccessToken,
   getAccessToken,
   getSessionStatus,
+  isSessionSuspended,
   login,
   logout,
   refreshSession,
@@ -131,6 +132,30 @@ describe("bootstrapSession", () => {
     })
     await expect(bootstrapSession()).resolves.toBeUndefined()
     expect(getSessionStatus()).toBe("guest")
+  })
+
+  // H137: AreaGate hanya mengalihkan ke /masuk kalau sesinya benar-benar berakhir.
+  it("5xx saat bootstrap: tertunda (penanda dibiarkan), bukan berakhir", async () => {
+    route(() => json(503, { success: false, error: { code: "SERVICE_UNAVAILABLE", message: "x", details: [] } }))
+    await bootstrapSession()
+    expect(getSessionStatus()).toBe("guest")
+    expect(isSessionSuspended()).toBe(true)
+  })
+
+  it("refresh ditolak 401: handler menghapus penanda, sesi berakhir", async () => {
+    route(() => {
+      document.cookie = ""
+      return unauthorized()
+    })
+    await bootstrapSession()
+    expect(getSessionStatus()).toBe("guest")
+    expect(isSessionSuspended()).toBe(false)
+  })
+
+  it("login berhasil: tidak tertunda", async () => {
+    route(() => ok({ access_token: "a", expires_in: 900 }))
+    await bootstrapSession()
+    expect(isSessionSuspended()).toBe(false)
   })
 })
 

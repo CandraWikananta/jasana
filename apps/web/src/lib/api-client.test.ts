@@ -103,6 +103,25 @@ describe("apiFetch dengan sesi", () => {
     expect(assign).toHaveBeenCalledTimes(1)
   })
 
+  // H137, D231: API mati atau 5xx saat refresh bukan bukti sesi berakhir.
+  it("401 lalu refresh 5xx: error 503 diteruskan, sesi dan cookie dibiarkan, tidak ke /masuk", async () => {
+    installBrowser("jasana_sesi=1")
+    let first = true
+    route([unauthorized], () => {
+      if (first) {
+        first = false
+        return ok({ access_token: "akses-1", expires_in: 900 })
+      }
+      return json(503, { success: false, error: { code: "SERVICE_UNAVAILABLE", message: "x", details: [] } })
+    })
+
+    await expect(apiFetch("/auth/me")).rejects.toMatchObject({ status: 503, code: "SERVICE_UNAVAILABLE" })
+    expect(apiCalls()).toHaveLength(1)
+    expect(getAccessToken()).toBe("akses-1")
+    expect(getSessionStatus()).toBe("authenticated")
+    expect(assign).not.toHaveBeenCalled()
+  })
+
   it("tamu tanpa sesi: 401 tidak memicu refresh maupun pengalihan", async () => {
     installBrowser("")
     route([unauthorized])

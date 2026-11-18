@@ -216,6 +216,14 @@ export function listenForLogout(): () => void {
   return () => channel.close()
 }
 
+/**
+ * Tamu karena API sempat tidak terjangkau saat bootstrap, bukan karena sesinya berakhir: cookie
+ * penanda masih ada, karena hanya penolakan refresh (401) yang menghapusnya (D231, H137).
+ */
+export function isSessionSuspended(): boolean {
+  return status === "guest" && hasSessionFlag()
+}
+
 export function redirectToLogin() {
   if (!isBrowser() || window.location.pathname === "/masuk") return
   const next = window.location.pathname + window.location.search
