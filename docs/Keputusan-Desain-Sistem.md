@@ -4,9 +4,9 @@
 **Nama sistem:** Jasana
 **Penyusun:** I Nyoman Gede Candra Wikananta (2305551065)
 **Bidang Keahlian:** Sistem Informasi, Teknologi Informasi, Universitas Udayana
-**Versi:** 2.44
-**Terakhir diperbarui:** 18 November 2026 (versi 2.44)
-**Tahap saat ini:** Implementasi backend Fase 0 sampai Fase 10 selesai, data simulasi sudah terisi di Supabase dev. Frontend berjalan di branch `feat/frontend`: W0 sebagian (termasuk sesi login) dan W2 selesai. Berikutnya W0 bagian 4 (`getOrderActions()`, socket, layout area), W1, stress test k6, dan UAT
+**Versi:** 2.45
+**Terakhir diperbarui:** 19 November 2026 (versi 2.45)
+**Tahap saat ini:** Implementasi backend Fase 0 sampai Fase 10 selesai, data simulasi sudah terisi di Supabase dev. Frontend berjalan di branch `feat/frontend`: W0 dan W2 selesai. Berikutnya field `OrderDto` di backend (H131), W1, stress test k6, dan UAT
 
 ---
 
@@ -59,7 +59,14 @@
 | Frontend: keputusan dasar (D210 sampai D223) | 14 | 0 |
 | Frontend: hasil W0 dan W2 (D224 sampai D230) | 7 | 0 |
 | Frontend: sesi login (D231 sampai D235) | 5 | 0 |
+| Frontend: aksi order dan real-time (D236 sampai D240) | 5 | 0 |
 | Keputusan terbuka tanpa nomor D (Bagian 7) | | 0 |
+
+**Perubahan pada versi 2.45:**
+
+1. Empat keputusan dari W0 bagian 4: `order:join` dari client (D236), signature `getViewer` dan `getOrderActions` (D237), aturan sambung ulang socket (D238), label enum di luar order (D239), dan sesi tertunda saat API bermasalah (D240). Bagian 4AL
+2. Penutupan W0 frontend
+3. H131 sampai H138 baru, H137 langsung ditutup lewat D240. H131 diprioritaskan sebelum W3
 
 **Perubahan pada versi 2.44:**
 
@@ -2135,6 +2142,26 @@ Dari implementasi W0 bagian 3, 18 November 2026. Menjabarkan D212. Tanpa perubah
 
 ---
 
+## 4AL. Keputusan Versi 2.45 (D236 sampai D240): Aksi Order dan Real-Time Frontend
+
+Dari W0 bagian 4, 19 November 2026. Menutup W0. Tanpa perubahan backend.
+
+**Hasil pencocokan Matriks UI Order dengan backend:** transisi dan aktor di `ALLOWED_TRANSITIONS` cocok dengan Matriks Bagian 2. Perbedaannya: `GET /workers/me/orders` tidak ada (yang berjalan `GET /orders?as=worker`, termasuk tawaran yang masih terbuka), tolak tawaran lewat `POST /orders/:id/decline-offer`, minta kode baru lewat `POST /orders/:id/verification-code`, pendamping mendapat 403 di detail order, dan event room order hanya sampai ke socket yang sudah bergabung ke room.
+
+| # | Keputusan | Alasan |
+|---|---|---|
+| D236 | **Client mengirim `order:join { order_id }`** untuk masuk room order, lewat `joinOrderRoom(id)` yang mengulanginya setiap kali tersambung ulang. Event ini hanya meminta masuk room dan tidak mengubah state. Aturan 13 di `apps/web/CLAUDE.md` diperbarui | Backend hanya mengirim event room order (`status_changed`, `assignment_changed`, `message`, `location_update`) ke socket yang sudah bergabung. Tanpa event ini, halaman detail pesanan tidak menerima pembaruan seketika (W-O5). Semangat D217 tetap: tidak ada perubahan state lewat socket |
+| D237 | **Signature fungsi aksi order:** `getViewer(order, me, opts?: { offered?: boolean })` dan `getOrderActions(order, viewer, now, ctx?: { verification? })`, ditambah field `confirmText` pada setiap aksi. `isOfferRecipient` diturunkan dari visibilitas order, karena server hanya memperlihatkan tawaran kepada penerima yang belum menolak. Batas berangkat sementara memakai konstanta yang sama dengan backend (60 menit) | `OrderDto` belum memuat batas kode verifikasi, komplain, dan ulasan (H131), sehingga data itu masuk lewat `ctx` sampai backend menambahkannya. `confirmText` membuat dialog konfirmasi tidak perlu memeriksa status sendiri, sejalan dengan D214. Diuji dengan 90 test, termasuk loop seluruh status dan penampil untuk memastikan paling banyak satu tombol utama |
+| D238 | **Socket tidak disambung ulang paksa saat access token berganti.** Callback `auth` membaca token terbaru saat sambung ulang berikutnya. Setiap kali tersambung ulang, room order di-join ulang, lalu query order, tawaran, pesan, dan notifikasi diinvalidasi | Server hanya memeriksa token saat handshake, sehingga sambung ulang paksa setiap 15 menit hanya membuat jeda tanpa event. Event selama koneksi putus tidak dikirim ulang, jadi tanpa invalidasi, layar bisa tertinggal sampai dimuat ulang. Merevisi PRD Frontend Bagian 8 |
+| D239 | **Label enum di luar order ditetapkan di Design System 7.2**, termasuk `CLOSED` pada komplain, tujuh status pencairan, empat status pengembalian dana, dan tiga status email, seluruhnya lewat `EnumBadge`. Tipe enum sementara di `apps/web/src/types/api/enums.ts` | Design System sebelumnya hanya menulis pola nada untuk enum tersebut. `packages/shared` baru memuat enum order (H135) |
+| D240 | **Sesi tertunda.** Kalau refresh gagal karena API mati atau 5xx, status menjadi tamu tetapi cookie penanda tetap ada (`isSessionSuspended()`). Area login menampilkan "Layanan sedang tidak tersedia" dengan tombol Coba lagi, bukan mengalihkan ke `/masuk`. Pengalihan hanya terjadi kalau penanda sudah dihapus, artinya refresh ditolak 401. `apiFetch` meneruskan 503 ke pemanggil tanpa menghapus sesi | Menjabarkan D231 di sisi client dan menutup H137. Pengguna tidak ter-logout hanya karena API bermasalah sebentar. Konsekuensinya, kalau API mati lama dan refresh token ternyata sudah tidak berlaku, hal itu baru terdeteksi setelah API menjawab 401. Diuji dengan empat test baru, uji mutasi kode lama, dan pengecekan di browser dengan refresh yang dibuat membalas 503 lalu 401 |
+
+**Hasil uji:** 200 test Vitest lulus (90 aksi order, 20 socket, 4 sesi tertunda), 6 skenario Playwright sesi lulus ulang, uji mutasi 15 dari 15 penjaga tertangkap, dan indikator "Pembaruan otomatis terputus" diuji langsung dengan mematikan lalu menyalakan API. Layout empat area dicek dengan akun demo client, usaha, pekerja, dan admin di 390, 768, dan 1280 px.
+
+**Penutupan W0.** Fondasi frontend selesai: token dan komponen, `api-client` dengan sesi, `src/proxy.ts`, `getCapabilities`, `getViewer`, `getOrderActions`, label enum, layout empat area, dan klien Socket.IO. Polling cadangan, toast perubahan status, dan judul tab tawaran dipindah ke fase pemakainya (W3 dan W5).
+
+---
+
 ## 5. Alur Sistem End-to-End
 
 ### 5.1 Onboarding
@@ -2791,6 +2818,14 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 - [ ] **H128** Saat deploy, `TRUST_PROXY` (D117) harus sama dengan jumlah hop di jalur publik browser ke Express, dan `API_INTERNAL_BASE_URL` harus lewat jalur dengan jumlah hop yang sama. Kalau tidak, `req.ip` terbaca sebagai IP server Next dan rate limit login berlaku untuk seluruh pengguna sekaligus. Pemeriksaan `Origin` (D233) juga dicek ulang di balik reverse proxy. Pertimbangkan dukungan nilai berupa daftar IP atau loopback di D117 **(baru, W0 bagian 3)**
 - [ ] **H129** Kalau tab ditutup tepat saat refresh berjalan, server sudah merotasi token tetapi browser tidak menerima cookie barunya. Refresh berikutnya terbaca sebagai pemakaian ulang dan pengguna ter-logout. Akibat rotasi tanpa jeda toleransi (D76), kemungkinannya kecil, dan ditulis sebagai batasan **(baru, W0 bagian 3)**
 - [ ] **H130** Sesi login belum diuji di Firefox dan Safari, dan logout antar tab lewat `BroadcastChannel` belum diuji otomatis. Dikerjakan di W9 **(baru, W0 bagian 3)**
+- [ ] **H131** **Prioritas, sebelum W3.** `OrderDto` belum memuat `verification_expires_at`, `verification_locked_until` (dari kolom `orders`), `dispute { id, status }` (relasi), `has_review` (relasi), `review_deadline_at` (`completed_at` ditambah parameter masa ulasan), `depart_available_at` (`scheduled_at` dikurangi jeda berangkat 60 menit di `order-execution.service.ts`), dan `provider.provider_type`. Tanpa ini tombol Ulasan muncul lalu hilang setelah 409, pekerja baru tahu terkunci setelah menekan Verifikasi, dan tambah bukti komplain tidak punya id komplain (D237) **(baru, W0 bagian 4)**
+- [ ] **H132** Daftar penerima tawaran Available Now tidak diekspos ke pemilik, padahal dialog Terima memilih pekerja dari daftar itu (D70). Dikerjakan sebelum W5 **(baru, W0 bagian 4)**
+- [ ] **H133** Pendamping mendapat 403 di `GET /orders/:id` karena `resolveOrderAccess` tidak menghitung kru sebagai peserta. Pendamping hanya melihat order lewat `GET /orders?as=worker`. Diputuskan sebelum W5 **(baru, W0 bagian 4)**
+- [ ] **H134** Tidak ada event `order:leave`, sehingga socket tetap di room order sampai koneksi berikutnya. Dampaknya hanya invalidasi yang tidak perlu **(baru, W0 bagian 4)**
+- [ ] **H135** Enum di luar order (verifikasi usaha, keanggotaan, listing, usulan, komplain, pencairan, pengembalian dana, email) belum ada di `packages/shared`, sehingga frontend menulis tipenya sendiri (D239) **(baru, W0 bagian 4)**
+- [ ] **H136** Frontend: halaman placeholder `[...slug]` di area usaha, pekerja, dan admin dihapus begitu rute aslinya ada (paling lambat W9), dan `/usaha/daftar` dikeluarkan dari penjagaan area usaha di W4 **(baru, W0 bagian 4)**
+- [x] **H137** **(ditutup 19 November 2026 lewat D240)** Kegagalan sementara saat refresh pernah mengalihkan pengguna ke `/masuk` sekali saat pengambilan screenshot, padahal menurut D231 sesi dibiarkan saat API mati atau 5xx. Penyebabnya dua jalur di client: `AreaGate` mengalihkan setiap status tamu, dan `apiFetch` menghapus sesi saat refresh setelah 401 gagal karena 5xx. Route Handler sudah benar **(baru, W0 bagian 4)**
+- [ ] **H138** Selama sesi tertunda (D240), header masih menampilkan tombol Masuk dan halaman publik tampil sebagai tamu sampai dimuat ulang. Jarang terjadi, dirapikan di W9 **(baru, perbaikan H137)**
 - [ ] **H82** Admin fee withdrawal berupa nilai flat yang mengikuti perkiraan biaya payout Xendit **(baru, D84)**. Untuk nominal di atas Rp250.000 biaya sebenarnya sedikit lebih besar dan selisihnya ditanggung platform
 
 ---
@@ -2827,7 +2862,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 
 ## 11. Langkah Berikutnya
 
-1. Frontend di branch `feat/frontend` (D230): sesi login selesai (D231 sampai D235). Berikutnya W0 bagian 4 (`getOrderActions()` D214, socket D217, layout area pelanggan, usaha, pekerja, dan admin), lalu W1 autentikasi dan W3 pemesanan sisi pelanggan. Paralel di `main`: H124, H125, dan H127
+1. Frontend di branch `feat/frontend` (D230): W0 dan W2 selesai. Berikutnya W1 autentikasi dan akun. Sebelum W3, kerjakan H131 di `main`. Paralel di `main`: H124, H125, dan H127
 2. Fase 9 selesai 17 November 2026 setelah evaluasi tiga run (Bagian 4AB dan 4AG). Fase 10 selesai 17 November 2026 (1.004 test lulus, D177 sampai D203), dengan uji sandbox 10a dan 10b lulus dan uji sandbox 10c dijalankan penyusun. Paralel: penyusun menyusun dataset 30 sampai 50 skenario berlabel (H15, D153) dan mencatat model serta batas kuota project Gemini di AI Studio
 3. Selesai: Fase 8 (15 November 2026, 751 test lulus, D131 sampai D150) beserta uji sandbox payout dan refund. Uji sandbox refund PARTIAL hasil putusan sengketa lulus. Sebelumnya Fase 7 (11 November 2026, 627 test lulus) beserta uji sandbox Xendit sungguhan (12 November 2026), sebelumnya audit hutang teknis (9 November 2026) dan sesi perapian (10 November 2026)
 4. Selesai: data simulasi Bali di Supabase dev (D204 sampai D209)
@@ -2886,6 +2921,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 | 2.42 | 18 November 2026 | Opsi skala data simulasi untuk Supabase dev (D209) dan hasil jalannya: 86 order, 130 foto, `db:verify` lulus. H16 ditutup, H123 baru. Tanpa migrasi |
 | 2.43 | 18 November 2026 | Keputusan frontend: usulan FE1 sampai FE14 dicatat sebagai D210 sampai D223, ditambah tujuh keputusan dari W0 dan W2 (D224 sampai D230). Artefak desain 8 selesai sebagai Design System v1.5. Progres frontend W0 sebagian dan W2. H124 sampai H127 baru. Tanpa migrasi |
 | 2.44 | 18 November 2026 | Lima keputusan sesi login frontend (D231 sampai D235): dua cookie sesi, `X-Forwarded-For` paling kanan, pemeriksaan `Origin`, logout yang mencabut token di server, dan `getCapabilities`. Hasil pengecekan kontrak dan uji mutasi. H128 sampai H130 baru. Tanpa migrasi |
+| 2.45 | 19 November 2026 | Empat keputusan W0 bagian 4: `order:join` (D236), signature aksi order (D237), sambung ulang socket (D238), label enum (D239), dan sesi tertunda (D240). Penutupan W0 frontend. H131 sampai H138 baru, H137 ditutup. Tanpa migrasi |
 
 ---
 

@@ -2,7 +2,7 @@
 
 **Artefak frontend 2 dari 4**
 Platform Jasana, Tugas Akhir I Nyoman Gede Candra Wikananta (2305551065)
-**Versi 1.5 (disetujui)**, 18 November 2026
+**Versi 1.6 (disetujui)**, 19 November 2026
 
 Dokumen ini menetapkan bahasa visual dan bahasa teks seluruh antarmuka Jasana: warna, tipografi, jarak, komponen, label status, format angka dan waktu, serta glosarium. Tujuannya satu: **empat area (publik dan client, usaha, pekerja, admin) terlihat dan terbaca seperti satu produk**, walaupun dibangun dalam belasan sesi Claude Code yang terpisah.
 
@@ -326,8 +326,12 @@ Kenapa `PAID` berlabel "Sudah dibayar", bukan "Terjadwal": label "Terjadwal" sud
 | `membership_status` (pekerja) | `PENDING` Pelamar (warning), `ACTIVE` Aktif (success), `REJECTED` Ditolak (neutral), `RESIGNED` Keluar (neutral) |
 | Status listing | `DRAFT` Draf (neutral), `ACTIVE` Tayang (success), `INACTIVE` Nonaktif (neutral), `SUSPENDED` Ditangguhkan admin (destructive) |
 | `taxonomy_request_status` | `PENDING` Menunggu (warning), `APPROVED` Disetujui (success), `REJECTED` Ditolak (destructive), `MERGED` Sudah ada (info) |
-| Komplain | `OPEN` Dibuka (warning), `UNDER_REVIEW` Ditinjau admin (info), putusan `RESOLVED_*` Diputus (success atau neutral sesuai hasil) |
-| Withdrawal, refund, notifikasi email | Nilai enum diambil dari `packages/shared`. Pola nada: menunggu = `warning`, berhasil = `success`, gagal atau ditolak = `destructive`, dibatalkan = `neutral` |
+| Komplain | `OPEN` Dibuka (warning), `UNDER_REVIEW` Ditinjau admin (info), `RESOLVED_RELEASE` dan `RESOLVED_PARTIAL` Diputus (success), `RESOLVED_REFUND` Diputus (neutral), `CLOSED` Ditutup (neutral) |
+| Pencairan (withdrawal) | `REQUESTED` Menunggu persetujuan, `APPROVED` Disetujui, `DISBURSING` Sedang dikirim (ketiganya warning), `COMPLETED` Berhasil (success), `REJECTED` Ditolak dan `FAILED` Gagal (destructive), `REVERSED` Dibatalkan, saldo dikembalikan (neutral) |
+| Pengembalian dana (refund) | `REQUESTED` Diajukan dan `PROCESSING` Diproses (warning), `COMPLETED` Berhasil (success), `FAILED` Gagal (destructive) |
+| Notifikasi email | `PENDING` Menunggu dikirim (warning), `SENT` Terkirim (success), `FAILED` Gagal (destructive) |
+
+Pola nada untuk enum baru: menunggu = `warning`, berhasil = `success`, gagal atau ditolak = `destructive`, dibatalkan atau berakhir = `neutral`. Seluruhnya dirender lewat `EnumBadge` (StatusBadge memakai komponen yang sama).
 
 Seluruh tabel label enum disimpan di `src/lib/enum-labels.ts`.
 
@@ -613,3 +617,4 @@ Hasilnya, kelas seperti `bg-primary`, `text-muted-foreground`, `bg-now-subtle`, 
 | 1.3 | 18 November 2026 | Mode Sekarang jadi oranye terang (`#F97316`, teks gelap, selalu solid) dengan `--now-strong` kembali. Warning jadi kuning keemasan (amber) yang selalu pucat. Pola banner status berlapis untuk semua nada (Bagian 1.4b), mengikuti referensi yang dipilih |
 | 1.4 | 18 November 2026 | Mode Sekarang jadi hijau neon (lime `#D4F034`) dengan teks hijau tua `#00432A`, terinspirasi gaya kartu Grab. Kartu tawaran memakai latar lime solid dengan tombol Ambil hijau tua. **Disetujui** sebagai acuan implementasi |
 | 1.5 | 18 November 2026 | Hasil W0 bagian 1. Bagian 13 ditambah impor `tw-animate-css` dan `shadcn/tailwind.css`, `@layer base` (garis bawaan `--border`, gaya `body`), serta token `text-code-xl` dan `tracking-code`. Label `PAID` diganti "Sudah dibayar" (ikon `Banknote`) karena bentrok dengan `ModeBadge` "Terjadwal". `ModeBadge` "Terjadwal" pindah ke varian `outline` baru, supaya tidak sewarna dengan badge status `info`. Ukuran teks badge ditegaskan 12 px. Aturan pengecualian `token-check-ignore` |
+| 1.6 | 19 November 2026 | Hasil W0 bagian 4. Label lengkap untuk status komplain (termasuk `CLOSED`), pencairan, pengembalian dana, dan notifikasi email di Bagian 7.2, seluruhnya lewat `EnumBadge` (D239) |
