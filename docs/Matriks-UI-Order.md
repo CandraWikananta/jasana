@@ -2,13 +2,15 @@
 
 **Artefak frontend 3 dari 4**
 Platform Jasana, Tugas Akhir I Nyoman Gede Candra Wikananta (2305551065)
-**Versi 1.0 (draf)**, 17 November 2026
+**Versi 1.1**, 19 November 2026
 
 Dokumen ini menurunkan `State-Machine-Order.md` ke sisi antarmuka: untuk setiap status order, apa yang dilihat tiap penampil, tombol apa yang ditawarkan, endpoint mana yang dipanggil, dan kapan tombol itu muncul.
 
 **Rujukan:** `State-Machine-Order.md` (v2.6), `PRD-Backend.md` (v2.5), `Keputusan-Desain-Sistem.md`, `PRD-Frontend.md`, `Design-System.md`.
 
-> **Catatan sinkronisasi.** Dokumen ini disusun dari register v2.11 (D1 sampai D99) ditambah keputusan lanjutan yang sudah diketahui (D102, D106, D111, D112, D114, D115, D119). Register di repo sudah v2.39 (D1 sampai D203). **Sebelum Fase W3 dan W5**, cocokkan tabel di sini dengan `docs/State-Machine-Order.md`, `docs/Keputusan-Desain-Sistem.md`, dan route `apps/api/src/modules/orders/*` terbaru. Kalau ada yang berbeda, dokumen di repo yang menang. Perbarui matriks ini dulu, baru kodenya.
+> **Catatan sinkronisasi.** Sejak versi 1.1, kapabilitas, endpoint aksi, dan event di dokumen ini sudah dicocokkan dengan backend yang berjalan saat W0 bagian 4 (register v2.45, D236 sampai D239). Transisi dan aktor di Bagian 2 cocok dengan `ALLOWED_TRANSITIONS` di `packages/shared`.
+>
+> Versi 1.0 disusun dari register v2.11 (D1 sampai D99) ditambah keputusan lanjutan yang sudah diketahui (D102, D106, D111, D112, D114, D115, D119). Register di repo sudah v2.39 (D1 sampai D203). **Sebelum Fase W3 dan W5**, cocokkan tabel di sini dengan `docs/State-Machine-Order.md`, `docs/Keputusan-Desain-Sistem.md`, dan route `apps/api/src/modules/orders/*` terbaru. Kalau ada yang berbeda, dokumen di repo yang menang. Perbarui matriks ini dulu, baru kodenya.
 
 ---
 
@@ -33,13 +35,13 @@ Satu peran tidak cukup untuk menentukan tombol. Seorang pemilik usaha bisa sekal
 | Kapabilitas | Benar kalau | Sumber data |
 |---|---|---|
 | `isClient` | `order.client_id === me.id` | `GET /auth/me`, detail order |
-| `isOwner` | `me.provider_profile_id === order.provider_profile_id` dan provider berstatus `VERIFIED` | `GET /auth/me`, detail order |
-| `isAssignee` | `me.worker_id === order.assigned_worker_id` | `GET /auth/me`, detail order |
-| `isCrew` | `me.worker_id` ada di daftar pendamping order | Detail order (field kru) |
-| `isOfferRecipient` | Order `AVAILABLE_NOW` berstatus `PENDING_ACCEPTANCE` dan pekerja ini ada di daftar penerima tawaran (D102) | `GET /workers/me/orders`, event `order:offer` |
+| `isOwner` | `me.provider.id === order.provider.id` dan provider berstatus `VERIFIED` | `GET /auth/me`, detail order |
+| `isAssignee` | `me.worker.id === order.assigned_worker.id` | `GET /auth/me`, detail order |
+| `isCrew` | `me.worker.id` ada di daftar pendamping order | `GET /orders?as=worker`. Pendamping mendapat 403 di `GET /orders/:id` (H133) |
+| `isOfferRecipient` | Order `AVAILABLE_NOW` berstatus `PENDING_ACCEPTANCE` dan pekerja ini ada di daftar penerima tawaran (D102). Diturunkan: pekerja di usaha yang sama dan bukan pemilik, karena server hanya memperlihatkan order itu kepada penerima yang belum menolak. Pemilik yang juga pekerja memakai opsi `offered` (D237) | `GET /orders?as=worker`, event `order:offer` |
 | `isAdmin` | `me.role === 'ADMIN'` | `GET /auth/me` |
 
-Nama field `me.worker_id` dan `me.provider_profile_id` mengikuti isi payload JWT di PRD Backend Bagian 5.1. **Bentuk respons `GET /auth/me` yang sebenarnya wajib dicek di kode Fase 1** sebelum fungsi ini ditulis.
+Bentuk `GET /auth/me` sudah dicek di W0 bagian 3: `provider: { id, provider_type, verification_status }` dengan status apa pun, dan `worker: { id, provider_profile_id, is_owner }` yang hanya terisi untuk keanggotaan ACTIVE.
 
 **Kombinasi yang pasti muncul:**
 
@@ -64,8 +66,8 @@ Kolom "Ditonjolkan" berisi informasi utama di banner atas halaman detail. Label 
 |---|---|---|---|
 | C | "Menunggu konfirmasi penyedia" + hitung mundur `response_deadline_at` | Batalkan pesanan | `POST /orders/:id/cancel` (T4) |
 | O, mode SCHEDULED | Kartu pesanan baru: jadwal, alamat, opsi terpilih, total dari server, hitung mundur | **Terima**: dialog memilih penanggung jawab dan pendamping (opsional). **Tolak**: dialog konfirmasi | `POST /orders/:id/accept` dengan `{ assigned_worker_id, crew_worker_ids }` (T1). `POST /orders/:id/reject` (T2) |
-| O, mode AVAILABLE_NOW | Kartu tawaran di dashboard usaha, hitung mundur 5 menit | **Terima**: pilih pekerja **dari daftar penerima tawaran saja** (D70). **Tolak** | `POST /orders/:id/accept` dengan `{ assigned_worker_id }` (T1). `POST /orders/:id/reject` (T2, hanya pemilik, D102) |
-| Wo | Kartu tawaran realtime: jasa, jarak ke lokasi, estimasi durasi, hitung mundur | **Ambil**. **Lewati** (menolak tawaran untuk diri sendiri, order tetap hidup untuk penerima lain) | `POST /orders/:id/accept` dengan body kosong (klaim atomik). Endpoint tolak tawaran sesuai D102 (cek route) |
+| O, mode AVAILABLE_NOW | Kartu tawaran di dashboard usaha, hitung mundur 5 menit | **Terima**: pilih pekerja **dari daftar penerima tawaran saja** (D70). **Tolak** | `POST /orders/:id/accept` dengan `{ assigned_worker_id }` (T1). `POST /orders/:id/reject` (T2, hanya pemilik, D102). Daftar penerima tawaran belum diekspos backend (H132) |
+| Wo | Kartu tawaran realtime: jasa, jarak ke lokasi, estimasi durasi, hitung mundur | **Ambil**. **Lewati** (menolak tawaran untuk diri sendiri, order tetap hidup untuk penerima lain) | `POST /orders/:id/accept` dengan body kosong (klaim atomik). `POST /orders/:id/decline-offer` tanpa body (D102) |
 | A | Baca saja | | |
 
 Aturan tampilan:
@@ -143,7 +145,7 @@ Mulai dari status ini, **pembatalan tidak tersedia lagi** untuk siapa pun. Jalur
 
 | Penampil | Ditonjolkan | Aksi | Endpoint dan transisi |
 |---|---|---|---|
-| C | **Kode verifikasi 6 digit berukuran besar** + sisa waktu `verification_expires_at` + peringatan "Berikan kode ini hanya kalau pekerjaan sudah selesai dan sesuai" | Minta kode baru (hanya setelah kode kedaluwarsa, D111). Ajukan komplain | `GET /orders/:id/verification-code`. Endpoint kode baru sesuai D111 (cek route). T17 |
+| C | **Kode verifikasi 6 digit berukuran besar** + sisa waktu `verification_expires_at` + peringatan "Berikan kode ini hanya kalau pekerjaan sudah selesai dan sesuai" | Minta kode baru (hanya setelah kode kedaluwarsa, D111). Ajukan komplain | `GET /orders/:id/verification-code`. `POST /orders/:id/verification-code` (D111): kode lama dikembalikan selama masih berlaku, 409 atau 429 `VERIFICATION_LOCKED` selama terkunci. T17 |
 | O | "Menunggu client memberikan kode" | Ajukan komplain | T17 |
 | W | Input 6 kotak angka | **Verifikasi** | `POST /orders/:id/verify` dengan `{ code }` (T16) |
 | A | Baca saja | | |
@@ -286,6 +288,10 @@ Dua operasi ini mengubah order tanpa mengubah status (State Machine Bagian 4).
 
 Socket hanya pemberitahuan. Seluruh perubahan state tetap lewat REST (PRD Backend Bagian 7.2).
 
+**Room order (D236).** Event room order hanya sampai ke socket yang sudah mengirim `order:join { order_id }`. `joinOrderRoom(id)` mengirimnya saat halaman order dibuka dan mengulanginya setiap kali tersambung ulang. Backend belum punya `order:leave`, sehingga socket tetap di room sampai koneksi berikutnya (H134). Bentuk payload tiap event ada di `apps/web/src/lib/socket-events.ts`.
+
+**Setelah tersambung ulang (D238),** query order, tawaran, pesan, dan notifikasi diinvalidasi, karena event selama koneksi putus tidak dikirim ulang.
+
 | Event | Penerima | Respons UI |
 |---|---|---|
 | `order:status_changed` | Room order | Invalidasi `['orders', 'detail', id]` dan daftar order. Toast singkat kalau perubahan dilakukan pihak lain |
@@ -378,8 +384,13 @@ Paling banyak **satu** aksi bervarian `primary` per hasil. Kalau penampil punya 
 
 ---
 
+**Signature yang berjalan (D237).** `getViewer(order, me, opts?: { offered?: boolean })` dan `getOrderActions(order, viewer, now, ctx?: { verification?: VerificationCodeDto | null })`. `ctx.verification` diambil dari `GET /orders/:id/verification-code` sampai `OrderDto` memuat `verification_expires_at` dan `verification_locked_until` (H131). `OrderAction` punya field opsional `confirmText`, karena teks dialog batal berbeda sebelum dan sesudah bayar (Bagian 3.4), sehingga dialog tidak perlu memeriksa status. Batas berangkat SCHEDULED sementara memakai konstanta `DEPART_EARLY_MINUTES = 60` yang sama dengan backend, sampai `depart_available_at` tersedia (H131). Tombol Ulasan tampil di COMPLETED dan SETTLED, dan disembunyikan setelah 409 `REVIEW_ALREADY_EXISTS` sampai `has_review` tersedia.
+
+---
+
 ## Lampiran. Riwayat Revisi
 
 | Versi | Tanggal | Perubahan |
 |---|---|---|
 | 1.0 | 17 November 2026 | Versi awal (draf). Diturunkan dari State Machine v2.6 dan register v2.11, ditambah D102, D106, D111, D112, D114, D115, D119. Perlu dicocokkan dengan register v2.39 di repo |
+| 1.1 | 19 November 2026 | Dicocokkan dengan backend saat W0 bagian 4: kapabilitas memakai bentuk `/auth/me` yang sebenarnya, sumber daftar pekerja `GET /orders?as=worker`, endpoint tolak tawaran dan minta kode baru, `order:join` (D236), invalidasi setelah tersambung ulang (D238), dan signature `getViewer` serta `getOrderActions` (D237). Celah H131 sampai H134 |
