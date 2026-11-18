@@ -5,10 +5,13 @@ Project jasana {
   yang Terintegrasi dengan Kecerdasan Buatan
   I Nyoman Gede Candra Wikananta - 2305551065
 
-  VERSI 2.14. 35 tabel, 35 enum. Versi 2.14 (sesi 10a) menambah notifications.email_attempts
+  VERSI 2.15. 35 tabel, 35 enum. Versi 2.15 menyamakan index dengan schema.prisma setelah
+  backend Fase 0 sampai 10 selesai: idx_provider_base_geo (Fase 5) dan empat index foreign key
+  yang sudah ada di basis data tapi belum tertulis di sini. Tidak ada tabel atau kolom baru.
+  Versi 2.14 (sesi 10a) menambah notifications.email_attempts
   dan nilai enum ORDER_MESSAGE (D177, D178). Versi 2.13 mengubah refunds (D141, D142).
   Versi 2.12 menambah order_offers (D102).
-  Rujukan lengkap: Keputusan-Desain-Sistem.md (D1 sampai D102)
+  Rujukan lengkap: Keputusan-Desain-Sistem.md (D1 sampai D209)
 
   Keputusan yang mengunci rancangan ini:
   - Available Now model DIRECT (client pilih listing milik satu penyedia)
@@ -434,6 +437,7 @@ Table provider_profiles {
   indexes {
     verification_status
     provider_type
+    (base_latitude, base_longitude) [name: 'idx_provider_base_geo', note: 'D98. Bounding box filter lokasi pencarian, jarak dihitung dari lokasi tetap usaha']
   }
 
   Note: '''
@@ -454,6 +458,10 @@ Table kyc_documents {
   note                 text               [note: 'Catatan admin per dokumen, misalnya selfie kabur']
   uploaded_at          timestamptz        [not null, default: `now()`, note: 'Kapan diunggah']
   reviewed_at          timestamptz        [note: 'Kapan diperiksa admin']
+
+  indexes {
+    provider_profile_id
+  }
 
   Note: 'D34. e-KYC hanya di tingkat usaha. Pekerja divalidasi oleh pemilik provider, bukan admin platform. INDIVIDUAL cukup KTP dan selfie, BUSINESS perlu tambahan NPWP atau izin usaha.'
 }
@@ -674,6 +682,10 @@ Table listing_photos {
   display_order  int           [not null, default: 0, note: 'Urutan di galeri']
   is_primary     boolean       [not null, default: false, note: 'Foto utama yang tampil di kartu hasil pencarian']
   created_at     timestamptz   [not null, default: `now()`, note: 'Waktu diunggah']
+
+  indexes {
+    listing_id
+  }
 }
 
 Table listing_faqs {
@@ -1109,6 +1121,11 @@ Table wallet_transactions {
   Invariant yang bisa diuji otomatis di Bab IV:
     SUM(amount_available_delta) = wallets.balance_available
     SUM(amount_pending_delta)   = wallets.balance_pending
+
+  Partial unique index di migrasi SQL (Prisma dan DBML tidak bisa menyatakannya):
+    uniq_withdrawal_event_per_withdrawal  satu WITHDRAWAL dan satu WITHDRAWAL_REVERSAL
+                                          per withdrawal (D134, H102)
+    uniq_refund_deduction_per_order       satu REFUND_DEDUCTION per order (D132, H101)
   '''
 }
 
@@ -1155,6 +1172,10 @@ Table refunds {
   completed_by           uuid           [note: 'Admin yang menandai refund manual selesai (D142)']
   created_at             timestamptz    [not null, default: `now()`, note: 'Kapan refund diajukan']
   completed_at           timestamptz    [note: 'Kapan dana dinyatakan kembali oleh Xendit']
+
+  indexes {
+    order_id
+  }
 }
 
 // ============================================================
@@ -1186,6 +1207,10 @@ Table dispute_evidences {
   file_type            varchar(20)  [note: 'Jenis berkas, untuk menentukan cara menampilkannya']
   description          text         [note: 'Keterangan bukti dari pengunggah']
   created_at           timestamptz  [not null, default: `now()`, note: 'Kapan diunggah']
+
+  indexes {
+    dispute_id
+  }
 }
 
 // ============================================================
@@ -1261,7 +1286,10 @@ Table chat_sessions {
 
   CHECK: user_id IS NOT NULL OR guest_token IS NOT NULL. Salah satu wajib terisi.
 
-  Saat tamu mendaftar, sesinya diklaim lewat satu UPDATE yang mengisi user_id dan claimed_at.
+  Saat tamu mendaftar, sesinya diklaim lewat satu UPDATE yang mengisi user_id dan claimed_at,
+  lalu mengosongkan expires_at (D155). guest_token tetap disimpan untuk menghitung sesi tamu.
+  CHECK chk_guest_session_expiry: sesi yang BELUM diklaim (user_id null, guest_token terisi)
+  wajib punya expires_at. Sesi terdaftar dan sesi hasil klaim tidak.
   Percakapan tidak hilang dan bisa langsung dilanjutkan ke pemesanan.
 
   PENGAMAN WAJIB: rate limiting berbasis identitas hilang untuk tamu, padahal tiap pesan
