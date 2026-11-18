@@ -16,7 +16,7 @@ Aturan dari `CLAUDE.md` di root repo tetap berlaku: **dokumen desain adalah sumb
 | `docs/Keputusan-Desain-Sistem.md` | Register keputusan D1 sampai terbaru | Kalau ragu kenapa sesuatu dirancang begitu |
 | `apps/api/src/modules/*/*.routes.ts` dan `*.schema.ts` | **Kontrak endpoint yang benar-benar berjalan** | Sebelum memanggil endpoint apa pun |
 
-Dokumen frontend disusun dari register v2.11. Kalau isinya berbeda dengan register atau route terbaru di repo, **register dan route yang menang**. Laporkan perbedaannya di awal sesi, jangan diam-diam menyesuaikan.
+Dokumen frontend disusun dari register v2.11 dan sudah disinkronkan ke register v2.44 (keputusan frontend D210 sampai D235). Kalau isinya berbeda dengan register atau route terbaru di repo, **register dan route yang menang**. Laporkan perbedaannya di awal sesi, jangan diam-diam menyesuaikan.
 
 ## Stack
 
@@ -24,7 +24,7 @@ Next.js 16 (App Router, Turbopack), React 19, TypeScript `strict`, Tailwind CSS 
 
 **Versi dipin setelah Fase W0.** Jangan menaikkan versi mayor tanpa keputusan tercatat.
 
-Sejak Next.js 16, `middleware.ts` bernama **`proxy.ts`** dan fungsinya bernama `proxy`. Jangan membuat `middleware.ts`.
+Sejak Next.js 16, `middleware.ts` bernama **`proxy.ts`** dan fungsinya bernama `proxy`. Karena `app/` ada di `src/`, berkasnya wajib di **`src/proxy.ts`**. Jangan membuat `middleware.ts`.
 
 ## Struktur
 
@@ -42,7 +42,7 @@ apps/web/src/
   lib/                 api-client, session, socket, query-keys, error-messages,
                        order-status, enum-labels, format, time, geo
   types/api/           tipe respons API, snake_case
-proxy.ts
+  proxy.ts             penyaring kasar berdasarkan cookie penanda jasana_sesi (D231)
 ```
 
 ---
@@ -102,7 +102,7 @@ Teruskan `X-Forwarded-For` dan `User-Agent` dari request asli. Di backend, `TRUS
 
 ### 4. `proxy.ts` bukan pengaman
 
-`proxy.ts` hanya mengalihkan tamu ke `/masuk` berdasarkan ada tidaknya cookie sesi. Otorisasi tetap di layout area (kapabilitas dari `/auth/me`) dan **terutama di Express**. Jangan menaruh pemeriksaan hak akses yang penting hanya di proxy.
+`proxy.ts` hanya mengalihkan tamu ke `/masuk` berdasarkan ada tidaknya cookie penanda `jasana_sesi` (D231), bukan refresh token yang `httpOnly` dan ber-`Path=/api/session`. Otorisasi tetap di layout area (kapabilitas dari `/auth/me`) dan **terutama di Express**. Jangan menaruh pemeriksaan hak akses yang penting hanya di proxy.
 
 ### 5. Leaflet tidak bisa dirender di server
 

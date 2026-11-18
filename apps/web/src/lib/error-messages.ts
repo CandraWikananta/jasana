@@ -75,3 +75,17 @@ export function getErrorMessage(code: string | null | undefined): string {
   if (code && process.env.NODE_ENV === "development") console.warn(`Kode error tidak dikenal: ${code}`)
   return UNKNOWN_ERROR_MESSAGE
 }
+
+/**
+ * Pesan 401 khusus halaman masuk. Lampiran A memetakan UNAUTHORIZED ke "Sesimu sudah berakhir",
+ * yang salah arti untuk kredensial keliru. Akun nonaktif juga 401 dengan kode yang sama, dan
+ * sengaja tidak dibedakan supaya status akun tidak bocor.
+ */
+export const LOGIN_UNAUTHORIZED_MESSAGE = "Email, nomor ponsel, atau kata sandi salah."
+
+/** "Coba lagi dalam N menit" untuk 429 yang membawa Retry-After (PRD Frontend 7.2). */
+export function retryAfterMessage(seconds: number | null): string | null {
+  if (seconds === null || seconds <= 0) return null
+  if (seconds < 60) return `Coba lagi dalam ${seconds} detik.`
+  return `Coba lagi dalam ${Math.ceil(seconds / 60)} menit.`
+}

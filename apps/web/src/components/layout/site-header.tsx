@@ -2,8 +2,9 @@ import Link from "next/link"
 import { Search } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { HeaderAccount } from "./header-account"
 
-// Header publik (PRD Frontend 4.1). Mobile-first: logo dan Masuk di baris pertama,
+// Header publik (PRD Frontend 4.1). Mobile-first: logo dan Masuk (atau menu avatar) di baris pertama,
 // kotak cari baris kedua; mulai md semuanya satu baris. Form GET biasa ke /cari,
 // jadi tetap jalan tanpa JavaScript.
 export function SiteHeader() {
@@ -38,9 +39,7 @@ export function SiteHeader() {
           </Button>
         </form>
 
-        <Button asChild variant="outline" className="ml-auto">
-          <Link href="/masuk">Masuk</Link>
-        </Button>
+        <HeaderAccount />
       </div>
     </header>
   )

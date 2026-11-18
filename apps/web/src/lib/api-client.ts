@@ -1,51 +1,77 @@
-import type { ErrorDetail, ErrorEnvelope, PaginationMeta, SuccessEnvelope } from "@jasana/shared"
-import { getErrorMessage } from "./error-messages"
+import type { ErrorEnvelope, PaginationMeta, SuccessEnvelope } from "@jasana/shared"
+import { ApiError, parseRetryAfter } from "./api-error"
+import { publicEnv } from "./env"
+import { clearSession, ensureAccessToken, hasSessionFlag, redirectToLogin, refreshSession } from "./session"
 
 // PRD Frontend 7.1. Body dan respons snake_case apa adanya.
-// Sesi (Authorization dan retry 401) menyusul di bagian sesi W0.
+export { ApiError } from "./api-error"
 
 export type QueryParams = Record<string, string | number | boolean | null | undefined>
 
-export class ApiError extends Error {
-  constructor(
-    readonly status: number,
-    /** null kalau respons bukan envelope API, misalnya jaringan putus atau proxy. */
-    readonly code: string | null,
-    readonly details: ErrorDetail[] = [],
-  ) {
-    super(getErrorMessage(code))
-    this.name = "ApiError"
+type ApiInit = RequestInit & { query?: QueryParams }
+
+const isBrowser = () => typeof window !== "undefined"
+
+function buildUrl(path: string, query: QueryParams | undefined): URL {
+  const url = new URL(publicEnv.NEXT_PUBLIC_API_BASE_URL + path)
+  for (const [key, value] of Object.entries(query ?? {})) {
+    if (value !== undefined && value !== null && value !== "") url.searchParams.set(key, String(value))
+  }
+  return url
+}
+
+async function send(url: URL, init: RequestInit, bearer: string | null): Promise<Response> {
+  const headers = new Headers(init.headers)
+  headers.set("Accept", "application/json")
+  if (init.body !== undefined && !headers.has("Content-Type")) headers.set("Content-Type", "application/json")
+  if (bearer) headers.set("Authorization", `Bearer ${bearer}`)
+  try {
+    return await fetch(url, { ...init, headers })
+  } catch {
+    throw new ApiError(0, null)
+  }
+}
+
+/** Token sebelum request. Kegagalan refresh karena jaringan tidak menggagalkan request publik. */
+async function currentBearer(): Promise<string | null> {
+  if (!isBrowser()) return null
+  try {
+    return await ensureAccessToken()
+  } catch {
+    return null
   }
 }
 
 export async function apiFetch<T>(
   path: string,
-  { query, ...init }: RequestInit & { query?: QueryParams } = {},
+  { query, ...init }: ApiInit = {},
 ): Promise<{ data: T; meta?: PaginationMeta }> {
-  // Dicek saat dipanggil, bukan saat modul dimuat, supaya next build dan halaman tanpa API tetap jalan.
-  const base = process.env.NEXT_PUBLIC_API_BASE_URL
-  if (!base) throw new Error("NEXT_PUBLIC_API_BASE_URL kosong. Salin apps/web/.env.example ke .env.local")
+  const url = buildUrl(path, query)
 
-  const url = new URL(base.replace(/\/$/, "") + path)
-  for (const [key, value] of Object.entries(query ?? {})) {
-    if (value !== undefined && value !== null && value !== "") url.searchParams.set(key, String(value))
-  }
+  const bearer = await currentBearer()
+  let res = await send(url, init, bearer)
 
-  const headers = new Headers(init.headers)
-  headers.set("Accept", "application/json")
-  if (init.body !== undefined && !headers.has("Content-Type")) headers.set("Content-Type", "application/json")
-
-  let res: Response
-  try {
-    res = await fetch(url, { ...init, headers })
-  } catch {
-    throw new ApiError(0, null)
+  // 401: refresh sekali (single-flight, D212), lalu ulangi. Hanya kalau memang ada sesi, supaya
+  // tamu di halaman publik tidak pernah dialihkan ke /masuk.
+  if (res.status === 401 && isBrowser() && (bearer !== null || hasSessionFlag())) {
+    let refreshed = false
+    try {
+      refreshed = await refreshSession()
+    } catch {
+      refreshed = false
+    }
+    if (refreshed) res = await send(url, init, await currentBearer())
+    if (!refreshed || res.status === 401) {
+      clearSession()
+      redirectToLogin()
+    }
   }
 
   const body = (await res.json().catch(() => null)) as SuccessEnvelope<T> | ErrorEnvelope | null
   if (res.ok && body?.success === true) return { data: body.data, meta: body.meta }
-  if (body?.success === false) throw new ApiError(res.status, body.error.code, body.error.details ?? [])
-  throw new ApiError(res.status, null)
+  const retryAfter = parseRetryAfter(res.headers.get("retry-after"))
+  if (body?.success === false) throw new ApiError(res.status, body.error.code, body.error.details ?? [], retryAfter)
+  throw new ApiError(res.status, null, [], retryAfter)
 }
 
 /**

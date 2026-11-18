@@ -1,4 +1,10 @@
 import type { NextConfig } from "next";
+import { parseEnv, publicEnvSchema, serverEnvSchema } from "./src/lib/env.schema";
+
+// PRD Frontend 9.4: variabel kosong membuat next dev, build, dan start gagal di sini,
+// sebelum halaman mana pun dirender.
+parseEnv(publicEnvSchema, process.env);
+parseEnv(serverEnvSchema, process.env);
 
 const nextConfig: NextConfig = {
   /* config options here */
