@@ -4,9 +4,9 @@
 **Nama sistem:** Jasana
 **Penyusun:** I Nyoman Gede Candra Wikananta (2305551065)
 **Bidang Keahlian:** Sistem Informasi, Teknologi Informasi, Universitas Udayana
-**Versi:** 2.42
-**Terakhir diperbarui:** 18 November 2026 (versi 2.42)
-**Tahap saat ini:** Implementasi backend Fase 0 sampai Fase 10 selesai, data simulasi sudah terisi di Supabase dev. Berikutnya frontend, stress test k6, dan UAT
+**Versi:** 2.43
+**Terakhir diperbarui:** 18 November 2026 (versi 2.43)
+**Tahap saat ini:** Implementasi backend Fase 0 sampai Fase 10 selesai, data simulasi sudah terisi di Supabase dev. Frontend berjalan di branch `feat/frontend`: W0 sebagian dan W2 selesai. Berikutnya W0 bagian 3 (sesi login), W1, stress test k6, dan UAT
 
 ---
 
@@ -56,7 +56,16 @@
 | Pesan, review, dan perbaikan sandbox 10a (D187 sampai D197) | 11 | 0 |
 | Parameter dan laporan admin (D198 sampai D203) | 6 | 0 |
 | Data simulasi (D204 sampai D209) | 6 | 0 |
+| Frontend: keputusan dasar (D210 sampai D223) | 14 | 0 |
+| Frontend: hasil W0 dan W2 (D224 sampai D230) | 7 | 0 |
 | Keputusan terbuka tanpa nomor D (Bagian 7) | | 0 |
+
+**Perubahan pada versi 2.43:**
+
+1. Empat belas keputusan dasar frontend dari PRD Frontend Bagian 3 (usulan FE1 sampai FE14) dicatat sebagai D210 sampai D223 (Bagian 4AJ)
+2. Tujuh keputusan dari implementasi W0 dan W2 (D224 sampai D230): Design System dan penjaga token, label status dan badge mode, host gambar, filter pencarian, halaman tidak ditemukan, ikon kategori, dan alur kerja branch
+3. Desain antarmuka (artefak 8) selesai dalam bentuk Design System v1.5 dan mockup, menggantikan Figma
+4. H124 sampai H127 baru
 
 **Perubahan pada versi 2.42:**
 
@@ -2058,6 +2067,50 @@ Dari jalan seed ke Supabase dev, 18 November 2026. Tanpa migrasi.
 
 ---
 
+## 4AJ. Keputusan Versi 2.43 (D210 sampai D230): Frontend
+
+Disetujui penyusun 18 November 2026. D210 sampai D223 adalah usulan FE1 sampai FE14 di `PRD-Frontend.md` Bagian 3, dicatat dengan nomor ini karena D204 sampai D209 sudah terpakai untuk data simulasi. D224 sampai D230 muncul dari implementasi W0 bagian 1 dan 2 serta W2. Tanpa migrasi dan tanpa perubahan backend.
+
+### Keputusan dasar (usulan FE1 sampai FE14)
+
+| # | Keputusan | Alasan |
+|---|---|---|
+| D210 | **App Router dengan grup rute per area** (FE1). URL halaman pengguna berbahasa Indonesia: `/cari`, `/listing/[id]`, `/pesanan`, `/usaha`, `/pekerja`, `/admin` | Pengguna dan responden UAT melihat URL. Grup rute memisahkan layout dan penjagaan tiap area tanpa mengubah URL |
+| D211 | **Server Component hanya untuk halaman publik** yang datanya sama untuk semua orang (FE2): beranda, detail listing, profil penyedia. Halaman yang butuh login memakai Client Component dan TanStack Query | Access token hanya ada di memori browser (D212), jadi server Next tidak memegangnya. Satu pola per jenis halaman lebih mudah dijaga |
+| D212 | **Sesi lewat Route Handler tipis** (FE3). Refresh token di cookie `httpOnly` milik domain Next lewat `/api/session/login`, `/refresh`, `/logout`. Access token hanya di memori. Refresh dibungkus *single-flight* di dalam tab dan `navigator.locks` antar tab. Route Handler meneruskan `X-Forwarded-For` dan `User-Agent` | Rotasi dengan deteksi pemakaian ulang (D76) mencabut seluruh `family_id` kalau dua tab me-refresh dengan token yang sama. Dengan cookie, tab yang menunggu kunci otomatis mengirim token terbaru. Refresh token 30 hari di `localStorage` bisa dibaca lewat XSS. **Syarat:** bentuk respons `/auth/login` dan `/auth/refresh` serta pengaturan `TRUST_PROXY` (D117) dicek di awal W0 bagian 3 |
+| D213 | **Tipe respons API ditulis sendiri** di `apps/web/src/types/api` dalam snake_case (FE4). Enum, kode error, dan konstanta state machine diambil dari `packages/shared` sebagai `import type`. Frontend tidak pernah mengimpor `@prisma/client` | Menyempurnakan S11. Tipe Prisma tidak menggambarkan JSON API (camelCase, `Decimal`, `Date`), dan mengimpornya menyeret kode server ke bundle browser |
+| D214 | **Satu pintu aksi order: `getOrderActions()`** (FE5), dengan spesifikasi di `Matriks-UI-Order.md`. Tidak ada percabangan status order di JSX | Padanan `transitionOrder()` di sisi tampilan, sehingga tombol yang tampil selalu sesuai state machine |
+| D215 | **Seluruh waktu ditampilkan dan diinput dalam WITA** (UTC+08:00) dengan label eksplisit, tidak mengikuti zona perangkat (FE6) | Jadwal jasa terikat lokasi layanan di Bali, bukan lokasi perangkat. Indonesia tanpa waktu musim panas, jadi konversinya offset tetap |
+| D216 | **Pratinjau harga di client** memakai rumus D73 dan berlabel "Perkiraan" (FE7). Request tidak pernah memuat nominal, dan angka final selalu dari respons server | Pengguna perlu melihat total berubah saat memilih opsi. Pembayaran baru terjadi setelah penyedia menerima (D19), dan rincian dari server tampil sebelum membayar |
+| D217 | **Satu koneksi Socket.IO per tab** setelah login (FE8). Event memicu invalidasi cache TanStack Query, kecuali posisi pekerja dan kartu tawaran yang disimpan sebagai state lokal. Client hanya mengirim `worker:presence` dan `order:location_update` | Menjaga satu sumber data per layar, yaitu respons REST |
+| D218 | **Tanpa layanan geocoding** (FE9). Alamat diketik pengguna, titiknya dipilih di peta atau dari GPS | Kebijakan pemakaian Nominatim ketat, dan validasi kehadiran hanya butuh koordinat |
+| D219 | **Bahasa Indonesia saja, tanpa library i18n** (FE10). Sapaan "kamu", istilah mengikuti glosarium Design System Bagian 9 | Satu bahasa tidak butuh lapisan terjemahan. Glosarium menjaga konsistensi istilah antararea |
+| D220 | **Area ditentukan kapabilitas, bukan role** (FE11). Menu area muncul dari `GET /auth/me`. Pemilik provider INDIVIDUAL melihat area Usaha dan area Pekerja | Konsekuensi D4, D33, dan D35 |
+| D221 | **Pola unggah mengikuti D80** (FE12). e-KYC dan bukti komplain multipart ke API, foto listing lewat signed URL lalu wajib memanggil endpoint pencatat. Cek ukuran dan tipe di client hanya untuk kenyamanan | Server tetap memeriksa magic bytes. Cek di client hanya supaya pengguna tidak menunggu unggahan yang pasti ditolak |
+| D222 | **Tanpa mode gelap dan tanpa PWA** (FE13) | Tidak menambah nilai pada pertanyaan penelitian, dan menggandakan pengecekan visual |
+| D223 | **Pengujian frontend:** Vitest untuk fungsi murni dan `getOrderActions()`, Playwright untuk screenshot dan smoke E2E alur utama (FE14). Pengujian utama tetap Black Box dan UAT (D85) | Uji otomatis difokuskan pada logika yang paling mahal kalau salah: tombol order, format uang, dan waktu |
+
+### Keputusan dari implementasi W0 dan W2
+
+| # | Keputusan | Alasan |
+|---|---|---|
+| D224 | **Design System v1.5 dan mockup menggantikan mockup Figma** (artefak desain 8). Seluruh warna, radius, dan huruf berasal dari CSS variable di `globals.css` yang dipetakan lewat `@theme` Tailwind v4. Skrip `check-design-tokens.mjs` di `npm run lint` menolak hex, `rgb()`, nilai arbitrer, palet bawaan Tailwind, dan varian `dark:`. Pengecualian per baris hanya lewat komentar `token-check-ignore: <alasan>` | Dokumen token dan mockup yang ditinjau bersama sudah cukup untuk membangun seluruh area secara konsisten. Penjaga token membuat satu perubahan nilai di `globals.css` berlaku ke seluruh aplikasi, dan mencegah warna lepas yang tidak ikut berubah |
+| D225 | **Label status `PAID` adalah "Sudah dibayar"**, dan badge mode Terjadwal memakai varian `outline`. Pill berwarna selalu berarti status. Mode Sekarang tetap lime solid | Label "Terjadwal" sebelumnya dipakai bersamaan oleh status `PAID` dan mode `SCHEDULED`, dan keduanya tampil berdampingan di kartu pesanan dengan warna yang sama |
+| D226 | **`next/image` hanya menerima pola tetap `*.supabase.co/storage/v1/object/public/**`**, menggantikan variabel `NEXT_PUBLIC_STORAGE_PUBLIC_HOST` di PRD Frontend 9.4 | Pola path publik otomatis menolak signed URL privat (dokumen e-KYC dan bukti komplain), sehingga optimizer Next tidak pernah menyimpan salinannya. Satu variabel lingkungan berkurang |
+| D227 | **Pencarian memisahkan filter mode dan ketersediaan saat ini.** Pilihan Terjadwal atau Sekarang mengirim `booking_mode`, sedangkan switch terpisah "Bisa datang sekarang" mengirim `available_now=true`. Seluruh filter tersimpan di URL | "Mendukung mode Sekarang" dan "ada pekerja yang siap sekarang" adalah dua pertanyaan berbeda. Hasil kosong saat tidak ada pekerja online justru menunjukkan filter membaca kondisi nyata (D99) |
+| D228 | **Id listing atau penyedia yang tidak dikenal ditampilkan sebagai "tidak ditemukan"**, baik dari 404 `NOT_FOUND` maupun 422 `VALIDATION_ERROR` untuk id bukan UUID. Statusnya 200 dengan `noindex` (soft-404), ditambah halaman 404 global berbahasa Indonesia | Halaman publik memakai streaming, sehingga status sudah terkirim sebelum datanya diketahui tidak ada. Bagi pengguna tampilannya sama, dan mesin pencari tidak mengindeks halamannya |
+| D229 | **Ikon kategori dari whitelist statis** `apps/web/src/lib/category-icons.ts` yang memetakan `categories.icon_name` (kebab-case) ke ikon lucide. Nama kosong atau tidak dikenal memakai ikon generik. Form kategori admin (W7) memilih dari whitelist yang sama | Sesuai catatan kolom `icon_name` di skema. Peta statis hanya membawa ikon yang terdaftar ke bundle, dan nilai sembarang dari basis data tidak bisa membuat halaman gagal |
+| D230 | **Frontend dikerjakan di branch `feat/frontend` dan hanya menyentuh `apps/web`.** Perubahan backend, `packages/shared`, dan dokumen di `docs/` dikerjakan di `main`, lalu `main` di-merge ke `feat/frontend`. Commit dilakukan penyusun, Claude Code hanya mengusulkan berkas dan pesan commit | Riwayat backend yang sudah selesai tidak tercampur pekerjaan frontend, dan setiap perubahan diperiksa penyusun sebelum masuk riwayat |
+
+**Progres frontend sampai versi ini:**
+
+- W0 bagian 1: scaffold Next.js 16, token Design System, Plus Jakarta Sans, komponen dasar shadcn yang disesuaikan ke token, `ORDER_STATUS_META`, layout publik, galeri `/dev/ui`, dan penjaga token
+- W0 bagian 2: `api-client` tanpa autentikasi, TanStack Query, `format` dan `time` WITA beserta test, tipe API untuk listing, katalog, penyedia, dan ulasan, `MoneyText`, dan `ListingCard` dengan data asli
+- W2 untuk lingkup demo: beranda, `/cari` (kategori, mode, ketersediaan, urutan, lokasi, paginasi), `/listing/[id]` (spesifikasi dari atribut dinamis, pilihan dan harga, FAQ, ulasan), `/penyedia/[id]`, dan 404 global. Sub-kategori, filter atribut dinamis, radius, dan rentang harga di `/cari` masih terbuka
+- Belum: sesi login (D212), `proxy.ts`, socket (D217), `getOrderActions()` (D214), serta W1 dan W3 sampai W9
+
+---
+
 ## 5. Alur Sistem End-to-End
 
 ### 5.1 Onboarding
@@ -2707,6 +2760,10 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 - [ ] **H120** Belum ada index `order_status_histories(to_status, created_at)` untuk laporan yang membaca waktu status dari riwayat (D203). Belum diperlukan untuk skala data penelitian **(baru, sesi 10c)**
 - [ ] **H122** Pengaman reset data simulasi hanya menghitung relasi yang terdaftar di skrip. Reset tidak boleh dijalankan selama dan sesudah UAT (D204) **(baru, sesi data simulasi)**
 - [ ] **H123** Opsional: jalankan data simulasi skala penuh (293 order) ke Supabase dev sebelum UAT dimulai, kalau waktunya ada. Reset ikut menghapus order dan review yang dibuat dengan akun `@sim` saat mencoba frontend (D209) **(baru, jalan data simulasi)**
+- [ ] **H124** Objek penyedia di kartu listing dan di `GET /listings/:id` tidak membawa `display_name`, sehingga penyedia INDIVIDUAL tanpa `business_name` tampil "Penyedia perorangan" di frontend. Usulan: tambahkan `display_name` seperti di `GET /providers/:id` **(baru, W0 bagian 2)**
+- [ ] **H125** `categories.icon_name` di Supabase dev diisi manual lewat SQL (`cog`, `camera`, `perfume-bottle`, `wrench`) dan belum ada di skrip seed, sehingga hilang kalau katalog di-seed ulang (D229) **(baru, W2)**
+- [ ] **H126** Halaman listing dan penyedia yang tidak ditemukan menjawab status 200 dengan `noindex`, bukan 404 (D228). Bisa dirapikan di W9 dengan memeriksa data sebelum streaming dimulai **(baru, W2)**
+- [ ] **H127** `.env.example` di root masih menulis `CORS_ORIGIN=http://localhost:3000`, padahal Next berjalan di `http://localhost:3100` saat pengembangan **(baru, W0 bagian 2)**
 - [ ] **H82** Admin fee withdrawal berupa nilai flat yang mengikuti perkiraan biaya payout Xendit **(baru, D84)**. Untuk nominal di atas Rp250.000 biaya sebenarnya sedikit lebih besar dan selisihnya ditanggung platform
 
 ---
@@ -2722,7 +2779,7 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 | 5 | Diagram UML | Belum | Aktor jadi empat |
 | 6 | Diagram Konteks dan DFD | Belum | Aktor jadi empat, tambah entitas eksternal layanan email |
 | 7 | Conversation flow dan system prompt chatbot | Belum | |
-| 8 | Desain antarmuka (Figma) | Belum | Tambah dashboard pekerja dan halaman pemetaan |
+| 8 | Desain antarmuka | Selesai, Design System v1.5 | Design System dan mockup menggantikan Figma (D224). Layar per fase mengikuti Design System |
 
 **Aset yang bisa dipakai ulang:** dokumen test case `PPL_A_2305551065_UAS.docx` berisi 127 test case pada 15 modul fungsional dan 1 modul performa.
 
@@ -2743,11 +2800,12 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 
 ## 11. Langkah Berikutnya
 
-1. Fase 9 selesai 17 November 2026 setelah evaluasi tiga run (Bagian 4AB dan 4AG). Fase 10 selesai 17 November 2026 (1.004 test lulus, D177 sampai D203), dengan uji sandbox 10a dan 10b lulus dan uji sandbox 10c dijalankan penyusun. Paralel: penyusun menyusun dataset 30 sampai 50 skenario berlabel (H15, D153) dan mencatat model serta batas kuota project Gemini di AI Studio
-2. Selesai: Fase 8 (15 November 2026, 751 test lulus, D131 sampai D150) beserta uji sandbox payout dan refund. Uji sandbox refund PARTIAL hasil putusan sengketa lulus. Sebelumnya Fase 7 (11 November 2026, 627 test lulus) beserta uji sandbox Xendit sungguhan (12 November 2026), sebelumnya audit hutang teknis (9 November 2026) dan sesi perapian (10 November 2026)
-3. Susun data simulasi untuk dua belas sub-kategori di Lampiran B, termasuk skenario perebutan Available Now dan pendamping pada dokumentasi acara
-4. Riset ringan rentang harga pasaran untuk dua belas sub-kategori tersebut, catat sumbernya
-5. Paralel sejak sekarang: kumpulkan H15 sedikit demi sedikit setiap minggu, dan siapkan instrumen UAT (H84)
+1. Frontend di branch `feat/frontend` (D230): W0 bagian 3 (sesi D212, `proxy.ts`, socket D217, `getOrderActions()` D214), lalu W1 autentikasi dan W3 pemesanan sisi pelanggan. Sebelum W0 bagian 3, cek bentuk respons refresh token dan `TRUST_PROXY`. Paralel di `main`: H124, H125, dan H127
+2. Fase 9 selesai 17 November 2026 setelah evaluasi tiga run (Bagian 4AB dan 4AG). Fase 10 selesai 17 November 2026 (1.004 test lulus, D177 sampai D203), dengan uji sandbox 10a dan 10b lulus dan uji sandbox 10c dijalankan penyusun. Paralel: penyusun menyusun dataset 30 sampai 50 skenario berlabel (H15, D153) dan mencatat model serta batas kuota project Gemini di AI Studio
+3. Selesai: Fase 8 (15 November 2026, 751 test lulus, D131 sampai D150) beserta uji sandbox payout dan refund. Uji sandbox refund PARTIAL hasil putusan sengketa lulus. Sebelumnya Fase 7 (11 November 2026, 627 test lulus) beserta uji sandbox Xendit sungguhan (12 November 2026), sebelumnya audit hutang teknis (9 November 2026) dan sesi perapian (10 November 2026)
+4. Selesai: data simulasi Bali di Supabase dev (D204 sampai D209)
+5. Riset ringan rentang harga pasaran untuk dua belas sub-kategori tersebut, catat sumbernya
+6. Paralel sejak sekarang: kumpulkan H15 sedikit demi sedikit setiap minggu, dan siapkan instrumen UAT (H84)
 
 ---
 
@@ -2799,6 +2857,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 | 2.40 | 17 November 2026 | Hasil evaluasi run 3, rekap tiga run, dan kesimpulan terhadap D85. Penutupan Fase 9. H15 ditutup. Tanpa keputusan baru dan tanpa perubahan kode Ditambah hasil uji sandbox 10c |
 | 2.41 | 17 November 2026 | Lima keputusan data simulasi: data Bali lewat service layer (D204), pengecualian ledger simulasi yang memperluas D130 (D205), foto simulasi (D206), `--bulk` hanya lokal (D207), dan penonaktifan listing akun uji (D208). H122 baru. Tanpa migrasi |
 | 2.42 | 18 November 2026 | Opsi skala data simulasi untuk Supabase dev (D209) dan hasil jalannya: 86 order, 130 foto, `db:verify` lulus. H16 ditutup, H123 baru. Tanpa migrasi |
+| 2.43 | 18 November 2026 | Keputusan frontend: usulan FE1 sampai FE14 dicatat sebagai D210 sampai D223, ditambah tujuh keputusan dari W0 dan W2 (D224 sampai D230). Artefak desain 8 selesai sebagai Design System v1.5. Progres frontend W0 sebagian dan W2. H124 sampai H127 baru. Tanpa migrasi |
 
 ---
 

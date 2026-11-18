@@ -4,11 +4,11 @@
 
 | | |
 |---|---|
-| Versi | 1.0 (draf) |
+| Versi | 1.1 |
 | Penyusun | I Nyoman Gede Candra Wikananta (2305551065) |
 | Program Studi | Teknologi Informasi, Universitas Udayana |
 | Bidang Keahlian | Sistem Informasi |
-| Tanggal | 17 November 2026 |
+| Tanggal | 18 November 2026 |
 | Cakupan dokumen | **Frontend saja** (`apps/web`, Next.js). Logika bisnis, basis data, dan integrasi eksternal ada di `PRD-Backend.md` |
 
 **Artefak frontend:**
@@ -22,7 +22,7 @@
 
 **Dokumen rujukan backend:** `PRD-Backend.md`, `State-Machine-Order.md`, `Keputusan-Desain-Sistem.md`, `schema.prisma`.
 
-> **Catatan sinkronisasi.** Dokumen ini disusun dari salinan di project knowledge: register keputusan v2.11 (D1 sampai D99) dan PRD Backend v2.5, ditambah keputusan lanjutan yang diketahui (D100 sampai D130 sebagian, D151 sampai D155 garis besar). Register di repo sudah v2.39 (D1 sampai D203) dan Fase 6 sampai 10 backend sudah selesai. **Kontrak endpoint di dokumen ini adalah peta, bukan kontrak final.** Sebelum setiap fase, Claude Code wajib mencocokkan endpoint yang dipakai dengan `docs/PRD-Backend.md` terbaru dan `apps/api/src/modules/*/*.routes.ts` serta `*.schema.ts`. Daftar hal yang wajib dicek ada di Bagian 12.
+> **Catatan sinkronisasi.** Versi awal dokumen ini disusun dari register v2.11 dan PRD Backend v2.5. Sejak versi 1.1, usulan FE1 sampai FE14 sudah disetujui dan dicatat di register **v2.43 sebagai D210 sampai D223**, ditambah D224 sampai D230 dari implementasi W0 dan W2. **Kontrak endpoint di dokumen ini adalah peta, bukan kontrak final.** Sebelum setiap fase, Claude Code wajib mencocokkan endpoint yang dipakai dengan `docs/PRD-Backend.md` terbaru dan `apps/api/src/modules/*/*.routes.ts` serta `*.schema.ts`. Daftar hal yang wajib dicek ada di Bagian 12, dan temuan dari fase yang sudah berjalan ada di Bagian 12.3.
 
 ---
 
@@ -178,24 +178,24 @@ Nama grup rute dalam kurung tidak muncul di URL.
 
 ## 3. Usulan Keputusan Frontend
 
-**Status: usulan.** Setelah disetujui, dicatat ke register keputusan sebagai **D204 dan seterusnya** (menyesuaikan nomor terakhir di register), **sebelum Fase W0 dimulai**. Nomor FE di bawah hanya nomor sementara.
+**Status: disetujui 18 November 2026**, dicatat di register v2.43 sebagai **D210 sampai D223** dengan urutan yang sama (FE1 = D210 sampai FE14 = D223). Nomor FE tetap boleh dipakai sebagai rujukan singkat di dokumen frontend. Keputusan lanjutan dari implementasi ada di register sebagai D224 sampai D230.
 
 | # | Usulan | Alasan |
 |---|---|---|
-| FE1 | **App Router dengan grup rute per area.** URL halaman pengguna berbahasa Indonesia (`/cari`, `/pesanan`, `/usaha`, `/pekerja`) | Pengguna dan responden UAT melihat URL. Grup rute memisahkan layout dan guard tiap area tanpa mengubah URL |
-| FE2 | **Server Component hanya untuk halaman publik** yang datanya sama untuk semua orang (beranda, kategori, detail listing, profil penyedia). Seluruh halaman yang butuh login memakai Client Component dan TanStack Query | Access token hanya ada di memori browser (FE3), jadi server Next memang tidak memegangnya. Satu pola per jenis halaman lebih mudah dijaga daripada campuran per komponen |
-| FE3 | **Sesi lewat Route Handler tipis.** Refresh token disimpan di cookie `httpOnly` milik domain Next lewat `/api/session/login`, `/refresh`, `/logout`. Access token hanya di memori. Tidak ada token di `localStorage` atau `sessionStorage`. Refresh dibungkus *single-flight* di dalam tab dan `navigator.locks` antar tab | Dua alasan. **Pertama**, D76 memakai rotasi dengan deteksi pemakaian ulang: kalau dua tab me-refresh bersamaan dengan token yang sama, permintaan kedua terbaca sebagai pencurian dan **seluruh `family_id` dicabut**, pengguna ter-logout di semua tab. Dengan cookie, tab yang menunggu kunci otomatis mengirim token terbaru, karena browser membaca cookie saat request dibuat. **Kedua**, refresh token 30 hari di `localStorage` bisa dibaca script mana pun lewat XSS. **Syarat:** dicek dulu bahwa backend mengembalikan refresh token di body (Bagian 12) |
-| FE4 | **Tipe respons API ditulis sendiri** di `src/types/api` dalam snake_case. Enum dan konstanta state machine diambil dari `packages/shared` | Menyempurnakan S11 untuk sisi frontend. Tipe Prisma tidak menggambarkan JSON API: nama field camelCase versus snake_case, `Decimal` versus number, `Date` versus string ISO. Mengimpor `@prisma/client` juga menyeret kode server ke bundle browser |
-| FE5 | **Satu pintu aksi order: `getOrderActions()`** | Padanan `transitionOrder()` di sisi tampilan. Spesifikasinya `Matriks-UI-Order.md` |
-| FE6 | **Seluruh waktu ditampilkan dan diinput dalam WITA** (UTC+08:00), label eksplisit, tidak mengikuti zona perangkat | Jadwal jasa terikat lokasi layanan, bukan lokasi perangkat. Lokasi data simulasi berada di zona WITA, dan responden atau penguji bisa memakai perangkat berzona lain. Indonesia tanpa waktu musim panas, jadi konversinya offset tetap |
-| FE7 | **Pratinjau harga di client** memakai rumus D73 dan berlabel "Perkiraan". Angka final selalu dari respons server | Pengguna perlu melihat total berubah saat memilih opsi. Risikonya kecil, karena pembayaran baru terjadi setelah penyedia menerima (D19), dan client melihat rincian dari server sebelum membayar. Opsional: pindahkan fungsi hitung murni dari backend ke `packages/shared` supaya pratinjau dan server memakai kode yang sama |
-| FE8 | **Satu koneksi Socket.IO per tab** setelah login. Event memicu invalidasi cache TanStack Query, kecuali posisi pekerja dan kartu tawaran yang disimpan sebagai state lokal | Menjaga satu sumber data per layar (respons REST). Event yang membawa data penuh mudah membuat tampilan berbeda dari server |
-| FE9 | **Tanpa layanan geocoding.** Alamat diketik pengguna, titiknya dipilih di peta atau dari GPS | Nominatim (geocoding gratis OpenStreetMap) punya kebijakan pemakaian ketat. Validasi kehadiran hanya butuh koordinat, bukan alamat hasil geocoding |
-| FE10 | **Bahasa Indonesia saja, tanpa library i18n.** Sapaan "kamu", istilah mengikuti glosarium Design System | Satu bahasa tidak butuh lapisan terjemahan. Glosarium menjaga konsistensi istilah |
-| FE11 | **Area ditentukan kapabilitas, bukan role.** Menu area muncul dari `GET /auth/me`. Pemilik provider INDIVIDUAL melihat area Usaha **dan** area Pekerja | Konsekuensi D4, D33, dan D35. Pemilik selalu terdaftar sebagai pekerja di usahanya sendiri, jadi dialah yang menekan Berangkat dan check-in |
-| FE12 | **Pola unggah mengikuti D80.** e-KYC dan bukti komplain multipart ke API, foto listing lewat signed URL lalu wajib memanggil endpoint pencatat. Cek ukuran dan tipe di client hanya untuk kenyamanan | Server tetap memeriksa magic bytes. Cek di client hanya supaya pengguna tidak menunggu unggahan yang pasti ditolak |
-| FE13 | **Tanpa mode gelap dan tanpa PWA** | Tidak menambah nilai pada pertanyaan penelitian, dan menggandakan pekerjaan pengecekan visual |
-| FE14 | **Pengujian frontend:** Vitest untuk fungsi murni dan `getOrderActions()`, Playwright untuk smoke E2E alur utama. Pengujian utama tetap Black Box dan UAT | Uji otomatis difokuskan pada logika yang paling mahal kalau salah, yaitu tombol order dan perhitungan tampilan |
+| FE1 (D210) | **App Router dengan grup rute per area.** URL halaman pengguna berbahasa Indonesia (`/cari`, `/pesanan`, `/usaha`, `/pekerja`) | Pengguna dan responden UAT melihat URL. Grup rute memisahkan layout dan guard tiap area tanpa mengubah URL |
+| FE2 (D211) | **Server Component hanya untuk halaman publik** yang datanya sama untuk semua orang (beranda, kategori, detail listing, profil penyedia). Seluruh halaman yang butuh login memakai Client Component dan TanStack Query | Access token hanya ada di memori browser (FE3), jadi server Next memang tidak memegangnya. Satu pola per jenis halaman lebih mudah dijaga daripada campuran per komponen |
+| FE3 (D212) | **Sesi lewat Route Handler tipis.** Refresh token disimpan di cookie `httpOnly` milik domain Next lewat `/api/session/login`, `/refresh`, `/logout`. Access token hanya di memori. Tidak ada token di `localStorage` atau `sessionStorage`. Refresh dibungkus *single-flight* di dalam tab dan `navigator.locks` antar tab | Dua alasan. **Pertama**, D76 memakai rotasi dengan deteksi pemakaian ulang: kalau dua tab me-refresh bersamaan dengan token yang sama, permintaan kedua terbaca sebagai pencurian dan **seluruh `family_id` dicabut**, pengguna ter-logout di semua tab. Dengan cookie, tab yang menunggu kunci otomatis mengirim token terbaru, karena browser membaca cookie saat request dibuat. **Kedua**, refresh token 30 hari di `localStorage` bisa dibaca script mana pun lewat XSS. **Syarat:** dicek dulu bahwa backend mengembalikan refresh token di body (Bagian 12) |
+| FE4 (D213) | **Tipe respons API ditulis sendiri** di `src/types/api` dalam snake_case. Enum dan konstanta state machine diambil dari `packages/shared` | Menyempurnakan S11 untuk sisi frontend. Tipe Prisma tidak menggambarkan JSON API: nama field camelCase versus snake_case, `Decimal` versus number, `Date` versus string ISO. Mengimpor `@prisma/client` juga menyeret kode server ke bundle browser |
+| FE5 (D214) | **Satu pintu aksi order: `getOrderActions()`** | Padanan `transitionOrder()` di sisi tampilan. Spesifikasinya `Matriks-UI-Order.md` |
+| FE6 (D215) | **Seluruh waktu ditampilkan dan diinput dalam WITA** (UTC+08:00), label eksplisit, tidak mengikuti zona perangkat | Jadwal jasa terikat lokasi layanan, bukan lokasi perangkat. Lokasi data simulasi berada di zona WITA, dan responden atau penguji bisa memakai perangkat berzona lain. Indonesia tanpa waktu musim panas, jadi konversinya offset tetap |
+| FE7 (D216) | **Pratinjau harga di client** memakai rumus D73 dan berlabel "Perkiraan". Angka final selalu dari respons server | Pengguna perlu melihat total berubah saat memilih opsi. Risikonya kecil, karena pembayaran baru terjadi setelah penyedia menerima (D19), dan client melihat rincian dari server sebelum membayar. Opsional: pindahkan fungsi hitung murni dari backend ke `packages/shared` supaya pratinjau dan server memakai kode yang sama |
+| FE8 (D217) | **Satu koneksi Socket.IO per tab** setelah login. Event memicu invalidasi cache TanStack Query, kecuali posisi pekerja dan kartu tawaran yang disimpan sebagai state lokal | Menjaga satu sumber data per layar (respons REST). Event yang membawa data penuh mudah membuat tampilan berbeda dari server |
+| FE9 (D218) | **Tanpa layanan geocoding.** Alamat diketik pengguna, titiknya dipilih di peta atau dari GPS | Nominatim (geocoding gratis OpenStreetMap) punya kebijakan pemakaian ketat. Validasi kehadiran hanya butuh koordinat, bukan alamat hasil geocoding |
+| FE10 (D219) | **Bahasa Indonesia saja, tanpa library i18n.** Sapaan "kamu", istilah mengikuti glosarium Design System | Satu bahasa tidak butuh lapisan terjemahan. Glosarium menjaga konsistensi istilah |
+| FE11 (D220) | **Area ditentukan kapabilitas, bukan role.** Menu area muncul dari `GET /auth/me`. Pemilik provider INDIVIDUAL melihat area Usaha **dan** area Pekerja | Konsekuensi D4, D33, dan D35. Pemilik selalu terdaftar sebagai pekerja di usahanya sendiri, jadi dialah yang menekan Berangkat dan check-in |
+| FE12 (D221) | **Pola unggah mengikuti D80.** e-KYC dan bukti komplain multipart ke API, foto listing lewat signed URL lalu wajib memanggil endpoint pencatat. Cek ukuran dan tipe di client hanya untuk kenyamanan | Server tetap memeriksa magic bytes. Cek di client hanya supaya pengguna tidak menunggu unggahan yang pasti ditolak |
+| FE13 (D222) | **Tanpa mode gelap dan tanpa PWA** | Tidak menambah nilai pada pertanyaan penelitian, dan menggandakan pekerjaan pengecekan visual |
+| FE14 (D223) | **Pengujian frontend:** Vitest untuk fungsi murni dan `getOrderActions()`, Playwright untuk smoke E2E alur utama. Pengujian utama tetap Black Box dan UAT | Uji otomatis difokuskan pada logika yang paling mahal kalau salah, yaitu tombol order dan perhitungan tampilan |
 
 ---
 
@@ -602,14 +602,17 @@ Query `page` dan `limit` (bawaan 20), total dari `meta.total`. Daftar panjang di
 NEXT_PUBLIC_API_BASE_URL        # URL REST API untuk browser
 NEXT_PUBLIC_SOCKET_URL          # URL Socket.IO
 API_INTERNAL_BASE_URL           # URL REST API untuk Route Handler (server ke server)
-NEXT_PUBLIC_STORAGE_PUBLIC_HOST # host bucket publik Supabase, untuk next/image
 SESSION_COOKIE_NAME             # nama cookie refresh token
 SESSION_COOKIE_SECURE           # true di staging dan produksi
 ```
 
-Divalidasi dengan Zod saat build atau boot. Aplikasi gagal start kalau ada yang kosong, sama seperti backend.
+Divalidasi dengan Zod saat build atau boot. Aplikasi gagal start kalau ada yang kosong, sama seperti backend. Validasi Zod dipasang saat variabel kedua ditambahkan (W0 bagian 3). Sampai itu, `apiFetch` memeriksa `NEXT_PUBLIC_API_BASE_URL` saat dipanggil, bukan saat modul dimuat, supaya `next build` tetap jalan.
 
-**Penyesuaian di sisi backend** (bukan kode frontend, tapi wajib untuk FE3): `CORS_ORIGIN` memuat origin Next, dan `TRUST_PROXY` (D117) diatur supaya alamat IP pengguna yang diteruskan Route Handler lewat `X-Forwarded-For` terbaca. Tanpa ini, seluruh login lewat Route Handler terhitung dari satu IP server Next, dan rate limit login (10 per 15 menit per IP) akan habis saat UAT.
+Host gambar untuk `next/image` tidak lewat variabel lingkungan, melainkan pola tetap `*.supabase.co/storage/v1/object/public/**` di `next.config.ts` (D226). Pola path publik ini otomatis menolak signed URL privat.
+
+Saat pengembangan, Next berjalan di `http://localhost:3100` dan API di `http://localhost:3000`.
+
+**Penyesuaian di sisi backend** (bukan kode frontend, tapi wajib untuk FE3): `CORS_ORIGIN` memuat origin Next (sudah ditambahkan `http://localhost:3100` di `.env` lokal, contoh di `.env.example` menyusul lewat H127), dan `TRUST_PROXY` (D117) diatur supaya alamat IP pengguna yang diteruskan Route Handler lewat `X-Forwarded-For` terbaca. Tanpa ini, seluruh login lewat Route Handler terhitung dari satu IP server Next, dan rate limit login (10 per 15 menit per IP) akan habis saat UAT.
 
 ---
 
@@ -675,6 +678,13 @@ Satu fase dikerjakan sampai tuntas sebelum pindah, sama seperti backend. Satu fa
 | **W8. Asisten** | Widget dan halaman Asisten, sesi tamu dan login, klaim sesi, kartu rekomendasi | Tamu yang mendaftar di tengah percakapan bisa melanjutkan percakapan yang sama |
 | **W9. Notifikasi dan perapian** | Pusat notifikasi, audit empat state di seluruh halaman, audit aksesibilitas, cek responsif tiga lebar, uji coba skenario UAT | Seluruh skenario 10.3 dijalankan sekali tanpa hambatan |
 
+**Status per 18 November 2026:**
+
+| Fase | Status | Sisa |
+|---|---|---|
+| W0 | Sebagian. Bagian 1 (scaffold, token, komponen dasar, `ORDER_STATUS_META`, galeri, penjaga token) dan bagian 2 (`api-client` tanpa autentikasi, TanStack Query, `format`, `time`, tipe API, `ListingCard`) | Bagian 3: sesi (FE3), `proxy.ts`, socket, `getOrderActions()` beserta test, `enum-labels` lengkap, layout area lain |
+| W2 | Selesai untuk lingkup demo: beranda, `/cari`, `/listing/[id]`, `/penyedia/[id]`, 404 global | `/kategori/[id]`, sub-kategori dan filter atribut dinamis di `/cari`, radius, rentang harga, Lighthouse halaman detail |
+
 **Kenapa pemesanan sisi pelanggan (W3) sebelum kelola usaha (W4).** Data simulasi backend (`npm run seed:simulasi`, `docs/Data-Simulasi.md`) sudah berisi usaha, jasa, pekerja, order di setiap status, dan akun demo per peran, jadi alur pelanggan bisa dibangun dan diuji lebih dulu. Alur pelanggan juga yang paling banyak respondennya (15 dari 30).
 
 **Kenapa fondasi (W0) memuat `getOrderActions()`.** Fungsi itu murni dan spesifikasinya sudah lengkap di Matriks, jadi bisa diselesaikan dan diuji sebelum halaman apa pun ada. Begitu W3 dan W5 dimulai, tinggal dipakai.
@@ -694,7 +704,7 @@ Satu fase dikerjakan sampai tuntas sebelum pindah, sama seperti backend. Satu fa
 | 5 | Endpoint yang mengekspos parameter publik: minimum dan biaya pencairan, ambang lokasi pekerja, jeda boleh berangkat | W5, W6 | Angka terpaksa ditulis di frontend |
 | 6 | Nilai enum `location_source`, status pencairan, status refund, status dan putusan komplain, daftar bank tujuan | W3, W6 | Label dan formulir tidak cocok |
 | 7 | Ada tidaknya endpoint daftar kandidat pekerja yang sudah tersaring untuk dialog Terima | W5 | Kalau tidak ada, dialog memakai pekerja terpetakan dan mengandalkan 409 |
-| 8 | Semantik filter bernilai banyak di `GET /listings` | W2 | Hasil filter membingungkan |
+| 8 | Semantik filter bernilai banyak di `GET /listings`. Belum terpakai, karena filter atribut dinamis di `/cari` belum dibuat | W2 lanjutan | Hasil filter membingungkan |
 | 9 | Bentuk respons rekomendasi Asisten (D151 sampai D155) | W8 | Kartu rekomendasi tidak bisa dirender |
 | 10 | Jalur unggah avatar | W1 | Avatar cukup inisial |
 
@@ -702,16 +712,33 @@ Satu fase dikerjakan sampai tuntas sebelum pindah, sama seperti backend. Satu fa
 
 | # | Pertanyaan | Usulan |
 |---|---|---|
-| 1 | Seluruh FE1 sampai FE14 | Disetujui lalu dicatat ke register sebelum W0 |
+| 1 | Seluruh FE1 sampai FE14 | **Selesai.** Dicatat sebagai D210 sampai D223 |
 | 2 | Alamat staging berbasis HTTPS untuk UAT dan uji HP | Dibutuhkan paling lambat W5 |
-| 3 | Mockup Figma (artefak desain 8): halaman mana yang dibuat lebih dulu | Detail pesanan (tiga sudut pandang), formulir pesan, dashboard pekerja, editor jasa, kartu tawaran. Halaman lain mengikuti pola Design System |
-| 4 | Penyesuaian `CORS_ORIGIN` dan `TRUST_PROXY` di backend untuk Route Handler sesi | Dikerjakan di awal W0 |
+| 3 | Mockup Figma (artefak desain 8): halaman mana yang dibuat lebih dulu | **Selesai dengan cara lain.** Design System v1.5 dan mockup menggantikan Figma (D224) |
+| 4 | Penyesuaian `CORS_ORIGIN` dan `TRUST_PROXY` di backend untuk Route Handler sesi | `CORS_ORIGIN` sudah memuat origin Next. `TRUST_PROXY` dicek di awal W0 bagian 3 |
+
+---
+
+### 12.3 Temuan dari implementasi W0 dan W2
+
+| # | Temuan | Penanganan |
+|---|---|---|
+| 1 | Kartu listing membawa `distance_km` (km, dua desimal), sementara endpoint lain memakai `distance_meters` | `formatJarak(meter)` dipertahankan. Kartu mengonversi `distance_km * 1000` |
+| 2 | Penyedia di kartu listing dan di `GET /listings/:id` tidak membawa `display_name`, padahal `business_name` bisa null untuk INDIVIDUAL | Fallback "Penyedia perorangan". Perbaikan backend di `main` (H124) |
+| 3 | `GET /listings/:id` sudah memuat FAQ dan tiga ulasan terbaru | Detail listing tidak memanggil `/faqs` dan `/reviews` saat tampilan awal. `/reviews` dipakai untuk paginasi |
+| 4 | Id bukan UUID dijawab 422 `VALIDATION_ERROR`, bukan 400 | Halaman tidak ditemukan dicek dari kode error, bukan status (D228) |
+| 5 | Seluruh `icon_name` kategori semula kosong | Diisi lewat SQL di Supabase dev, dipetakan lewat whitelist (D229). Skrip seed menyusul (H125) |
+| 6 | Komponen shadcn bawaan (sheet, accordion, switch) memakai palet dan nilai arbitrer | Kelasnya ditulis ulang ke token. Urutan di `/cari` memakai `<select>` bawaan bergaya Input, bukan Select shadcn |
+| 7 | Prop `priority` di `next/image` usang di Next 16 | Gambar di atas lipatan memakai `loading="eager"` |
+| 8 | TanStack Query mencoba ulang tiga kali secara bawaan, sehingga error state baru muncul sekitar 7,6 detik saat API mati | Retry dibatasi sekali dan tidak untuk error 4xx |
+| 9 | Atribut SPEC di detail listing hanya berupa pasangan kunci dan nilai | Label diambil dari `GET /subcategories/:id/attributes` |
+| 10 | Untuk W7: form kategori admin | `icon_name` dipilih dari whitelist `category-icons.ts`, bukan diketik bebas (D229) |
 
 ---
 
 ## Lampiran A. Peta Kode Error ke Pesan
 
-Isi awal `lib/error-messages.ts`. Kode baru dari Fase 6 sampai 10 ditambahkan saat ditemukan di backend.
+Isi awal `lib/error-messages.ts`. Kode baru dari Fase 6 sampai 10 ditambahkan saat ditemukan di backend. Sejak W0 bagian 2, `ERROR_MESSAGES` bertipe `Record<ErrorCode, string>` dari `packages/shared`, sehingga typecheck gagal kalau ada kode yang belum punya pesan. Empat belas kode di bagian akhir A.1 ditemukan di W0 bagian 2.
 
 ### A.1 Aturan bisnis
 
@@ -761,6 +788,20 @@ Isi awal `lib/error-messages.ts`. Kode baru dari Fase 6 sampai 10 ditambahkan sa
 | `PAYMENT_GATEWAY_ERROR` | Layanan pembayaran sedang bermasalah. Coba lagi beberapa saat. |
 | `EMAIL_DELIVERY_FAILED` | Email belum terkirim. Sistem akan mencoba lagi. |
 | `CHATBOT_TEMPORARILY_UNAVAILABLE` | Asisten sedang tidak tersedia. Kamu tetap bisa mencari lewat kolom pencarian. |
+| `PROVIDER_STATE_CONFLICT` | Status pengajuan usahamu sudah berubah. Halaman diperbarui. |
+| `WORKER_MEMBERSHIP_CONFLICT` | Kamu masih tercatat aktif di usaha lain, atau lamaranmu sudah pernah diproses. |
+| `LISTING_HAS_ACTIVE_ORDERS` | Jasa ini masih punya pesanan yang belum selesai, jadi belum bisa dihapus. |
+| `WITHDRAWAL_STATE_CONFLICT` | Status pencairan ini sudah berubah. Halaman diperbarui. |
+| `REFUND_STATE_CONFLICT` | Status pengembalian dana ini sudah berubah. Halaman diperbarui. |
+| `DISPUTE_STATE_CONFLICT` | Status komplain ini sudah berubah. Halaman diperbarui. |
+| `DISPUTE_EVIDENCE_LIMIT_REACHED` | Kamu sudah mengunggah bukti sebanyak batas maksimal. |
+| `CHAT_SESSION_ENDED` | Percakapan dengan Asisten ini sudah berakhir. Mulai percakapan baru. |
+| `CHAT_SESSION_ALREADY_CLAIMED` | Percakapan ini sudah tersimpan ke akun. |
+| `REVIEW_NOT_ALLOWED` | Ulasan hanya bisa diberikan untuk pesanan yang sudah selesai. |
+| `REVIEW_WINDOW_CLOSED` | Batas waktu memberi ulasan sudah lewat. |
+| `REVIEW_ALREADY_EXISTS` | Kamu sudah memberi ulasan untuk pesanan ini. |
+| `REVIEW_ALREADY_REPLIED` | Ulasan ini sudah dibalas. |
+| `SETTING_CONFLICTS_WITH_DATA` | Nilai ini bertentangan dengan data yang sudah ada. |
 
 ### A.2 Lapisan infrastruktur
 
@@ -780,3 +821,4 @@ Isi awal `lib/error-messages.ts`. Kode baru dari Fase 6 sampai 10 ditambahkan sa
 | Versi | Tanggal | Perubahan |
 |---|---|---|
 | 1.0 | 17 November 2026 | Versi awal (draf). Disusun dari PRD Backend v2.5, State Machine v2.6, dan register v2.11 ditambah keputusan lanjutan yang diketahui. Usulan FE1 sampai FE14 belum dicatat ke register |
+| 1.1 | 18 November 2026 | FE1 sampai FE14 disetujui dan dicatat di register v2.43 sebagai D210 sampai D223. Variabel `NEXT_PUBLIC_STORAGE_PUBLIC_HOST` diganti pola tetap (D226). Status milestone W0 dan W2, temuan implementasi (Bagian 12.3), dan empat belas kode error baru di Lampiran A.1 |
