@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| Versi | 1.1 |
+| Versi | 1.2 |
 | Penyusun | I Nyoman Gede Candra Wikananta (2305551065) |
 | Program Studi | Teknologi Informasi, Universitas Udayana |
 | Bidang Keahlian | Sistem Informasi |
@@ -22,7 +22,7 @@
 
 **Dokumen rujukan backend:** `PRD-Backend.md`, `State-Machine-Order.md`, `Keputusan-Desain-Sistem.md`, `schema.prisma`.
 
-> **Catatan sinkronisasi.** Versi awal dokumen ini disusun dari register v2.11 dan PRD Backend v2.5. Sejak versi 1.1, usulan FE1 sampai FE14 sudah disetujui dan dicatat di register **v2.43 sebagai D210 sampai D223**, ditambah D224 sampai D230 dari implementasi W0 dan W2. **Kontrak endpoint di dokumen ini adalah peta, bukan kontrak final.** Sebelum setiap fase, Claude Code wajib mencocokkan endpoint yang dipakai dengan `docs/PRD-Backend.md` terbaru dan `apps/api/src/modules/*/*.routes.ts` serta `*.schema.ts`. Daftar hal yang wajib dicek ada di Bagian 12, dan temuan dari fase yang sudah berjalan ada di Bagian 12.3.
+> **Catatan sinkronisasi.** Versi awal dokumen ini disusun dari register v2.11 dan PRD Backend v2.5. Sejak versi 1.1, usulan FE1 sampai FE14 sudah disetujui dan dicatat di register **v2.43 sebagai D210 sampai D223**, ditambah D224 sampai D230 dari implementasi W0 dan W2, dan D231 sampai D235 dari sesi login (register v2.44). **Kontrak endpoint di dokumen ini adalah peta, bukan kontrak final.** Sebelum setiap fase, Claude Code wajib mencocokkan endpoint yang dipakai dengan `docs/PRD-Backend.md` terbaru dan `apps/api/src/modules/*/*.routes.ts` serta `*.schema.ts`. Daftar hal yang wajib dicek ada di Bagian 12, dan temuan dari fase yang sudah berjalan ada di Bagian 12.3.
 
 ---
 
@@ -132,9 +132,9 @@ Versi persis mengikuti yang terpasang saat Fase W0 dan dicatat di `package.json`
 ```
 apps/web/
 ├── CLAUDE.md
-├── proxy.ts                      # pengalihan kasar berdasarkan cookie sesi
 ├── next.config.ts
 └── src/
+    ├── proxy.ts                  # pengalihan kasar berdasarkan cookie penanda sesi (D231). Wajib di src/ karena app/ ada di src/
     ├── app/
     │   ├── (publik)/             # beranda, kategori, cari, listing, penyedia, asisten
     │   ├── (auth)/               # masuk, daftar, verifikasi email, lupa sandi, dst.
@@ -294,7 +294,7 @@ Kolom render: **S** Server Component, **K** Client Component.
 
 | Lapis | Tugas | Bukan tugasnya |
 |---|---|---|
-| `proxy.ts` | Mengalihkan tamu dari area login ke `/masuk?next=` berdasarkan **ada tidaknya** cookie sesi | Otorisasi. Proxy hanya penyaring kasar, dan kerentanan bypass middleware di Next.js (CVE-2025-29927) menunjukkan kenapa lapis ini tidak boleh jadi satu-satunya pengaman |
+| `src/proxy.ts` | Mengalihkan tamu dari area login ke `/masuk?next=` berdasarkan **ada tidaknya** cookie penanda `jasana_sesi` (D231) | Otorisasi. Proxy hanya penyaring kasar, dan kerentanan bypass middleware di Next.js (CVE-2025-29927) menunjukkan kenapa lapis ini tidak boleh jadi satu-satunya pengaman |
 | Layout tiap area | Memeriksa kapabilitas dari `/auth/me`. Tidak berhak: halaman 403 berbahasa Indonesia | Memeriksa kepemilikan data. Itu tugas server |
 | Express | **Penentu akhir** seluruh hak akses | |
 
@@ -512,7 +512,7 @@ Aturan bersama:
 
 | Aspek | Ketentuan |
 |---|---|
-| Base URL | `NEXT_PUBLIC_API_BASE_URL`, contoh `http://localhost:4000/api/v1` |
+| Base URL | `NEXT_PUBLIC_API_BASE_URL`, contoh `http://localhost:3000/api/v1` |
 | Header | `Authorization: Bearer <access token dari memori>` |
 | Envelope | Respons `{ success: true, data, meta }` dikembalikan sebagai `{ data, meta }`. Respons gagal dilempar sebagai `ApiError { status, code, message, details }` |
 | 401 | Refresh sekali lewat `/api/session/refresh` (single-flight), ulangi request. 401 kedua: hapus sesi, ke `/masuk?next=` |
@@ -602,11 +602,11 @@ Query `page` dan `limit` (bawaan 20), total dari `meta.total`. Daftar panjang di
 NEXT_PUBLIC_API_BASE_URL        # URL REST API untuk browser
 NEXT_PUBLIC_SOCKET_URL          # URL Socket.IO
 API_INTERNAL_BASE_URL           # URL REST API untuk Route Handler (server ke server)
-SESSION_COOKIE_NAME             # nama cookie refresh token
+SESSION_COOKIE_NAME             # nama cookie refresh token. Cookie penanda bernama tetap jasana_sesi (D231)
 SESSION_COOKIE_SECURE           # true di staging dan produksi
 ```
 
-Divalidasi dengan Zod saat build atau boot. Aplikasi gagal start kalau ada yang kosong, sama seperti backend. Validasi Zod dipasang saat variabel kedua ditambahkan (W0 bagian 3). Sampai itu, `apiFetch` memeriksa `NEXT_PUBLIC_API_BASE_URL` saat dipanggil, bukan saat modul dimuat, supaya `next build` tetap jalan.
+Divalidasi dengan Zod saat build atau boot. Aplikasi gagal start kalau ada yang kosong, sama seperti backend. Validasi Zod terpasang sejak W0 bagian 3 di `src/lib/env.ts` (variabel `NEXT_PUBLIC_*`) dan `src/lib/env.server.ts` (bertanda `server-only`). `next.config.ts` mengimpor keduanya, sehingga dev, build, dan start gagal kalau ada yang kosong.
 
 Host gambar untuk `next/image` tidak lewat variabel lingkungan, melainkan pola tetap `*.supabase.co/storage/v1/object/public/**` di `next.config.ts` (D226). Pola path publik ini otomatis menolak signed URL privat.
 
@@ -682,7 +682,7 @@ Satu fase dikerjakan sampai tuntas sebelum pindah, sama seperti backend. Satu fa
 
 | Fase | Status | Sisa |
 |---|---|---|
-| W0 | Sebagian. Bagian 1 (scaffold, token, komponen dasar, `ORDER_STATUS_META`, galeri, penjaga token) dan bagian 2 (`api-client` tanpa autentikasi, TanStack Query, `format`, `time`, tipe API, `ListingCard`) | Bagian 3: sesi (FE3), `proxy.ts`, socket, `getOrderActions()` beserta test, `enum-labels` lengkap, layout area lain |
+| W0 | Sebagian. Bagian 1 (scaffold, token, komponen dasar, `ORDER_STATUS_META`, galeri, penjaga token), bagian 2 (`api-client`, TanStack Query, `format`, `time`, tipe API, `ListingCard`), dan bagian 3 (validasi env, sesi D231 sampai D234, retry 401, `src/proxy.ts`, `useMe`, `getCapabilities`, `/masuk`, menu avatar, smoke Playwright dua tab) | Bagian 4: `getOrderActions()` dan `getViewer()` beserta test, socket, `enum-labels` lengkap, layout area pelanggan, usaha, pekerja, dan admin |
 | W2 | Selesai untuk lingkup demo: beranda, `/cari`, `/listing/[id]`, `/penyedia/[id]`, 404 global | `/kategori/[id]`, sub-kategori dan filter atribut dinamis di `/cari`, radius, rentang harga, Lighthouse halaman detail |
 
 **Kenapa pemesanan sisi pelanggan (W3) sebelum kelola usaha (W4).** Data simulasi backend (`npm run seed:simulasi`, `docs/Data-Simulasi.md`) sudah berisi usaha, jasa, pekerja, order di setiap status, dan akun demo per peran, jadi alur pelanggan bisa dibangun dan diuji lebih dulu. Alur pelanggan juga yang paling banyak respondennya (15 dari 30).
@@ -697,8 +697,8 @@ Satu fase dikerjakan sampai tuntas sebelum pindah, sama seperti backend. Satu fa
 
 | # | Hal | Sebelum fase | Dampak kalau tidak dicek |
 |---|---|---|---|
-| 1 | Bentuk respons `POST /auth/login` dan `/auth/refresh`: refresh token di body atau di cookie | W0 | FE3 bisa salah bentuk |
-| 2 | Bentuk `GET /auth/me`: field untuk `provider_profile_id`, status usaha, `worker_id`, status keanggotaan, `email_verified_at` | W0 | `getViewer()` dan pengalih area salah |
+| 1 | Bentuk respons `POST /auth/login` dan `/auth/refresh`: refresh token di body atau di cookie. **Dicek di W0 bagian 3:** di body, syarat FE3 terpenuhi (register 4AK) | W0 | FE3 bisa salah bentuk |
+| 2 | Bentuk `GET /auth/me`: field untuk `provider_profile_id`, status usaha, `worker_id`, status keanggotaan, `email_verified_at`. **Dicek di W0 bagian 3:** `provider` berstatus apa pun, `worker` hanya ACTIVE, tanpa `accepts_assignments` (itu dari `/workers/me`) | W0 | `getViewer()` dan pengalih area salah |
 | 3 | Path link di template email backend (verifikasi, reset sandi, konfirmasi ganti email) | W1 | Link di email membuka halaman 404 |
 | 4 | Endpoint keputusan lanjutan yang menyentuh UI: tolak tawaran (D102), minta kode baru (D111), dan seluruh keputusan Fase 6 sampai 10 (D100 sampai D203) | W3, W5 | Tombol di Matriks memanggil endpoint yang salah |
 | 5 | Endpoint yang mengekspos parameter publik: minimum dan biaya pencairan, ambang lokasi pekerja, jeda boleh berangkat | W5, W6 | Angka terpaksa ditulis di frontend |
@@ -733,6 +733,10 @@ Satu fase dikerjakan sampai tuntas sebelum pindah, sama seperti backend. Satu fa
 | 8 | TanStack Query mencoba ulang tiga kali secara bawaan, sehingga error state baru muncul sekitar 7,6 detik saat API mati | Retry dibatasi sekali dan tidak untuk error 4xx |
 | 9 | Atribut SPEC di detail listing hanya berupa pasangan kunci dan nilai | Label diambil dari `GET /subcategories/:id/attributes` |
 | 10 | Untuk W7: form kategori admin | `icon_name` dipilih dari whitelist `category-icons.ts`, bukan diketik bebas (D229) |
+| 11 | `proxy.ts` wajib di `src/`, bukan di akar `apps/web`, karena `app/` ada di `src/` | Bagian 2.3 dan `apps/web/CLAUDE.md` disesuaikan |
+| 12 | Pesan `UNAUTHORIZED` di Lampiran A ("Sesimu sudah berakhir") salah arti untuk kata sandi yang salah | Halaman masuk memakai `LOGIN_UNAUTHORIZED_MESSAGE` (Lampiran A.1). Akun nonaktif sengaja tidak dibedakan |
+| 13 | Cookie penanda tidak bisa diturunkan dari `SESSION_COOKIE_NAME`, karena client membacanya | Nama tetap `jasana_sesi` (D231) |
+| 14 | Pemeriksaan `Origin` (D233) membandingkan dengan origin request yang dilihat Next | Dicek ulang di balik reverse proxy saat deploy (H128) |
 
 ---
 
@@ -802,6 +806,7 @@ Isi awal `lib/error-messages.ts`. Kode baru dari Fase 6 sampai 10 ditambahkan sa
 | `REVIEW_ALREADY_EXISTS` | Kamu sudah memberi ulasan untuk pesanan ini. |
 | `REVIEW_ALREADY_REPLIED` | Ulasan ini sudah dibalas. |
 | `SETTING_CONFLICTS_WITH_DATA` | Nilai ini bertentangan dengan data yang sudah ada. |
+| `UNAUTHORIZED` di halaman masuk | Email, nomor ponsel, atau kata sandi salah. (Konstanta `LOGIN_UNAUTHORIZED_MESSAGE`, khusus halaman masuk) |
 
 ### A.2 Lapisan infrastruktur
 
@@ -822,3 +827,4 @@ Isi awal `lib/error-messages.ts`. Kode baru dari Fase 6 sampai 10 ditambahkan sa
 |---|---|---|
 | 1.0 | 17 November 2026 | Versi awal (draf). Disusun dari PRD Backend v2.5, State Machine v2.6, dan register v2.11 ditambah keputusan lanjutan yang diketahui. Usulan FE1 sampai FE14 belum dicatat ke register |
 | 1.1 | 18 November 2026 | FE1 sampai FE14 disetujui dan dicatat di register v2.43 sebagai D210 sampai D223. Variabel `NEXT_PUBLIC_STORAGE_PUBLIC_HOST` diganti pola tetap (D226). Status milestone W0 dan W2, temuan implementasi (Bagian 12.3), dan empat belas kode error baru di Lampiran A.1 |
+| 1.2 | 18 November 2026 | Sesi login selesai (register v2.44, D231 sampai D235). `proxy.ts` pindah ke `src/`, contoh base URL ke port 3000, validasi Zod terpasang, hasil pengecekan 12.1 nomor 1 dan 2, temuan 11 sampai 14, dan pesan 401 khusus halaman masuk |
