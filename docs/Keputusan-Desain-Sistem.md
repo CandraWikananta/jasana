@@ -4,9 +4,9 @@
 **Nama sistem:** Jasana
 **Penyusun:** I Nyoman Gede Candra Wikananta (2305551065)
 **Bidang Keahlian:** Sistem Informasi, Teknologi Informasi, Universitas Udayana
-**Versi:** 2.43
-**Terakhir diperbarui:** 18 November 2026 (versi 2.43)
-**Tahap saat ini:** Implementasi backend Fase 0 sampai Fase 10 selesai, data simulasi sudah terisi di Supabase dev. Frontend berjalan di branch `feat/frontend`: W0 sebagian dan W2 selesai. Berikutnya W0 bagian 3 (sesi login), W1, stress test k6, dan UAT
+**Versi:** 2.44
+**Terakhir diperbarui:** 18 November 2026 (versi 2.44)
+**Tahap saat ini:** Implementasi backend Fase 0 sampai Fase 10 selesai, data simulasi sudah terisi di Supabase dev. Frontend berjalan di branch `feat/frontend`: W0 sebagian (termasuk sesi login) dan W2 selesai. Berikutnya W0 bagian 4 (`getOrderActions()`, socket, layout area), W1, stress test k6, dan UAT
 
 ---
 
@@ -58,7 +58,13 @@
 | Data simulasi (D204 sampai D209) | 6 | 0 |
 | Frontend: keputusan dasar (D210 sampai D223) | 14 | 0 |
 | Frontend: hasil W0 dan W2 (D224 sampai D230) | 7 | 0 |
+| Frontend: sesi login (D231 sampai D235) | 5 | 0 |
 | Keputusan terbuka tanpa nomor D (Bagian 7) | | 0 |
+
+**Perubahan pada versi 2.44:**
+
+1. Lima keputusan dari implementasi sesi login frontend (W0 bagian 3): dua cookie sesi (D231), `X-Forwarded-For` dari entri paling kanan (D232), pemeriksaan `Origin` di Route Handler sesi (D233), logout yang selalu mencabut refresh token di server (D234), dan fungsi kapabilitas area (D235). Bagian 4AK
+2. H128 sampai H130 baru
 
 **Perubahan pada versi 2.43:**
 
@@ -2107,7 +2113,25 @@ Disetujui penyusun 18 November 2026. D210 sampai D223 adalah usulan FE1 sampai F
 - W0 bagian 1: scaffold Next.js 16, token Design System, Plus Jakarta Sans, komponen dasar shadcn yang disesuaikan ke token, `ORDER_STATUS_META`, layout publik, galeri `/dev/ui`, dan penjaga token
 - W0 bagian 2: `api-client` tanpa autentikasi, TanStack Query, `format` dan `time` WITA beserta test, tipe API untuk listing, katalog, penyedia, dan ulasan, `MoneyText`, dan `ListingCard` dengan data asli
 - W2 untuk lingkup demo: beranda, `/cari` (kategori, mode, ketersediaan, urutan, lokasi, paginasi), `/listing/[id]` (spesifikasi dari atribut dinamis, pilihan dan harga, FAQ, ulasan), `/penyedia/[id]`, dan 404 global. Sub-kategori, filter atribut dinamis, radius, dan rentang harga di `/cari` masih terbuka
-- Belum: sesi login (D212), `proxy.ts`, socket (D217), `getOrderActions()` (D214), serta W1 dan W3 sampai W9
+- Belum pada versi 2.43: sesi login (D212), `proxy.ts`, socket (D217), `getOrderActions()` (D214), serta W1 dan W3 sampai W9. Sesi login dan `proxy.ts` selesai di versi 2.44 (Bagian 4AK)
+
+---
+
+## 4AK. Keputusan Versi 2.44 (D231 sampai D235): Sesi Login Frontend
+
+Dari implementasi W0 bagian 3, 18 November 2026. Menjabarkan D212. Tanpa perubahan backend.
+
+**Hasil pengecekan kontrak sebelum implementasi:** `POST /auth/login` dan `POST /auth/refresh` mengembalikan refresh token di body, sehingga syarat D212 terpenuhi. Login menerima email atau nomor ponsel, persis salah satu. Rotasi D76 tidak punya jeda toleransi: dua refresh dengan token yang sama mencabut seluruh family. `POST /auth/logout` membutuhkan Bearer dan refresh token di body. `GET /auth/me` memuat `provider` dengan status apa pun dan `worker` yang hanya terisi untuk keanggotaan ACTIVE.
+
+| # | Keputusan | Alasan |
+|---|---|---|
+| D231 | **Dua cookie sesi.** Refresh token di cookie `httpOnly` bernama `SESSION_COOKIE_NAME` dengan `Path=/api/session`, ditambah cookie penanda tanpa rahasia `jasana_sesi=1` dengan `Path=/` yang terbaca `proxy.ts` dan JavaScript. Keduanya `SameSite=Lax`, `Secure` dari env, dan kedaluwarsa bersama refresh token. Keduanya dihapus saat logout, saat API menolak refresh, dan saat penanda ada tanpa cookie refresh. Saat API mati atau membalas 5xx, keduanya dibiarkan | Refresh token 30 hari hanya terkirim ke Route Handler sesi, tidak ke setiap request halaman. Penanda membuat `proxy.ts` bisa mengalihkan tamu, dan tamu tidak perlu memanggil refresh yang pasti gagal. Penanda yang basi tidak berbahaya, karena hanya penyaring kasar (jebakan 4) dan langsung dihapus begitu refresh ditolak |
+| D232 | **Route Handler sesi meneruskan hanya entri paling kanan `X-Forwarded-For`**, ditambah `User-Agent` asli browser | Next 16 tidak menimpa `X-Forwarded-For` kiriman browser. Kalau seluruh header diteruskan, pengguna bisa memalsukan IP untuk menghindari rate limit login. `User-Agent` asli dipakai halaman perangkat aktif, dan terbukti muncul di `GET /auth/sessions` |
+| D233 | **Ketiga Route Handler sesi menolak `Origin` asing atau kosong** dengan 403 `CORS_ORIGIN_NOT_ALLOWED`, dan hanya menerima `application/json` | Lapisan tambahan di atas `SameSite=Lax`. Biayanya beberapa baris, dan login, refresh, maupun logout tidak bisa dipicu dari situs lain |
+| D234 | **Logout wajib mencabut refresh token di server.** Kalau access token tidak ada atau tersisa kurang dari 30 detik, client me-refresh dulu, lalu logout di bawah kunci refresh yang sama. Tab lain diberi tahu lewat `BroadcastChannel` | `/auth/logout` butuh Bearer. Tanpa aturan ini, logout setelah access token kedaluwarsa hanya menghapus cookie di browser, sedangkan refresh token di basis data tetap berlaku 30 hari |
+| D235 | **Kapabilitas area dihitung `getCapabilities(me)`** dari `GET /auth/me`: pelanggan selalu, usaha kalau punya profil penyedia dengan status apa pun, pekerja kalau keanggotaan ACTIVE, admin kalau `role = ADMIN`. `getViewer(order, me)` dari Matriks Bagian 7 dibangun di atasnya | Menjabarkan D220. Dua nama untuk dua pertanyaan: area apa yang boleh dibuka akun ini, dan sebagai siapa akun ini melihat satu order |
+
+**Hasil uji:** 86 unit test dan 6 skenario Playwright lulus, termasuk muat ulang dua tab bersamaan tiga putaran, 401 paksa di dua tab, logout setelah access token kedaluwarsa (refresh token lama ditolak API sesudahnya), dan cookie refresh sampah yang membuat kedua cookie terhapus. Uji mutasi 8 dari 8 tertangkap. Mutan tanpa `navigator.locks` membuat uji dua tab gagal karena family dicabut, sehingga kebutuhan D212 terbukti lewat pengujian. Mutan itu meninggalkan tiga log `refresh_token_reuse` milik akun demo client di Supabase dev, dan itu disengaja.
 
 ---
 
@@ -2764,6 +2788,9 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 - [ ] **H125** `categories.icon_name` di Supabase dev diisi manual lewat SQL (`cog`, `camera`, `perfume-bottle`, `wrench`) dan belum ada di skrip seed, sehingga hilang kalau katalog di-seed ulang (D229) **(baru, W2)**
 - [ ] **H126** Halaman listing dan penyedia yang tidak ditemukan menjawab status 200 dengan `noindex`, bukan 404 (D228). Bisa dirapikan di W9 dengan memeriksa data sebelum streaming dimulai **(baru, W2)**
 - [ ] **H127** `.env.example` di root masih menulis `CORS_ORIGIN=http://localhost:3000`, padahal Next berjalan di `http://localhost:3100` saat pengembangan **(baru, W0 bagian 2)**
+- [ ] **H128** Saat deploy, `TRUST_PROXY` (D117) harus sama dengan jumlah hop di jalur publik browser ke Express, dan `API_INTERNAL_BASE_URL` harus lewat jalur dengan jumlah hop yang sama. Kalau tidak, `req.ip` terbaca sebagai IP server Next dan rate limit login berlaku untuk seluruh pengguna sekaligus. Pemeriksaan `Origin` (D233) juga dicek ulang di balik reverse proxy. Pertimbangkan dukungan nilai berupa daftar IP atau loopback di D117 **(baru, W0 bagian 3)**
+- [ ] **H129** Kalau tab ditutup tepat saat refresh berjalan, server sudah merotasi token tetapi browser tidak menerima cookie barunya. Refresh berikutnya terbaca sebagai pemakaian ulang dan pengguna ter-logout. Akibat rotasi tanpa jeda toleransi (D76), kemungkinannya kecil, dan ditulis sebagai batasan **(baru, W0 bagian 3)**
+- [ ] **H130** Sesi login belum diuji di Firefox dan Safari, dan logout antar tab lewat `BroadcastChannel` belum diuji otomatis. Dikerjakan di W9 **(baru, W0 bagian 3)**
 - [ ] **H82** Admin fee withdrawal berupa nilai flat yang mengikuti perkiraan biaya payout Xendit **(baru, D84)**. Untuk nominal di atas Rp250.000 biaya sebenarnya sedikit lebih besar dan selisihnya ditanggung platform
 
 ---
@@ -2800,7 +2827,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 
 ## 11. Langkah Berikutnya
 
-1. Frontend di branch `feat/frontend` (D230): W0 bagian 3 (sesi D212, `proxy.ts`, socket D217, `getOrderActions()` D214), lalu W1 autentikasi dan W3 pemesanan sisi pelanggan. Sebelum W0 bagian 3, cek bentuk respons refresh token dan `TRUST_PROXY`. Paralel di `main`: H124, H125, dan H127
+1. Frontend di branch `feat/frontend` (D230): sesi login selesai (D231 sampai D235). Berikutnya W0 bagian 4 (`getOrderActions()` D214, socket D217, layout area pelanggan, usaha, pekerja, dan admin), lalu W1 autentikasi dan W3 pemesanan sisi pelanggan. Paralel di `main`: H124, H125, dan H127
 2. Fase 9 selesai 17 November 2026 setelah evaluasi tiga run (Bagian 4AB dan 4AG). Fase 10 selesai 17 November 2026 (1.004 test lulus, D177 sampai D203), dengan uji sandbox 10a dan 10b lulus dan uji sandbox 10c dijalankan penyusun. Paralel: penyusun menyusun dataset 30 sampai 50 skenario berlabel (H15, D153) dan mencatat model serta batas kuota project Gemini di AI Studio
 3. Selesai: Fase 8 (15 November 2026, 751 test lulus, D131 sampai D150) beserta uji sandbox payout dan refund. Uji sandbox refund PARTIAL hasil putusan sengketa lulus. Sebelumnya Fase 7 (11 November 2026, 627 test lulus) beserta uji sandbox Xendit sungguhan (12 November 2026), sebelumnya audit hutang teknis (9 November 2026) dan sesi perapian (10 November 2026)
 4. Selesai: data simulasi Bali di Supabase dev (D204 sampai D209)
@@ -2858,6 +2885,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 | 2.41 | 17 November 2026 | Lima keputusan data simulasi: data Bali lewat service layer (D204), pengecualian ledger simulasi yang memperluas D130 (D205), foto simulasi (D206), `--bulk` hanya lokal (D207), dan penonaktifan listing akun uji (D208). H122 baru. Tanpa migrasi |
 | 2.42 | 18 November 2026 | Opsi skala data simulasi untuk Supabase dev (D209) dan hasil jalannya: 86 order, 130 foto, `db:verify` lulus. H16 ditutup, H123 baru. Tanpa migrasi |
 | 2.43 | 18 November 2026 | Keputusan frontend: usulan FE1 sampai FE14 dicatat sebagai D210 sampai D223, ditambah tujuh keputusan dari W0 dan W2 (D224 sampai D230). Artefak desain 8 selesai sebagai Design System v1.5. Progres frontend W0 sebagian dan W2. H124 sampai H127 baru. Tanpa migrasi |
+| 2.44 | 18 November 2026 | Lima keputusan sesi login frontend (D231 sampai D235): dua cookie sesi, `X-Forwarded-For` paling kanan, pemeriksaan `Origin`, logout yang mencabut token di server, dan `getCapabilities`. Hasil pengecekan kontrak dan uji mutasi. H128 sampai H130 baru. Tanpa migrasi |
 
 ---
 
