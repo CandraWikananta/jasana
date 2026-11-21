@@ -4,9 +4,9 @@
 **Nama sistem:** Jasana
 **Penyusun:** I Nyoman Gede Candra Wikananta (2305551065)
 **Bidang Keahlian:** Sistem Informasi, Teknologi Informasi, Universitas Udayana
-**Versi:** 2.46
-**Terakhir diperbarui:** 21 November 2026 (versi 2.46)
-**Tahap saat ini:** Implementasi backend Fase 0 sampai Fase 10 selesai, data simulasi sudah terisi di Supabase dev. Frontend berjalan di branch `feat/frontend`: W0 dan W2 selesai. Berikutnya field `OrderDto` di backend (H131), W1, stress test k6, dan UAT
+**Versi:** 2.47
+**Terakhir diperbarui:** 22 November 2026 (versi 2.47)
+**Tahap saat ini:** Implementasi backend Fase 0 sampai Fase 10 selesai, data simulasi sudah terisi di Supabase dev. Frontend dibangun ulang di lapisan visual di branch `feat/frontend-v2` dengan Design System v2.1 (D241 sampai D250); logika W0 dan W2 dipertahankan, versi lama diarsipkan di tag `frontend-v1`. Berikutnya migrasi W0 dan W2 ke v2.1, field `OrderDto` di backend (H131), W1, stress test k6, dan UAT
 
 ---
 
@@ -61,7 +61,12 @@
 | Frontend: sesi login (D231 sampai D235) | 5 | 0 |
 | Frontend: aksi order dan real-time (D236 sampai D240) | 5 | 0 |
 | Frontend: Design System v2.0 (D241) | 1 | 0 |
+| Frontend: review Design System v2.1 (D242 sampai D250) | 9 | 0 |
 | Keputusan terbuka tanpa nomor D (Bagian 7) | | 0 |
+
+**Perubahan pada versi 2.47:**
+
+1. Sembilan keputusan dari review Design System v2.0 dengan empat skill desain (D242 sampai D250, Bagian 4AN). Merevisi bagian penanda mode Sekarang dan menu aktif di D241. Design System naik ke v2.1. H139 baru
 
 **Perubahan pada versi 2.46:**
 
@@ -2175,6 +2180,32 @@ Dari tinjauan mockup 21 November 2026 (frame 05f, "Status berhasil: sebelum dan 
 |---|---|---|
 | D241 | **Palet Design System v2.0.** Hitam hangat `#1C1917` menjadi primary untuk aksi. Hijau terang `#22C55E` menjadi secondary (token `--brand`) untuk yang terpilih, aktif, dan sedang terjadi, termasuk mode Sekarang yang kini dibedakan lewat bentuk (kartu putih dengan garis tepi kiri, titik live, pill putih bergaris hijau). Teks di atas hijau terang selalu hitam, dan teks hijau memakai `--brand-strong` `#15803D`. Status berhasil memakai teal `#0F766E`. Bintang rating kuning. Menu sidebar, navigasi bawah, dan tab aktif solid hijau. Cincin fokus hitam. Token lime `--now*` dan `--primary-subtle*` dihapus. Merevisi bagian warna D224 dan pill Sekarang di D225 | Palet v1.6 (hijau zamrud sebagai aksi, lime untuk Sekarang) dinilai kurang cocok setelah dicoba di mockup. Aturan tiga warna (hitam untuk lakukan ini, hijau untuk terpilih atau sedang terjadi, teal untuk sudah berhasil) menjaga status tidak tertukar dengan aksen. Hijau terang dipakai tanpa teks putih karena kontrasnya hanya 2,28:1, sedangkan teks hitam di atasnya 7,67:1 |
 
+## 4AN. Keputusan Versi 2.47 (D242 sampai D250): Review Design System v2.0
+
+Dari review 22 November 2026. Halaman peraga `/dev/ds` dibangun persis mengikuti Design System v2.0, lalu ditinjau berurutan oleh empat skill desain di Claude Code: ui-ux-pro-max (rekomendasi untuk marketplace jasa), taste (pola generik atau template), impeccable (hierarki, tipografi, detail, dan detektor pola), dan web-design-guidelines (audit aksesibilitas dan formulir). Hasilnya 40 temuan yang digabung dalam satu tabel, lalu dipilah: yang menyentuh D241 diputuskan satu per satu, tambahan yang tidak bertabrakan diterima sebagai paket, dan koreksi angka masuk langsung ke Design System v2.1 tanpa nomor keputusan. Untuk penanda mode Sekarang, empat varian dicoba berdampingan di `/dev/ds` sebelum dipilih. Tanpa perubahan backend.
+
+| # | Keputusan | Alasan |
+|---|---|---|
+| D242 | **Penanda mode Sekarang tanpa garis tepi kiri.** `OfferCard` dan `AvailabilityToggle` memakai `ModeBadge` Sekarang (pill putih bergaris `--brand` dengan titik live), bentuk yang sama dengan kartu listing dan kartu pesanan. `OfferCard`: label "Tawaran baru" di kiri atas, badge di kanan atas, hitung mundur di bawah judul. Garis tepi kiri dan bayangan tipis dihapus. Merevisi bagian mode Sekarang di D241 | Kartu dengan garis tepi kiri berwarna ditandai impeccable sebagai pola klise ("side-tab"). Dari empat varian (garis kiri, badge di pojok, garis penuh, kepala pucat), tiga skill memilih kepala pucat dan taste memilih badge. Badge dipilih karena satu bentuk punya satu arti di semua tempat dan paling minimalis. Bayangan dihapus supaya selaras dengan aturan kartu tanpa bayangan |
+| D243 | **Penanda posisi aktif pucat.** Menu sidebar, navigasi bawah, dan tab aktif memakai latar `--brand-subtle` dengan teks dan ikon `--brand-subtle-foreground` (6,49:1), tebal 600. Solid `--brand` hanya untuk tombol varian `now` dan titik live. Lencana angka di item aktif memakai `--primary` dengan teks putih. Merevisi pilihan H (menu aktif solid) di D241 | ui-ux-pro-max dan impeccable sama-sama menemukan hijau solid memegang dua tugas dengan intensitas yang sama: "kamu di sini" dan "lakukan sekarang". Di layar pekerja, navigasi bawah aktif bersaing dengan tombol Ambil |
+| D244 | **Switch menyala memakai `--brand-hover`** `#16A34A` untuk trek dan garisnya, thumb `--card` | Trek `--brand` hanya 2,28:1 terhadap kartu dan thumb putih, di bawah syarat 3:1 komponen UI (WCAG 1.4.11), padahal switch adalah kontrol utama pekerja. Dengan `--brand-hover` menjadi 3,30:1. Satu-satunya kegagalan WCAG nyata dari review |
+| D245 | **Label `SETTLED` menjadi "Dana cair"** (ikon `BadgeCheck`), mengganti "Tuntas" | "Selesai" dan "Tuntas" hampir sinonim, sama-sama teal, dan sering tampil berdekatan. "Dana cair" sudah menjadi istilah glosarium untuk settlement dan langsung menjelaskan apa yang berubah |
+| D246 | **`ModeBadge` di `ListingCard` hanya untuk mode Sekarang.** Kartu dan detail pesanan tetap menampilkan kedua mode | Terjadwal adalah mode bawaan. Badge yang diulang di setiap kartu menambah kebisingan tanpa informasi baru (taste) |
+| D247 | **Skala tipografi dan lebar baris.** `display` 30/36 px di HP dan 40/48 px mulai `md`, `h1` 28/36, `h2` 22/30, `h3` 18/26 tetap, lewat token `text-display` sampai `text-h3`. Paragraf `max-w-xl` untuk `body` dan `max-w-lg` untuk `body-sm`. Pesan error `body-sm` 14 px bobot 500. `text-balance` untuk judul, `text-pretty` untuk paragraf. Badge 28 px dengan teks bobot 600 | Rasio skala lama sekitar 1,12, sehingga judul kartu hampir sama dengan isi. `max-w-prose` dengan Plus Jakarta Sans menghasilkan 94 sampai 98 karakter per baris, melanggar target sekitar 70 di dokumen sendiri. Error 12 px terlalu kecil untuk pekerja di lapangan (impeccable) |
+| D248 | **Aturan formulir dan aksesibilitas tambahan.** Atribut `name`, `autoComplete`, dan `inputMode` per jenis field (kode verifikasi `one-time-code`). Fokus ke field error pertama setelah kirim gagal. Fokus pindah ke teks status saat aksi jadi nonaktif karena waktu habis. Tawaran baru diumumkan lewat `aria-live`. Tab dan filter disimpan di query URL. Label proses berakhiran "…". Tautan "Lewati ke konten", `touch-action: manipulation`, `overscroll-behavior: contain` di Sheet, konteks `sr-only` untuk lencana angka, `translate="no"` untuk nama merek dan nomor pesanan, kursor `pointer` di tombol. Denyut titik live hanya lewat `transform` dan `opacity` dan berhenti setelah tiga kali | Hasil audit web-design-guidelines dan ui-ux-pro-max. Menutup lubang nyata di alur pekerja (fokus hilang saat waktu tawaran habis, tawaran baru tidak terdengar pembaca layar, kode verifikasi tanpa isi otomatis) tanpa mengubah aturan yang sudah ada |
+| D249 | **Aturan komposisi dan nada.** Paling banyak dua lapis kotak. Pill hanya untuk yang tidak bisa ditekan dan switch; semua yang bisa ditekan, termasuk chip filter, memakai radius 10 px (indikator aktif navigasi bawah boleh pill karena penanda). Judul memakai fakta, bukan klaim ("tepercaya", "terbaik", "mudah" dilarang). Pemisah "·" hanya untuk pasangan metadata | taste dan impeccable menemukan kartu di dalam kartu (empat kelompok), dua bentuk kontrol yang bercampur, dan judul hero berupa klaim yang cocok untuk bisnis apa pun |
+| D250 | **Komponen domain `EscrowNote`**: ikon `ShieldCheck` dan kalimat "Dana ditahan sampai pekerjaan selesai", nada netral, di form pesan, halaman bayar, dan banner `PAID` | Escrow adalah pembeda utama Jasana, tapi sebelumnya hanya muncul di glosarium. ui-ux-pro-max menekankan pola kepercayaan untuk transaksi uang |
+
+**Yang dipertahankan setelah review:**
+
+- Primary hitam hangat. ui-ux-pro-max untuk jasa rumah menyarankan biru, tapi tidak mengusulkan perubahan: hitam paling netral (17,49:1) dan kesan kepercayaan dibawa `EscrowNote` (D250)
+- `--brand` tetap `#22C55E`. taste mencatat hampir semua nilai warna sama dengan palet bawaan Tailwind dan mengusulkan `#26C281`. Tidak diambil: identitas Jasana dibawa pola (aturan tiga warna, badge Sekarang, nada teks), bukan oleh satu nilai hex yang beda tipis
+- Plus Jakarta Sans. Detektor impeccable menandainya sebagai huruf yang terlalu sering dipakai, sedangkan ui-ux-pro-max merekomendasikannya. Alasan di Design System (huruf karya desainer Indonesia, angka tabular) tetap berlaku
+
+**Ditunda:** baris "N pekerja bisa datang sekarang di Denpasar" di hero beranda (taste). Butuh angka dari API, dicatat sebagai H139.
+
+**Tanpa nomor keputusan:** koreksi angka kontras di Design System Bagian 1.5 (dibulatkan, bukan dipotong), daftar penanda grafis di bawah 3:1 yang dibenarkan, state `secondary`, `ghost`, dan `destructive` beserta token `--destructive-hover`, chip filter tidak aktif, lebar cincin fokus dan garis input error, tinggi tab 44 px, serta beberapa aturan yang sebelumnya saling bertabrakan di v2.0.
+
 ---
 
 ## 5. Alur Sistem End-to-End
@@ -2841,6 +2872,7 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 - [ ] **H136** Frontend: halaman placeholder `[...slug]` di area usaha, pekerja, dan admin dihapus begitu rute aslinya ada (paling lambat W9), dan `/usaha/daftar` dikeluarkan dari penjagaan area usaha di W4 **(baru, W0 bagian 4)**
 - [x] **H137** **(ditutup 19 November 2026 lewat D240)** Kegagalan sementara saat refresh pernah mengalihkan pengguna ke `/masuk` sekali saat pengambilan screenshot, padahal menurut D231 sesi dibiarkan saat API mati atau 5xx. Penyebabnya dua jalur di client: `AreaGate` mengalihkan setiap status tamu, dan `apiFetch` menghapus sesi saat refresh setelah 401 gagal karena 5xx. Route Handler sudah benar **(baru, W0 bagian 4)**
 - [ ] **H138** Selama sesi tertunda (D240), header masih menampilkan tombol Masuk dan halaman publik tampil sebagai tamu sampai dimuat ulang. Jarang terjadi, dirapikan di W9 **(baru, perbaikan H137)**
+- [ ] **H139** Hero beranda belum menampilkan baris "N pekerja bisa datang sekarang" (usulan review taste, ditunda dari D242 sampai D250). Butuh angka jumlah pekerja online per area dari API. Cek dulu apakah endpoint pencarian sudah bisa memberi angka ini; kalau butuh endpoint baru, masuk saran pengembangan **(baru, review Design System)**
 - [ ] **H82** Admin fee withdrawal berupa nilai flat yang mengikuti perkiraan biaya payout Xendit **(baru, D84)**. Untuk nominal di atas Rp250.000 biaya sebenarnya sedikit lebih besar dan selisihnya ditanggung platform
 
 ---
@@ -2856,7 +2888,7 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 | 5 | Diagram UML | Belum | Aktor jadi empat |
 | 6 | Diagram Konteks dan DFD | Belum | Aktor jadi empat, tambah entitas eksternal layanan email |
 | 7 | Conversation flow dan system prompt chatbot | Belum | |
-| 8 | Desain antarmuka | Selesai, Design System v2.0 | Design System dan mockup menggantikan Figma (D224). Layar per fase mengikuti Design System |
+| 8 | Desain antarmuka | Selesai, Design System v2.1 | Design System dan mockup menggantikan Figma (D224). Layar per fase mengikuti Design System |
 
 **Aset yang bisa dipakai ulang:** dokumen test case `PPL_A_2305551065_UAS.docx` berisi 127 test case pada 15 modul fungsional dan 1 modul performa.
 
@@ -2877,7 +2909,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 
 ## 11. Langkah Berikutnya
 
-1. Frontend di branch `feat/frontend` (D230): W0 dan W2 selesai. Berikutnya W1 autentikasi dan akun. Sebelum W3, kerjakan H131 di `main`. Paralel di `main`: H124, H125, dan H127
+1. Frontend di branch `feat/frontend-v2` (versi lama di tag `frontend-v1`): logika W0 dan W2 selesai, lapisan visual dibangun ulang dengan Design System v2.1 (D241 sampai D250). Berikutnya migrasi W0 dan W2 ke v2.1 (Design System Bagian 14), lalu W1 autentikasi dan akun. Sebelum W3, kerjakan H131 di `main`. Paralel di `main`: H124, H125, dan H127
 2. Fase 9 selesai 17 November 2026 setelah evaluasi tiga run (Bagian 4AB dan 4AG). Fase 10 selesai 17 November 2026 (1.004 test lulus, D177 sampai D203), dengan uji sandbox 10a dan 10b lulus dan uji sandbox 10c dijalankan penyusun. Paralel: penyusun menyusun dataset 30 sampai 50 skenario berlabel (H15, D153) dan mencatat model serta batas kuota project Gemini di AI Studio
 3. Selesai: Fase 8 (15 November 2026, 751 test lulus, D131 sampai D150) beserta uji sandbox payout dan refund. Uji sandbox refund PARTIAL hasil putusan sengketa lulus. Sebelumnya Fase 7 (11 November 2026, 627 test lulus) beserta uji sandbox Xendit sungguhan (12 November 2026), sebelumnya audit hutang teknis (9 November 2026) dan sesi perapian (10 November 2026)
 4. Selesai: data simulasi Bali di Supabase dev (D204 sampai D209)
@@ -2938,6 +2970,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 | 2.44 | 18 November 2026 | Lima keputusan sesi login frontend (D231 sampai D235): dua cookie sesi, `X-Forwarded-For` paling kanan, pemeriksaan `Origin`, logout yang mencabut token di server, dan `getCapabilities`. Hasil pengecekan kontrak dan uji mutasi. H128 sampai H130 baru. Tanpa migrasi |
 | 2.45 | 19 November 2026 | Empat keputusan W0 bagian 4: `order:join` (D236), signature aksi order (D237), sambung ulang socket (D238), label enum (D239), dan sesi tertunda (D240). Penutupan W0 frontend. H131 sampai H138 baru, H137 ditutup. Tanpa migrasi |
 | 2.46 | 21 November 2026 | Design System v2.0: primary hitam hangat, secondary hijau terang `--brand` termasuk mode Sekarang, status berhasil teal, bintang kuning, menu aktif solid hijau (D241). Tanpa migrasi |
+| 2.47 | 22 November 2026 | Sembilan keputusan dari review Design System v2.0 dengan empat skill desain: penanda mode Sekarang tanpa garis tepi kiri (D242), penanda posisi aktif pucat (D243), switch `--brand-hover` (D244), `SETTLED` jadi "Dana cair" (D245), `ModeBadge` di kartu listing hanya Sekarang (D246), skala tipografi (D247), aturan formulir dan aksesibilitas (D248), aturan komposisi dan nada (D249), dan `EscrowNote` (D250). Design System v2.1. H139 baru. Tanpa migrasi |
 
 ---
 
