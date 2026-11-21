@@ -165,7 +165,7 @@ Dihitung dengan rumus WCAG 2.1. Seluruh pasangan teks lolos AA (minimal 4,5:1).
 |---|---|
 | Putih di atas `--primary` | 17,49:1 |
 | Putih di atas `--primary-hover` | 10,27:1 |
-| `--foreground` di atas `--background` | 16,75:1 |
+| `--foreground` di atas `--background` | 16,74:1 |
 | `--muted-foreground` di atas putih | 7,63:1 |
 | `--brand-foreground` di atas `--brand` | 7,68:1 |
 | `--brand-foreground` di atas `--brand-hover` | 5,31:1 |
