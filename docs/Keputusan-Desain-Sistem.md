@@ -4,8 +4,8 @@
 **Nama sistem:** Jasana
 **Penyusun:** I Nyoman Gede Candra Wikananta (2305551065)
 **Bidang Keahlian:** Sistem Informasi, Teknologi Informasi, Universitas Udayana
-**Versi:** 2.45
-**Terakhir diperbarui:** 19 November 2026 (versi 2.45)
+**Versi:** 2.46
+**Terakhir diperbarui:** 21 November 2026 (versi 2.46)
 **Tahap saat ini:** Implementasi backend Fase 0 sampai Fase 10 selesai, data simulasi sudah terisi di Supabase dev. Frontend berjalan di branch `feat/frontend`: W0 dan W2 selesai. Berikutnya field `OrderDto` di backend (H131), W1, stress test k6, dan UAT
 
 ---
@@ -60,7 +60,12 @@
 | Frontend: hasil W0 dan W2 (D224 sampai D230) | 7 | 0 |
 | Frontend: sesi login (D231 sampai D235) | 5 | 0 |
 | Frontend: aksi order dan real-time (D236 sampai D240) | 5 | 0 |
+| Frontend: Design System v2.0 (D241) | 1 | 0 |
 | Keputusan terbuka tanpa nomor D (Bagian 7) | | 0 |
+
+**Perubahan pada versi 2.46:**
+
+1. Design System v2.0 dengan palet baru (D241, Bagian 4AM). Merevisi bagian warna D224 dan D225
 
 **Perubahan pada versi 2.45:**
 
@@ -2162,6 +2167,16 @@ Dari W0 bagian 4, 19 November 2026. Menutup W0. Tanpa perubahan backend.
 
 ---
 
+## 4AM. Keputusan Versi 2.46 (D241): Design System v2.0
+
+Dari tinjauan mockup 21 November 2026 (frame 05f, "Status berhasil: sebelum dan sesudah", dan "Pilihan menu sidebar aktif"). Tanpa perubahan backend. Kode W0 dan W2 dipindahkan ke v2.0 dalam satu sesi frontend sesuai `Design-System.md` Bagian 14.
+
+| # | Keputusan | Alasan |
+|---|---|---|
+| D241 | **Palet Design System v2.0.** Hitam hangat `#1C1917` menjadi primary untuk aksi. Hijau terang `#22C55E` menjadi secondary (token `--brand`) untuk yang terpilih, aktif, dan sedang terjadi, termasuk mode Sekarang yang kini dibedakan lewat bentuk (kartu putih dengan garis tepi kiri, titik live, pill putih bergaris hijau). Teks di atas hijau terang selalu hitam, dan teks hijau memakai `--brand-strong` `#15803D`. Status berhasil memakai teal `#0F766E`. Bintang rating kuning. Menu sidebar, navigasi bawah, dan tab aktif solid hijau. Cincin fokus hitam. Token lime `--now*` dan `--primary-subtle*` dihapus. Merevisi bagian warna D224 dan pill Sekarang di D225 | Palet v1.6 (hijau zamrud sebagai aksi, lime untuk Sekarang) dinilai kurang cocok setelah dicoba di mockup. Aturan tiga warna (hitam untuk lakukan ini, hijau untuk terpilih atau sedang terjadi, teal untuk sudah berhasil) menjaga status tidak tertukar dengan aksen. Hijau terang dipakai tanpa teks putih karena kontrasnya hanya 2,28:1, sedangkan teks hitam di atasnya 7,67:1 |
+
+---
+
 ## 5. Alur Sistem End-to-End
 
 ### 5.1 Onboarding
@@ -2841,7 +2856,7 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 | 5 | Diagram UML | Belum | Aktor jadi empat |
 | 6 | Diagram Konteks dan DFD | Belum | Aktor jadi empat, tambah entitas eksternal layanan email |
 | 7 | Conversation flow dan system prompt chatbot | Belum | |
-| 8 | Desain antarmuka | Selesai, Design System v1.5 | Design System dan mockup menggantikan Figma (D224). Layar per fase mengikuti Design System |
+| 8 | Desain antarmuka | Selesai, Design System v2.0 | Design System dan mockup menggantikan Figma (D224). Layar per fase mengikuti Design System |
 
 **Aset yang bisa dipakai ulang:** dokumen test case `PPL_A_2305551065_UAS.docx` berisi 127 test case pada 15 modul fungsional dan 1 modul performa.
 
@@ -2922,6 +2937,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 | 2.43 | 18 November 2026 | Keputusan frontend: usulan FE1 sampai FE14 dicatat sebagai D210 sampai D223, ditambah tujuh keputusan dari W0 dan W2 (D224 sampai D230). Artefak desain 8 selesai sebagai Design System v1.5. Progres frontend W0 sebagian dan W2. H124 sampai H127 baru. Tanpa migrasi |
 | 2.44 | 18 November 2026 | Lima keputusan sesi login frontend (D231 sampai D235): dua cookie sesi, `X-Forwarded-For` paling kanan, pemeriksaan `Origin`, logout yang mencabut token di server, dan `getCapabilities`. Hasil pengecekan kontrak dan uji mutasi. H128 sampai H130 baru. Tanpa migrasi |
 | 2.45 | 19 November 2026 | Empat keputusan W0 bagian 4: `order:join` (D236), signature aksi order (D237), sambung ulang socket (D238), label enum (D239), dan sesi tertunda (D240). Penutupan W0 frontend. H131 sampai H138 baru, H137 ditutup. Tanpa migrasi |
+| 2.46 | 21 November 2026 | Design System v2.0: primary hitam hangat, secondary hijau terang `--brand` termasuk mode Sekarang, status berhasil teal, bintang kuning, menu aktif solid hijau (D241). Tanpa migrasi |
 
 ---
 
