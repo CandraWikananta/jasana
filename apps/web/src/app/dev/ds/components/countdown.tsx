@@ -9,7 +9,8 @@ import { cn } from "cn"
 // dari timestamp server. Di peraga ini mulai dari detik contoh supaya hasil server dan client sama.
 // Bagian 11: pembaca layar hanya diberi tahu di ambang 5 menit, 1 menit, dan habis.
 
-function formatSisa(detik: number): string {
+/** Format DS 8: "23 jam 15 menit", lalu "04:59" di bawah satu jam. */
+export function formatSisa(detik: number): string {
   if (detik >= 3600) {
     const jam = Math.floor(detik / 3600)
     const menit = Math.floor((detik % 3600) / 60)

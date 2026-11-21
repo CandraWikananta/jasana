@@ -1,47 +1,73 @@
+import { Suspense } from "react"
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
-import { Check, CircleAlert, KeyRound } from "lucide-react"
-import { Label } from "@/components/ui/label"
+import { Check } from "lucide-react"
+import type { OrderStatus } from "@jasana/shared"
+import { ORDER_STATUS_META } from "@/lib/order-status"
+import { formatRupiah } from "@/lib/format"
 import { AvailabilityToggle } from "./components/availability-toggle"
 import { ButtonMatrix } from "./components/button-matrix"
 import { ListingCard, OrderCard } from "./components/cards"
 import { Countdown } from "./components/countdown"
+import { EscrowNote } from "./components/escrow-note"
+import { FilterChip } from "./components/filter-chip"
+import { FormDemo } from "./components/form-demo"
 import { HeroSearch } from "./components/hero-search"
-import { Catatan, LINK_CLASS, LiveDot, ModeBadge, StatusBadge } from "./components/markers"
+import { LINK_CLASS, LiveDot, ModeBadge, StatusBadge } from "./components/markers"
 import { BottomNav, PublicHeader, SidebarSnippet } from "./components/navigation"
 import { OfferCard } from "./components/offer-card"
 import { StatusBanner } from "./components/status-banner"
 import { TabsDemo } from "./components/tabs-demo"
 import { ContrastTable, TokenSwatches } from "./components/tokens-panel"
 import { tokenCss } from "./contrast"
-import { FINDINGS, LISTINGS, LOCATIONS, ORDERS } from "./data"
-import { ExploreSection } from "./eksplorasi/explore-section"
-import { Input } from "./ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select"
-import { ORDER_STATUS_META } from "@/lib/order-status"
-import type { OrderStatus } from "@jasana/shared"
+import { LISTINGS, ORDERS } from "./data"
+import { Button } from "./ui/button"
+import { Switch } from "./ui/switch"
 import "./ds.css"
 
-export const metadata: Metadata = { title: "Design System v2.0" }
+export const metadata: Metadata = { title: "Design System v2.1" }
 
-// Token v2.0 hanya aktif selama halaman ini terpasang. Selector :has() menjangkau isi portal
+// Token v2.1 hanya aktif selama halaman ini terpasang. Selector :has() menjangkau isi portal
 // Radix (Select) yang dirender di luar wrapper. Nilainya dari ds-tokens.json.
 const TOKEN_STYLE = tokenCss(":root:has(.ds-v2)")
 
 const STATUSES = Object.keys(ORDER_STATUS_META) as OrderStatus[]
 
+const TYPE_SCALE = [
+  { token: "display", size: "30/36 px, 40/48 px mulai md", weight: "700", cls: "text-display font-bold @3xl:text-display-lg", sample: "Servis AC di Denpasar" },
+  { token: "h1", size: "28/36 px", weight: "700", cls: "text-h1 font-bold", sample: "Pesanan saya" },
+  { token: "h2", size: "22/30 px", weight: "600", cls: "text-h2 font-semibold", sample: "Rincian harga" },
+  { token: "h3", size: "18/26 px", weight: "600", cls: "text-h3 font-semibold", sample: "Perbaikan pipa bocor" },
+  { token: "body", size: "16/24 px", weight: "400", cls: "text-base", sample: "Penanggung jawab sedang menuju lokasimu." },
+  { token: "body-sm", size: "14/20 px", weight: "400", cls: "text-sm", sample: "Tukang Ledeng Sanur · Sanur" },
+  { token: "caption", size: "12/16 px", weight: "500", cls: "text-xs font-medium", sample: "Dipesan Sab, 21 Nov 2026" },
+]
+
 function Section({ id, n, title, desc, children }: { id: string; n: number; title: string; desc?: React.ReactNode; children: React.ReactNode }) {
   return (
     <section id={id} aria-labelledby={`${id}-judul`} className="flex scroll-mt-6 flex-col gap-4">
       <div className="flex flex-col gap-1">
-        <h2 id={`${id}-judul`} className="text-xl font-semibold">
+        <h2 id={`${id}-judul`} className="text-h2 font-semibold">
           {n}. {title}
         </h2>
-        {desc ? <p className="max-w-prose text-sm text-muted-foreground">{desc}</p> : null}
+        {desc ? <p className="max-w-lg text-sm text-muted-foreground">{desc}</p> : null}
       </div>
       {children}
     </section>
   )
+}
+
+function Sub({ children }: { children: React.ReactNode }) {
+  return <h3 className="text-h3 font-semibold">{children}</h3>
+}
+
+/** Nama kelas di teks penjelasan, tidak dipatahkan di tanda hubung. */
+function Tok({ children }: { children: string }) {
+  return <code className="font-mono whitespace-nowrap text-foreground">{children}</code>
+}
+
+function Caption({ children }: { children: React.ReactNode }) {
+  return <p className="text-xs font-medium text-muted-foreground">{children}</p>
 }
 
 export default function DevDsPage() {
@@ -50,24 +76,30 @@ export default function DevDsPage() {
   return (
     <div className="ds-v2 bg-background text-foreground">
       <style>{TOKEN_STYLE}</style>
-      <main className="mx-auto flex max-w-6xl flex-col gap-12 px-4 py-8 md:px-6">
+      {/* D248: elemen pertama, terlihat saat difokus. */}
+      <a
+        href="#konten"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:rounded-md focus:bg-card focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-card focus:outline-none"
+      >
+        Lewati ke konten
+      </a>
+      <main id="konten" tabIndex={-1} className="mx-auto flex max-w-6xl flex-col gap-12 px-4 py-8 outline-none md:px-6">
         <header className="flex flex-col gap-2">
-          <h1 className="text-2xl font-bold">Design System v2.0</h1>
-          <p className="max-w-prose text-sm text-muted-foreground">
-            Peraga DS v2.0 (D241) apa adanya. Token v2.0 hanya berlaku di halaman ini, halaman lain masih v1.6. Bagian yang
-            ditandai &quot;catatan A#&quot; dirender dari aturan dokumen yang ambigu atau bertentangan, daftarnya di bagian akhir.
-            Foto listing sengaja berupa placeholder ikon.
+          <h1 className="text-h1 font-bold">Design System v2.1</h1>
+          <p className="max-w-lg text-sm text-muted-foreground">
+            Halaman peraga dan acuan visual DS v2.1 (D242 sampai D250). Token v2.1 hanya berlaku di halaman ini, halaman lain
+            masih v1.6 sampai migrasi Bagian 14. Komponen di folder ui adalah bentuk akhir components/ui. Foto listing sengaja
+            berupa placeholder ikon.
           </p>
         </header>
 
-        <Section id="hero" n={1} title="Hero beranda" desc="Satu tombol primary per tampilan (P2). Chip kategori aktif berupa penanda pucat.">
+        <Section id="hero" n={1} title="Hero beranda" desc="Judul berisi fakta (D249). Satu tombol primary per tampilan (P2). Chip kategori radius 10 px, aktif pucat dengan ikon Check.">
           <div className="@container rounded-xl border border-border bg-card px-4 py-4 md:px-6">
             <HeroSearch />
           </div>
-          <Catatan id="A15" />
         </Section>
 
-        <Section id="listing" n={2} title="Kartu listing" desc="Dua mode Terjadwal dan satu mode Sekarang. Mode Sekarang dibedakan lewat bentuk badge, bukan warna kartu.">
+        <Section id="listing" n={2} title="Kartu listing" desc="Hanya mode Sekarang yang diberi badge, karena Terjadwal adalah mode bawaan (D246). Judul paling banyak dua baris.">
           <div className="@container">
             <div className="grid gap-4 @2xl:grid-cols-2 @4xl:grid-cols-3">
               {LISTINGS.map((l) => (
@@ -75,10 +107,9 @@ export default function DevDsPage() {
               ))}
             </div>
           </div>
-          <Catatan id="A19" />
         </Section>
 
-        <Section id="pesanan" n={3} title="Kartu pesanan" desc="Nada status Bagian 7: kuning menunggu, biru berjalan, teal selesai, merah komplain.">
+        <Section id="pesanan" n={3} title="Kartu pesanan" desc="Kedua mode tetap tampil. Nada status Bagian 7: kuning menunggu, biru berjalan, teal selesai, merah komplain.">
           <div className="@container">
             <div className="grid gap-4 @3xl:grid-cols-2">
               {ORDERS.map((o) => (
@@ -88,10 +119,15 @@ export default function DevDsPage() {
           </div>
         </Section>
 
-        <Section id="tawaran" n={4} title="Kartu tawaran mode Sekarang" desc="Pekerja melihat Ambil dan Lewati, pemilik usaha melihat Terima dan Tolak. Hitung mundur merah di bawah 5 menit.">
+        <Section
+          id="tawaran"
+          n={4}
+          title="Kartu tawaran mode Sekarang"
+          desc="Kartu putih biasa dengan badge Sekarang, tanpa garis tepi kiri dan tanpa bayangan (D242). Pekerja melihat Ambil dan Lewati, pemilik usaha Terima dan Tolak. Hitung mundur merah di bawah 5 menit."
+        >
           <div className="@container">
             <div className="grid gap-4 @3xl:grid-cols-2 @5xl:grid-cols-3">
-              <OfferCard viewer="pekerja" seconds={570} title="Perbaikan pipa bocor" area="Sanur Kaja" distance="850 m" duration="1 jam" options="Pipa PVC 1/2 inci, 1 titik bocor" />
+              <OfferCard announce viewer="pekerja" seconds={570} title="Perbaikan pipa bocor" area="Sanur Kaja" distance="850 m" duration="1 jam" options="Pipa PVC 1/2 inci, 1 titik bocor" />
               <OfferCard viewer="pemilik" seconds={250} title="Servis AC split 1 PK" area="Renon" distance="2,1 km" duration="1 jam 30 menit" options="Cuci AC, tambah freon" />
               <OfferCard viewer="pekerja" seconds={0} title="Bersih kamar mandi" area="Kerobokan" distance="3,4 km" duration="2 jam" options="2 kamar mandi" />
             </div>
@@ -107,19 +143,18 @@ export default function DevDsPage() {
           </div>
         </Section>
 
-        <Section id="ketersediaan" n={5} title="AvailabilityToggle" desc="Menyala dan mati. Keduanya bisa ditekan.">
+        <Section id="ketersediaan" n={5} title="AvailabilityToggle" desc="Menyala: badge Sekarang lalu Lokasi aktif (D242), switch --brand-hover (D244). Mati: tanpa badge. Keduanya bisa ditekan.">
           <div className="grid max-w-xl gap-4">
             <AvailabilityToggle defaultOn />
             <AvailabilityToggle defaultOn={false} />
           </div>
-          <Catatan id="A20" />
         </Section>
 
-        <Section id="tombol" n={6} title="Tombol" desc="Hover, ditekan, dan fokus dipaksa tampil untuk peraga. Tombol asli tetap bereaksi saat disentuh atau lewat keyboard.">
+        <Section id="tombol" n={6} title="Tombol" desc="State per varian sesuai tabel 6.4. Hover, ditekan, dan fokus dipaksa tampil untuk peraga. Tombol asli tetap bereaksi saat disentuh atau lewat keyboard.">
           <ButtonMatrix />
         </Section>
 
-        <Section id="badge" n={7} title="Badge mode dan status" desc="Pill berwarna selalu berarti status. Mode tampil bergaris (Terjadwal) atau putih bergaris hijau dengan titik (Sekarang).">
+        <Section id="badge" n={7} title="Badge mode dan status" desc="Pill berwarna selalu berarti status. Terjadwal tampil bergaris, Sekarang putih bergaris hijau dengan titik live. SETTLED berlabel Dana cair (D245).">
           <div className="flex flex-col gap-4 rounded-lg border border-border bg-card p-4">
             <div className="flex flex-wrap gap-2">
               <ModeBadge mode="SCHEDULED" />
@@ -132,54 +167,75 @@ export default function DevDsPage() {
                 </li>
               ))}
             </ul>
-            <Catatan id="A9" />
           </div>
         </Section>
 
-        <Section id="formulir" n={8} title="Input, Select, dan pesan error" desc="Label selalu terlihat di atas input. Input dan Select 16 px dan 44 px.">
-          <form className="flex max-w-xl flex-col gap-5 rounded-lg border border-border bg-card p-4 md:p-6" noValidate>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="ds-nama">Nama lengkap</Label>
-              <Input id="ds-nama" defaultValue="Ni Luh Putu Ayu" autoComplete="name" />
+        <Section id="tipografi" n={8} title="Tipografi" desc={
+            <>
+              Skala D247 lewat token <Tok>text-display</Tok> sampai <Tok>text-h3</Tok>. Judul <Tok>text-balance</Tok>, paragraf{" "}
+              <Tok>text-pretty</Tok>. Paragraf body paling lebar <Tok>max-w-xl</Tok>, body-sm <Tok>max-w-lg</Tok>.
+            </>
+          }>
+          <div className="@container flex flex-col gap-6 rounded-lg border border-border bg-card p-4 md:p-6">
+            <ul className="flex flex-col divide-y divide-border">
+              {TYPE_SCALE.map((t) => (
+                <li key={t.token} className="flex flex-col gap-1 py-3 first:pt-0 last:pb-0 @2xl:flex-row @2xl:items-baseline @2xl:gap-6">
+                  <span className="flex w-48 shrink-0 flex-col text-xs font-medium text-muted-foreground">
+                    <code className="font-mono text-foreground">{t.token}</code>
+                    <span className="tabular-nums">
+                      {t.size}, {t.weight}
+                    </span>
+                  </span>
+                  <span className={t.cls}>{t.sample}</span>
+                </li>
+              ))}
+              <li className="flex flex-col gap-1 pt-3 @2xl:flex-row @2xl:items-baseline @2xl:gap-6">
+                <span className="flex w-48 shrink-0 flex-col text-xs font-medium text-muted-foreground">
+                  <code className="font-mono text-foreground">code-xl</code>
+                  <span className="tabular-nums">32/40 px, 700, jarak 0,2em</span>
+                </span>
+                <span translate="no" className="text-code-xl font-bold tracking-code tabular-nums">482913</span>
+              </li>
+            </ul>
+            <div className="grid gap-4 border-t border-border pt-4 @3xl:grid-cols-2">
+              <div className="flex flex-col gap-1">
+                <Caption>body, max-w-xl (sekitar 72 karakter)</Caption>
+                <p className="max-w-xl text-base">
+                  Penanggung jawab akan datang sesuai jadwal. Kalau ada perubahan, kamu mendapat pemberitahuan di halaman pesanan dan
+                  lewat email. Dana ditahan sampai pekerjaan selesai.
+                </p>
+              </div>
+              <div className="flex flex-col gap-1">
+                <Caption>body-sm, max-w-lg</Caption>
+                <p className="max-w-lg text-sm text-muted-foreground">
+                  Kode verifikasi hanya berlaku 30 menit dan dibuka di aplikasimu. Berikan kode ke penanggung jawab setelah pekerjaan
+                  selesai dan kamu sudah memeriksanya.
+                </p>
+              </div>
             </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="ds-alamat">Alamat (fokus dipaksa tampil)</Label>
-              <Input id="ds-alamat" data-demo="focus" defaultValue="Jl. Tukad Badung No. 12" />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="ds-kec">Kabupaten atau kota</Label>
-              <Select defaultValue="Denpasar">
-                <SelectTrigger id="ds-kec" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {LOCATIONS.map((l) => (
-                    <SelectItem key={l} value={l}>
-                      {l}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="ds-hp">Nomor HP</Label>
-              <Input id="ds-hp" type="tel" inputMode="tel" defaultValue="0812345" aria-invalid aria-describedby="ds-hp-error" />
-              <p id="ds-hp-error" className="flex items-center gap-1.5 text-xs font-medium text-destructive">
-                <CircleAlert aria-hidden className="size-4 shrink-0" />
-                Nomor HP diawali 08 dan berisi 10 sampai 13 digit.
-              </p>
-            </div>
-            <Catatan id="A12" />
-          </form>
+          </div>
         </Section>
 
-        <Section id="banner" n={9} title="Banner status" desc="Satu bentuk untuk empat nada (1.4b). Banner status pesanan tidak punya tombol tutup.">
-          <div className="grid gap-3 @container">
+        <Section id="formulir" n={9} title="Formulir" desc={
+            <>
+              Atribut field sesuai DS 6.1b. Input dan Select 16 px dan 44 px. Error <Tok>body-sm</Tok> 500 dengan ikon 16 px. Tekan
+              Simpan: fokus pindah ke field error pertama (D248).
+            </>
+          }>
+          <FormDemo />
+        </Section>
+
+        <Section id="banner" n={10} title="Banner status" desc="Satu bentuk untuk empat nada (1.4b). Banner status pesanan tidak punya tombol tutup. Banner PAID memuat EscrowNote.">
+          <div className="grid gap-3">
             <StatusBanner tone="success" title="Pesanan selesai">
               Terima kasih. Beri ulasan supaya pelanggan lain terbantu.
             </StatusBanner>
             <StatusBanner tone="warning" title="Menunggu pembayaran">
               Bayar sebelum Sab, 22 Nov 2026, 10.30 WITA supaya pesanan tidak batal.
+            </StatusBanner>
+            <StatusBanner tone="info" title="Sudah dibayar">
+              <p>Komang Arta datang Sen, 24 Nov 2026, 09.00 WITA.</p>
+              <EscrowNote className="pt-1" />
             </StatusBanner>
             <StatusBanner tone="info" title="Penanggung jawab sedang menuju lokasimu">
               Komang Arta diperkirakan tiba sekitar 14.20 WITA.
@@ -190,39 +246,71 @@ export default function DevDsPage() {
           </div>
         </Section>
 
-        <Section id="penanda" n={10} title="Penanda aktif dan terpilih" desc="Tiga intensitas hijau terang (6.4): solid, pucat, dan garis.">
-          <div className="flex flex-col gap-6">
-            <div className="flex flex-col gap-2">
-              <h3 className="text-lg leading-6.5 font-semibold">Solid</h3>
+        <Section id="escrow" n={11} title="EscrowNote" desc="Satu kalimat bernada netral, tanpa kotak berwarna (D250). Dipakai di form pesan, halaman bayar, dan banner PAID.">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="flex flex-col gap-4 rounded-lg border border-border bg-card p-4">
+              <Caption>Halaman bayar</Caption>
+              <dl className="flex items-baseline justify-between gap-4">
+                <dt className="text-sm text-muted-foreground">Total</dt>
+                <dd className="text-h3 font-semibold tabular-nums">{formatRupiah(135000)}</dd>
+              </dl>
+              <Button size="lg" className="w-full">
+                Bayar sekarang
+              </Button>
+              <EscrowNote />
+            </div>
+            <div className="flex flex-col gap-4 rounded-lg border border-border bg-card p-4">
+              <Caption>Form pesan, di atas tombol kirim</Caption>
+              <dl className="flex items-baseline justify-between gap-4">
+                <dt className="text-sm text-muted-foreground">Perkiraan total</dt>
+                <dd className="text-h3 font-semibold tabular-nums">{formatRupiah(110000)}</dd>
+              </dl>
+              <EscrowNote />
+              <Button size="lg" className="w-full">
+                Pesan jasa
+              </Button>
+            </div>
+          </div>
+        </Section>
+
+        <Section id="penanda" n={12} title="Penanda aktif dan terpilih" desc="Tiga intensitas hijau terang (6.4). Solid hanya untuk aksi mode Sekarang. Penanda posisi pucat (D243).">
+          <div className="flex flex-col gap-8">
+            <div className="flex flex-col gap-3">
+              <Sub>Solid</Sub>
+              <div className="flex flex-wrap items-center gap-6">
+                <Button variant="now" size="lg" tabIndex={-1}>
+                  Ambil
+                </Button>
+                <span className="flex items-center gap-3">
+                  <Switch defaultChecked aria-label="Switch menyala" />
+                  <span className="text-sm font-medium">Switch menyala, --brand-hover (D244)</span>
+                </span>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-4">
+              <Sub>Pucat</Sub>
               <div className="flex flex-wrap items-start gap-6">
                 <div className="flex flex-col gap-2">
                   <SidebarSnippet />
-                  <p className="text-xs font-medium text-muted-foreground">Pesanan aktif, Ringkasan hover, Jasa Saya fokus</p>
+                  <Caption>Pesanan aktif, Ringkasan hover, Jasa Saya fokus</Caption>
                 </div>
                 <div className="flex w-full max-w-97.5 flex-col gap-2">
                   <div className="overflow-hidden rounded-lg border border-border">
                     <BottomNav />
                   </div>
-                  <span className="flex gap-3 text-xs font-medium text-muted-foreground">
-                    Navigasi bawah, Beranda aktif <Catatan id="A8" />
-                  </span>
+                  <Caption>Navigasi bawah, Beranda aktif</Caption>
                 </div>
               </div>
-              <div className="flex flex-col gap-2 pt-2">
-                <TabsDemo />
-                <span className="flex gap-3 text-xs font-medium text-muted-foreground">
-                  Tab aktif solid <Catatan id="A11" /> <Catatan id="A18" />
-                </span>
+              <div className="flex flex-col gap-2">
+                <Suspense fallback={<div className="h-11 w-full max-w-xl rounded-lg bg-muted" />}>
+                  <TabsDemo />
+                </Suspense>
+                <Caption>Tab aktif pucat, tinggi 44 px, tersimpan di query URL</Caption>
               </div>
-            </div>
-
-            <div className="flex flex-col gap-3">
-              <h3 className="text-lg leading-6.5 font-semibold">Pucat</h3>
               <div className="flex flex-wrap items-center gap-4">
-                <span className="inline-flex h-11 items-center gap-2 rounded-full bg-brand-subtle px-4 text-sm font-bold text-brand-subtle-foreground">
-                  <Check aria-hidden className="size-4" />
-                  Bisa datang sekarang
-                </span>
+                <FilterChip label="Bisa datang sekarang" active />
+                <FilterChip label="Rating 4 ke atas" active={false} />
                 <span className="flex size-10 items-center justify-center rounded-full bg-brand-subtle text-sm font-bold text-brand-subtle-foreground">
                   KA
                 </span>
@@ -233,7 +321,7 @@ export default function DevDsPage() {
               </div>
               <div className="flex max-w-xl flex-col gap-2">
                 <p className="pb-1 text-sm font-medium">Opsi terpilih di formulir (tampilan statis)</p>
-                <div className="flex min-h-11 items-center justify-between gap-3 rounded-md border-2 border-brand bg-brand-subtle px-4 py-3 text-sm font-bold text-brand-subtle-foreground">
+                <div className="flex min-h-11 items-center justify-between gap-3 rounded-md border-2 border-brand bg-brand-subtle px-4 py-3 text-sm font-semibold text-brand-subtle-foreground">
                   <span className="flex items-center gap-2">
                     <Check aria-hidden className="size-4" />
                     1/2 sampai 1 PK
@@ -246,53 +334,57 @@ export default function DevDsPage() {
                   <span className="tabular-nums">+Rp25.000</span>
                 </div>
               </div>
-              <Catatan id="A7" />
             </div>
 
             <div className="flex flex-col gap-3">
-              <h3 className="text-lg leading-6.5 font-semibold">Garis</h3>
+              <Sub>Garis</Sub>
               <div className="flex flex-wrap items-center gap-6">
                 <span className="flex items-center gap-2 text-sm font-semibold">
                   <LiveDot />
                   Titik live
                 </span>
-                <span className="flex h-12 w-40 items-center rounded-lg border border-border border-l-4 border-l-brand bg-card px-3 text-sm font-semibold">
-                  Garis tepi kiri
-                </span>
+                <ModeBadge mode="AVAILABLE_NOW" />
                 <span className="flex items-center gap-2">
-                  <span className="flex size-8 items-center justify-center rounded-full border-2 border-brand bg-card text-sm font-bold">2</span>
+                  <span className="flex size-8 items-center justify-center rounded-full bg-brand-subtle text-brand-subtle-foreground">
+                    <Check aria-hidden className="size-4" />
+                  </span>
                   <span className="h-0.5 w-10 bg-brand" aria-hidden />
+                  <span className="flex size-8 items-center justify-center rounded-full border-2 border-brand bg-card text-sm font-bold">2</span>
+                  <span className="h-0.5 w-10 bg-border" aria-hidden />
                   <span className="flex size-8 items-center justify-center rounded-full border border-input bg-card text-sm font-medium text-muted-foreground">3</span>
                   <span className="sr-only">Langkah 2 aktif dari 3</span>
                 </span>
                 <span className="flex items-center gap-2">
-                  <KeyRound aria-hidden className="size-4 text-muted-foreground" />
                   <span className="flex size-11 items-center justify-center rounded-md border-2 border-brand bg-card text-lg font-bold ring-3 ring-brand-subtle tabular-nums">4</span>
                   <span className="sr-only">Kotak kode yang sedang diisi</span>
                 </span>
               </div>
             </div>
 
-            <div className="flex flex-col gap-2">
-              <h3 className="text-lg leading-6.5 font-semibold">Tautan</h3>
+            <div className="flex flex-col gap-3">
+              <Sub>Tautan</Sub>
               <p className="text-sm">
                 Belum punya akun? <a href="#penanda" className={LINK_CLASS}>Daftar sekarang</a>
               </p>
+              <div className="@container max-w-4xl overflow-hidden rounded-lg border border-border">
+                <PublicHeader />
+              </div>
+              <Caption>Tautan aktif header publik: --brand-strong tebal bergaris bawah, pengecualian dari penanda pucat</Caption>
             </div>
           </div>
         </Section>
 
-        <Section id="token" n={11} title="Token dan kontras" desc="Rasio dihitung di halaman ini dengan rumus WCAG 2.1 dari nilai token, lalu dibandingkan dengan angka di DS 1.5.">
+        <Section id="token" n={13} title="Token dan kontras" desc="Rasio dihitung di halaman ini dengan rumus WCAG 2.1 dari nilai token, dibulatkan dua desimal, lalu dibandingkan dengan angka di DS 1.5.">
           <div className="@container flex flex-col gap-8">
             <TokenSwatches />
             <ContrastTable />
           </div>
         </Section>
 
-        <Section id="responsif" n={12} title="Mobile 390 px dan desktop" desc="Komponen memakai container query, jadi bingkai 390 px menampilkan tata letak HP walaupun dibuka di layar lebar.">
+        <Section id="responsif" n={14} title="Mobile 390 px dan desktop" desc="Komponen memakai container query, jadi bingkai 390 px menampilkan tata letak HP walaupun dibuka di layar lebar.">
           <div className="flex flex-col gap-8">
             <div className="flex flex-col gap-2">
-              <p className="text-xs font-medium text-muted-foreground">Bingkai 390 px (pelanggan di HP)</p>
+              <Caption>Bingkai 390 px (pelanggan di HP)</Caption>
               <div className="@container w-full max-w-97.5 overflow-hidden rounded-xl border border-border bg-background">
                 <PublicHeader compact />
                 <div className="flex flex-col gap-6 px-4 py-4">
@@ -307,9 +399,7 @@ export default function DevDsPage() {
               </div>
             </div>
             <div className="flex flex-col gap-2">
-              <p className="flex gap-3 text-xs font-medium text-muted-foreground">
-                Bingkai lebar (desktop, selebar konten) <Catatan id="A13" />
-              </p>
+              <Caption>Bingkai lebar (desktop, selebar konten)</Caption>
               <div className="@container w-full overflow-hidden rounded-xl border border-border bg-background">
                 <PublicHeader />
                 <div className="flex flex-col gap-6 px-4 py-4 md:px-6">
@@ -324,33 +414,6 @@ export default function DevDsPage() {
             </div>
           </div>
         </Section>
-
-        <ExploreSection />
-
-        <section id="catatan" aria-labelledby="catatan-judul" className="flex scroll-mt-6 flex-col gap-4">
-          <h2 id="catatan-judul" className="text-xl font-semibold">
-            Catatan untuk ditinjau
-          </h2>
-          <p className="max-w-prose text-sm text-muted-foreground">
-            Aturan dokumen yang ambigu, bertentangan, atau hasil hitungnya berbeda. Halaman ini tidak memutuskannya. Kolom
-            &quot;Dirender&quot; menjelaskan pilihan sementara di halaman ini.
-          </p>
-          <ol className="flex flex-col gap-3">
-            {FINDINGS.map((f) => (
-              <li key={f.id} id={`catatan-${f.id}`} className="flex scroll-mt-6 flex-col gap-1 rounded-lg border border-border bg-card p-4 target:border-foreground">
-                <p className="flex flex-wrap items-baseline gap-x-3 text-sm">
-                  <span className="font-bold">{f.id}</span>
-                  <span className="text-xs font-medium text-muted-foreground">DS {f.section}</span>
-                </p>
-                <p className="max-w-prose text-sm">{f.text}</p>
-                <p className="max-w-prose text-sm text-muted-foreground">
-                  <span className="font-semibold text-foreground">Dirender: </span>
-                  {f.rendered}
-                </p>
-              </li>
-            ))}
-          </ol>
-        </section>
       </main>
     </div>
   )

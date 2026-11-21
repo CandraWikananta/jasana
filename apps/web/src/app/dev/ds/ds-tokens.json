@@ -38,7 +38,7 @@
         {
           "name": "muted",
           "value": "#F5F5F4",
-          "use": "Bagian sekunder, hover, skeleton, tombol nonaktif"
+          "use": "Bagian sekunder, hover baris dan menu, skeleton, tombol nonaktif"
         },
         {
           "name": "muted-foreground",
@@ -53,7 +53,7 @@
         {
           "name": "input",
           "value": "#918A84",
-          "use": "Garis input, checkbox, tombol outline"
+          "use": "Garis input, checkbox, radio, switch mati, tombol outline"
         },
         {
           "name": "disabled-foreground",
@@ -125,31 +125,31 @@
         {
           "name": "brand",
           "value": "#22C55E",
-          "use": "Isi solid: menu aktif, tab aktif, tombol now, switch, titik live",
+          "use": "Isi solid: tombol now, titik live, garis badge Sekarang, garis stepper",
           "jasana": true
         },
         {
           "name": "brand-foreground",
           "value": "#1C1917",
-          "use": "Teks di atas brand, selalu hitam",
+          "use": "Teks dan ikon di atas brand, selalu hitam",
           "jasana": true
         },
         {
           "name": "brand-hover",
           "value": "#16A34A",
-          "use": "Hover dan pressed elemen brand",
+          "use": "Hover dan pressed elemen brand, trek switch menyala (D244)",
           "jasana": true
         },
         {
           "name": "brand-strong",
           "value": "#15803D",
-          "use": "Teks hijau di atas terang: tautan",
+          "use": "Teks hijau di atas terang: tautan, tautan aktif header publik",
           "jasana": true
         },
         {
           "name": "brand-subtle",
           "value": "#DCFCE7",
-          "use": "Chip filter aktif, opsi terpilih, avatar inisial",
+          "use": "Menu, navigasi bawah, dan tab aktif (D243), chip filter aktif, opsi terpilih, avatar",
           "jasana": true
         },
         {
@@ -193,7 +193,7 @@
         {
           "name": "success",
           "value": "#0F766E",
-          "use": "Selesai, terverifikasi (teal)"
+          "use": "Selesai, terverifikasi, dana cair (teal)"
         },
         {
           "name": "success-subtle",
@@ -229,6 +229,11 @@
           "name": "destructive-foreground",
           "value": "#FFFFFF",
           "use": "Teks di atas destructive"
+        },
+        {
+          "name": "destructive-hover",
+          "value": "#991B1B",
+          "use": "Hover dan pressed tombol destructive"
         },
         {
           "name": "destructive-subtle",
@@ -344,14 +349,14 @@
     {
       "fg": "primary-foreground",
       "bg": "primary",
-      "doc": 17.48,
+      "doc": 17.49,
       "min": 4.5,
       "kind": "teks"
     },
     {
       "fg": "primary-foreground",
       "bg": "primary-hover",
-      "doc": 10.26,
+      "doc": 10.27,
       "min": 4.5,
       "kind": "teks"
     },
@@ -364,7 +369,7 @@
     {
       "fg": "foreground",
       "bg": "background",
-      "doc": 16.73,
+      "doc": 16.74,
       "min": 4.5,
       "kind": "teks"
     },
@@ -396,21 +401,21 @@
     {
       "fg": "brand-foreground",
       "bg": "brand",
-      "doc": 7.67,
+      "doc": 7.68,
       "min": 4.5,
       "kind": "teks"
     },
     {
       "fg": "brand-foreground",
       "bg": "brand-hover",
-      "doc": 5.3,
+      "doc": 5.31,
       "min": 4.5,
       "kind": "teks"
     },
     {
       "fg": "brand-strong",
       "bg": "card",
-      "doc": 5.01,
+      "doc": 5.02,
       "min": 4.5,
       "kind": "teks"
     },
@@ -425,31 +430,31 @@
       "fg": "brand-subtle-foreground",
       "bg": "brand-subtle",
       "doc": 6.49,
+      "note": "Menu, tab, dan navigasi aktif",
       "min": 4.5,
       "kind": "teks"
     },
     {
       "fg": "brand-subtle-foreground",
       "bg": "card",
+      "doc": 7.13,
+      "note": "Label navigasi bawah aktif, hover tautan",
       "min": 4.5,
-      "kind": "teks",
-      "note": "Hover tautan"
+      "kind": "teks"
     },
     {
       "fg": "primary-foreground",
       "bg": "success",
-      "doc": 5.52,
+      "doc": 5.47,
       "min": 4.5,
-      "kind": "teks",
-      "finding": "A1"
+      "kind": "teks"
     },
     {
       "fg": "success-subtle-foreground",
       "bg": "success-subtle",
-      "doc": 6.5,
+      "doc": 6.73,
       "min": 4.5,
-      "kind": "teks",
-      "finding": "A2"
+      "kind": "teks"
     },
     {
       "fg": "warning-subtle-foreground",
@@ -461,26 +466,23 @@
     {
       "fg": "destructive-subtle-foreground",
       "bg": "destructive-subtle",
-      "docRange": "6,49 sampai 9,42",
+      "doc": 6.8,
       "min": 4.5,
-      "kind": "teks",
-      "finding": "A3"
+      "kind": "teks"
     },
     {
       "fg": "info-subtle-foreground",
       "bg": "info-subtle",
-      "docRange": "6,49 sampai 9,42",
+      "doc": 7.15,
       "min": 4.5,
-      "kind": "teks",
-      "finding": "A3"
+      "kind": "teks"
     },
     {
       "fg": "neutral-subtle-foreground",
       "bg": "neutral-subtle",
-      "docRange": "6,49 sampai 9,42",
+      "doc": 9.42,
       "min": 4.5,
-      "kind": "teks",
-      "finding": "A3"
+      "kind": "teks"
     },
     {
       "fg": "destructive-foreground",
@@ -490,11 +492,18 @@
       "kind": "teks"
     },
     {
+      "fg": "destructive-foreground",
+      "bg": "destructive-hover",
+      "doc": 8.31,
+      "min": 4.5,
+      "kind": "teks"
+    },
+    {
       "fg": "destructive",
       "bg": "card",
+      "note": "Pesan error, hitung mundur di bawah 5 menit",
       "min": 4.5,
-      "kind": "teks",
-      "note": "Pesan error, hitung mundur di bawah 5 menit"
+      "kind": "teks"
     },
     {
       "fg": "success-title",
@@ -505,9 +514,9 @@
     {
       "fg": "success-subtle-foreground",
       "bg": "success-surface",
+      "note": "Isi banner",
       "min": 4.5,
-      "kind": "teks",
-      "note": "Isi banner"
+      "kind": "teks"
     },
     {
       "fg": "warning-title",
@@ -518,9 +527,9 @@
     {
       "fg": "warning-subtle-foreground",
       "bg": "warning-surface",
+      "note": "Isi banner",
       "min": 4.5,
-      "kind": "teks",
-      "note": "Isi banner"
+      "kind": "teks"
     },
     {
       "fg": "info-title",
@@ -531,9 +540,9 @@
     {
       "fg": "info-subtle-foreground",
       "bg": "info-surface",
+      "note": "Isi banner",
       "min": 4.5,
-      "kind": "teks",
-      "note": "Isi banner"
+      "kind": "teks"
     },
     {
       "fg": "destructive-title",
@@ -544,37 +553,37 @@
     {
       "fg": "destructive-subtle-foreground",
       "bg": "destructive-surface",
+      "note": "Isi banner",
       "min": 4.5,
-      "kind": "teks",
-      "note": "Isi banner"
+      "kind": "teks"
     },
     {
       "fg": "success",
       "bg": "success-border",
+      "note": "Ikon di chip banner",
       "min": 3,
-      "kind": "ikon",
-      "note": "Ikon di chip banner"
+      "kind": "ikon"
     },
     {
       "fg": "warning",
       "bg": "warning-border",
+      "note": "Ikon di chip banner",
       "min": 3,
-      "kind": "ikon",
-      "note": "Ikon di chip banner"
+      "kind": "ikon"
     },
     {
       "fg": "info",
       "bg": "info-border",
+      "note": "Ikon di chip banner",
       "min": 3,
-      "kind": "ikon",
-      "note": "Ikon di chip banner"
+      "kind": "ikon"
     },
     {
       "fg": "destructive",
       "bg": "destructive-border",
+      "note": "Ikon di chip banner",
       "min": 3,
-      "kind": "ikon",
-      "note": "Ikon di chip banner"
+      "kind": "ikon"
     },
     {
       "fg": "input",
@@ -586,71 +595,73 @@
     {
       "fg": "input",
       "bg": "muted",
+      "note": "Garis switch mati di atas latar muted",
       "min": 3,
-      "kind": "batas komponen",
-      "note": "Garis switch mati di atas latar muted"
+      "kind": "batas komponen"
+    },
+    {
+      "fg": "brand-hover",
+      "bg": "card",
+      "doc": 3.3,
+      "note": "Trek switch menyala terhadap kartu (D244)",
+      "min": 3,
+      "kind": "komponen UI"
+    },
+    {
+      "fg": "card",
+      "bg": "brand-hover",
+      "doc": 3.3,
+      "note": "Thumb switch di atas trek menyala (D244)",
+      "min": 3,
+      "kind": "komponen UI"
     },
     {
       "fg": "brand",
       "bg": "card",
+      "doc": 2.28,
+      "justified": true,
+      "note": "Titik live dan garis badge Sekarang, makna dibawa teks",
       "min": 3,
-      "kind": "penanda",
-      "note": "Garis tepi kiri kartu Sekarang, titik live, garis badge now",
-      "finding": "A19"
+      "kind": "penanda"
     },
     {
       "fg": "rating-stroke",
       "bg": "card",
-      "min": 3,
-      "kind": "penanda",
+      "doc": 1.92,
+      "justified": true,
       "note": "Garis bintang, selalu didampingi angka",
-      "finding": "A19"
-    },
-    {
-      "fg": "brand",
-      "bg": "card",
       "min": 3,
-      "kind": "komponen UI",
-      "note": "Trek switch menyala terhadap kartu",
-      "finding": "A20"
-    },
-    {
-      "fg": "card",
-      "bg": "brand",
-      "min": 3,
-      "kind": "komponen UI",
-      "note": "Thumb switch di atas trek menyala",
-      "finding": "A20"
+      "kind": "penanda"
     },
     {
       "fg": "border",
       "bg": "card",
+      "note": "Sengaja rendah, hanya dekoratif",
       "min": 1,
-      "kind": "dekoratif",
-      "note": "Sengaja rendah, hanya dekoratif"
+      "kind": "dekoratif"
     },
     {
       "fg": "disabled-foreground",
       "bg": "muted",
+      "note": "Elemen nonaktif tidak wajib memenuhi kontras",
       "min": 1,
-      "kind": "nonaktif",
-      "note": "Elemen nonaktif tidak wajib memenuhi kontras"
+      "kind": "nonaktif"
     },
     {
       "fg": "primary-foreground",
       "bg": "brand",
       "doc": 2.28,
+      "note": "Putih di atas brand",
       "min": 4.5,
-      "kind": "dilarang",
-      "note": "Putih di atas brand"
+      "kind": "dilarang"
     },
     {
       "fg": "brand",
       "bg": "card",
       "doc": 2.28,
+      "note": "Brand sebagai teks di atas putih",
       "min": 4.5,
-      "kind": "dilarang",
-      "note": "Brand sebagai teks di atas putih"
+      "kind": "dilarang"
     }
   ]
 }

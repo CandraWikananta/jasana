@@ -4,24 +4,26 @@ import { LoaderCircle } from "lucide-react"
 import { cn } from "cn"
 import { Slot } from "radix-ui"
 
-// Pratinjau Button DS v2.0 (6.1 dan 6.4) untuk migrasi components/ui/button.tsx. Nama varian,
-// ukuran, dan props sama dengan aslinya. `data-demo` hanya untuk peraga state statis di /dev/ds.
+// Bentuk akhir components/ui/button.tsx untuk DS v2.1 (Bagian 14). Nama varian, ukuran, dan props
+// sama dengan aslinya. State per varian mengikuti tabel DS 6.4, termasuk secondary, ghost, dan
+// destructive yang baru diatur di v2.1. Cincin fokus 2 px berjarak 2 px supaya terlihat di atas
+// tombol hitam, tombol hijau, maupun latar putih.
 const buttonVariants = cva(
-  "inline-flex shrink-0 items-center justify-center gap-2 rounded-md font-semibold whitespace-nowrap transition duration-150 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card data-[demo=focus]:ring-2 data-[demo=focus]:ring-ring data-[demo=focus]:ring-offset-2 data-[demo=focus]:ring-offset-card disabled:pointer-events-none disabled:bg-muted disabled:text-disabled-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-5",
+  "inline-flex shrink-0 items-center justify-center gap-2 rounded-md font-semibold whitespace-nowrap transition duration-150 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card disabled:pointer-events-none disabled:bg-muted disabled:text-disabled-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-5",
   {
     variants: {
       variant: {
-        primary:
-          "bg-primary text-primary-foreground hover:bg-primary-hover active:translate-y-px active:bg-primary-pressed data-[demo=hover]:bg-primary-hover data-[demo=pressed]:translate-y-px data-[demo=pressed]:bg-primary-pressed",
-        // A10: hover dan ditekan untuk secondary, ghost, dan destructive tidak diatur v2.0, dibawa dari v1.6.
-        secondary: "bg-secondary text-secondary-foreground hover:brightness-95 data-[demo=hover]:brightness-95",
-        // A14: nonaktif mengikuti tabel 6.4 (garis --border, latar tetap --card).
+        primary: "bg-primary text-primary-foreground hover:bg-primary-hover active:translate-y-px active:bg-primary-pressed",
+        secondary: "bg-secondary text-secondary-foreground hover:bg-border active:translate-y-px active:bg-border",
+        // Nonaktif tetap latar --card dengan garis --border, bukan --muted seperti varian lain (6.4).
         outline:
-          "border border-input bg-card text-foreground hover:bg-muted active:translate-y-px active:bg-muted disabled:border-border disabled:bg-card data-[demo=hover]:bg-muted data-[demo=pressed]:translate-y-px data-[demo=pressed]:bg-muted",
-        ghost: "text-foreground hover:bg-accent data-[demo=hover]:bg-accent",
+          "border border-input bg-card text-foreground hover:bg-muted active:translate-y-px active:bg-muted disabled:border-border disabled:bg-card",
+        // Nonaktif tetap transparan, hanya teksnya yang meredup (6.4).
+        ghost: "text-foreground hover:bg-muted active:translate-y-px active:bg-muted disabled:bg-transparent",
         destructive:
-          "bg-destructive text-destructive-foreground hover:bg-destructive/90 data-[demo=hover]:bg-destructive/90",
-        now: "bg-brand text-brand-foreground hover:bg-brand-hover active:translate-y-px active:bg-brand-hover active:shadow-inner data-[demo=hover]:bg-brand-hover data-[demo=pressed]:translate-y-px data-[demo=pressed]:bg-brand-hover data-[demo=pressed]:shadow-inner",
+          "bg-destructive text-destructive-foreground hover:bg-destructive-hover active:translate-y-px active:bg-destructive-hover",
+        // Khusus aksi mode Sekarang (Ambil, Terima). Teks selalu hitam: putih di atas --brand hanya 2,28:1.
+        now: "bg-brand text-brand-foreground hover:bg-brand-hover active:translate-y-px active:bg-brand-hover active:shadow-inner",
       },
       size: {
         sm: "h-9 px-3 text-sm [&_svg:not([class*='size-'])]:size-4",
@@ -39,7 +41,7 @@ const buttonVariants = cva(
 type ButtonProps = React.ComponentProps<"button"> &
   VariantProps<typeof buttonVariants> & {
     asChild?: boolean
-    /** Label tetap tampil, ditambah spinner, dan tombol dinonaktifkan supaya tidak terkirim dua kali. */
+    /** Spinner ditambahkan dan tombol dinonaktifkan supaya tidak terkirim dua kali. Label bentuk proses ("Membayar…") dari pemanggil. */
     loading?: boolean
   }
 

@@ -1,16 +1,21 @@
 // Matriks tombol DS 6.1 dan 6.4: enam varian dalam state normal, hover, ditekan, nonaktif, dan
-// fokus. Hover, ditekan, dan fokus dipaksa lewat data-demo supaya terlihat tanpa interaksi.
+// fokus. Hover, ditekan, dan fokus dipaksa lewat className dari peta di bawah, supaya ui/button.tsx
+// tetap bersih dari kait peraga. `cn` menggabungkan kelas seperti tailwind-merge, jadi
+// `bg-primary-hover` menggantikan `bg-primary`.
 import { Button } from "../ui/button"
-import { Catatan } from "./markers"
 
-const VARIANTS = [
-  { variant: "primary", label: "Bayar sekarang", note: null },
-  { variant: "secondary", label: "Lihat detail", note: "A10" },
-  { variant: "outline", label: "Ubah alamat", note: "A14" },
-  { variant: "ghost", label: "Kembali", note: "A10" },
-  { variant: "destructive", label: "Tolak pesanan", note: "A10" },
-  { variant: "now", label: "Ambil", note: null },
-] as const
+type Variant = "primary" | "secondary" | "outline" | "ghost" | "destructive" | "now"
+
+const FOCUS = "ring-2 ring-ring ring-offset-2 ring-offset-card"
+
+const VARIANTS: { variant: Variant; label: string; hover: string; pressed: string }[] = [
+  { variant: "primary", label: "Bayar sekarang", hover: "bg-primary-hover", pressed: "translate-y-px bg-primary-pressed" },
+  { variant: "secondary", label: "Lihat detail", hover: "bg-border", pressed: "translate-y-px bg-border" },
+  { variant: "outline", label: "Ubah alamat", hover: "bg-muted", pressed: "translate-y-px bg-muted" },
+  { variant: "ghost", label: "Kembali", hover: "bg-muted", pressed: "translate-y-px bg-muted" },
+  { variant: "destructive", label: "Tolak pesanan", hover: "bg-destructive-hover", pressed: "translate-y-px bg-destructive-hover" },
+  { variant: "now", label: "Ambil", hover: "bg-brand-hover", pressed: "translate-y-px bg-brand-hover shadow-inner" },
+]
 
 const STATES = [
   { key: "normal", label: "Normal" },
@@ -25,9 +30,8 @@ export function ButtonMatrix() {
     <div className="flex flex-col gap-4">
       {VARIANTS.map((v) => (
         <div key={v.variant} className="flex flex-col gap-2 rounded-lg border border-border bg-card p-4">
-          <p className="flex items-center gap-3 text-sm font-semibold">
+          <p className="text-sm font-semibold">
             <code className="font-mono text-sm">{v.variant}</code>
-            {v.note ? <Catatan id={v.note} /> : null}
           </p>
           <ul className="flex flex-wrap gap-x-4 gap-y-3">
             {STATES.map((s) => (
@@ -35,7 +39,7 @@ export function ButtonMatrix() {
                 <Button
                   variant={v.variant}
                   disabled={s.key === "disabled"}
-                  data-demo={s.key === "hover" || s.key === "pressed" || s.key === "focus" ? s.key : undefined}
+                  className={s.key === "hover" ? v.hover : s.key === "pressed" ? v.pressed : s.key === "focus" ? FOCUS : undefined}
                   tabIndex={-1}
                 >
                   {v.variant === "now" && s.key === "disabled" ? "Waktu respons habis" : v.label}
@@ -60,15 +64,15 @@ export function ButtonMatrix() {
           ))}
           <li className="flex flex-col items-start gap-1.5">
             <Button size="lg" loading>
-              Membayar
+              Membayar…
             </Button>
-            <span className="text-xs font-medium text-muted-foreground">loading</span>
+            <span className="text-xs font-medium text-muted-foreground">Memproses</span>
           </li>
           <li className="flex flex-col items-start gap-1.5">
             <Button variant="now" size="lg" loading>
-              Mengambil
+              Mengambil…
             </Button>
-            <span className="text-xs font-medium text-muted-foreground">now, loading</span>
+            <span className="text-xs font-medium text-muted-foreground">now, memproses</span>
           </li>
         </ul>
       </div>

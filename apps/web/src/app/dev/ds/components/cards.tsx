@@ -4,24 +4,26 @@ import { MapPin, Timer } from "lucide-react"
 import { formatDurasi, formatJarak, formatRupiah } from "@/lib/format"
 import { formatTanggalJam } from "@/lib/time"
 import type { ListingSample, OrderSample } from "../data"
-import { Catatan, LINK_CLASS, ModeBadge, RatingText, StatusBadge } from "./markers"
+import { LINK_CLASS, ModeBadge, RatingText, StatusBadge } from "./markers"
 
+// D246: hanya mode Sekarang yang diberi badge. Terjadwal adalah mode bawaan, badge yang diulang di
+// setiap kartu tidak menambah informasi. Judul paling banyak dua baris, nama usaha satu baris.
 export function ListingCard({ l }: { l: ListingSample }) {
   const Icon = l.icon
   return (
-    <article className="relative flex flex-col overflow-hidden rounded-lg border border-border bg-card has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-ring has-[a:focus-visible]:ring-offset-2 has-[a:focus-visible]:ring-offset-background">
+    <article className="relative flex min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-card has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-ring has-[a:focus-visible]:ring-offset-2 has-[a:focus-visible]:ring-offset-background">
       <div className="flex aspect-4/3 items-center justify-center bg-muted text-muted-foreground">
         <Icon aria-hidden className="size-8" />
         <span className="sr-only">Foto jasa</span>
       </div>
-      <div className="flex flex-1 flex-col gap-2 p-4">
-        <div className="flex flex-col gap-0.5">
-          <h3 className="text-lg leading-6.5 font-semibold">
+      <div className="flex min-w-0 flex-1 flex-col gap-2 p-4">
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <h3 className="line-clamp-2 text-h3 font-semibold">
             <a href="#listing" className="outline-none after:absolute after:inset-0">
               {l.title}
             </a>
           </h3>
-          <p className="text-sm text-muted-foreground">
+          <p className="truncate text-sm text-muted-foreground">
             {l.provider} · {l.area}
           </p>
         </div>
@@ -36,17 +38,18 @@ export function ListingCard({ l }: { l: ListingSample }) {
             {formatDurasi(l.minutes)}
           </span>
         </div>
-        <div className="mt-auto flex flex-wrap items-end justify-between gap-2 pt-1">
+        <div className="mt-auto flex min-h-7 flex-wrap items-end justify-between gap-2 pt-1">
           <p className="text-sm text-muted-foreground">
             Mulai <span className="text-base font-semibold text-foreground tabular-nums">{formatRupiah(l.price)}</span>
           </p>
-          <ModeBadge mode={l.mode} />
+          {l.mode === "AVAILABLE_NOW" ? <ModeBadge mode={l.mode} /> : null}
         </div>
       </div>
     </article>
   )
 }
 
+// Kartu pesanan tetap menampilkan kedua mode (D246).
 export function OrderCard({ o }: { o: OrderSample }) {
   return (
     <article className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4">
@@ -55,7 +58,7 @@ export function OrderCard({ o }: { o: OrderSample }) {
         <ModeBadge mode={o.mode} />
       </div>
       <div className="flex flex-col gap-0.5">
-        <h3 className="text-lg leading-6.5 font-semibold">{o.title}</h3>
+        <h3 className="text-h3 font-semibold">{o.title}</h3>
         <p className="text-sm text-muted-foreground">{o.provider}</p>
       </div>
       <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
@@ -74,9 +77,9 @@ export function OrderCard({ o }: { o: OrderSample }) {
       </dl>
       <p className="text-sm text-muted-foreground">{o.note}</p>
       <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-        <span className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground tabular-nums">{o.number}</span>
-          <Catatan id="A16" />
+        {/* DS 8 dan 11: nomor pesanan apa adanya, angka tabular, tidak dirusak terjemahan otomatis. */}
+        <span translate="no" className="text-xs text-muted-foreground tabular-nums">
+          {o.number}
         </span>
         <a href="#pesanan" className={LINK_CLASS + " text-sm"}>
           Lihat detail

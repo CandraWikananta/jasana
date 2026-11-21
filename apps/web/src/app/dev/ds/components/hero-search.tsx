@@ -1,17 +1,19 @@
 "use client"
 
 import { useId, useState } from "react"
-import { Check, MapPin, Search } from "lucide-react"
-import { cn } from "cn"
+import { MapPin, Search } from "lucide-react"
 import { Label } from "@/components/ui/label"
 import { Button } from "../ui/button"
 import { Input } from "../ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select"
 import { CATEGORIES, LOCATIONS } from "../data"
+import { FilterChip } from "./filter-chip"
 
-// Hero beranda: judul `display` 30/36 (Bagian 2), kolom pencarian berlabel, Select lokasi, satu
-// tombol primary (P2), dan chip kategori. Chip aktif pucat dengan ikon Check (6.4).
-// A15: chip tidak aktif tidak diatur dokumen.
+// Hero beranda: judul berisi fakta, bukan klaim (D249), skala `display` (D247), kolom pencarian
+// berlabel, Select lokasi, satu tombol primary (P2), dan chip kategori.
+//
+// Judul memakai container query @3xl (48rem, setara titik henti `md`) supaya bingkai 390 px di
+// halaman ini tetap menampilkan ukuran HP. Di aplikasi asli: `text-display md:text-display-lg`.
 export function HeroSearch() {
   const id = useId()
   const [active, setActive] = useState("Servis AC")
@@ -23,9 +25,11 @@ export function HeroSearch() {
           <MapPin aria-hidden className="size-4" />
           Denpasar, Bali
         </p>
-        <h2 className="max-w-2xl text-3xl font-bold">Jasa rumah tepercaya, dikerjakan di lokasimu</h2>
-        <p className="max-w-prose text-base text-muted-foreground">
-          Pesan untuk jadwal tertentu, atau panggil yang bisa datang sekarang. Dana ditahan sampai pekerjaan selesai.
+        <h2 className="max-w-2xl text-display font-bold @3xl:text-display-lg">
+          Servis AC, ledeng, dan kebersihan rumah di Denpasar
+        </h2>
+        <p className="max-w-xl text-base text-muted-foreground">
+          Pesan untuk jadwal tertentu, atau panggil pekerja yang bisa datang sekarang.
         </p>
       </div>
 
@@ -33,8 +37,15 @@ export function HeroSearch() {
         <Label htmlFor={`${id}-q`} className="sr-only">
           Cari jasa
         </Label>
-        <Input id={`${id}-q`} type="search" placeholder="Cari jasa, misalnya servis AC" className="@2xl:flex-1" />
-        <Select defaultValue="Denpasar">
+        <Input
+          id={`${id}-q`}
+          name="q"
+          type="search"
+          autoComplete="off"
+          placeholder="Servis AC, pipa bocor, bersih rumah…"
+          className="@2xl:flex-1"
+        />
+        <Select defaultValue="Denpasar" name="lokasi">
           <SelectTrigger aria-label="Lokasi" className="w-full @2xl:w-48">
             <SelectValue />
           </SelectTrigger>
@@ -55,28 +66,16 @@ export function HeroSearch() {
       <div className="flex flex-col gap-3">
         <p className="text-sm font-semibold">Kategori</p>
         <ul className="flex flex-wrap gap-2">
-          {CATEGORIES.map((c) => {
-            const on = c.label === active
-            const Icon = on ? Check : c.icon
-            return (
-              <li key={c.label}>
-                <button
-                  type="button"
-                  aria-pressed={on}
-                  onClick={() => setActive(c.label)}
-                  className={cn(
-                    "inline-flex h-11 items-center gap-2 rounded-full border px-4 text-sm transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card",
-                    on
-                      ? "border-transparent bg-brand-subtle font-bold text-brand-subtle-foreground"
-                      : "border-input bg-card font-medium text-foreground hover:bg-muted"
-                  )}
-                >
-                  <Icon aria-hidden className={cn("size-4", !on && "text-muted-foreground")} />
-                  {c.label}
-                </button>
-              </li>
-            )
-          })}
+          {CATEGORIES.map((c) => (
+            <li key={c.label}>
+              <FilterChip
+                label={c.label}
+                icon={c.icon}
+                active={c.label === active}
+                onClick={() => setActive(c.label)}
+              />
+            </li>
+          ))}
         </ul>
       </div>
     </div>

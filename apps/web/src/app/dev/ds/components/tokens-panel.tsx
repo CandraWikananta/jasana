@@ -1,17 +1,16 @@
-// Swatch seluruh token v2.0 dan tabel kontras. Rasio dihitung dari ds-tokens.json dengan rumus
+// Swatch seluruh token v2.1 dan tabel kontras. Rasio dihitung dari ds-tokens.json dengan rumus
 // WCAG 2.1, lalu dibandingkan dengan angka yang tertulis di Design System 1.5.
 import { CircleCheck, CircleX, Equal, TriangleAlert, type LucideIcon } from "lucide-react"
 import tokens from "../ds-tokens.json"
 import { TOKEN_MAP, contrastRatio, formatRasio } from "../contrast"
 import { Badge, type BadgeTone } from "../ui/badge"
-import { Catatan } from "./markers"
 
 export function TokenSwatches() {
   return (
     <div className="flex flex-col gap-6">
       {tokens.groups.map((g) => (
         <div key={g.id} className="flex flex-col gap-3">
-          <h3 className="text-lg leading-6.5 font-semibold">
+          <h3 className="text-h3 font-semibold">
             {g.section} {g.title}
           </h3>
           <ul className="grid gap-2 @2xl:grid-cols-2 @5xl:grid-cols-3">
@@ -38,7 +37,7 @@ export function TokenSwatches() {
 
 type Verdict = { tone: BadgeTone; icon: LucideIcon; label: string }
 
-type Pair = (typeof tokens.contrast)[number] & { doc?: number; docRange?: string; finding?: string; note?: string }
+type Pair = (typeof tokens.contrast)[number] & { doc?: number; justified?: boolean; note?: string }
 
 function verdict(p: Pair, r: number): Verdict {
   if (p.kind === "dilarang") {
@@ -48,20 +47,16 @@ function verdict(p: Pair, r: number): Verdict {
   }
   if (p.min <= 1) return { tone: "neutral", icon: Equal, label: "Tidak wajib" }
   if (r >= p.min) return { tone: "success", icon: CircleCheck, label: "Lolos" }
-  if (p.finding === "A19") return { tone: "warning", icon: TriangleAlert, label: `Di bawah ${p.min}:1, dibenarkan dokumen` }
-  if (p.finding) return { tone: "warning", icon: TriangleAlert, label: `Di bawah ${p.min}:1, belum dibahas dokumen` }
+  // DS 1.5: penanda grafis di bawah 3:1 dibenarkan karena maknanya dibawa teks di sebelahnya.
+  if (p.justified) return { tone: "warning", icon: TriangleAlert, label: `Di bawah ${p.min}:1, dibenarkan dokumen` }
   return { tone: "destructive", icon: CircleX, label: "Tidak lolos" }
 }
 
-function docCompare(p: Pair, r: number): { text: string; flag: string | null } {
-  if (p.doc !== undefined) {
-    const diff = Math.abs(Math.round(r * 100) / 100 - p.doc)
-    if (diff < 0.005) return { text: `${formatRasio(p.doc)}, sama`, flag: null }
-    if (diff <= 0.011) return { text: `${formatRasio(p.doc)}, selisih pembulatan`, flag: "A4" }
-    return { text: `${formatRasio(p.doc)}, beda`, flag: p.finding ?? null }
-  }
-  if (p.docRange) return { text: `Rentang ${p.docRange}`, flag: p.finding ?? null }
-  return { text: "Tidak tercantum", flag: null }
+/** Angka dokumen dibandingkan dengan hitungan yang dibulatkan dua desimal, seperti DS 1.5. */
+function docCompare(p: Pair, r: number): { text: string; same: boolean | null } {
+  if (p.doc === undefined) return { text: "Tidak tercantum", same: null }
+  const same = Math.abs(Math.round(r * 100) / 100 - p.doc) < 0.005
+  return { text: `${formatRasio(p.doc)}, ${same ? "sama" : "beda"}`, same }
 }
 
 export function ContrastTable() {
@@ -75,7 +70,7 @@ export function ContrastTable() {
       <table className="w-full min-w-180 text-left text-sm">
         <thead>
           <tr className="border-b border-border">
-            {["Contoh", "Teks atau penanda", "Latar", "Jenis", "Hitungan", "Dokumen", "Hasil"].map((h) => (
+            {["Contoh", "Teks atau penanda", "Latar", "Jenis", "Hitungan", "DS 1.5", "Hasil"].map((h) => (
               <th key={h} scope="col" className="px-3 py-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
                 {h}
               </th>
@@ -85,7 +80,6 @@ export function ContrastTable() {
         <tbody>
           {rows.map(({ p, r, v, d }, i) => {
             const Icon = v.icon
-            const flag = d.flag ?? p.finding
             return (
               <tr key={i} className="border-b border-border last:border-b-0">
                 <td className="px-3 py-2">
@@ -103,11 +97,8 @@ export function ContrastTable() {
                   {p.note ? <span className="block text-xs">{p.note}</span> : null}
                 </td>
                 <td className="px-3 py-2 font-semibold tabular-nums">{formatRasio(r)}:1</td>
-                <td className="px-3 py-2 tabular-nums">
-                  <span className="flex flex-col gap-1">
-                    {d.text}
-                    {flag ? <Catatan id={flag} /> : null}
-                  </span>
+                <td className={d.same === false ? "px-3 py-2 font-semibold text-destructive tabular-nums" : "px-3 py-2 tabular-nums"}>
+                  {d.text}
                 </td>
                 <td className="px-3 py-2">
                   <Badge tone={v.tone}>

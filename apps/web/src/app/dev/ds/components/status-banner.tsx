@@ -21,7 +21,7 @@ export function StatusBanner({ tone, title, children }: { tone: BannerTone; titl
       </span>
       <div className="flex min-w-0 flex-col gap-0.5">
         <p className={cn("text-base font-semibold", t.title)}>{title}</p>
-        <p className={cn("text-sm", t.body)}>{children}</p>
+        <div className={cn("text-sm text-pretty", t.body)}>{children}</div>
       </div>
     </div>
   )
