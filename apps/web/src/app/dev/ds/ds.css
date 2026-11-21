@@ -1,0 +1,74 @@
+/* Peraga DS v2.0, hanya untuk /dev/ds. globals.css masih v1.6 dan tidak boleh diubah di sesi ini.
+
+   Nilai token (hex) TIDAK ada di sini. Nilainya disuntik page.tsx dari ds-tokens.json ke
+   `:root:has(.ds-v2)`, jadi hanya aktif selama halaman ini terpasang.
+
+   Berkas ini mendaftarkan utilitas Tailwind untuk token yang belum ada di globals.css
+   (`bg-brand`, `text-brand-strong`, `fill-rating`, `text-*-title`, dan lain-lain), supaya
+   komponen di dev/ds/ui bisa dipindah apa adanya saat migrasi Bagian 14.
+
+   Pembangkitannya dibatasi dengan `source(none)` dan `@source inline(...)`: hanya kelas yang
+   tercantum di bawah yang dibangkitkan. Kalau berkas ini memindai folder, utilitas biasa
+   (`flex`, `hidden`, dan lain-lain) ikut terbangkit ulang setelah globals.css dan bisa
+   mengalahkan varian responsif halaman lain. Kelas di daftar ini memakai warna yang hanya
+   didefinisikan di sini, jadi tidak ada halaman lain yang terpengaruh.
+
+   Kelas baru yang memakai token v2.0 baru wajib ditambahkan ke daftar inline. */
+
+@import "tailwindcss/utilities.css" layer(utilities) source(none);
+
+@source inline("bg-brand bg-brand-subtle border-brand border-l-brand ring-brand-subtle fill-rating glow-brand");
+@source inline("text-brand-foreground text-brand-strong text-brand-subtle-foreground text-rating-stroke");
+@source inline("text-success-title text-warning-title text-info-title text-destructive-title");
+@source inline("hover:bg-brand-hover active:bg-brand-hover hover:text-brand-subtle-foreground");
+@source inline("active:bg-primary-pressed disabled:text-disabled-foreground");
+@source inline("data-[demo=hover]:bg-brand-hover data-[demo=pressed]:bg-brand-hover data-[demo=pressed]:bg-primary-pressed");
+@source inline("data-[state=active]:bg-brand data-[state=active]:text-brand-foreground data-[state=active]:[&_svg]:text-brand-foreground");
+@source inline("data-[state=checked]:bg-brand data-[state=checked]:border-brand");
+
+@theme inline {
+  --color-disabled-foreground: var(--disabled-foreground);
+  --color-primary-pressed: var(--primary-pressed);
+
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-strong: var(--brand-strong);
+  --color-brand-subtle: var(--brand-subtle);
+  --color-brand-subtle-foreground: var(--brand-subtle-foreground);
+  --color-brand-glow: var(--brand-glow);
+
+  --color-rating: var(--rating);
+  --color-rating-stroke: var(--rating-stroke);
+
+  --color-success-title: var(--success-title);
+  --color-warning-title: var(--warning-title);
+  --color-info-title: var(--info-title);
+  --color-destructive-title: var(--destructive-title);
+}
+
+/* DS 13: cahaya titik live. */
+@utility glow-brand {
+  box-shadow: 0 0 0 4px var(--brand-glow);
+}
+
+/* DS 1.3b: titik live berdenyut pelan. DS 11: dimatikan untuk prefers-reduced-motion. */
+@keyframes ds-live-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 4px var(--brand-glow);
+  }
+  50% {
+    box-shadow: 0 0 0 6px var(--brand-glow);
+  }
+}
+
+.ds-live-dot {
+  animation: ds-live-pulse 2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ds-live-dot {
+    animation: none;
+  }
+}
