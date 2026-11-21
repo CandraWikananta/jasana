@@ -16,7 +16,7 @@ Aturan dari `CLAUDE.md` di root repo tetap berlaku: **dokumen desain adalah sumb
 | `docs/Keputusan-Desain-Sistem.md` | Register keputusan D1 sampai terbaru | Kalau ragu kenapa sesuatu dirancang begitu |
 | `apps/api/src/modules/*/*.routes.ts` dan `*.schema.ts` | **Kontrak endpoint yang benar-benar berjalan** | Sebelum memanggil endpoint apa pun |
 
-Dokumen frontend disusun dari register v2.11 dan sudah disinkronkan ke register v2.44 (keputusan frontend D210 sampai D239). Kalau isinya berbeda dengan register atau route terbaru di repo, **register dan route yang menang**. Laporkan perbedaannya di awal sesi, jangan diam-diam menyesuaikan.
+Dokumen frontend disusun dari register v2.11 dan sudah disinkronkan ke register v2.47 (keputusan frontend D210 sampai D250). Kalau isinya berbeda dengan register atau route terbaru di repo, **register dan route yang menang**. Laporkan perbedaannya di awal sesi, jangan diam-diam menyesuaikan.
 
 ## Stack
 
@@ -199,7 +199,7 @@ Deskripsi jasa, FAQ, ulasan, pesan dalam order, dan jawaban Asisten dirender seb
 2. **Cocokkan endpoint yang akan dipakai** dengan `*.routes.ts` dan `*.schema.ts` di `apps/api`. Laporkan perbedaan dengan dokumen sebelum menulis kode
 3. Susun rencana di Plan mode. Tunggu persetujuan
 4. Kerjakan satu fase, atau satu bagian fase yang sudah disepakati
-5. **Verifikasi visual:** jalankan dev server, ambil screenshot di **390 px dan 1280 px** (tambah 768 px untuk area usaha) lewat Playwright, bandingkan dengan Design System dan mockup acuan (tautan di `Design-System.md` bagian atas). Perbaiki yang meleset sebelum melapor selesai
+5. **Verifikasi visual:** jalankan dev server, ambil screenshot di **390 px dan 1280 px** (tambah 768 px untuk area usaha) lewat Playwright, bandingkan dengan Design System dan halaman peraga `/dev/ds`, acuan visual sejak DS v2.1 (`Design-System.md` Bagian 14). Perbaiki yang meleset sebelum melapor selesai
 6. Jalankan typecheck, lint, dan test. Semua hijau
 7. Laporkan: apa yang selesai, usulan pesan commit, apa yang berbeda dari dokumen, dan usulan keputusan baru kalau ada
 
@@ -207,11 +207,11 @@ Deskripsi jasa, FAQ, ulasan, pesan dalam order, dan jawaban Asisten dirender seb
 
 ## Git dan branch
 
-Seluruh pekerjaan frontend dilakukan di branch **`feat/frontend`**, bukan di `main`.
+Seluruh pekerjaan frontend dilakukan di branch **`feat/frontend-v2`**, bukan di `main`.
 
-- Sebelum mulai sesi, pastikan `git branch --show-current` menampilkan `feat/frontend`. Kalau tidak, berhenti dan laporkan
+- Sebelum mulai sesi, pastikan `git branch --show-current` menampilkan `feat/frontend-v2`. Kalau tidak, berhenti dan laporkan
 - Perubahan hanya di `apps/web/`. Jangan mengubah `apps/api/`, `packages/database/`, atau skema Prisma dari branch ini
-- Kalau butuh perubahan di `packages/shared` atau backend (endpoint kurang, field tidak ada, bug API), **jangan dikerjakan di sini**. Catat di laporan sesi. Perubahan itu dikerjakan di `main`, lalu `main` di-merge ke `feat/frontend`
+- Kalau butuh perubahan di `packages/shared` atau backend (endpoint kurang, field tidak ada, bug API), **jangan dikerjakan di sini**. Catat di laporan sesi. Perubahan itu dikerjakan di `main`, lalu `main` di-merge ke `feat/frontend-v2`
 - **Jangan commit, push, atau merge.** Commit dilakukan sendiri oleh Candra. Di akhir sesi, berikan daftar berkas yang berubah dan usulan pesan commit (format `feat(web): ...`, `fix(web): ...`, `docs(web): ...`). Kalau pekerjaannya lebih rapi dipecah, usulkan beberapa commit beserta berkasnya masing-masing
 - Jangan menjalankan `git add`, `git commit`, `git stash`, `git reset`, atau `git checkout` yang mengubah working tree
 
