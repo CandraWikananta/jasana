@@ -1,0 +1,1172 @@
+{
+  "A": {
+    "tokens": {
+      "background": {
+        "hex": "#FBFAF7",
+        "oklch": "oklch(0.985 0.004 91.4)"
+      },
+      "foreground": {
+        "hex": "#181612",
+        "oklch": "oklch(0.201 0.008 84.6)"
+      },
+      "card": {
+        "hex": "#FFFFFF",
+        "oklch": "oklch(1.000 0.000 0)"
+      },
+      "card-foreground": {
+        "hex": "#181612",
+        "oklch": "oklch(0.201 0.008 84.6)"
+      },
+      "popover": {
+        "hex": "#FFFFFF",
+        "oklch": "oklch(1.000 0.000 0)"
+      },
+      "popover-foreground": {
+        "hex": "#181612",
+        "oklch": "oklch(0.201 0.008 84.6)"
+      },
+      "muted": {
+        "hex": "#F5F3F0",
+        "oklch": "oklch(0.965 0.005 78.3)"
+      },
+      "muted-foreground": {
+        "hex": "#615D56",
+        "oklch": "oklch(0.480 0.012 81.8)"
+      },
+      "border": {
+        "hex": "#E6E4E2",
+        "oklch": "oklch(0.920 0.003 67.8)"
+      },
+      "input": {
+        "hex": "#8F8C87",
+        "oklch": "oklch(0.641 0.008 80.7)"
+      },
+      "primary": {
+        "hex": "#211F1C",
+        "oklch": "oklch(0.240 0.006 78.2)"
+      },
+      "primary-foreground": {
+        "hex": "#FFFFFF",
+        "oklch": "oklch(1.000 0.000 0)"
+      },
+      "primary-hover": {
+        "hex": "#3A3834",
+        "oklch": "oklch(0.341 0.007 84.6)"
+      },
+      "primary-subtle": {
+        "hex": "#EAE7E3",
+        "oklch": "oklch(0.929 0.006 75.4)"
+      },
+      "primary-subtle-foreground": {
+        "hex": "#484137",
+        "oklch": "oklch(0.379 0.019 76.8)"
+      },
+      "secondary": {
+        "hex": "#F1F0ED",
+        "oklch": "oklch(0.955 0.004 91.4)"
+      },
+      "secondary-foreground": {
+        "hex": "#181612",
+        "oklch": "oklch(0.201 0.008 84.6)"
+      },
+      "accent": {
+        "hex": "#F1F0ED",
+        "oklch": "oklch(0.955 0.004 91.4)"
+      },
+      "accent-foreground": {
+        "hex": "#181612",
+        "oklch": "oklch(0.201 0.008 84.6)"
+      },
+      "now": {
+        "hex": "#F9E03F",
+        "oklch": "oklch(0.901 0.170 100.0)"
+      },
+      "now-foreground": {
+        "hex": "#352E02",
+        "oklch": "oklch(0.300 0.060 99.8)"
+      },
+      "now-strong": {
+        "hex": "#726400",
+        "oklch": "oklch(0.501 0.104 99.7)"
+      },
+      "now-subtle": {
+        "hex": "#FBF4C5",
+        "oklch": "oklch(0.961 0.061 100.4)"
+      },
+      "now-subtle-foreground": {
+        "hex": "#5A4D00",
+        "oklch": "oklch(0.421 0.087 98.0)"
+      },
+      "destructive-foreground": {
+        "hex": "#FFFFFF",
+        "oklch": "oklch(1.000 0.000 0)"
+      },
+      "neutral": {
+        "hex": "#615D56",
+        "oklch": "oklch(0.480 0.012 81.8)"
+      },
+      "neutral-subtle": {
+        "hex": "#F1F0ED",
+        "oklch": "oklch(0.955 0.004 91.4)"
+      },
+      "neutral-subtle-foreground": {
+        "hex": "#46423B",
+        "oklch": "oklch(0.381 0.013 81.8)"
+      },
+      "ring": {
+        "hex": "#211F1C",
+        "oklch": "oklch(0.240 0.006 78.2)"
+      },
+      "warning": {
+        "hex": "#8B5700",
+        "oklch": "oklch(0.503 0.109 69.9)"
+      },
+      "warning-subtle": {
+        "hex": "#FFECCD",
+        "oklch": "oklch(0.950 0.046 80.1)"
+      },
+      "warning-subtle-foreground": {
+        "hex": "#704100",
+        "oklch": "oklch(0.422 0.094 65.4)"
+      },
+      "warning-surface": {
+        "hex": "#FEF7EE",
+        "oklch": "oklch(0.979 0.014 74.4)"
+      },
+      "warning-border": {
+        "hex": "#F4DAB2",
+        "oklch": "oklch(0.900 0.060 78.5)"
+      },
+      "info": {
+        "hex": "#0961BB",
+        "oklch": "oklch(0.499 0.160 255.1)"
+      },
+      "info-subtle": {
+        "hex": "#DBF1FF",
+        "oklch": "oklch(0.946 0.030 235.6)"
+      },
+      "info-subtle-foreground": {
+        "hex": "#154D8C",
+        "oklch": "oklch(0.421 0.119 254.6)"
+      },
+      "info-surface": {
+        "hex": "#F2F9FF",
+        "oklch": "oklch(0.979 0.011 243.6)"
+      },
+      "info-border": {
+        "hex": "#C4E1FF",
+        "oklch": "oklch(0.898 0.052 249.3)"
+      },
+      "success": {
+        "hex": "#007B2A",
+        "oklch": "oklch(0.508 0.151 147.0)"
+      },
+      "success-subtle": {
+        "hex": "#DAF8DF",
+        "oklch": "oklch(0.951 0.046 150.1)"
+      },
+      "success-subtle-foreground": {
+        "hex": "#005E26",
+        "oklch": "oklch(0.421 0.118 149.3)"
+      },
+      "success-surface": {
+        "hex": "#F2FCF3",
+        "oklch": "oklch(0.981 0.016 148.4)"
+      },
+      "success-border": {
+        "hex": "#C3EAC9",
+        "oklch": "oklch(0.900 0.060 149.5)"
+      },
+      "destructive": {
+        "hex": "#AC3031",
+        "oklch": "oklch(0.500 0.161 24.7)"
+      },
+      "destructive-subtle": {
+        "hex": "#FFE4DF",
+        "oklch": "oklch(0.939 0.031 30.2)"
+      },
+      "destructive-subtle-foreground": {
+        "hex": "#822B2A",
+        "oklch": "oklch(0.419 0.120 24.5)"
+      },
+      "destructive-surface": {
+        "hex": "#FFF5F3",
+        "oklch": "oklch(0.977 0.011 31.1)"
+      },
+      "destructive-border": {
+        "hex": "#FFCFCA",
+        "oklch": "oklch(0.895 0.055 25.2)"
+      }
+    },
+    "contrast": [
+      {
+        "label": "Teks utama di atas latar",
+        "fg": "#181612",
+        "bg": "#FBFAF7",
+        "ratio": 17.31,
+        "need": 4.5
+      },
+      {
+        "label": "Teks sekunder di atas kartu",
+        "fg": "#615D56",
+        "bg": "#FFFFFF",
+        "ratio": 6.55,
+        "need": 4.5
+      },
+      {
+        "label": "Teks sekunder di atas muted",
+        "fg": "#615D56",
+        "bg": "#F5F3F0",
+        "ratio": 5.91,
+        "need": 4.5
+      },
+      {
+        "label": "Teks putih di atas primary",
+        "fg": "#FFFFFF",
+        "bg": "#211F1C",
+        "ratio": 16.44,
+        "need": 4.5
+      },
+      {
+        "label": "Teks putih di atas primary hover",
+        "fg": "#FFFFFF",
+        "bg": "#3A3834",
+        "ratio": 11.7,
+        "need": 4.5
+      },
+      {
+        "label": "Primary sebagai tautan di atas latar",
+        "fg": "#211F1C",
+        "bg": "#FBFAF7",
+        "ratio": 15.75,
+        "need": 4.5
+      },
+      {
+        "label": "Teks di atas primary-subtle",
+        "fg": "#484137",
+        "bg": "#EAE7E3",
+        "ratio": 8.16,
+        "need": 4.5
+      },
+      {
+        "label": "Teks di atas aksen Sekarang",
+        "fg": "#352E02",
+        "bg": "#F9E03F",
+        "ratio": 10.21,
+        "need": 4.5
+      },
+      {
+        "label": "Sekarang-kuat di atas putih",
+        "fg": "#726400",
+        "bg": "#FFFFFF",
+        "ratio": 5.93,
+        "need": 4.5
+      },
+      {
+        "label": "Teks di atas Sekarang-subtle",
+        "fg": "#5A4D00",
+        "bg": "#FBF4C5",
+        "ratio": 7.55,
+        "need": 4.5
+      },
+      {
+        "label": "Garis input di atas putih (batas komponen)",
+        "fg": "#8F8C87",
+        "bg": "#FFFFFF",
+        "ratio": 3.35,
+        "need": 3
+      },
+      {
+        "label": "Teks putih di atas destructive (tombol)",
+        "fg": "#FFFFFF",
+        "bg": "#AC3031",
+        "ratio": 6.52,
+        "need": 4.5
+      },
+      {
+        "label": "Badge peringatan: teks di atas subtle",
+        "fg": "#704100",
+        "bg": "#FFECCD",
+        "ratio": 7.42,
+        "need": 4.5
+      },
+      {
+        "label": "Alert peringatan: teks di atas surface",
+        "fg": "#704100",
+        "bg": "#FEF7EE",
+        "ratio": 8.08,
+        "need": 4.5
+      },
+      {
+        "label": "Alert peringatan: ikon di atas surface",
+        "fg": "#8B5700",
+        "bg": "#FEF7EE",
+        "ratio": 5.71,
+        "need": 3
+      },
+      {
+        "label": "Badge info: teks di atas subtle",
+        "fg": "#154D8C",
+        "bg": "#DBF1FF",
+        "ratio": 7.3,
+        "need": 4.5
+      },
+      {
+        "label": "Alert info: teks di atas surface",
+        "fg": "#154D8C",
+        "bg": "#F2F9FF",
+        "ratio": 8,
+        "need": 4.5
+      },
+      {
+        "label": "Alert info: ikon di atas surface",
+        "fg": "#0961BB",
+        "bg": "#F2F9FF",
+        "ratio": 5.75,
+        "need": 3
+      },
+      {
+        "label": "Badge sukses: teks di atas subtle",
+        "fg": "#005E26",
+        "bg": "#DAF8DF",
+        "ratio": 7.03,
+        "need": 4.5
+      },
+      {
+        "label": "Alert sukses: teks di atas surface",
+        "fg": "#005E26",
+        "bg": "#F2FCF3",
+        "ratio": 7.6,
+        "need": 4.5
+      },
+      {
+        "label": "Alert sukses: ikon di atas surface",
+        "fg": "#007B2A",
+        "bg": "#F2FCF3",
+        "ratio": 5.17,
+        "need": 3
+      },
+      {
+        "label": "Badge bahaya: teks di atas subtle",
+        "fg": "#822B2A",
+        "bg": "#FFE4DF",
+        "ratio": 7.48,
+        "need": 4.5
+      },
+      {
+        "label": "Alert bahaya: teks di atas surface",
+        "fg": "#822B2A",
+        "bg": "#FFF5F3",
+        "ratio": 8.42,
+        "need": 4.5
+      },
+      {
+        "label": "Alert bahaya: ikon di atas surface",
+        "fg": "#AC3031",
+        "bg": "#FFF5F3",
+        "ratio": 6.09,
+        "need": 3
+      },
+      {
+        "label": "Teks putih di atas aksen Sekarang",
+        "fg": "#FFFFFF",
+        "bg": "#F9E03F",
+        "ratio": 1.33,
+        "need": 4.5,
+        "note": "Dilarang"
+      },
+      {
+        "label": "Aksen Sekarang sebagai teks di atas putih",
+        "fg": "#F9E03F",
+        "bg": "#FFFFFF",
+        "ratio": 1.33,
+        "need": 4.5,
+        "note": "Dilarang"
+      }
+    ],
+    "paleDelta": {
+      "warning-subtle vs destructive-subtle": 0.036,
+      "warning-surface vs destructive-surface": 0.01
+    }
+  },
+  "B": {
+    "tokens": {
+      "background": {
+        "hex": "#F6FBFC",
+        "oklch": "oklch(0.985 0.005 211.0)"
+      },
+      "foreground": {
+        "hex": "#101818",
+        "oklch": "oklch(0.201 0.012 196.2)"
+      },
+      "card": {
+        "hex": "#FFFFFF",
+        "oklch": "oklch(1.000 0.000 0)"
+      },
+      "card-foreground": {
+        "hex": "#101818",
+        "oklch": "oklch(0.201 0.012 196.2)"
+      },
+      "popover": {
+        "hex": "#FFFFFF",
+        "oklch": "oklch(1.000 0.000 0)"
+      },
+      "popover-foreground": {
+        "hex": "#101818",
+        "oklch": "oklch(0.201 0.012 196.2)"
+      },
+      "muted": {
+        "hex": "#EFF5F5",
+        "oklch": "oklch(0.966 0.006 197.1)"
+      },
+      "muted-foreground": {
+        "hex": "#526162",
+        "oklch": "oklch(0.480 0.018 201.5)"
+      },
+      "border": {
+        "hex": "#E0E6E6",
+        "oklch": "oklch(0.920 0.006 197.0)"
+      },
+      "input": {
+        "hex": "#848E8F",
+        "oklch": "oklch(0.639 0.012 204.1)"
+      },
+      "primary": {
+        "hex": "#006871",
+        "oklch": "oklch(0.472 0.081 205.2)"
+      },
+      "primary-foreground": {
+        "hex": "#FFFFFF",
+        "oklch": "oklch(1.000 0.000 0)"
+      },
+      "primary-hover": {
+        "hex": "#00535B",
+        "oklch": "oklch(0.404 0.069 206.0)"
+      },
+      "primary-subtle": {
+        "hex": "#DCF8FB",
+        "oklch": "oklch(0.960 0.029 204.5)"
+      },
+      "primary-subtle-foreground": {
+        "hex": "#004C53",
+        "oklch": "oklch(0.380 0.065 205.4)"
+      },
+      "secondary": {
+        "hex": "#ECF1F2",
+        "oklch": "oklch(0.955 0.006 211.0)"
+      },
+      "secondary-foreground": {
+        "hex": "#101818",
+        "oklch": "oklch(0.201 0.012 196.2)"
+      },
+      "accent": {
+        "hex": "#ECF1F2",
+        "oklch": "oklch(0.955 0.006 211.0)"
+      },
+      "accent-foreground": {
+        "hex": "#101818",
+        "oklch": "oklch(0.201 0.012 196.2)"
+      },
+      "now": {
+        "hex": "#FF9044",
+        "oklch": "oklch(0.760 0.160 52.0)"
+      },
+      "now-foreground": {
+        "hex": "#441B06",
+        "oklch": "oklch(0.279 0.071 45.0)"
+      },
+      "now-strong": {
+        "hex": "#AB4400",
+        "oklch": "oklch(0.519 0.150 44.5)"
+      },
+      "now-subtle": {
+        "hex": "#FFE7CD",
+        "oklch": "oklch(0.941 0.043 69.5)"
+      },
+      "now-subtle-foreground": {
+        "hex": "#763A0D",
+        "oklch": "oklch(0.419 0.100 51.7)"
+      },
+      "destructive-foreground": {
+        "hex": "#FFFFFF",
+        "oklch": "oklch(1.000 0.000 0)"
+      },
+      "neutral": {
+        "hex": "#526162",
+        "oklch": "oklch(0.480 0.018 201.5)"
+      },
+      "neutral-subtle": {
+        "hex": "#ECF1F2",
+        "oklch": "oklch(0.955 0.006 211.0)"
+      },
+      "neutral-subtle-foreground": {
+        "hex": "#374546",
+        "oklch": "oklch(0.379 0.018 201.8)"
+      },
+      "ring": {
+        "hex": "#006871",
+        "oklch": "oklch(0.472 0.081 205.2)"
+      },
+      "warning": {
+        "hex": "#825C00",
+        "oklch": "oklch(0.502 0.104 80.5)"
+      },
+      "warning-subtle": {
+        "hex": "#FBEDCD",
+        "oklch": "oklch(0.949 0.044 87.2)"
+      },
+      "warning-subtle-foreground": {
+        "hex": "#684700",
+        "oklch": "oklch(0.424 0.088 78.4)"
+      },
+      "warning-surface": {
+        "hex": "#FDF8ED",
+        "oklch": "oklch(0.980 0.015 86.4)"
+      },
+      "warning-border": {
+        "hex": "#EFDCB1",
+        "oklch": "oklch(0.899 0.060 87.0)"
+      },
+      "info": {
+        "hex": "#255EBC",
+        "oklch": "oklch(0.499 0.160 260.0)"
+      },
+      "info-subtle": {
+        "hex": "#DDF0FF",
+        "oklch": "oklch(0.946 0.029 241.6)"
+      },
+      "info-subtle-foreground": {
+        "hex": "#224A8D",
+        "oklch": "oklch(0.419 0.120 260.1)"
+      },
+      "info-surface": {
+        "hex": "#F3F9FF",
+        "oklch": "oklch(0.979 0.010 247.9)"
+      },
+      "info-border": {
+        "hex": "#C7DFFF",
+        "oklch": "oklch(0.896 0.051 255.7)"
+      },
+      "success": {
+        "hex": "#007A25",
+        "oklch": "oklch(0.504 0.154 146.1)"
+      },
+      "success-subtle": {
+        "hex": "#DBF7DE",
+        "oklch": "oklch(0.949 0.044 148.3)"
+      },
+      "success-subtle-foreground": {
+        "hex": "#035E23",
+        "oklch": "oklch(0.421 0.120 148.1)"
+      },
+      "success-surface": {
+        "hex": "#F2FBF3",
+        "oklch": "oklch(0.979 0.014 148.8)"
+      },
+      "success-border": {
+        "hex": "#C4EAC8",
+        "oklch": "oklch(0.901 0.061 148.0)"
+      },
+      "destructive": {
+        "hex": "#AC2F3B",
+        "oklch": "oklch(0.501 0.161 20.1)"
+      },
+      "destructive-subtle": {
+        "hex": "#FFE3E2",
+        "oklch": "oklch(0.938 0.031 20.2)"
+      },
+      "destructive-subtle-foreground": {
+        "hex": "#822B31",
+        "oklch": "oklch(0.421 0.120 19.9)"
+      },
+      "destructive-surface": {
+        "hex": "#FFF5F4",
+        "oklch": "oklch(0.978 0.011 24.3)"
+      },
+      "destructive-border": {
+        "hex": "#FFCFCE",
+        "oklch": "oklch(0.896 0.054 19.6)"
+      }
+    },
+    "contrast": [
+      {
+        "label": "Teks utama di atas latar",
+        "fg": "#101818",
+        "bg": "#F6FBFC",
+        "ratio": 17.26,
+        "need": 4.5
+      },
+      {
+        "label": "Teks sekunder di atas kartu",
+        "fg": "#526162",
+        "bg": "#FFFFFF",
+        "ratio": 6.47,
+        "need": 4.5
+      },
+      {
+        "label": "Teks sekunder di atas muted",
+        "fg": "#526162",
+        "bg": "#EFF5F5",
+        "ratio": 5.87,
+        "need": 4.5
+      },
+      {
+        "label": "Teks putih di atas primary",
+        "fg": "#FFFFFF",
+        "bg": "#006871",
+        "ratio": 6.52,
+        "need": 4.5
+      },
+      {
+        "label": "Teks putih di atas primary hover",
+        "fg": "#FFFFFF",
+        "bg": "#00535B",
+        "ratio": 8.79,
+        "need": 4.5
+      },
+      {
+        "label": "Primary sebagai tautan di atas latar",
+        "fg": "#006871",
+        "bg": "#F6FBFC",
+        "ratio": 6.25,
+        "need": 4.5
+      },
+      {
+        "label": "Teks di atas primary-subtle",
+        "fg": "#004C53",
+        "bg": "#DCF8FB",
+        "ratio": 8.74,
+        "need": 4.5
+      },
+      {
+        "label": "Teks di atas aksen Sekarang",
+        "fg": "#441B06",
+        "bg": "#FF9044",
+        "ratio": 6.64,
+        "need": 4.5
+      },
+      {
+        "label": "Sekarang-kuat di atas putih",
+        "fg": "#AB4400",
+        "bg": "#FFFFFF",
+        "ratio": 5.9,
+        "need": 4.5
+      },
+      {
+        "label": "Teks di atas Sekarang-subtle",
+        "fg": "#763A0D",
+        "bg": "#FFE7CD",
+        "ratio": 7.38,
+        "need": 4.5
+      },
+      {
+        "label": "Garis input di atas putih (batas komponen)",
+        "fg": "#848E8F",
+        "bg": "#FFFFFF",
+        "ratio": 3.36,
+        "need": 3
+      },
+      {
+        "label": "Teks putih di atas destructive (tombol)",
+        "fg": "#FFFFFF",
+        "bg": "#AC2F3B",
+        "ratio": 6.51,
+        "need": 4.5
+      },
+      {
+        "label": "Badge peringatan: teks di atas subtle",
+        "fg": "#684700",
+        "bg": "#FBEDCD",
+        "ratio": 7.27,
+        "need": 4.5
+      },
+      {
+        "label": "Alert peringatan: teks di atas surface",
+        "fg": "#684700",
+        "bg": "#FDF8ED",
+        "ratio": 7.96,
+        "need": 4.5
+      },
+      {
+        "label": "Alert peringatan: ikon di atas surface",
+        "fg": "#825C00",
+        "bg": "#FDF8ED",
+        "ratio": 5.7,
+        "need": 3
+      },
+      {
+        "label": "Badge info: teks di atas subtle",
+        "fg": "#224A8D",
+        "bg": "#DDF0FF",
+        "ratio": 7.39,
+        "need": 4.5
+      },
+      {
+        "label": "Alert info: teks di atas surface",
+        "fg": "#224A8D",
+        "bg": "#F3F9FF",
+        "ratio": 8.14,
+        "need": 4.5
+      },
+      {
+        "label": "Alert info: ikon di atas surface",
+        "fg": "#255EBC",
+        "bg": "#F3F9FF",
+        "ratio": 5.81,
+        "need": 3
+      },
+      {
+        "label": "Badge sukses: teks di atas subtle",
+        "fg": "#035E23",
+        "bg": "#DBF7DE",
+        "ratio": 6.99,
+        "need": 4.5
+      },
+      {
+        "label": "Alert sukses: teks di atas surface",
+        "fg": "#035E23",
+        "bg": "#F2FBF3",
+        "ratio": 7.56,
+        "need": 4.5
+      },
+      {
+        "label": "Alert sukses: ikon di atas surface",
+        "fg": "#007A25",
+        "bg": "#F2FBF3",
+        "ratio": 5.21,
+        "need": 3
+      },
+      {
+        "label": "Badge bahaya: teks di atas subtle",
+        "fg": "#822B31",
+        "bg": "#FFE3E2",
+        "ratio": 7.41,
+        "need": 4.5
+      },
+      {
+        "label": "Alert bahaya: teks di atas surface",
+        "fg": "#822B31",
+        "bg": "#FFF5F4",
+        "ratio": 8.39,
+        "need": 4.5
+      },
+      {
+        "label": "Alert bahaya: ikon di atas surface",
+        "fg": "#AC2F3B",
+        "bg": "#FFF5F4",
+        "ratio": 6.09,
+        "need": 3
+      },
+      {
+        "label": "Teks putih di atas aksen Sekarang",
+        "fg": "#FFFFFF",
+        "bg": "#FF9044",
+        "ratio": 2.25,
+        "need": 4.5,
+        "note": "Dilarang"
+      },
+      {
+        "label": "Aksen Sekarang sebagai teks di atas putih",
+        "fg": "#FF9044",
+        "bg": "#FFFFFF",
+        "ratio": 2.25,
+        "need": 4.5,
+        "note": "Dilarang"
+      }
+    ],
+    "paleDelta": {
+      "warning-subtle vs destructive-subtle": 0.044,
+      "warning-surface vs destructive-surface": 0.014
+    }
+  },
+  "C": {
+    "tokens": {
+      "background": {
+        "hex": "#F8FAFD",
+        "oklch": "oklch(0.984 0.005 258.3)"
+      },
+      "foreground": {
+        "hex": "#13161B",
+        "oklch": "oklch(0.199 0.011 260.7)"
+      },
+      "card": {
+        "hex": "#FFFFFF",
+        "oklch": "oklch(1.000 0.000 0)"
+      },
+      "card-foreground": {
+        "hex": "#13161B",
+        "oklch": "oklch(0.199 0.011 260.7)"
+      },
+      "popover": {
+        "hex": "#FFFFFF",
+        "oklch": "oklch(1.000 0.000 0)"
+      },
+      "popover-foreground": {
+        "hex": "#13161B",
+        "oklch": "oklch(0.199 0.011 260.7)"
+      },
+      "muted": {
+        "hex": "#F1F4F7",
+        "oklch": "oklch(0.966 0.005 247.9)"
+      },
+      "muted-foreground": {
+        "hex": "#585E66",
+        "oklch": "oklch(0.479 0.015 255.6)"
+      },
+      "border": {
+        "hex": "#E2E5E8",
+        "oklch": "oklch(0.920 0.005 247.9)"
+      },
+      "input": {
+        "hex": "#888D92",
+        "oklch": "oklch(0.641 0.009 248.0)"
+      },
+      "primary": {
+        "hex": "#2256BB",
+        "oklch": "oklch(0.480 0.169 261.9)"
+      },
+      "primary-foreground": {
+        "hex": "#FFFFFF",
+        "oklch": "oklch(1.000 0.000 0)"
+      },
+      "primary-hover": {
+        "hex": "#12429F",
+        "oklch": "oklch(0.410 0.160 261.9)"
+      },
+      "primary-subtle": {
+        "hex": "#E7F2FF",
+        "oklch": "oklch(0.957 0.021 252.5)"
+      },
+      "primary-subtle-foreground": {
+        "hex": "#153C89",
+        "oklch": "oklch(0.379 0.136 262.0)"
+      },
+      "secondary": {
+        "hex": "#EEF0F3",
+        "oklch": "oklch(0.954 0.005 258.3)"
+      },
+      "secondary-foreground": {
+        "hex": "#13161B",
+        "oklch": "oklch(0.199 0.011 260.7)"
+      },
+      "accent": {
+        "hex": "#EEF0F3",
+        "oklch": "oklch(0.954 0.005 258.3)"
+      },
+      "accent-foreground": {
+        "hex": "#13161B",
+        "oklch": "oklch(0.199 0.011 260.7)"
+      },
+      "now": {
+        "hex": "#B9F55D",
+        "oklch": "oklch(0.900 0.190 128.1)"
+      },
+      "now-foreground": {
+        "hex": "#203B0C",
+        "oklch": "oklch(0.319 0.079 134.6)"
+      },
+      "now-strong": {
+        "hex": "#40731A",
+        "oklch": "oklch(0.501 0.131 135.0)"
+      },
+      "now-subtle": {
+        "hex": "#E6FACF",
+        "oklch": "oklch(0.959 0.060 127.8)"
+      },
+      "now-subtle-foreground": {
+        "hex": "#3D5710",
+        "oklch": "oklch(0.421 0.100 128.1)"
+      },
+      "destructive-foreground": {
+        "hex": "#FFFFFF",
+        "oklch": "oklch(1.000 0.000 0)"
+      },
+      "neutral": {
+        "hex": "#585E66",
+        "oklch": "oklch(0.479 0.015 255.6)"
+      },
+      "neutral-subtle": {
+        "hex": "#EEF0F3",
+        "oklch": "oklch(0.954 0.005 258.3)"
+      },
+      "neutral-subtle-foreground": {
+        "hex": "#3D434A",
+        "oklch": "oklch(0.380 0.014 252.3)"
+      },
+      "ring": {
+        "hex": "#2256BB",
+        "oklch": "oklch(0.480 0.169 261.9)"
+      },
+      "warning": {
+        "hex": "#915200",
+        "oklch": "oklch(0.502 0.115 62.3)"
+      },
+      "warning-subtle": {
+        "hex": "#FFEACF",
+        "oklch": "oklch(0.947 0.042 74.2)"
+      },
+      "warning-subtle-foreground": {
+        "hex": "#753D00",
+        "oklch": "oklch(0.422 0.101 58.3)"
+      },
+      "warning-surface": {
+        "hex": "#FFF7EE",
+        "oklch": "oklch(0.980 0.015 70.9)"
+      },
+      "warning-border": {
+        "hex": "#F8D8B4",
+        "oklch": "oklch(0.900 0.059 70.3)"
+      },
+      "info": {
+        "hex": "#00769B",
+        "oklch": "oklch(0.529 0.104 228.8)"
+      },
+      "info-subtle": {
+        "hex": "#CDF7FF",
+        "oklch": "oklch(0.949 0.044 210.5)"
+      },
+      "info-subtle-foreground": {
+        "hex": "#005B75",
+        "oklch": "oklch(0.439 0.084 225.7)"
+      },
+      "info-surface": {
+        "hex": "#EEFBFF",
+        "oklch": "oklch(0.980 0.015 218.0)"
+      },
+      "info-border": {
+        "hex": "#B1E9F7",
+        "oklch": "oklch(0.900 0.060 214.8)"
+      },
+      "success": {
+        "hex": "#007C3D",
+        "oklch": "oklch(0.513 0.135 151.9)"
+      },
+      "success-subtle": {
+        "hex": "#D6F8E3",
+        "oklch": "oklch(0.949 0.045 158.3)"
+      },
+      "success-subtle-foreground": {
+        "hex": "#005F32",
+        "oklch": "oklch(0.426 0.107 154.1)"
+      },
+      "success-surface": {
+        "hex": "#F1FCF5",
+        "oklch": "oklch(0.981 0.015 158.3)"
+      },
+      "success-border": {
+        "hex": "#BEEBCF",
+        "oklch": "oklch(0.901 0.060 157.6)"
+      },
+      "destructive": {
+        "hex": "#AC3031",
+        "oklch": "oklch(0.500 0.161 24.7)"
+      },
+      "destructive-subtle": {
+        "hex": "#FFE4DF",
+        "oklch": "oklch(0.939 0.031 30.2)"
+      },
+      "destructive-subtle-foreground": {
+        "hex": "#822B2A",
+        "oklch": "oklch(0.419 0.120 24.5)"
+      },
+      "destructive-surface": {
+        "hex": "#FFF5F3",
+        "oklch": "oklch(0.977 0.011 31.1)"
+      },
+      "destructive-border": {
+        "hex": "#FFCFCA",
+        "oklch": "oklch(0.895 0.055 25.2)"
+      }
+    },
+    "contrast": [
+      {
+        "label": "Teks utama di atas latar",
+        "fg": "#13161B",
+        "bg": "#F8FAFD",
+        "ratio": 17.34,
+        "need": 4.5
+      },
+      {
+        "label": "Teks sekunder di atas kartu",
+        "fg": "#585E66",
+        "bg": "#FFFFFF",
+        "ratio": 6.55,
+        "need": 4.5
+      },
+      {
+        "label": "Teks sekunder di atas muted",
+        "fg": "#585E66",
+        "bg": "#F1F4F7",
+        "ratio": 5.93,
+        "need": 4.5
+      },
+      {
+        "label": "Teks putih di atas primary",
+        "fg": "#FFFFFF",
+        "bg": "#2256BB",
+        "ratio": 6.74,
+        "need": 4.5
+      },
+      {
+        "label": "Teks putih di atas primary hover",
+        "fg": "#FFFFFF",
+        "bg": "#12429F",
+        "ratio": 9.11,
+        "need": 4.5
+      },
+      {
+        "label": "Primary sebagai tautan di atas latar",
+        "fg": "#2256BB",
+        "bg": "#F8FAFD",
+        "ratio": 6.44,
+        "need": 4.5
+      },
+      {
+        "label": "Teks di atas primary-subtle",
+        "fg": "#153C89",
+        "bg": "#E7F2FF",
+        "ratio": 9.09,
+        "need": 4.5
+      },
+      {
+        "label": "Teks di atas aksen Sekarang",
+        "fg": "#203B0C",
+        "bg": "#B9F55D",
+        "ratio": 9.62,
+        "need": 4.5
+      },
+      {
+        "label": "Sekarang-kuat di atas putih",
+        "fg": "#40731A",
+        "bg": "#FFFFFF",
+        "ratio": 5.7,
+        "need": 4.5
+      },
+      {
+        "label": "Teks di atas Sekarang-subtle",
+        "fg": "#3D5710",
+        "bg": "#E6FACF",
+        "ratio": 7.37,
+        "need": 4.5
+      },
+      {
+        "label": "Garis input di atas putih (batas komponen)",
+        "fg": "#888D92",
+        "bg": "#FFFFFF",
+        "ratio": 3.35,
+        "need": 3
+      },
+      {
+        "label": "Teks putih di atas destructive (tombol)",
+        "fg": "#FFFFFF",
+        "bg": "#AC3031",
+        "ratio": 6.52,
+        "need": 4.5
+      },
+      {
+        "label": "Badge peringatan: teks di atas subtle",
+        "fg": "#753D00",
+        "bg": "#FFEACF",
+        "ratio": 7.39,
+        "need": 4.5
+      },
+      {
+        "label": "Alert peringatan: teks di atas surface",
+        "fg": "#753D00",
+        "bg": "#FFF7EE",
+        "ratio": 8.16,
+        "need": 4.5
+      },
+      {
+        "label": "Alert peringatan: ikon di atas surface",
+        "fg": "#915200",
+        "bg": "#FFF7EE",
+        "ratio": 5.8,
+        "need": 3
+      },
+      {
+        "label": "Badge info: teks di atas subtle",
+        "fg": "#005B75",
+        "bg": "#CDF7FF",
+        "ratio": 6.66,
+        "need": 4.5
+      },
+      {
+        "label": "Alert info: teks di atas surface",
+        "fg": "#005B75",
+        "bg": "#EEFBFF",
+        "ratio": 7.22,
+        "need": 4.5
+      },
+      {
+        "label": "Alert info: ikon di atas surface",
+        "fg": "#00769B",
+        "bg": "#EEFBFF",
+        "ratio": 4.89,
+        "need": 3
+      },
+      {
+        "label": "Badge sukses: teks di atas subtle",
+        "fg": "#005F32",
+        "bg": "#D6F8E3",
+        "ratio": 6.86,
+        "need": 4.5
+      },
+      {
+        "label": "Alert sukses: teks di atas surface",
+        "fg": "#005F32",
+        "bg": "#F1FCF5",
+        "ratio": 7.45,
+        "need": 4.5
+      },
+      {
+        "label": "Alert sukses: ikon di atas surface",
+        "fg": "#007C3D",
+        "bg": "#F1FCF5",
+        "ratio": 5.06,
+        "need": 3
+      },
+      {
+        "label": "Badge bahaya: teks di atas subtle",
+        "fg": "#822B2A",
+        "bg": "#FFE4DF",
+        "ratio": 7.48,
+        "need": 4.5
+      },
+      {
+        "label": "Alert bahaya: teks di atas surface",
+        "fg": "#822B2A",
+        "bg": "#FFF5F3",
+        "ratio": 8.42,
+        "need": 4.5
+      },
+      {
+        "label": "Alert bahaya: ikon di atas surface",
+        "fg": "#AC3031",
+        "bg": "#FFF5F3",
+        "ratio": 6.09,
+        "need": 3
+      },
+      {
+        "label": "Teks putih di atas aksen Sekarang",
+        "fg": "#FFFFFF",
+        "bg": "#B9F55D",
+        "ratio": 1.29,
+        "need": 4.5,
+        "note": "Dilarang"
+      },
+      {
+        "label": "Aksen Sekarang sebagai teks di atas putih",
+        "fg": "#B9F55D",
+        "bg": "#FFFFFF",
+        "ratio": 1.29,
+        "need": 4.5,
+        "note": "Dilarang"
+      }
+    ],
+    "paleDelta": {
+      "warning-subtle vs destructive-subtle": 0.03,
+      "warning-surface vs destructive-surface": 0.01
+    }
+  }
+}
