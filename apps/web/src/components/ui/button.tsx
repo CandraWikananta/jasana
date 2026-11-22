@@ -27,7 +27,7 @@ const buttonVariants = cva(
       },
       size: {
         sm: "h-9 px-3 text-sm [&_svg:not([class*='size-'])]:size-4",
-        md: "h-10 px-5 text-sm",
+        md: "h-11 px-5 text-sm",
         lg: "h-12 px-6 text-base",
       },
     },

@@ -62,7 +62,7 @@ function SearchForm({ defaultValue }: { defaultValue?: string }) {
           className="pl-10"
         />
       </div>
-      <Button type="submit" variant="secondary" className="h-11">
+      <Button type="submit" variant="secondary">
         Cari
       </Button>
     </form>

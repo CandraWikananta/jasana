@@ -36,7 +36,6 @@ export function EmailVerificationBanner() {
         </div>
         <Button
           variant="outline"
-          size="sm"
           loading={resend.isPending}
           disabled={resend.isSuccess}
           onClick={() => resend.mutate()}

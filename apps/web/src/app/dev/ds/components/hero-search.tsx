@@ -57,7 +57,7 @@ export function HeroSearch() {
             ))}
           </SelectContent>
         </Select>
-        <Button type="submit" size="lg" className="h-11">
+        <Button type="submit">
           <Search aria-hidden />
           Cari jasa
         </Button>

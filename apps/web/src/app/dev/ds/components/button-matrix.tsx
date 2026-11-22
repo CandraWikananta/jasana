@@ -58,7 +58,7 @@ export function ButtonMatrix() {
             <li key={size} className="flex flex-col items-start gap-1.5">
               <Button size={size}>Pesan jasa</Button>
               <span className="text-xs font-medium text-muted-foreground">
-                {size} {size === "sm" ? "36" : size === "md" ? "40" : "48"} px
+                {size} {size === "sm" ? "36 px, usaha dan admin saja (D252)" : size === "md" ? "44 px" : "48 px"}
               </span>
             </li>
           ))}

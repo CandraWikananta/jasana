@@ -56,7 +56,7 @@ export default function BerandaPage() {
                 placeholder="Servis motor, rias pengantin, foto produk…"
                 className="sm:flex-1"
               />
-              <Button type="submit" size="lg" className="h-11">
+              <Button type="submit">
                 <Search aria-hidden />
                 Cari jasa
               </Button>
