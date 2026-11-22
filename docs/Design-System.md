@@ -2,7 +2,7 @@
 
 **Artefak frontend 2 dari 4**
 Platform Jasana, Tugas Akhir I Nyoman Gede Candra Wikananta (2305551065)
-**Versi 2.1 (disetujui)**, 22 November 2026
+**Versi 2.2 (disetujui)**, 22 November 2026
 
 Dokumen ini menetapkan bahasa visual dan bahasa teks seluruh antarmuka Jasana: warna, tipografi, jarak, komponen, label status, format angka dan waktu, serta glosarium. Tujuannya satu: **empat area (publik dan client, usaha, pekerja, admin) terlihat dan terbaca seperti satu produk**, walaupun dibangun dalam belasan sesi Claude Code yang terpisah.
 
@@ -220,6 +220,7 @@ Angka dibulatkan dua desimal, tidak dipotong.
 | `body` | 16 / 24 px | 400 | Teks utama, **seluruh input** |
 | `body-sm` | 14 / 20 px | 400 | Teks sekunder, isi tabel, deskripsi kartu |
 | `caption` | 12 / 16 px | 500 (600 di badge) | Label kecil, metadata, keterangan di bawah input, teks badge |
+| `logo` | 22 / 28 px | 700 | Teks "Jasana" di samping ikon logo, di header publik, halaman masuk, sidebar, dan header pekerja (D251, Bagian 5) |
 | `code-xl` | 32 / 40 px | 700, `tabular-nums`, jarak huruf 0,2em | Kode verifikasi 6 digit di layar client. Kelas: `text-code-xl tracking-code font-bold tabular-nums` |
 
 Aturan:
@@ -280,6 +281,7 @@ Aturan:
 
 | Aspek | Ketentuan |
 |---|---|
+| Logo | Ikon `public/brand/jasana-mark.svg` (huruf J dengan kotak hijau; warnanya `#1C1917` dan `#22C55E` tertanam di berkas, sama dengan `--primary` dan `--brand`) diikuti teks "Jasana". **Header publik, halaman masuk, sidebar, dan header pekerja:** ikon tinggi 28 px, jarak 8 px, teks `text-logo` (22 px, bobot 700). **Footer:** ikon 20 px, teks `text-h3` bobot 700. Ikon dekoratif (`alt=""`), nama dibawa teks dengan `translate="no"`. SVG dipasang lewat `<img>` atau `next/image` dengan `unoptimized`. Ikon tidak diwarnai ulang lewat CSS. Favicon: `src/app/icon.svg` (versi berkanvas persegi); `favicon.ico` bawaan Next dihapus (D251) |
 | Set ikon | **`lucide-react` saja**, nama ikon sesuai katalog lucide. Tidak mencampur set ikon lain, tidak menggambar ikon sendiri, dan tidak memakai emoji sebagai ikon. Di luar kode React (mockup, dokumen), pakai SVG asli dari paket `lucide-static` dengan nama yang sama |
 | Bintang rating | Ikon `Star` terisi `--rating` dengan garis `--rating-stroke`, selalu diikuti angka (Bagian 1.4c) |
 | Ukuran | 16 px di dalam teks, 20 px di tombol, 24 px di navigasi |
@@ -761,6 +763,9 @@ Ganti isi `src/app/globals.css` dengan isi berikut. Tailwind v4 memakai konfigur
   --text-h3: 1.125rem;
   --text-h3--line-height: 1.625rem;
 
+  --text-logo: 1.375rem;
+  --text-logo--line-height: 1.75rem;
+
   --text-code-xl: 2rem;
   --text-code-xl--line-height: 2.5rem;
   --tracking-code: 0.2em;
@@ -855,6 +860,7 @@ Untuk sesi Claude Code yang memindahkan kode W0 dan W2 ke v2.1. Struktur kompone
 | Formulir | Atribut field Bagian 6.1b, fokus ke error pertama, error `body-sm` 500 (D248) |
 | Layout | Tautan "Lewati ke konten" (D248) |
 | `EscrowNote` | Komponen domain baru (D250) |
+| Logo | Ikon `jasana-mark.svg` + teks `text-logo` di semua header, ukuran footer sesuai Bagian 5. Favicon `src/app/icon.svg`, `favicon.ico` bawaan dihapus (D251) |
 | `/dev/ui` | Tambah bagian penanda aktif (Bagian 6.4) dan state tombol |
 | `check-design-tokens.mjs` | Tambah aturan: `text-brand` dan `text-white` bersamaan `bg-brand` dilarang, `border-l-brand` dan `max-w-prose` dilarang |
 
@@ -875,3 +881,4 @@ Untuk sesi Claude Code yang memindahkan kode W0 dan W2 ke v2.1. Struktur kompone
 | 1.6 | 19 November 2026 | Hasil W0 bagian 4. Label lengkap untuk status komplain (termasuk `CLOSED`), pencairan, pengembalian dana, dan notifikasi email di Bagian 7.2, seluruhnya lewat `EnumBadge` (D239) |
 | 2.0 | 21 November 2026 | **Palet baru dari tinjauan mockup 05f.** Primary jadi hitam hangat `#1C1917` untuk aksi. Hijau terang `#22C55E` jadi secondary dengan token `--brand` untuk yang terpilih, aktif, dan sedang terjadi, termasuk mode Sekarang yang kini dibedakan lewat bentuk. Token lime `--now*` dan `--primary-subtle*` dihapus. Status berhasil jadi teal `#0F766E`. Bintang rating kuning. Menu aktif solid hijau (pilihan H). Bagian baru 1.3b, 1.4c, 6.4 (penanda aktif dan state tombol), dan 14 (migrasi dari v1.6). Cincin fokus hitam |
 | 2.1 | 22 November 2026 | **Hasil review dengan empat skill desain** terhadap `/dev/ds` (D242 sampai D250). Palet tetap. Penanda mode Sekarang tanpa garis tepi kiri, memakai badge yang sama di semua tempat (D242). Menu, tab, dan navigasi bawah aktif jadi pucat (D243). Switch menyala `--brand-hover` (D244). `SETTLED` jadi "Dana cair" (D245). `ListingCard` hanya menandai mode Sekarang (D246). Skala tipografi baru dan lebar baris (D247). Bagian baru 6.1b (atribut field), aturan formulir, aksesibilitas, dan gerak (D248). Aturan dua lapis kotak, aturan bentuk, dan nada judul (D249). Komponen `EscrowNote` (D250). Koreksi angka kontras di 1.5, penanda grafis yang dibenarkan, state `secondary`, `ghost`, `destructive`, chip filter, dan token `--destructive-hover` |
+| 2.2 | 22 November 2026 | Logo Jasana (D251): ikon `jasana-mark.svg` diikuti teks "Jasana" dengan token baru `text-logo` (22/28 px, 700), ukuran per tempat di Bagian 5, favicon `src/app/icon.svg` |
