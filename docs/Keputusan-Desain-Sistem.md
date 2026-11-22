@@ -4,9 +4,9 @@
 **Nama sistem:** Jasana
 **Penyusun:** I Nyoman Gede Candra Wikananta (2305551065)
 **Bidang Keahlian:** Sistem Informasi, Teknologi Informasi, Universitas Udayana
-**Versi:** 2.47
-**Terakhir diperbarui:** 22 November 2026 (versi 2.47)
-**Tahap saat ini:** Implementasi backend Fase 0 sampai Fase 10 selesai, data simulasi sudah terisi di Supabase dev. Frontend dibangun ulang di lapisan visual di branch `feat/frontend-v2` dengan Design System v2.1 (D241 sampai D250); logika W0 dan W2 dipertahankan, versi lama diarsipkan di tag `frontend-v1`. Berikutnya migrasi W0 dan W2 ke v2.1, field `OrderDto` di backend (H131), W1, stress test k6, dan UAT
+**Versi:** 2.48
+**Terakhir diperbarui:** 22 November 2026 (versi 2.48)
+**Tahap saat ini:** Implementasi backend Fase 0 sampai Fase 10 selesai, data simulasi sudah terisi di Supabase dev. Frontend dibangun ulang di lapisan visual di branch `feat/frontend-v2` dengan Design System v2.2 (D241 sampai D251); logika W0 dan W2 dipertahankan, versi lama diarsipkan di tag `frontend-v1`. Berikutnya migrasi W0 dan W2 ke v2.1, field `OrderDto` di backend (H131), W1, stress test k6, dan UAT
 
 ---
 
@@ -62,7 +62,12 @@
 | Frontend: aksi order dan real-time (D236 sampai D240) | 5 | 0 |
 | Frontend: Design System v2.0 (D241) | 1 | 0 |
 | Frontend: review Design System v2.1 (D242 sampai D250) | 9 | 0 |
+| Frontend: logo (D251) | 1 | 0 |
 | Keputusan terbuka tanpa nomor D (Bagian 7) | | 0 |
+
+**Perubahan pada versi 2.48:**
+
+1. Logo Jasana (D251, Bagian 4AO). Design System naik ke v2.2
 
 **Perubahan pada versi 2.47:**
 
@@ -2206,6 +2211,14 @@ Dari review 22 November 2026. Halaman peraga `/dev/ds` dibangun persis mengikuti
 
 **Tanpa nomor keputusan:** koreksi angka kontras di Design System Bagian 1.5 (dibulatkan, bukan dipotong), daftar penanda grafis di bawah 3:1 yang dibenarkan, state `secondary`, `ghost`, dan `destructive` beserta token `--destructive-hover`, chip filter tidak aktif, lebar cincin fokus dan garis input error, tinggi tab 44 px, serta beberapa aturan yang sebelumnya saling bertabrakan di v2.0.
 
+## 4AO. Keputusan Versi 2.48 (D251): Logo
+
+Dari persiapan M3 frontend, 22 November 2026. Sebelumnya merek hanya berupa teks "Jasana" dengan ukuran yang berbeda-beda dan tidak berasal dari token (24 px di header, 20 px di footer). Tanpa perubahan backend.
+
+| # | Keputusan | Alasan |
+|---|---|---|
+| D251 | **Logo Jasana: ikon diikuti teks.** Ikon berupa huruf J dengan kotak hijau (`public/brand/jasana-mark.svg`, dipotong rapat dari berkas asli), diikuti teks "Jasana". Header publik, halaman masuk, sidebar, dan header pekerja: ikon 28 px, jarak 8 px, teks token baru `text-logo` 22/28 px bobot 700. Footer: ikon 20 px, teks `text-h3` bobot 700. Ikon dekoratif (`alt=""`), teks memakai `translate="no"`. Favicon dari berkas asli berkanvas persegi (`src/app/icon.svg`), `favicon.ico` bawaan Next dihapus | Warna ikon persis `--primary` dan `--brand`, jadi menyatu dengan aturan tiga warna. Teks tetap ditampilkan karena ikon belum dikenal pengguna. Satu token untuk semua header menggantikan ukuran campuran yang tidak berasal dari token. 22 px berada di antara `h3` dan `h1`, sehingga logo terlihat tanpa menyaingi judul halaman |
+
 ---
 
 ## 5. Alur Sistem End-to-End
@@ -2888,7 +2901,7 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 | 5 | Diagram UML | Belum | Aktor jadi empat |
 | 6 | Diagram Konteks dan DFD | Belum | Aktor jadi empat, tambah entitas eksternal layanan email |
 | 7 | Conversation flow dan system prompt chatbot | Belum | |
-| 8 | Desain antarmuka | Selesai, Design System v2.1 | Design System dan mockup menggantikan Figma (D224). Layar per fase mengikuti Design System |
+| 8 | Desain antarmuka | Selesai, Design System v2.2 | Design System dan mockup menggantikan Figma (D224). Layar per fase mengikuti Design System |
 
 **Aset yang bisa dipakai ulang:** dokumen test case `PPL_A_2305551065_UAS.docx` berisi 127 test case pada 15 modul fungsional dan 1 modul performa.
 
@@ -2909,7 +2922,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 
 ## 11. Langkah Berikutnya
 
-1. Frontend di branch `feat/frontend-v2` (versi lama di tag `frontend-v1`): logika W0 dan W2 selesai, lapisan visual dibangun ulang dengan Design System v2.1 (D241 sampai D250). Berikutnya migrasi W0 dan W2 ke v2.1 (Design System Bagian 14), lalu W1 autentikasi dan akun. Sebelum W3, kerjakan H131 di `main`. Paralel di `main`: H124, H125, dan H127
+1. Frontend di branch `feat/frontend-v2` (versi lama di tag `frontend-v1`): logika W0 dan W2 selesai, lapisan visual dibangun ulang dengan Design System v2.2 (D241 sampai D251). Berikutnya migrasi W0 dan W2 ke v2.1 (Design System Bagian 14), lalu W1 autentikasi dan akun. Sebelum W3, kerjakan H131 di `main`. Paralel di `main`: H124, H125, dan H127
 2. Fase 9 selesai 17 November 2026 setelah evaluasi tiga run (Bagian 4AB dan 4AG). Fase 10 selesai 17 November 2026 (1.004 test lulus, D177 sampai D203), dengan uji sandbox 10a dan 10b lulus dan uji sandbox 10c dijalankan penyusun. Paralel: penyusun menyusun dataset 30 sampai 50 skenario berlabel (H15, D153) dan mencatat model serta batas kuota project Gemini di AI Studio
 3. Selesai: Fase 8 (15 November 2026, 751 test lulus, D131 sampai D150) beserta uji sandbox payout dan refund. Uji sandbox refund PARTIAL hasil putusan sengketa lulus. Sebelumnya Fase 7 (11 November 2026, 627 test lulus) beserta uji sandbox Xendit sungguhan (12 November 2026), sebelumnya audit hutang teknis (9 November 2026) dan sesi perapian (10 November 2026)
 4. Selesai: data simulasi Bali di Supabase dev (D204 sampai D209)
@@ -2971,6 +2984,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 | 2.45 | 19 November 2026 | Empat keputusan W0 bagian 4: `order:join` (D236), signature aksi order (D237), sambung ulang socket (D238), label enum (D239), dan sesi tertunda (D240). Penutupan W0 frontend. H131 sampai H138 baru, H137 ditutup. Tanpa migrasi |
 | 2.46 | 21 November 2026 | Design System v2.0: primary hitam hangat, secondary hijau terang `--brand` termasuk mode Sekarang, status berhasil teal, bintang kuning, menu aktif solid hijau (D241). Tanpa migrasi |
 | 2.47 | 22 November 2026 | Sembilan keputusan dari review Design System v2.0 dengan empat skill desain: penanda mode Sekarang tanpa garis tepi kiri (D242), penanda posisi aktif pucat (D243), switch `--brand-hover` (D244), `SETTLED` jadi "Dana cair" (D245), `ModeBadge` di kartu listing hanya Sekarang (D246), skala tipografi (D247), aturan formulir dan aksesibilitas (D248), aturan komposisi dan nada (D249), dan `EscrowNote` (D250). Design System v2.1. H139 baru. Tanpa migrasi |
+| 2.48 | 22 November 2026 | Logo Jasana: ikon diikuti teks, token `text-logo`, favicon (D251). Design System v2.2. Tanpa migrasi |
 
 ---
 
