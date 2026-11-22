@@ -102,6 +102,7 @@ export default function BerandaPage() {
               <p className="max-w-lg text-sm text-muted-foreground">
                 Ceritakan kebutuhanmu ke Asisten Jasana, nanti dibantu mencarikan jasa yang cocok.
               </p>
+              <p className="text-sm text-foreground">Contoh: “Motor mogok di Sanur, bisa datang sore ini?”</p>
             </div>
           </div>
           {/* Halaman dan widget Asisten dibangun di W8. */}
