@@ -2,7 +2,7 @@
 
 **Artefak frontend 2 dari 4**
 Platform Jasana, Tugas Akhir I Nyoman Gede Candra Wikananta (2305551065)
-**Versi 2.2 (disetujui)**, 22 November 2026
+**Versi 2.3 (disetujui)**, 22 November 2026
 
 Dokumen ini menetapkan bahasa visual dan bahasa teks seluruh antarmuka Jasana: warna, tipografi, jarak, komponen, label status, format angka dan waktu, serta glosarium. Tujuannya satu: **empat area (publik dan client, usaha, pekerja, admin) terlihat dan terbaca seperti satu produk**, walaupun dibangun dalam belasan sesi Claude Code yang terpisah.
 
@@ -310,9 +310,9 @@ Dasar komponen dari **shadcn/ui** (disalin ke `src/components/ui`, berbasis Radi
 | Komponen | Varian | Aturan pakai |
 |---|---|---|
 | `Button` | `primary` (hitam), `secondary` (latar `--muted`), `outline` (garis `--input`), `ghost`, `destructive`, `now` (latar `--brand`, teks hitam, **khusus aksi mode Sekarang**: Ambil dan Terima) | Satu `primary` per tampilan. State per varian di tabel Bagian 6.4. Saat memproses: label berubah ke bentuk proses berakhiran "…" ("Membayar…", "Mengambil…"), ditambah spinner, dan dinonaktifkan supaya tidak terkirim dua kali. Label selalu kata kerja |
-| Ukuran tombol | `sm` 36 px, `md` 40 px, `lg` 48 px | **Area pekerja memakai `lg`** untuk seluruh aksi lapangan |
+| Ukuran tombol | `sm` 36 px, `md` **44 px** (bawaan), `lg` 48 px | `md` sama tinggi dengan input (44 px), jadi kotak cari dan tombolnya sejajar. **`sm` hanya di area usaha dan admin** (desktop, dipakai dengan mouse), tidak di area publik, pelanggan, dan pekerja (D252). **Area pekerja memakai `lg`** untuk seluruh aksi lapangan |
 | `Input`, `Textarea` | | Label selalu terlihat di atas input. Placeholder bukan pengganti label, berisi contoh isian nyata dan diakhiri "…". Saat error: garis `--destructive`, `aria-invalid`, pesan `body-sm` 500 berwarna `--destructive` dengan ikon 16 px, dihubungkan lewat `aria-describedby`. Atribut field mengikuti Bagian 6.1b |
-| Chip filter | | Radius 10 px. Tidak aktif: latar `--card`, garis `--input`, teks 500, hover `--muted`. Aktif: pucat (Bagian 6.4) dengan ikon `Check` |
+| Chip filter | pilihan, `removable` | Radius 10 px, tinggi 44 px. **Pilihan** (di panel filter): tidak aktif latar `--card`, garis `--input`, teks 500, hover `--muted`; aktif pucat (Bagian 6.4) dengan ikon `Check`. **`removable`** (D253): baris filter aktif di atas hasil pencarian, latar `--brand-subtle`, teks `--brand-subtle-foreground` 600, ikon `X` 16 px di kanan, seluruh chip satu tombol dengan `aria-label` "Hapus filter {label}", hover `--brand-subtle` dengan garis `--brand-subtle-foreground` |
 | `Select`, `Combobox` | | Combobox untuk daftar lebih dari 8 item |
 | `Checkbox`, `RadioGroup`, `Switch` | | Area sentuh minimal 44 px termasuk labelnya. Switch menyala: trek dan garis `--brand-hover` (D244). Switch mati: trek `--muted`, garis `--input`. Thumb selalu `--card` |
 | `InputOTP` | 6 kotak | Untuk kode verifikasi di sisi pekerja. `inputMode="numeric"`, `autoComplete="one-time-code"`, `spellCheck={false}` |
@@ -351,7 +351,8 @@ Setiap input punya `name` dan atribut berikut (D248), supaya isi otomatis browse
 | `PriceBreakdown` | Baris harga dasar, tiap opsi beserta deltanya, total. Prop `estimate` menambahkan label "Perkiraan" | Form pesan (perkiraan), detail order (dari server) |
 | `Countdown` | Sisa waktu dari timestamp server, ikon `Clock` abu dan angka `--foreground`. Di bawah 5 menit angkanya `--destructive` | Tawaran, batas bayar, batas komplain, kode |
 | `DateTimeText` | Tanggal dan jam WITA dengan label | Seluruh tampilan waktu |
-| `ListingCard` | Foto 4:3, judul (maksimal 2 baris, `line-clamp-2`), nama usaha (1 baris, `truncate` dengan `min-w-0`), rating, "Mulai Rp...", jarak, `ModeBadge` hanya untuk mode Sekarang (D246) | Pencarian, beranda, rekomendasi Asisten |
+| `ListingCard` | Foto 4:3, judul (maksimal 2 baris, `line-clamp-2`), nama usaha (1 baris, `truncate` dengan `min-w-0`), rating, "Mulai Rp...", jarak, `ModeBadge` hanya untuk mode Sekarang (D246). **Varian `compact`** (D254): baris horizontal, foto 4:3 lebar 112 px di kiri (`radius-md`), di kanan judul `body` bobot 600 `line-clamp-2`, nama usaha `body-sm` `--muted-foreground` `truncate`, baris rating dan harga, badge Sekarang kalau ada; padding 12 px, seluruh kartu satu tautan | Pencarian, beranda, rekomendasi Asisten. Varian `compact` dipakai di hasil `/cari` di bawah `sm`; beranda tetap varian biasa |
+| `ActiveFilters` | Baris chip `removable` untuk setiap filter aktif (lokasi, kategori, mode, bisa datang sekarang), membungkus ke baris berikutnya, hanya tampil kalau ada filter aktif. Kata kunci tidak ikut, karena punya tombol "Hapus kata kunci" sendiri (D253) | `/cari`, di antara baris judul dan hasil, di semua lebar layar |
 | `OptionPicker` | Perender atribut OPTION berdasarkan definisi (PRD Frontend Bagian 6) | Form pesan |
 | `AttributeFields` | Perender atribut SPEC untuk editor listing | Editor jasa |
 | `OrderActionBar` | Merender hasil `getOrderActions()`. Tidak punya logika sendiri | Detail order semua area |
@@ -576,7 +577,7 @@ Istilah di kolom tengah adalah satu-satunya yang dipakai di UI.
 | Kontras | WCAG 2.1 AA: teks 4,5:1, teks besar dan batas komponen 3:1 (sudah dicek di Bagian 1.5) |
 | Fokus | Cincin 2 px `--ring` dengan jarak 2 px, selalu terlihat saat navigasi keyboard |
 | Status | Teks + ikon, tidak hanya warna (P5) |
-| Area sentuh | Minimal 44 x 44 px, area pekerja 48 px |
+| Area sentuh | Minimal 44 x 44 px, area pekerja 48 px. Tombol `sm` (36 px) hanya di area usaha dan admin (D252) |
 | Pengumuman | Perubahan status order dan tawaran baru diumumkan lewat `aria-live="polite"`. Hitung mundur **tidak** diumumkan tiap detik, hanya pada ambang 5 menit, 1 menit, dan habis |
 | Formulir | Setiap input punya label, `name`, dan atribut Bagian 6.1b. Error ditandai `aria-invalid` dan dihubungkan lewat `aria-describedby` |
 | Lewati navigasi | Tautan "Lewati ke konten" sebagai elemen pertama di setiap layout, terlihat saat difokus |
@@ -860,6 +861,8 @@ Untuk sesi Claude Code yang memindahkan kode W0 dan W2 ke v2.1. Struktur kompone
 | Formulir | Atribut field Bagian 6.1b, fokus ke error pertama, error `body-sm` 500 (D248) |
 | Layout | Tautan "Lewati ke konten" (D248) |
 | `EscrowNote` | Komponen domain baru (D250) |
+| `Button` ukuran `md` | 40 px jadi 44 px. Pemakaian `sm` di area publik, pelanggan, dan pekerja diganti `md` (D252) |
+| Hasil pencarian | `ActiveFilters` dengan chip `removable` (D253), `ListingCard` varian `compact` di bawah `sm` (D254) |
 | Logo | Ikon `jasana-mark.svg` + teks `text-logo` di semua header, ukuran footer sesuai Bagian 5. Favicon `src/app/icon.svg`, `favicon.ico` bawaan dihapus (D251) |
 | `/dev/ui` | Tambah bagian penanda aktif (Bagian 6.4) dan state tombol |
 | `check-design-tokens.mjs` | Tambah aturan: `text-brand` dan `text-white` bersamaan `bg-brand` dilarang, `border-l-brand` dan `max-w-prose` dilarang |
@@ -882,3 +885,4 @@ Untuk sesi Claude Code yang memindahkan kode W0 dan W2 ke v2.1. Struktur kompone
 | 2.0 | 21 November 2026 | **Palet baru dari tinjauan mockup 05f.** Primary jadi hitam hangat `#1C1917` untuk aksi. Hijau terang `#22C55E` jadi secondary dengan token `--brand` untuk yang terpilih, aktif, dan sedang terjadi, termasuk mode Sekarang yang kini dibedakan lewat bentuk. Token lime `--now*` dan `--primary-subtle*` dihapus. Status berhasil jadi teal `#0F766E`. Bintang rating kuning. Menu aktif solid hijau (pilihan H). Bagian baru 1.3b, 1.4c, 6.4 (penanda aktif dan state tombol), dan 14 (migrasi dari v1.6). Cincin fokus hitam |
 | 2.1 | 22 November 2026 | **Hasil review dengan empat skill desain** terhadap `/dev/ds` (D242 sampai D250). Palet tetap. Penanda mode Sekarang tanpa garis tepi kiri, memakai badge yang sama di semua tempat (D242). Menu, tab, dan navigasi bawah aktif jadi pucat (D243). Switch menyala `--brand-hover` (D244). `SETTLED` jadi "Dana cair" (D245). `ListingCard` hanya menandai mode Sekarang (D246). Skala tipografi baru dan lebar baris (D247). Bagian baru 6.1b (atribut field), aturan formulir, aksesibilitas, dan gerak (D248). Aturan dua lapis kotak, aturan bentuk, dan nada judul (D249). Komponen `EscrowNote` (D250). Koreksi angka kontras di 1.5, penanda grafis yang dibenarkan, state `secondary`, `ghost`, `destructive`, chip filter, dan token `--destructive-hover` |
 | 2.2 | 22 November 2026 | Logo Jasana (D251): ikon `jasana-mark.svg` diikuti teks "Jasana" dengan token baru `text-logo` (22/28 px, 700), ukuran per tempat di Bagian 5, favicon `src/app/icon.svg` |
+| 2.3 | 22 November 2026 | Dari M3 halaman `/cari`. Tombol `md` jadi 44 px dan `sm` hanya di area usaha dan admin (D252). Chip filter varian `removable` dan komponen `ActiveFilters` (D253). `ListingCard` varian `compact` untuk hasil pencarian di HP (D254) |
