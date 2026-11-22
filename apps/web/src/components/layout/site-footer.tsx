@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { BrandLogo } from "@/components/layout/brand-logo"
 
 const LINKS = [
   { href: "/cari", label: "Cari jasa" },
@@ -11,9 +12,7 @@ export function SiteFooter() {
     <footer className="border-t border-border bg-card">
       <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-8 md:flex-row md:items-start md:justify-between md:px-6">
         <div className="flex flex-col gap-1">
-          <span translate="no" className="text-xl font-bold text-primary">
-            Jasana
-          </span>
+          <BrandLogo size="footer" />
           <p className="text-sm text-muted-foreground">Cari dan pesan jasa di sekitarmu.</p>
         </div>
         <nav aria-label="Tautan footer">

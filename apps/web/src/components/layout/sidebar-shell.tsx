@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { BrandLogo } from "@/components/layout/brand-logo"
 import { usePathname } from "next/navigation"
 import { Menu } from "lucide-react"
 import { Suspense, useState } from "react"
@@ -44,13 +45,7 @@ export function SidebarShell({
               </SheetContent>
             </Sheet>
           )}
-          <Link
-            href="/"
-            translate="no"
-            className="rounded-sm text-2xl font-bold text-primary outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-          >
-            Jasana
-          </Link>
+          <BrandLogo href="/" />
           <span className="hidden text-sm font-semibold text-muted-foreground sm:inline">{areaLabel}</span>
           <HeaderAccount />
         </div>

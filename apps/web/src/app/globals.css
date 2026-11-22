@@ -156,6 +156,9 @@
   --text-h3: 1.125rem;
   --text-h3--line-height: 1.625rem;
 
+  --text-logo: 1.375rem;
+  --text-logo--line-height: 1.75rem;
+
   --text-code-xl: 2rem;
   --text-code-xl--line-height: 2.5rem;
   --tracking-code: 0.2em;

@@ -1,4 +1,4 @@
-import Link from "next/link"
+import { BrandLogo } from "@/components/layout/brand-logo"
 import { AreaGate } from "@/components/layout/area-gate"
 import { BottomNav } from "@/components/layout/bottom-nav"
 import { EmailVerificationBanner } from "@/components/layout/email-verification-banner"
@@ -11,13 +11,7 @@ export default function PekerjaLayout({ children }: LayoutProps<"/pekerja">) {
     <div className="flex min-h-dvh flex-col bg-background">
       <header className="sticky top-0 z-40 border-b border-border bg-card shadow-sm">
         <div className="mx-auto flex h-16 max-w-md items-center gap-3 px-4">
-          <Link
-            href="/"
-            translate="no"
-            className="rounded-sm text-2xl font-bold text-primary outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-          >
-            Jasana
-          </Link>
+          <BrandLogo href="/" />
           <span className="text-sm font-semibold text-muted-foreground">Pekerja</span>
           <HeaderAccount />
         </div>
