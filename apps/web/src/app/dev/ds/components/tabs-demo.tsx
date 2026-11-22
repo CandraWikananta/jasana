@@ -1,7 +1,7 @@
 "use client"
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { CountBadge } from "./navigation"
 
 // Tab aktif pucat (D243). Lencana angka mengikuti aturan menu (6.4). Tab terpilih disimpan di query

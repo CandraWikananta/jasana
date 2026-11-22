@@ -21,7 +21,7 @@ export function ErrorState({
       </div>
       <div className="flex flex-col gap-1">
         <h3 className="text-lg leading-6.5 font-semibold">{title}</h3>
-        <p className="max-w-prose text-sm text-muted-foreground">{message}</p>
+        <p className="max-w-lg text-sm text-muted-foreground">{message}</p>
       </div>
       {onRetry && (
         <Button variant="outline" onClick={onRetry}>

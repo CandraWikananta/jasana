@@ -3,7 +3,7 @@
 import { CircleCheck, CircleX, Equal, TriangleAlert, type LucideIcon } from "lucide-react"
 import tokens from "../ds-tokens.json"
 import { TOKEN_MAP, contrastRatio, formatRasio } from "../contrast"
-import { Badge, type BadgeTone } from "../ui/badge"
+import { Badge, type BadgeTone } from "@/components/ui/badge"
 
 export function TokenSwatches() {
   return (

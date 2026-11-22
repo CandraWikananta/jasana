@@ -26,6 +26,10 @@ const RULES = [
   ["variabel arbitrer -(--...)", /-\(--(?!radix-)/],
   ["palet bawaan Tailwind", new RegExp(`\\b(?:${PREFIX})-(?:(?:${PALETTE})-\\d{2,3}|black|white)\\b`)],
   ["varian dark: (FE13)", /\bdark:/],
+  // DS 13: putih di atas --brand hanya 2,28:1, --brand sebagai teks juga 2,28:1. Pakai text-brand-foreground.
+  ["teks brand/putih di atas bg-brand (DS 13)", /^(?=.*\bbg-brand(?![\w-]))(?=.*\btext-(?:brand|white)(?![\w-]))/],
+  ["garis tepi kiri brand (D242)", /\bborder-l-brand\b/],
+  ["max-w-prose (D247)", /\bmax-w-prose\b/],
 ]
 
 const IGNORE = "token-check-ignore"
@@ -54,6 +58,10 @@ function selfTest() {
     'const c = "rgb(0, 0, 0)"',
     'className="dark:bg-input/30"',
     'className="bg-(--brand)"',
+    'className="bg-brand text-brand"',
+    'className="text-brand hover:bg-brand"',
+    'className="border-l-4 border-l-brand"',
+    'className="max-w-prose text-pretty"',
     'className="bg-white" // token-check-ignore',
     'className="bg-white" // token-check-ignore:',
     'className="bg-white" {/* token-check-ignore: */}',
@@ -67,6 +75,10 @@ function selfTest() {
     'className="max-h-(--radix-select-content-available-height)"',
     'className="bg-primary/90 aspect-4/3 -translate-y-1/2"',
     'href="#konten"',
+    'className="bg-brand text-brand-foreground"',
+    'className="hover:bg-brand-hover text-brand-strong"',
+    'className="bg-brand-subtle text-brand-subtle-foreground"',
+    'className="border-brand max-w-lg"',
     'className="bg-white" // token-check-ignore: logo pihak ketiga wajib putih',
     'className="bg-white" {/* token-check-ignore: logo pihak ketiga */}',
   ]

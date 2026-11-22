@@ -14,7 +14,7 @@ import {
   type LucideIcon,
 } from "lucide-react"
 import { cn } from "cn"
-import { Button } from "../ui/button"
+import { Button } from "@/components/ui/button"
 
 type Item = { label: string; icon: LucideIcon; count?: number; countLabel?: string; demo?: "hover" | "focus" }
 

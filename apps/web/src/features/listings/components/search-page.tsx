@@ -284,7 +284,7 @@ function FilterPanel({
           id="urutan"
           value={sortValue}
           onChange={(e) => onChange({ sort: e.target.value })}
-          className="h-11 w-full rounded-md border border-input bg-card px-3 text-base text-foreground outline-none focus-visible:border-primary focus-visible:ring-3 focus-visible:ring-primary-subtle"
+          className="h-11 w-full rounded-md border border-input bg-card px-3 text-base text-foreground outline-none focus-visible:border-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card"
         >
           {sortOptions.map((s) => (
             <option key={s} value={s}>
@@ -330,7 +330,7 @@ function ChipGroup({
             className={cn(
               "inline-flex min-h-11 items-center gap-1.5 rounded-full border px-4 text-sm font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
               active
-                ? "border-primary bg-primary-subtle text-primary-subtle-foreground"
+                ? "border-primary bg-brand-subtle text-brand-subtle-foreground"
                 : "border-border bg-card text-foreground hover:bg-accent",
             )}
           >

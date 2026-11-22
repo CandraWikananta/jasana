@@ -3,9 +3,9 @@
 import { useRef, useState, type FormEvent } from "react"
 import { CircleAlert } from "lucide-react"
 import { Label } from "@/components/ui/label"
-import { Button } from "../ui/button"
-import { Input } from "../ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { LOCATIONS } from "../data"
 
 // Formulir DS 6.1, 6.1b, dan 10 (D248). Label selalu terlihat, placeholder berisi contoh nyata

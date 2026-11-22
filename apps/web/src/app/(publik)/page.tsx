@@ -15,10 +15,10 @@ import { getCategoryIcon } from "@/lib/category-icons"
 export default function BerandaPage() {
   return (
     <div className="flex flex-col gap-12 pb-16">
-      <section className="border-b border-border bg-primary-subtle">
+      <section className="border-b border-border bg-brand-subtle">
         <div className="mx-auto flex max-w-6xl flex-col gap-5 px-4 py-10 md:px-6 md:py-16">
           <div className="flex max-w-2xl flex-col gap-2">
-            <h1 className="text-3xl font-bold text-primary-subtle-foreground">Cari jasa di sekitarmu</h1>
+            <h1 className="text-3xl font-bold text-brand-subtle-foreground">Cari jasa di sekitarmu</h1>
             <p className="text-base text-muted-foreground">
               Pesan jasa terjadwal, atau minta pekerja datang sekarang.
             </p>
@@ -77,7 +77,7 @@ export default function BerandaPage() {
       <section className="mx-auto w-full max-w-6xl px-4 md:px-6">
         <div className="flex flex-col gap-4 rounded-lg border border-border bg-card p-6 md:flex-row md:items-center md:justify-between">
           <div className="flex items-start gap-4">
-            <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-primary-subtle text-primary-subtle-foreground">
+            <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-brand-subtle text-brand-subtle-foreground">
               <MessagesSquare aria-hidden className="size-6" />
             </div>
             <div className="flex flex-col gap-1">
@@ -113,7 +113,7 @@ async function CategoryGrid() {
               href={`/cari?category_id=${c.id}`}
               className="flex h-full items-center gap-3 rounded-lg border border-border bg-card p-4 font-semibold outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             >
-              <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary-subtle text-primary-subtle-foreground">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand-subtle text-brand-subtle-foreground">
                 <Icon aria-hidden className="size-5" />
               </span>
               <span className="min-w-0 truncate">{c.name}</span>

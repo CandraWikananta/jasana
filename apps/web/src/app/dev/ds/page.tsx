@@ -19,17 +19,12 @@ import { OfferCard } from "./components/offer-card"
 import { StatusBanner } from "./components/status-banner"
 import { TabsDemo } from "./components/tabs-demo"
 import { ContrastTable, TokenSwatches } from "./components/tokens-panel"
-import { tokenCss } from "./contrast"
 import { LISTINGS, ORDERS } from "./data"
-import { Button } from "./ui/button"
-import { Switch } from "./ui/switch"
+import { Button } from "@/components/ui/button"
+import { Switch } from "@/components/ui/switch"
 import "./ds.css"
 
 export const metadata: Metadata = { title: "Design System v2.1" }
-
-// Token v2.1 hanya aktif selama halaman ini terpasang. Selector :has() menjangkau isi portal
-// Radix (Select) yang dirender di luar wrapper. Nilainya dari ds-tokens.json.
-const TOKEN_STYLE = tokenCss(":root:has(.ds-v2)")
 
 const STATUSES = Object.keys(ORDER_STATUS_META) as OrderStatus[]
 
@@ -74,8 +69,7 @@ export default function DevDsPage() {
   if (process.env.NODE_ENV === "production") notFound()
 
   return (
-    <div className="ds-v2 bg-background text-foreground">
-      <style>{TOKEN_STYLE}</style>
+    <div className="bg-background text-foreground">
       {/* D248: elemen pertama, terlihat saat difokus. */}
       <a
         href="#konten"

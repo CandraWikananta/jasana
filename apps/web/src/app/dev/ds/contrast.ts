@@ -25,11 +25,3 @@ export function contrastRatio(fgHex: string, bgHex: string): number {
 export function formatRasio(r: number): string {
   return r.toFixed(2).replace(".", ",")
 }
-
-/** Variabel CSS v2.1 untuk disuntik ke halaman, dirakit dari JSON supaya tidak ada hex di TSX. */
-export function tokenCss(selector: string): string {
-  const decls = Object.entries(TOKEN_MAP)
-    .map(([k, v]) => `--${k}:${v};`)
-    .join("")
-  return `${selector}{${decls}}`
-}

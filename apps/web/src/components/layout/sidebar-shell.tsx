@@ -97,7 +97,7 @@ function NavLinks({ items, pathname, onNavigate }: { items: NavItem[]; pathname:
               aria-current={active ? "page" : undefined}
               className={cn(
                 "flex h-11 items-center gap-3 rounded-md px-3 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                active ? "bg-primary-subtle text-primary-subtle-foreground" : "text-foreground hover:bg-muted",
+                active ? "bg-brand-subtle text-brand-subtle-foreground" : "text-foreground hover:bg-muted",
               )}
             >
               <Icon aria-hidden className="size-5" />

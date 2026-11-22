@@ -87,7 +87,7 @@ export default async function ListingPage({ params }: PageProps<"/listing/[id]">
           {listing.description && (
             <Section title="Deskripsi">
               {/* Konten pengguna dirender sebagai teks (CLAUDE.md jebakan 14). */}
-              <p className="max-w-prose text-base whitespace-pre-line">{listing.description}</p>
+              <p className="max-w-xl text-base whitespace-pre-line">{listing.description}</p>
             </Section>
           )}
 
@@ -271,7 +271,7 @@ function ProviderCard({ provider }: { provider: ListingDetail["provider"] }) {
       href={`/penyedia/${provider.id}`}
       className="flex items-center gap-4 rounded-lg border border-border bg-card p-4 outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
     >
-      <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-primary-subtle text-primary-subtle-foreground">
+      <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-brand-subtle text-brand-subtle-foreground">
         <Store aria-hidden className="size-6" />
       </span>
       <span className="flex min-w-0 flex-col gap-0.5">

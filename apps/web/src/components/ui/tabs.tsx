@@ -5,7 +5,10 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "cn"
 import { Tabs as TabsPrimitive } from "radix-ui"
 
-// Diubah dari bawaan shadcn: tanpa varian mode gelap (FE13) dan nilai arbitrer diganti skala Tailwind (DS 13, check-design-tokens).
+// Bentuk akhir components/ui/tabs.tsx untuk DS v2.1 (Bagian 14). Tab aktif pucat: latar
+// --brand-subtle, teks dan ikon --brand-subtle-foreground 600 (D243), supaya hijau solid hanya
+// milik tombol `now`. Normal teks --foreground 500, hover --muted, fokus --ring. Daftar tab 44 px
+// untuk area sentuh (DS 6.1 dan 11). Varian `line` bawaan shadcn tidak diatur DS, dibiarkan.
 function Tabs({
   className,
   orientation = "horizontal",
@@ -27,7 +30,7 @@ function Tabs({
 
 const tabsListVariants = cva(
   // token-check-ignore: selector group-data-[...]/nama bawaan shadcn, bukan nilai arbitrer
-  "group/tabs-list inline-flex w-fit items-center justify-center rounded-lg p-0.75 text-muted-foreground group-data-[orientation=horizontal]/tabs:h-9 group-data-[orientation=vertical]/tabs:h-fit group-data-[orientation=vertical]/tabs:flex-col data-[variant=line]:rounded-none",
+  "group/tabs-list inline-flex w-fit items-center justify-center rounded-lg p-0.75 text-muted-foreground group-data-[orientation=horizontal]/tabs:h-11 group-data-[orientation=vertical]/tabs:h-fit group-data-[orientation=vertical]/tabs:flex-col data-[variant=line]:rounded-none",
   {
     variants: {
       variant: {
@@ -66,10 +69,10 @@ function TabsTrigger({
       data-slot="tabs-trigger"
       className={cn(
         // token-check-ignore: selector group-data-[...]/nama bawaan shadcn, bukan nilai arbitrer
-        "relative inline-flex h-full flex-1 items-center justify-center gap-1.5 rounded-md border border-transparent px-2 py-1 text-sm font-medium whitespace-nowrap text-foreground/60 transition-all group-data-[orientation=vertical]/tabs:w-full group-data-[orientation=vertical]/tabs:justify-start hover:text-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-1 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-50 group-data-[variant=default]/tabs-list:data-[state=active]:shadow-sm group-data-[variant=line]/tabs-list:data-[state=active]:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        "relative inline-flex h-full flex-1 items-center justify-center gap-1.5 rounded-md border border-transparent px-3 py-1 text-sm font-medium whitespace-nowrap text-foreground transition-colors group-data-[orientation=vertical]/tabs:w-full group-data-[orientation=vertical]/tabs:justify-start hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card disabled:pointer-events-none disabled:opacity-50 group-data-[variant=line]/tabs-list:data-[state=active]:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         // token-check-ignore: selector group-data-[...]/nama bawaan shadcn, bukan nilai arbitrer
         "group-data-[variant=line]/tabs-list:bg-transparent group-data-[variant=line]/tabs-list:data-[state=active]:bg-transparent",
-        "data-[state=active]:bg-background data-[state=active]:text-foreground",
+        "data-[state=active]:bg-brand-subtle data-[state=active]:font-semibold data-[state=active]:text-brand-subtle-foreground [&_svg]:text-muted-foreground data-[state=active]:[&_svg]:text-brand-subtle-foreground",
         // token-check-ignore: selector group-data-[...]/nama bawaan shadcn, bukan nilai arbitrer
         "after:absolute after:bg-foreground after:opacity-0 after:transition-opacity group-data-[orientation=horizontal]/tabs:after:inset-x-0 group-data-[orientation=horizontal]/tabs:after:-bottom-1.25 group-data-[orientation=horizontal]/tabs:after:h-0.5 group-data-[orientation=vertical]/tabs:after:inset-y-0 group-data-[orientation=vertical]/tabs:after:-right-1 group-data-[orientation=vertical]/tabs:after:w-0.5 group-data-[variant=line]/tabs-list:data-[state=active]:after:opacity-100",
         className

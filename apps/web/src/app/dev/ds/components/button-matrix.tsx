@@ -2,7 +2,7 @@
 // fokus. Hover, ditekan, dan fokus dipaksa lewat className dari peta di bawah, supaya ui/button.tsx
 // tetap bersih dari kait peraga. `cn` menggabungkan kelas seperti tailwind-merge, jadi
 // `bg-primary-hover` menggantikan `bg-primary`.
-import { Button } from "../ui/button"
+import { Button } from "@/components/ui/button"
 
 type Variant = "primary" | "secondary" | "outline" | "ghost" | "destructive" | "now"
 

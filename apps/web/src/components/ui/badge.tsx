@@ -3,8 +3,10 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "cn"
 import { Slot } from "radix-ui"
 
-// Diubah dari bawaan shadcn: varian berupa nada Design System 1.4 dan 7
-// (pasangan subtle), now yang selalu solid lime (1.3), dan outline (DS v1.5 6.1).
+// Bentuk akhir components/ui/badge.tsx untuk DS v2.1 (Bagian 14). Nada status memakai pasangan
+// subtle (1.4): pill berwarna selalu berarti status. `now` pill putih bergaris --brand, isinya titik
+// live dan "Sekarang", bentuk yang sama di semua tempat (D242). `outline` untuk mode Terjadwal.
+// Tinggi 28 px, teks caption 12 px bobot 600 (D247).
 const badgeVariants = cva(
   "inline-flex h-7 w-fit shrink-0 items-center gap-1.5 rounded-full pr-3 pl-2.5 text-xs font-semibold whitespace-nowrap [&>svg]:pointer-events-none [&>svg]:size-3.5 [&>svg]:shrink-0",
   {
@@ -15,7 +17,7 @@ const badgeVariants = cva(
         success: "bg-success-subtle text-success-subtle-foreground",
         destructive: "bg-destructive-subtle text-destructive-subtle-foreground",
         neutral: "bg-neutral-subtle text-neutral-subtle-foreground",
-        now: "bg-now text-now-foreground",
+        now: "border border-brand bg-card text-foreground",
         outline: "border border-border bg-card text-muted-foreground",
       },
     },

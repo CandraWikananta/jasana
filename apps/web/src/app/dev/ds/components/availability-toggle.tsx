@@ -2,7 +2,7 @@
 
 import { useId, useState } from "react"
 import { Label } from "@/components/ui/label"
-import { Switch } from "../ui/switch"
+import { Switch } from "@/components/ui/switch"
 import { ModeBadge } from "./markers"
 
 // AvailabilityToggle DS 1.3b dan 6.2 (D242): kartu putih biasa, tanpa garis tepi kiri. Menyala:

@@ -41,7 +41,7 @@ export default async function PenyediaPage({ params }: PageProps<"/penyedia/[id]
     <div className="mx-auto flex max-w-3xl flex-col gap-8 px-4 py-6 md:px-6">
       <header className="flex flex-col gap-4 rounded-lg border border-border bg-card p-5">
         <div className="flex items-start gap-4">
-          <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-primary-subtle text-primary-subtle-foreground">
+          <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-brand-subtle text-brand-subtle-foreground">
             <Store aria-hidden className="size-7" />
           </span>
           <div className="flex min-w-0 flex-col gap-1">
@@ -76,7 +76,7 @@ export default async function PenyediaPage({ params }: PageProps<"/penyedia/[id]
           )}
         </dl>
 
-        {provider.bio && <p className="max-w-prose text-base whitespace-pre-line">{provider.bio}</p>}
+        {provider.bio && <p className="max-w-xl text-base whitespace-pre-line">{provider.bio}</p>}
 
         {provider.accepts_worker_applications && (
           <div className="flex flex-col gap-2 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">

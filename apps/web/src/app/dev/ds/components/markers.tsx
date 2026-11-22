@@ -5,7 +5,7 @@ import { CalendarClock, Star } from "lucide-react"
 import { cn } from "cn"
 import { formatRating } from "@/lib/format"
 import { ORDER_STATUS_META } from "@/lib/order-status"
-import { Badge } from "../ui/badge"
+import { Badge } from "@/components/ui/badge"
 import type { Mode } from "../data"
 
 /** Lingkaran --brand 8 px (6 px di dalam badge) dengan cahaya 4 px. Denyutnya di ds.css. */

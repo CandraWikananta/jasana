@@ -93,7 +93,7 @@ function AccountMenu() {
           aria-label="Menu akun"
           className="ml-auto flex size-11 items-center justify-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         >
-          <span className="flex size-10 items-center justify-center rounded-full bg-primary-subtle text-sm font-semibold text-primary-subtle-foreground">
+          <span className="flex size-10 items-center justify-center rounded-full bg-brand-subtle text-sm font-semibold text-brand-subtle-foreground">
             {me ? initials(me.full_name) : <Skeleton className="size-10 rounded-full" />}
           </span>
         </button>

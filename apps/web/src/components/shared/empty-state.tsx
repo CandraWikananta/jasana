@@ -22,7 +22,7 @@ export function EmptyState({
       </div>
       <div className="flex flex-col gap-1">
         <h3 className="text-lg leading-6.5 font-semibold">{title}</h3>
-        <p className="max-w-prose text-sm text-muted-foreground">{description}</p>
+        <p className="max-w-lg text-sm text-muted-foreground">{description}</p>
       </div>
       {action}
     </div>
