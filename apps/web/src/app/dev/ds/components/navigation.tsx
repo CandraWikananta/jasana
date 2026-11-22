@@ -13,7 +13,7 @@ import {
   Wallet,
   type LucideIcon,
 } from "lucide-react"
-import { cn } from "cn"
+import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 
 type Item = { label: string; icon: LucideIcon; count?: number; countLabel?: string; demo?: "hover" | "focus" }

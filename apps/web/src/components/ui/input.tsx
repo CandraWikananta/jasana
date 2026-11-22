@@ -1,5 +1,5 @@
 import * as React from "react"
-import { cn } from "cn"
+import { cn } from "@/lib/utils"
 
 // Bentuk akhir components/ui/input.tsx untuk DS v2.1 (Bagian 14). Selalu 16 px supaya Safari iOS
 // tidak memperbesar halaman, dan 44 px untuk area sentuh. Fokus: garis --foreground ditambah

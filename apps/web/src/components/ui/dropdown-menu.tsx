@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { cn } from "cn"
+import { cn } from "@/lib/utils"
 import { DropdownMenu as DropdownMenuPrimitive } from "radix-ui"
 
 // Diubah dari bawaan shadcn: hanya bagian yang dipakai menu avatar. Lebar minimum, origin, dan

@@ -1,5 +1,5 @@
 import * as React from "react"
-import { cn } from "cn"
+import { cn } from "@/lib/utils"
 
 // Diubah dari bawaan shadcn: radius-lg 14 px dan tanpa bayangan (Design System 4),
 // judul memakai skala h3. CardAction dibuang karena butuh grid bernilai arbitrer.

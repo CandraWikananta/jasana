@@ -1,4 +1,4 @@
-import { cn } from "cn"
+import { cn } from "@/lib/utils"
 
 // Diubah dari bawaan shadcn: latar --muted (Design System 1.1) dan denyut hanya
 // kalau pengguna tidak meminta gerak dikurangi (Bagian 11).

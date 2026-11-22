@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { cva, type VariantProps } from "class-variance-authority"
-import { cn } from "cn"
+import { cn } from "@/lib/utils"
 import { Tabs as TabsPrimitive } from "radix-ui"
 
 // Bentuk akhir components/ui/tabs.tsx untuk DS v2.1 (Bagian 14). Tab aktif pucat: latar

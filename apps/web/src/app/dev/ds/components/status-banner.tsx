@@ -1,6 +1,6 @@
 // Banner status DS 1.4b: latar paling pucat, garis 1 px, chip ikon bulat, judul tebal, satu kalimat.
 import { CircleCheck, CircleX, Info, TriangleAlert, type LucideIcon } from "lucide-react"
-import { cn } from "cn"
+import { cn } from "@/lib/utils"
 
 export type BannerTone = "success" | "warning" | "info" | "destructive"
 

@@ -1,6 +1,6 @@
 import * as React from "react"
 import { cva, type VariantProps } from "class-variance-authority"
-import { cn } from "cn"
+import { cn } from "@/lib/utils"
 import { Slot } from "radix-ui"
 
 // Bentuk akhir components/ui/badge.tsx untuk DS v2.1 (Bagian 14). Nada status memakai pasangan

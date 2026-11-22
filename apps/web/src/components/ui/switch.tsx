@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { cn } from "cn"
+import { cn } from "@/lib/utils"
 import { Switch as SwitchPrimitive } from "radix-ui"
 
 // Bentuk akhir components/ui/switch.tsx untuk DS v2.1 (Bagian 14). Menyala: trek dan garis

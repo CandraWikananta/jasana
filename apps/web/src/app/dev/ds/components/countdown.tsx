@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { Clock } from "lucide-react"
-import { cn } from "cn"
+import { cn } from "@/lib/utils"
 
 // DS 6.2 dan 8: ikon Clock abu, angka --foreground, --destructive di bawah 5 menit.
 // Format "23 jam 15 menit", lalu "04:59" di bawah satu jam. Di aplikasi asli sisa waktu dihitung
