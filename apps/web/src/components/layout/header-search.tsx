@@ -1,7 +1,7 @@
 "use client"
 
 import { Search } from "lucide-react"
-import { usePathname } from "next/navigation"
+import { usePathname, useSearchParams } from "next/navigation"
 import { Suspense } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -19,10 +19,24 @@ export function HeaderSearch() {
 }
 
 function HeaderSearchInner() {
-  return usePathname() === "/" ? null : <SearchForm />
+  const pathname = usePathname()
+  if (pathname === "/") return null
+  if (pathname !== "/cari") return <SearchForm />
+  // useSearchParams hanya di /cari: dipanggil di atas akan membuat "/" ikut jatuh ke fallback saat prerender.
+  return (
+    <Suspense fallback={<SearchForm />}>
+      <CariSearchForm />
+    </Suspense>
+  )
 }
 
-function SearchForm() {
+/** Di /cari kotak ini menampilkan kata kunci yang sedang dicari; key membuat isinya ikut berganti. */
+function CariSearchForm() {
+  const q = useSearchParams().get("q") ?? ""
+  return <SearchForm key={q} defaultValue={q} />
+}
+
+function SearchForm({ defaultValue }: { defaultValue?: string }) {
   return (
     <form
       role="search"
@@ -43,6 +57,7 @@ function SearchForm() {
           name="q"
           type="search"
           autoComplete="off"
+          defaultValue={defaultValue}
           placeholder="Cari jasa, misalnya servis AC…"
           className="pl-10"
         />
