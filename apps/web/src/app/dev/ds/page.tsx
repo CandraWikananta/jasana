@@ -18,7 +18,9 @@ import { OfferCard } from "./components/offer-card"
 import { StatusBanner } from "./components/status-banner"
 import { TabsDemo } from "./components/tabs-demo"
 import { ContrastTable, TokenSwatches } from "./components/tokens-panel"
-import { LISTINGS, ORDERS } from "./data"
+import { ActiveFiltersDemo } from "./components/active-filters-demo"
+import { COMPACT_LISTINGS, LISTINGS, ORDERS } from "./data"
+import { ListingCard as SharedListingCard } from "@/components/shared/listing-card"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { EscrowNote } from "@/components/shared/escrow-note"
@@ -91,6 +93,18 @@ export default function DevDsPage() {
               {LISTINGS.map((l) => (
                 <ListingCard key={l.id} l={l} />
               ))}
+            </div>
+          </div>
+          <div className="flex flex-col gap-3">
+            <Sub>Varian compact (D254)</Sub>
+            <Caption>Hasil /cari selama daftar lebih sempit dari 36rem: foto 112 px di kiri, satu tautan. Beranda tetap varian biasa.</Caption>
+            {/* Kartu compact membaca lebar wadah @container, jadi bingkai 390 px menampilkan bentuk HP. */}
+            <div className="@container max-w-97.5">
+              <div className="flex flex-col gap-3">
+                {COMPACT_LISTINGS.map((l) => (
+                  <SharedListingCard key={l.id} listing={l} variant="compact" />
+                ))}
+              </div>
             </div>
           </div>
         </Section>
@@ -261,6 +275,11 @@ export default function DevDsPage() {
 
         <Section id="penanda" n={12} title="Penanda aktif dan terpilih" desc="Tiga intensitas hijau terang (6.4). Solid hanya untuk aksi mode Sekarang. Penanda posisi pucat (D243).">
           <div className="flex flex-col gap-8">
+            <div className="flex flex-col gap-3">
+              <Sub>Filter aktif (D253)</Sub>
+              <Caption>Chip removable di atas hasil /cari. Seluruh chip satu tombol; kata kunci tidak ikut.</Caption>
+              <ActiveFiltersDemo />
+            </div>
             <div className="flex flex-col gap-3">
               <Sub>Solid</Sub>
               <div className="flex flex-wrap items-center gap-6">

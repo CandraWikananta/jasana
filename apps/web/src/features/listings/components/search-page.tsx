@@ -4,6 +4,7 @@ import { useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { ChevronLeft, ChevronRight, LocateFixed, MapPin, SearchX, SlidersHorizontal, X } from "lucide-react"
+import { ActiveFilters, type ActiveFilterItem } from "@/components/shared/active-filters"
 import { EmptyState } from "@/components/shared/empty-state"
 import { ErrorState } from "@/components/shared/error-state"
 import { FilterChip } from "@/components/shared/filter-chip"
@@ -79,6 +80,25 @@ export function SearchPage() {
   const categoryName = categories.data?.data.find((c) => c.id === params.category_id)?.name
   const title = params.q ? `Hasil untuk “${params.q}”` : (categoryName ?? "Semua jasa")
 
+  // D253: satu chip per filter aktif. Kata kunci tidak ikut, karena punya tombol hapusnya sendiri.
+  const activeFilters: ActiveFilterItem[] = []
+  if (params.lat !== undefined)
+    activeFilters.push({
+      key: "lokasi",
+      label: "Dekat lokasimu",
+      onRemove: () => update({ lat: null, lng: null, ...(params.sort === "distance" ? { sort: null } : {}) }),
+    })
+  if (params.category_id)
+    activeFilters.push({ key: "kategori", label: categoryName ?? "Kategori", onRemove: () => update({ category_id: null }) })
+  if (params.booking_mode)
+    activeFilters.push({
+      key: "mode",
+      label: `Mode ${BOOKING_MODE_META[params.booking_mode].label}`,
+      onRemove: () => update({ booking_mode: null }),
+    })
+  if (params.available_now)
+    activeFilters.push({ key: "sekarang", label: "Bisa datang sekarang", onRemove: () => update({ available_now: null }) })
+
   const panel = (
     <FilterPanel
       params={params}
@@ -94,7 +114,9 @@ export function SearchPage() {
     <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-6 md:px-6">
       <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
         <div className="flex min-w-0 flex-col gap-1">
-          <h1 className="text-h1 font-bold break-words">{title}</h1>
+          <h1 id="judul-hasil" tabIndex={-1} className="text-h1 font-bold break-words outline-none">
+            {title}
+          </h1>
           <p className="text-sm text-muted-foreground tabular-nums" aria-live="polite">
             {search.isPending ? "Mencari jasa…" : search.isSuccess ? `${total} jasa` : ""}
           </p>
@@ -106,15 +128,17 @@ export function SearchPage() {
             Filter{activeCount > 0 && ` (${activeCount})`}
           </Button>
           <SortSelect params={params} onChange={update} />
-          {/* -ml-3 meluruskan ikon dengan tepi kiri konten (padding px-3 tombol ghost sm). */}
+          {/* -ml-5 meluruskan ikon dengan tepi kiri konten (padding px-5 tombol ghost md). */}
           {params.q && (
-            <Button variant="ghost" size="sm" className="-ml-3 sm:order-first sm:ml-0" onClick={() => update({ q: null })}>
+            <Button variant="ghost" className="-ml-5 sm:order-first sm:ml-0" onClick={() => update({ q: null })}>
               <X aria-hidden />
               Hapus kata kunci
             </Button>
           )}
         </div>
       </div>
+
+      <ActiveFilters items={activeFilters} fallbackFocusId="judul-hasil" />
 
       <div className="grid gap-8 lg:grid-cols-4">
         <aside aria-label="Filter" className="hidden lg:block">
@@ -123,11 +147,7 @@ export function SearchPage() {
 
         <section aria-label="Hasil pencarian" className="flex min-w-0 flex-col gap-4 lg:col-span-3">
           {search.isPending ? (
-            <ResultGrid>
-              {Array.from({ length: 6 }, (_, i) => (
-                <ListingCardSkeleton key={i} />
-              ))}
-            </ResultGrid>
+            <ResultSkeleton />
           ) : search.isError ? (
             <ErrorState
               message={search.error instanceof ApiError ? search.error.message : getErrorMessage(null)}
@@ -156,19 +176,19 @@ export function SearchPage() {
             <>
               <ResultGrid>
                 {search.data.data.map((l, i) => (
-                  <ListingCard key={l.id} listing={l} eager={i < 3} />
+                  <ListingCard key={l.id} listing={l} eager={i < 3} variant="compact" />
                 ))}
               </ResultGrid>
               {pageCount > 1 && (
                 <nav aria-label={`Halaman ${page} dari ${pageCount}`} className="flex items-center justify-between gap-2 pt-2">
-                  <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => update({ page: page > 2 ? String(page - 1) : null })}>
+                  <Button variant="outline" disabled={page <= 1} onClick={() => update({ page: page > 2 ? String(page - 1) : null })}>
                     <ChevronLeft aria-hidden />
                     Sebelumnya
                   </Button>
                   <span className="text-sm whitespace-nowrap text-muted-foreground tabular-nums">
                     {page} / {pageCount}
                   </span>
-                  <Button variant="outline" size="sm" disabled={page >= pageCount} onClick={() => update({ page: String(page + 1) })}>
+                  <Button variant="outline" disabled={page >= pageCount} onClick={() => update({ page: String(page + 1) })}>
                     Berikutnya
                     <ChevronRight aria-hidden />
                   </Button>
@@ -197,8 +217,24 @@ export function SearchPage() {
   )
 }
 
+// D254: lebar daftar (bukan lebar layar) yang menentukan bentuk kartu dan jumlah kolom. Di bawah @xl satu kolom kartu
+// compact; @xl dua kolom kartu biasa; @3xl tiga kolom (1280 px dengan kolom filter).
 function ResultGrid({ children }: { children: React.ReactNode }) {
-  return <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{children}</div>
+  return (
+    <div className="@container">
+      <div className="grid gap-3 @xl:grid-cols-2 @xl:gap-4 @3xl:grid-cols-3">{children}</div>
+    </div>
+  )
+}
+
+function ResultSkeleton() {
+  return (
+    <ResultGrid>
+      {Array.from({ length: 6 }, (_, i) => (
+        <ListingCardSkeleton key={i} variant="compact" />
+      ))}
+    </ResultGrid>
+  )
 }
 
 function SortSelect({ params, onChange }: { params: SearchListingsParams; onChange: (patch: Patch) => void }) {
@@ -243,7 +279,7 @@ function FilterPanel({
   return (
     <div className="flex flex-col gap-6 pb-2">
       {activeCount > 0 && (
-        <Button variant="ghost" size="sm" className="-ml-3 self-start" onClick={onClear}>
+        <Button variant="ghost" className="-ml-5 self-start" onClick={onClear}>
           <X aria-hidden />
           Hapus semua filter
         </Button>
@@ -258,7 +294,7 @@ function FilterPanel({
             </span>
             <Button
               variant="ghost"
-              size="sm"
+             
               onClick={() => onChange({ lat: null, lng: null, ...(params.sort === "distance" ? { sort: null } : {}) })}
             >
               Hapus lokasi
@@ -291,7 +327,7 @@ function FilterPanel({
         ) : categories.isError ? (
           <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
             Kategori gagal dimuat.
-            <Button variant="ghost" size="sm" onClick={() => categories.refetch()}>
+            <Button variant="ghost" onClick={() => categories.refetch()}>
               Coba lagi
             </Button>
           </div>

@@ -1,6 +1,7 @@
 // Data contoh realistis untuk peraga: jasa di Bali, rupiah integer, waktu ISO UTC yang tampil WITA.
 import type { OrderStatus } from "@jasana/shared"
 import { AirVent, Droplets, Leaf, Plug, Sparkles, Wrench, type LucideIcon } from "lucide-react"
+import type { ListingCard as ListingCardData } from "@/types/api/listing"
 
 export type Mode = "SCHEDULED" | "AVAILABLE_NOW"
 
@@ -52,4 +53,41 @@ export const ORDERS: OrderSample[] = [
   { number: "ORD-20261121-0009", title: "Perbaikan pipa bocor", provider: "Tukang Ledeng Sanur", status: "IN_PROGRESS", mode: "AVAILABLE_NOW", at: "2026-11-21T05:40:00.000Z", amount: 110000, assignee: "Komang Arta", note: "Penanggung jawab sedang bekerja di lokasimu" },
   { number: "ORD-20261118-0031", title: "Servis AC split 1/2 sampai 1 PK", provider: "Dingin Jaya Teknik", status: "COMPLETED", mode: "SCHEDULED", at: "2026-11-18T06:00:00.000Z", amount: 135000, assignee: "Made Wirawan", note: "Beri ulasan untuk pesanan ini" },
   { number: "ORD-20261115-0022", title: "Perawatan taman 100 m²", provider: "Taman Asri Ubud", status: "DISPUTED", mode: "SCHEDULED", at: "2026-11-15T00:30:00.000Z", amount: 200000, assignee: "Wayan Sudarma", note: "Admin sedang meninjau komplainmu" },
+]
+
+// D254: kartu compact memakai ListingCard asli dari components/shared, jadi datanya berbentuk respons API.
+// Tanpa foto, supaya placeholder ImageOff tampil seperti jasa yang belum punya foto.
+export const COMPACT_LISTINGS: ListingCardData[] = [
+  {
+    id: "ds-compact-1",
+    title: "Servis AC Split dan Isi Freon untuk Rumah dan Kantor",
+    price: 150000,
+    price_unit: "PER_JOB",
+    estimated_duration_minutes: 90,
+    supports_scheduled: true,
+    supports_available_now: true,
+    rating_average: 4.8,
+    rating_count: 37,
+    order_count: 52,
+    subcategory: { id: "ds-sub-ac", name: "Servis AC" },
+    provider: { id: "ds-prov-1", business_name: "Sejuk Jaya Teknik", rating_average: 4.8, rating_count: 37 },
+    primary_photo_url: null,
+    distance_km: 1.2,
+  },
+  {
+    id: "ds-compact-2",
+    title: "Perbaikan Pipa Bocor",
+    price: 85000,
+    price_unit: "PER_JOB",
+    estimated_duration_minutes: 60,
+    supports_scheduled: true,
+    supports_available_now: false,
+    rating_average: 0,
+    rating_count: 0,
+    order_count: 0,
+    subcategory: { id: "ds-sub-ledeng", name: "Ledeng" },
+    provider: { id: "ds-prov-2", business_name: "Tukang Ledeng Sanur", rating_average: 0, rating_count: 0 },
+    primary_photo_url: null,
+    distance_km: null,
+  },
 ]
