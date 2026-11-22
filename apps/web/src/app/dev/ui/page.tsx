@@ -54,7 +54,7 @@ export default function DevUiPage() {
   if (process.env.NODE_ENV === "production") notFound()
 
   return (
-    <main className="mx-auto flex max-w-6xl flex-col gap-12 px-4 py-10 md:px-6">
+    <main id="konten" tabIndex={-1} className="mx-auto flex max-w-6xl flex-col gap-12 px-4 py-10 outline-none md:px-6">
       <header className="flex flex-col gap-1">
         <h1 className="text-2xl font-bold">Galeri komponen</h1>
         <p className="text-sm text-muted-foreground">Design System v1.5. Hanya tampil di development.</p>

@@ -20,7 +20,7 @@ export function ErrorState({
         <CloudOff aria-hidden className="size-6" />
       </div>
       <div className="flex flex-col gap-1">
-        <h3 className="text-lg leading-6.5 font-semibold">{title}</h3>
+        <h3 className="text-h3 font-semibold">{title}</h3>
         <p className="max-w-lg text-sm text-muted-foreground">{message}</p>
       </div>
       {onRetry && (

@@ -15,7 +15,6 @@ import {
   Undo2,
   Wallet,
   Wrench,
-  Zap,
   type LucideIcon,
 } from "lucide-react"
 import type { BadgeTone } from "@/components/ui/badge"
@@ -32,7 +31,7 @@ export const ORDER_STATUS_META: Record<OrderStatus, StatusMeta> = {
   IN_PROGRESS: { label: "Sedang dikerjakan", tone: "info", icon: Wrench },
   AWAITING_VERIFICATION: { label: "Menunggu kode verifikasi", tone: "warning", icon: KeyRound },
   COMPLETED: { label: "Selesai", tone: "success", icon: CircleCheck },
-  SETTLED: { label: "Tuntas", tone: "success", icon: BadgeCheck },
+  SETTLED: { label: "Dana cair", tone: "success", icon: BadgeCheck },
   DISPUTED: { label: "Dalam komplain", tone: "destructive", icon: MessageSquareWarning },
   REJECTED: { label: "Ditolak", tone: "neutral", icon: CircleX },
   EXPIRED: { label: "Kedaluwarsa", tone: "neutral", icon: TimerOff },
@@ -41,8 +40,12 @@ export const ORDER_STATUS_META: Record<OrderStatus, StatusMeta> = {
   REFUNDED: { label: "Dana dikembalikan", tone: "neutral", icon: Undo2 },
 }
 
+/** Mode tanpa ikon ditandai titik live, bukan ikon (D242). */
+export type ModeMeta = { label: string; tone: BadgeTone; icon: LucideIcon | null }
+
 // Design System 6.2, ModeBadge. Terjadwal bergaris, karena pill berwarna selalu berarti status (DS 7.1).
-export const BOOKING_MODE_META: Record<BookingMode, StatusMeta> = {
+// Sekarang pill putih bergaris --brand dengan titik live (D242).
+export const BOOKING_MODE_META: Record<BookingMode, ModeMeta> = {
   SCHEDULED: { label: "Terjadwal", tone: "outline", icon: CalendarClock },
-  AVAILABLE_NOW: { label: "Sekarang", tone: "now", icon: Zap },
+  AVAILABLE_NOW: { label: "Sekarang", tone: "now", icon: null },
 }

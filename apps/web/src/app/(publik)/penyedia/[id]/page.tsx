@@ -57,7 +57,7 @@ export default async function PenyediaPage({ params }: PageProps<"/penyedia/[id]
           <Stat label="Rating">
             {provider.rating_count > 0 ? (
               <span className="flex items-center gap-1">
-                <Star aria-hidden className="size-4 fill-foreground" />
+                <Star aria-hidden className="size-4 fill-rating text-rating-stroke" />
                 {formatRating(provider.rating_average)}
                 <span className="text-sm font-normal text-muted-foreground">({provider.rating_count})</span>
               </span>

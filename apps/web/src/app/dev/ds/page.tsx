@@ -9,7 +9,6 @@ import { AvailabilityToggle } from "./components/availability-toggle"
 import { ButtonMatrix } from "./components/button-matrix"
 import { ListingCard, OrderCard } from "./components/cards"
 import { Countdown } from "./components/countdown"
-import { EscrowNote } from "./components/escrow-note"
 import { FilterChip } from "./components/filter-chip"
 import { FormDemo } from "./components/form-demo"
 import { HeroSearch } from "./components/hero-search"
@@ -22,7 +21,7 @@ import { ContrastTable, TokenSwatches } from "./components/tokens-panel"
 import { LISTINGS, ORDERS } from "./data"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
-import "./ds.css"
+import { EscrowNote } from "@/components/shared/escrow-note"
 
 export const metadata: Metadata = { title: "Design System v2.1" }
 
@@ -70,20 +69,13 @@ export default function DevDsPage() {
 
   return (
     <div className="bg-background text-foreground">
-      {/* D248: elemen pertama, terlihat saat difokus. */}
-      <a
-        href="#konten"
-        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:rounded-md focus:bg-card focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-card focus:outline-none"
-      >
-        Lewati ke konten
-      </a>
       <main id="konten" tabIndex={-1} className="mx-auto flex max-w-6xl flex-col gap-12 px-4 py-8 outline-none md:px-6">
         <header className="flex flex-col gap-2">
           <h1 className="text-h1 font-bold">Design System v2.1</h1>
           <p className="max-w-lg text-sm text-muted-foreground">
-            Halaman peraga dan acuan visual DS v2.1 (D242 sampai D250). Token v2.1 hanya berlaku di halaman ini, halaman lain
-            masih v1.6 sampai migrasi Bagian 14. Komponen di folder ui adalah bentuk akhir components/ui. Foto listing sengaja
-            berupa placeholder ikon.
+            Halaman peraga dan acuan visual DS v2.1 (D242 sampai D250). Token dari globals.css, komponen dasar dari
+            components/ui, dan penanda dari components/shared, sama dengan yang dipakai aplikasi. Foto listing sengaja berupa
+            placeholder ikon.
           </p>
         </header>
 

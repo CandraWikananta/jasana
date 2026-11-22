@@ -13,7 +13,7 @@ export function PlaceholderPage({
 }) {
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-2xl font-bold">{title}</h1>
+      <h1 className="text-h1 font-bold">{title}</h1>
       <div className="rounded-lg border border-border bg-card">
         <EmptyState icon={icon} title="Segera hadir" description={description} />
       </div>

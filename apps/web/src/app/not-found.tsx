@@ -6,7 +6,7 @@ export const metadata: Metadata = { title: "Halaman tidak ditemukan" }
 
 export default function NotFound() {
   return (
-    <main className="mx-auto flex min-h-dvh max-w-6xl items-center justify-center px-4 md:px-6">
+    <main id="konten" tabIndex={-1} className="mx-auto flex min-h-dvh max-w-6xl items-center justify-center px-4 outline-none md:px-6">
       <NotFoundView />
     </main>
   )

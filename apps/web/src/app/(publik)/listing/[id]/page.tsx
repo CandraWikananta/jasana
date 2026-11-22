@@ -59,7 +59,7 @@ export default async function ListingPage({ params }: PageProps<"/listing/[id]">
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
               {listing.rating_count > 0 ? (
                 <span className="flex items-center gap-1">
-                  <Star aria-hidden className="size-4 fill-foreground" />
+                  <Star aria-hidden className="size-4 fill-rating text-rating-stroke" />
                   <span className="font-semibold tabular-nums">{formatRating(listing.rating_average)}</span>
                   <span className="text-muted-foreground tabular-nums">({listing.rating_count} ulasan)</span>
                 </span>

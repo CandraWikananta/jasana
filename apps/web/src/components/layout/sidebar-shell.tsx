@@ -39,13 +39,14 @@ export function SidebarShell({
                 </Button>
               </SheetTrigger>
               <SheetContent side="left" className="w-62 p-0">
-                <SheetTitle className="px-4 pt-5 pb-2 text-lg font-semibold">{areaLabel}</SheetTitle>
+                <SheetTitle className="px-4 pt-5 pb-2 text-h3 font-semibold">{areaLabel}</SheetTitle>
                 <SidebarNav items={items} onNavigate={() => setOpen(false)} />
               </SheetContent>
             </Sheet>
           )}
           <Link
             href="/"
+            translate="no"
             className="rounded-sm text-2xl font-bold text-primary outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           >
             Jasana
@@ -63,7 +64,7 @@ export function SidebarShell({
             </div>
           </aside>
         )}
-        <main className="min-w-0 flex-1 px-4 py-6 md:px-6">{children}</main>
+        <main id="konten" tabIndex={-1} className="min-w-0 flex-1 px-4 py-6 outline-none md:px-6">{children}</main>
       </div>
     </div>
   )
@@ -83,6 +84,7 @@ function ActiveNavLinks(props: { items: NavItem[]; onNavigate?: () => void }) {
   return <NavLinks {...props} pathname={usePathname()} />
 }
 
+// Penanda posisi pucat (D243, DS 6.4): hijau solid hanya milik tombol `now` dan titik live.
 function NavLinks({ items, pathname, onNavigate }: { items: NavItem[]; pathname: string; onNavigate?: () => void }) {
   return (
     <ul className="flex flex-col gap-1 px-3">
@@ -96,11 +98,11 @@ function NavLinks({ items, pathname, onNavigate }: { items: NavItem[]; pathname:
               onClick={onNavigate}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "flex h-11 items-center gap-3 rounded-md px-3 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                active ? "bg-brand-subtle text-brand-subtle-foreground" : "text-foreground hover:bg-muted",
+                "flex h-11 items-center gap-3 rounded-md px-3 text-sm outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card",
+                active ? "bg-brand-subtle font-semibold text-brand-subtle-foreground" : "font-medium text-foreground hover:bg-muted",
               )}
             >
-              <Icon aria-hidden className="size-5" />
+              <Icon aria-hidden className={cn("size-6", active ? "text-brand-subtle-foreground" : "text-muted-foreground")} />
               {item.label}
             </Link>
           </li>

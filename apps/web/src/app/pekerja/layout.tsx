@@ -13,6 +13,7 @@ export default function PekerjaLayout({ children }: LayoutProps<"/pekerja">) {
         <div className="mx-auto flex h-16 max-w-md items-center gap-3 px-4">
           <Link
             href="/"
+            translate="no"
             className="rounded-sm text-2xl font-bold text-primary outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           >
             Jasana
@@ -22,7 +23,7 @@ export default function PekerjaLayout({ children }: LayoutProps<"/pekerja">) {
         </div>
       </header>
       <EmailVerificationBanner />
-      <main className="mx-auto w-full max-w-md flex-1 px-4 pt-6 pb-24">
+      <main id="konten" tabIndex={-1} className="mx-auto w-full max-w-md flex-1 px-4 pt-6 pb-24 outline-none">
         <AreaGate area="pekerja">{children}</AreaGate>
       </main>
       <BottomNav nav="pekerja" />

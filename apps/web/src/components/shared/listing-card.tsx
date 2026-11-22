@@ -7,7 +7,8 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { formatJarak, formatRating } from "@/lib/format"
 import type { ListingCard as ListingCardData } from "@/types/api/listing"
 
-// Design System 6.2: foto 4:3, judul, nama usaha, rating, "Mulai Rp...", jarak, ModeBadge.
+// Design System 6.2: foto 4:3, judul, nama usaha, rating, "Mulai Rp...", jarak, dan ModeBadge hanya untuk
+// mode Sekarang. Terjadwal adalah mode bawaan, badge yang diulang di setiap kartu tidak menambah informasi (D246).
 /** `eager` untuk kartu di atas lipatan, supaya fotonya tidak menunggu lazy load (LCP). */
 export function ListingCard({ listing, eager = false }: { listing: ListingCardData; eager?: boolean }) {
   const { provider } = listing
@@ -33,9 +34,9 @@ export function ListingCard({ listing, eager = false }: { listing: ListingCardDa
         )}
       </div>
 
-      <div className="flex flex-1 flex-col gap-2 p-4">
-        <div className="flex flex-col gap-0.5">
-          <h3 className="line-clamp-2 text-lg leading-6.5 font-semibold group-hover:underline">{listing.title}</h3>
+      <div className="flex min-w-0 flex-1 flex-col gap-2 p-4">
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <h3 className="line-clamp-2 text-h3 font-semibold group-hover:underline">{listing.title}</h3>
           {/* business_name null untuk INDIVIDUAL tanpa nama usaha; kartu belum membawa display_name. */}
           {provider.business_name && <p className="truncate text-sm text-muted-foreground">{provider.business_name}</p>}
         </div>
@@ -43,7 +44,7 @@ export function ListingCard({ listing, eager = false }: { listing: ListingCardDa
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
           {listing.rating_count > 0 ? (
             <span className="flex items-center gap-1">
-              <Star aria-hidden className="size-4 fill-foreground" />
+              <Star aria-hidden className="size-4 fill-rating text-rating-stroke" />
               <span className="font-semibold tabular-nums">{formatRating(listing.rating_average)}</span>
               <span className="text-muted-foreground tabular-nums">({listing.rating_count})</span>
             </span>
@@ -59,14 +60,11 @@ export function ListingCard({ listing, eager = false }: { listing: ListingCardDa
           )}
         </div>
 
-        <div className="mt-auto flex flex-wrap items-end justify-between gap-2 pt-1">
+        <div className="mt-auto flex min-h-7 flex-wrap items-end justify-between gap-2 pt-1">
           <p className="text-sm text-muted-foreground">
             Mulai <MoneyText amount={listing.price} className="text-base font-semibold text-foreground" />
           </p>
-          <div className="flex flex-wrap gap-1.5">
-            {listing.supports_available_now && <ModeBadge mode="AVAILABLE_NOW" />}
-            {listing.supports_scheduled && <ModeBadge mode="SCHEDULED" />}
-          </div>
+          {listing.supports_available_now && <ModeBadge mode="AVAILABLE_NOW" />}
         </div>
       </div>
     </Link>
