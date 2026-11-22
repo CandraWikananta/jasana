@@ -1,72 +1,87 @@
-import { Suspense } from "react"
+import { Suspense, cache } from "react"
 import Link from "next/link"
-import { ArrowRight, MessagesSquare, PackageOpen, Search, Shapes } from "lucide-react"
+import { MessagesSquare, PackageOpen, Search } from "lucide-react"
 import { EmptyState } from "@/components/shared/empty-state"
+import { chipIconClass, filterChipClass } from "@/components/shared/filter-chip"
+import { LINK_CLASS } from "@/components/shared/link-class"
 import { ListingCard, ListingCardSkeleton } from "@/components/shared/listing-card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { listCategories } from "@/features/catalog/api"
+import { heroTitle } from "@/features/catalog/hero-title"
 import { searchListings } from "@/features/listings/api"
 import { getCategoryIcon } from "@/lib/category-icons"
+import { cn } from "@/lib/utils"
+
+// Titik masuk Asisten (W8). Tautan di hero dan panel di bawah menuju tempat yang sama.
+const ASISTEN_HREF = "/asisten"
+
+// Judul dan chip memakai daftar kategori yang sama; cache() membuat satu render cukup satu fetch.
+// Kegagalan tidak menjatuhkan hero: judul jatuh ke cadangan dan chip disembunyikan.
+const getCategories = cache(async () => {
+  try {
+    return (await listCategories()).data
+  } catch {
+    return []
+  }
+})
 
 // FE2: Server Component. Data diambil tanpa `use cache` di dalam Suspense, jadi selalu segar dan
-// `next build` tidak butuh API hidup. Kegagalan fetch ditangkap (publik)/error.tsx.
+// `next build` tidak butuh API hidup. Kegagalan jasa populer ditangkap (publik)/error.tsx.
 export default function BerandaPage() {
   return (
     <div className="flex flex-col gap-12 pb-16">
-      <section className="border-b border-border bg-brand-subtle">
-        <div className="mx-auto flex max-w-6xl flex-col gap-5 px-4 py-10 md:px-6 md:py-16">
-          <div className="flex max-w-2xl flex-col gap-2">
-            <h1 className="text-3xl font-bold text-brand-subtle-foreground">Cari jasa di sekitarmu</h1>
-            <p className="text-base text-muted-foreground">
-              Pesan jasa terjadwal, atau minta pekerja datang sekarang.
+      <section aria-labelledby="judul-beranda" className="border-b border-border bg-card">
+        <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-10 md:px-6 md:py-16">
+          <div className="flex flex-col gap-3">
+            <Suspense fallback={<HeroTitleSkeleton />}>
+              <HeroTitle />
+            </Suspense>
+            <p className="max-w-xl text-base text-muted-foreground">
+              Pesan untuk jadwal tertentu, atau panggil pekerja yang bisa datang sekarang.
             </p>
           </div>
-          <form role="search" action="/cari" method="get" className="flex w-full max-w-2xl gap-2">
-            <label htmlFor="cari-beranda" className="sr-only">
-              Cari jasa
-            </label>
-            <div className="relative flex-1">
-              <Search
-                aria-hidden
-                className="pointer-events-none absolute top-1/2 left-3 size-5 -translate-y-1/2 text-muted-foreground"
-              />
+
+          <div className="flex max-w-2xl flex-col gap-3">
+            <form role="search" action="/cari" method="get" className="flex flex-col gap-2 sm:flex-row">
+              <label htmlFor="cari-beranda" className="sr-only">
+                Cari jasa
+              </label>
               <Input
                 id="cari-beranda"
                 name="q"
                 type="search"
-                placeholder="Servis AC, potong rambut, foto wisuda"
-                className="h-12 pl-10"
+                autoComplete="off"
+                placeholder="Servis motor, rias pengantin, foto produk…"
+                className="sm:flex-1"
               />
-            </div>
-            <Button type="submit" size="lg">
-              Cari
-            </Button>
-          </form>
+              <Button type="submit" size="lg" className="h-11">
+                <Search aria-hidden />
+                Cari jasa
+              </Button>
+            </form>
+            <p className="text-sm text-muted-foreground">
+              Belum tahu butuh jasa apa?{" "}
+              <Link href={ASISTEN_HREF} className={LINK_CLASS}>
+                Tanya Asisten Jasana
+              </Link>
+            </p>
+          </div>
+
+          <Suspense fallback={<CategoryChipsSkeleton />}>
+            <CategoryChips />
+          </Suspense>
         </div>
       </section>
 
-      <section aria-labelledby="judul-kategori" className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 md:px-6">
-        <h2 id="judul-kategori" className="text-xl font-semibold">
-          Kategori
-        </h2>
-        <Suspense fallback={<CategoryGridSkeleton />}>
-          <CategoryGrid />
-        </Suspense>
-      </section>
-
       <section aria-labelledby="judul-populer" className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 md:px-6">
-        <div className="flex items-end justify-between gap-4">
-          <h2 id="judul-populer" className="text-xl font-semibold">
+        <div className="flex items-baseline justify-between gap-4">
+          <h2 id="judul-populer" className="text-h2 font-semibold">
             Jasa populer
           </h2>
-          <Link
-            href="/cari?sort=popular"
-            className="flex items-center gap-1 rounded-sm text-sm font-semibold text-primary outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-          >
+          <Link href="/cari?sort=popular" className={cn(LINK_CLASS, "hidden text-sm sm:inline")}>
             Lihat semua
-            <ArrowRight aria-hidden className="size-4" />
           </Link>
         </div>
         <Suspense fallback={<ListingGridSkeleton />}>
@@ -74,22 +89,24 @@ export default function BerandaPage() {
         </Suspense>
       </section>
 
-      <section className="mx-auto w-full max-w-6xl px-4 md:px-6">
+      <section aria-labelledby="judul-asisten" className="mx-auto w-full max-w-6xl px-4 md:px-6">
         <div className="flex flex-col gap-4 rounded-lg border border-border bg-card p-6 md:flex-row md:items-center md:justify-between">
           <div className="flex items-start gap-4">
-            <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-brand-subtle text-brand-subtle-foreground">
+            <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
               <MessagesSquare aria-hidden className="size-6" />
-            </div>
+            </span>
             <div className="flex flex-col gap-1">
-              <h2 className="text-lg font-semibold">Bingung pilih jasa?</h2>
-              <p className="text-sm text-muted-foreground">
+              <h2 id="judul-asisten" className="text-h3 font-semibold">
+                Bingung pilih jasa?
+              </h2>
+              <p className="max-w-lg text-sm text-muted-foreground">
                 Ceritakan kebutuhanmu ke Asisten Jasana, nanti dibantu mencarikan jasa yang cocok.
               </p>
             </div>
           </div>
-          {/* Tautan saja; halaman dan widget Asisten dibangun di W8. */}
+          {/* Halaman dan widget Asisten dibangun di W8. */}
           <Button asChild variant="outline" className="md:shrink-0">
-            <Link href="/asisten">Tanya Asisten</Link>
+            <Link href={ASISTEN_HREF}>Tanya Asisten</Link>
           </Button>
         </div>
       </section>
@@ -97,40 +114,59 @@ export default function BerandaPage() {
   )
 }
 
-async function CategoryGrid() {
-  const { data: categories } = await listCategories()
-  if (categories.length === 0) {
-    return <EmptyState icon={Shapes} title="Belum ada kategori" description="Kategori jasa akan tampil di sini." />
-  }
+async function HeroTitle() {
+  const categories = await getCategories()
   return (
-    <ul className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-      {categories.map((c) => {
-        const Icon = getCategoryIcon(c.icon_name)
-        return (
-          <li key={c.id}>
-            {/* /kategori/[id] belum dibuat, jadi ubin langsung membuka pencarian berfilter. */}
-            <Link
-              href={`/cari?category_id=${c.id}`}
-              className="flex h-full items-center gap-3 rounded-lg border border-border bg-card p-4 font-semibold outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-            >
-              <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand-subtle text-brand-subtle-foreground">
-                <Icon aria-hidden className="size-5" />
-              </span>
-              <span className="min-w-0 truncate">{c.name}</span>
-            </Link>
-          </li>
-        )
-      })}
-    </ul>
+    <h1 id="judul-beranda" className="max-w-3xl text-display font-bold md:text-display-lg">
+      {heroTitle(categories.map((c) => c.name))}
+    </h1>
   )
 }
 
-function CategoryGridSkeleton() {
+function HeroTitleSkeleton() {
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-      {Array.from({ length: 4 }, (_, i) => (
-        <Skeleton key={i} className="h-18 rounded-lg" />
-      ))}
+    <div className="flex max-w-3xl flex-col gap-2">
+      <Skeleton className="h-9 w-full md:h-12" />
+      <Skeleton className="h-9 w-2/3 md:h-12" />
+    </div>
+  )
+}
+
+async function CategoryChips() {
+  const categories = await getCategories()
+  if (categories.length === 0) return null
+  return (
+    <div className="flex flex-col gap-3">
+      <p id="label-kategori" className="text-sm font-semibold">
+        Kategori
+      </p>
+      <ul aria-labelledby="label-kategori" className="flex flex-wrap gap-2">
+        {categories.map((c) => {
+          const Icon = getCategoryIcon(c.icon_name)
+          return (
+            <li key={c.id}>
+              {/* /kategori/[id] belum dibuat, jadi chip langsung membuka pencarian berfilter. */}
+              <Link href={`/cari?category_id=${c.id}`} className={filterChipClass(false)}>
+                <Icon aria-hidden className={chipIconClass(false)} />
+                {c.name}
+              </Link>
+            </li>
+          )
+        })}
+      </ul>
+    </div>
+  )
+}
+
+function CategoryChipsSkeleton() {
+  return (
+    <div className="flex flex-col gap-3">
+      <Skeleton className="h-5 w-20" />
+      <div className="flex flex-wrap gap-2">
+        {Array.from({ length: 4 }, (_, i) => (
+          <Skeleton key={i} className="h-11 w-32 rounded-md" />
+        ))}
+      </div>
     </div>
   )
 }
@@ -143,11 +179,19 @@ async function PopularListings() {
     )
   }
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      {listings.map((l, i) => (
-        <ListingCard key={l.id} listing={l} eager={i < 4} />
-      ))}
-    </div>
+    <>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {listings.map((l, i) => (
+          // Di HP cukup empat kartu, sisanya lewat "Lihat semua" (konten inti dulu).
+          <div key={l.id} className={cn("grid", i >= 4 && "hidden sm:grid")}>
+            <ListingCard listing={l} eager={i < 4} />
+          </div>
+        ))}
+      </div>
+      <Button asChild variant="outline" className="w-full sm:hidden">
+        <Link href="/cari?sort=popular">Lihat semua jasa populer</Link>
+      </Button>
+    </>
   )
 }
 

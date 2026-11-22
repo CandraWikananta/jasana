@@ -18,5 +18,4 @@ export function RatingText({ rating, reviews }: { rating: number; reviews: numbe
   )
 }
 
-export const LINK_CLASS =
-  "font-semibold text-brand-strong underline underline-offset-3 hover:text-brand-subtle-foreground focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card focus-visible:outline-none"
+export { LINK_CLASS } from "@/components/shared/link-class"

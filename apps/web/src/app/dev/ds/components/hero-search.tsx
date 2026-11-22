@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { CATEGORIES, LOCATIONS } from "../data"
-import { FilterChip } from "./filter-chip"
+import { FilterChip } from "@/components/shared/filter-chip"
 
 // Hero beranda: judul berisi fakta, bukan klaim (D249), skala `display` (D247), kolom pencarian
 // berlabel, Select lokasi, satu tombol primary (P2), dan chip kategori.
