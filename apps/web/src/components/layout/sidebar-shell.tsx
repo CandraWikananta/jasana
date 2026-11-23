@@ -80,7 +80,8 @@ function ActiveNavLinks(props: { items: NavItem[]; onNavigate?: () => void }) {
 }
 
 // Penanda posisi pucat (D243, DS 6.4): hijau solid hanya milik tombol `now` dan titik live.
-function NavLinks({ items, pathname, onNavigate }: { items: NavItem[]; pathname: string; onNavigate?: () => void }) {
+// Di-export untuk galeri /dev/ui dengan pathname tetap.
+export function NavLinks({ items, pathname, onNavigate }: { items: NavItem[]; pathname: string; onNavigate?: () => void }) {
   return (
     <ul className="flex flex-col gap-1 px-3">
       {items.map((item) => {

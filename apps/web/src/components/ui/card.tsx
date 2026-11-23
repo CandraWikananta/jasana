@@ -34,7 +34,8 @@ function CardTitle({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="card-title"
-      className={cn("text-lg leading-6.5 font-semibold", className)}
+      // DS 6.1 dan 2: judul kartu memakai token h3 (18/26), bukan text-lg bawaan.
+      className={cn("text-h3 font-semibold", className)}
       {...props}
     />
   )

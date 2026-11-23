@@ -86,6 +86,11 @@ export default async function PenyediaPage({ params }: PageProps<"/penyedia/[id]
               title="Belum ada jasa yang tayang"
               description="Jasa dari penyedia ini akan tampil di sini."
               className="rounded-lg border border-border bg-card"
+              action={
+                <Button asChild variant="outline">
+                  <Link href="/cari">Cari jasa lain</Link>
+                </Button>
+              }
             />
           ) : (
             // GET /providers/:id hanya membawa id dan judul, jadi belum bisa memakai ListingCard (celah backend).

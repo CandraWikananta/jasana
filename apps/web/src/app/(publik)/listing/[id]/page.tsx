@@ -242,7 +242,7 @@ function PriceLine({ price, unit }: { price: number; unit: string }) {
     <p className="flex flex-col">
       <span className="text-sm text-muted-foreground">Mulai</span>
       <span>
-        <MoneyText amount={price} className="text-xl font-bold" />
+        <MoneyText amount={price} className="text-h2 font-bold" />
         {unit && <span className="text-sm text-muted-foreground"> {unit}</span>}
       </span>
     </p>

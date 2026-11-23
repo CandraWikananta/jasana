@@ -59,7 +59,8 @@ function ActiveNavList({ items }: { items: NavItem[] }) {
   return <NavList items={items} pathname={usePathname()} />
 }
 
-function NavList({ items, pathname }: { items: NavItem[]; pathname: string }) {
+/** Isi navigasi bawah. Di-export untuk galeri /dev/ui dengan pathname tetap. */
+export function NavList({ items, pathname }: { items: NavItem[]; pathname: string }) {
   return (
     <ul className="mx-auto flex h-16 max-w-md">
       {items.map((item) => {

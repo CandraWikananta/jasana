@@ -11,6 +11,7 @@ export function ForbiddenView() {
       title="Kamu tidak punya akses ke halaman ini"
       description="Halaman ini hanya untuk akun dengan peran tertentu. Pindah area lewat menu akun di kanan atas."
       className="py-20"
+      titleAs="h1"
       action={
         <Button asChild>
           <Link href="/">Kembali ke beranda</Link>

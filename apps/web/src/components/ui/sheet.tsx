@@ -114,7 +114,8 @@ function SheetTitle({
   return (
     <SheetPrimitive.Title
       data-slot="sheet-title"
-      className={cn("text-lg font-semibold text-foreground", className)}
+      // DS 2: judul sheet dan dialog memakai token h3 (18/26), bukan text-lg bawaan.
+      className={cn("text-h3 font-semibold text-foreground", className)}
       {...props}
     />
   )

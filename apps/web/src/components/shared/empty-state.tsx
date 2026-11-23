@@ -8,12 +8,15 @@ export function EmptyState({
   description,
   action,
   className,
+  titleAs: Title = "h3",
 }: {
   icon: LucideIcon
   title: string
   description: string
   action?: React.ReactNode
   className?: string
+  /** h1 untuk halaman yang isinya hanya state ini (404, 403); tampilannya tetap h3. */
+  titleAs?: "h1" | "h3"
 }) {
   return (
     <div className={cn("flex flex-col items-center gap-3 px-4 py-10 text-center", className)}>
@@ -21,7 +24,7 @@ export function EmptyState({
         <Icon aria-hidden className="size-6" />
       </div>
       <div className="flex flex-col gap-1">
-        <h3 className="text-h3 font-semibold">{title}</h3>
+        <Title className="text-h3 font-semibold">{title}</Title>
         <p className="max-w-lg text-sm text-muted-foreground">{description}</p>
       </div>
       {action}
