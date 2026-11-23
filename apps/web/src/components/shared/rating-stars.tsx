@@ -23,3 +23,15 @@ export function RatingStars({ rating, className }: { rating: number; className?:
     </span>
   )
 }
+
+/** Ringkasan rating di header halaman publik: satu bintang, angka, dan jumlah ulasan (DS 1.4c). */
+export function RatingSummary({ average, count }: { average: number; count: number }) {
+  if (count === 0) return <span className="text-muted-foreground">Belum ada ulasan</span>
+  return (
+    <span className="flex items-center gap-1">
+      <Star aria-hidden className="size-4 fill-rating text-rating-stroke" />
+      <span className="font-semibold tabular-nums">{formatRating(average)}</span>
+      <span className="text-muted-foreground tabular-nums">({count} ulasan)</span>
+    </span>
+  )
+}

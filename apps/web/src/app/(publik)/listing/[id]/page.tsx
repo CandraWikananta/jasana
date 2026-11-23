@@ -7,7 +7,8 @@ import { EmptyState } from "@/components/shared/empty-state"
 import { EscrowNote } from "@/components/shared/escrow-note"
 import { ModeBadge } from "@/components/shared/mode-badge"
 import { MoneyText } from "@/components/shared/money-text"
-import { RatingStars } from "@/components/shared/rating-stars"
+import { PageSection } from "@/components/shared/page-section"
+import { RatingStars, RatingSummary } from "@/components/shared/rating-stars"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Button } from "@/components/ui/button"
 import { listAttributes } from "@/features/catalog/api"
@@ -56,15 +57,7 @@ export default async function ListingPage({ params }: PageProps<"/listing/[id]">
           <h1 className="text-h1 font-bold text-balance break-words">{listing.title}</h1>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
             <span className="text-muted-foreground">{listing.subcategory.name}</span>
-            {listing.rating_count > 0 ? (
-              <span className="flex items-center gap-1">
-                <Star aria-hidden className="size-4 fill-rating text-rating-stroke" />
-                <span className="font-semibold tabular-nums">{formatRating(listing.rating_average)}</span>
-                <span className="text-muted-foreground tabular-nums">({listing.rating_count} ulasan)</span>
-              </span>
-            ) : (
-              <span className="text-muted-foreground">Belum ada ulasan</span>
-            )}
+            <RatingSummary average={listing.rating_average} count={listing.rating_count} />
             {listing.order_count > 0 && (
               <span className="text-muted-foreground tabular-nums">{listing.order_count} kali dipesan</span>
             )}
@@ -86,14 +79,14 @@ export default async function ListingPage({ params }: PageProps<"/listing/[id]">
           <ProviderCard provider={listing.provider} />
 
           {listing.description && (
-            <Section title="Deskripsi">
+            <PageSection title="Deskripsi">
               {/* Konten pengguna dirender sebagai teks (CLAUDE.md jebakan 14). */}
               <p className="max-w-xl text-base break-words whitespace-pre-line">{listing.description}</p>
-            </Section>
+            </PageSection>
           )}
 
           {specs.length > 0 && (
-            <Section title="Spesifikasi">
+            <PageSection title="Spesifikasi">
               <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
                 {specs.map((s) => (
                   <div key={s.label} className="flex flex-col gap-0.5">
@@ -102,11 +95,11 @@ export default async function ListingPage({ params }: PageProps<"/listing/[id]">
                   </div>
                 ))}
               </dl>
-            </Section>
+            </PageSection>
           )}
 
           {listing.option_prices.length > 0 && (
-            <Section title="Pilihan dan harga" description="Tambahan dari harga mulai. Pilihannya ditentukan saat memesan.">
+            <PageSection title="Pilihan dan harga" description="Tambahan dari harga mulai. Pilihannya ditentukan saat memesan.">
               <div className="flex flex-col gap-4">
                 {groupOptions(listing.option_prices).map((group) => (
                   <div key={group.key} className="rounded-lg border border-border bg-card">
@@ -129,11 +122,11 @@ export default async function ListingPage({ params }: PageProps<"/listing/[id]">
                   </div>
                 ))}
               </div>
-            </Section>
+            </PageSection>
           )}
 
           {listing.faqs.length > 0 && (
-            <Section title="Pertanyaan umum">
+            <PageSection title="Pertanyaan umum">
               <Accordion type="single" collapsible className="rounded-lg border border-border bg-card px-4">
                 {listing.faqs.map((f) => (
                   <AccordionItem key={f.id} value={f.id}>
@@ -144,10 +137,10 @@ export default async function ListingPage({ params }: PageProps<"/listing/[id]">
                   </AccordionItem>
                 ))}
               </Accordion>
-            </Section>
+            </PageSection>
           )}
 
-          <Section title="Ulasan">
+          <PageSection title="Ulasan">
             {listing.reviews.length === 0 ? (
               <EmptyState
                 icon={MessageSquareText}
@@ -183,7 +176,7 @@ export default async function ListingPage({ params }: PageProps<"/listing/[id]">
                 )}
               </div>
             )}
-          </Section>
+          </PageSection>
         </div>
 
         {/* Desktop: kartu harga menempel di kolom kanan. HP: bar bawah. Satu tombol primary per lebar layar. */}
@@ -202,7 +195,8 @@ export default async function ListingPage({ params }: PageProps<"/listing/[id]">
         </aside>
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-card shadow-sm lg:hidden">
+      {/* pb-safe px-safe (D256): elemen fixed tidak ikut padding body, jadi ruang aman dipasang di sini. */}
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-card px-safe pb-safe shadow-sm lg:hidden">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 md:px-6">
           <PriceLine price={listing.price} unit={unit} />
           <Button asChild size="lg" className="min-w-32">
@@ -252,18 +246,6 @@ function PriceLine({ price, unit }: { price: number; unit: string }) {
         {unit && <span className="text-sm text-muted-foreground"> {unit}</span>}
       </span>
     </p>
-  )
-}
-
-function Section({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
-  return (
-    <section className="flex flex-col gap-3">
-      <div className="flex flex-col gap-1">
-        <h2 className="text-h2 font-semibold text-balance">{title}</h2>
-        {description && <p className="text-sm text-muted-foreground">{description}</p>}
-      </div>
-      {children}
-    </section>
   )
 }
 
