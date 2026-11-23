@@ -2,7 +2,7 @@
 
 **Artefak frontend 2 dari 4**
 Platform Jasana, Tugas Akhir I Nyoman Gede Candra Wikananta (2305551065)
-**Versi 2.4 (disetujui)**, 23 November 2026
+**Versi 2.5 (disetujui)**, 23 November 2026
 
 Dokumen ini menetapkan bahasa visual dan bahasa teks seluruh antarmuka Jasana: warna, tipografi, jarak, komponen, label status, format angka dan waktu, serta glosarium. Tujuannya satu: **empat area (publik dan client, usaha, pekerja, admin) terlihat dan terbaca seperti satu produk**, walaupun dibangun dalam belasan sesi Claude Code yang terpisah.
 
@@ -245,8 +245,9 @@ Aturan:
 | Lebar konten publik | `max-w-6xl` (1152 px), di tengah |
 | Lebar halaman formulir | `max-w-xl` (576 px) |
 | Sidebar area usaha dan admin | 248 px, bisa diciutkan di `lg` ke bawah |
-| Navigasi bawah (client dan pekerja, HP) | Tinggi 64 px, 4 sampai 5 item, ikon + label |
-| Bar aksi order di HP | Menempel di bawah layar, di atas navigasi bawah |
+| Navigasi bawah (client dan pekerja, HP) | Tinggi isi 64 px, 4 sampai 5 item, ikon + label, ditambah ruang aman bawah `pb-safe` (D256) |
+| Ruang bawah konten di area pelanggan dan pekerja | `pb-nav-safe` (96 px + ruang aman bawah), supaya isi terakhir tidak tertutup navigasi bawah (D256) |
+| Bar aksi order di HP | Menempel di bawah layar, di atas navigasi bawah. Setiap bar yang menempel di bawah memakai `pb-safe`, dan `px-safe` kalau berupa elemen `fixed` (D256) |
 
 **Titik henti** mengikuti bawaan Tailwind: `sm` 640, `md` 768, `lg` 1024, `xl` 1280 px. Tiga lebar yang **wajib dicek** di setiap sesi: **390, 768, 1280 px**.
 
@@ -586,6 +587,7 @@ Istilah di kolom tengah adalah satu-satunya yang dipakai di UI.
 | Terjemahan otomatis | `translate="no"` pada nama merek dan nomor pesanan |
 | Gerak | Hormati `prefers-reduced-motion`: matikan animasi masuk, denyut titik live, dan denyut penanda peta |
 | Bahasa | `<html lang="id">` |
+| Ruang aman layar | `viewport-fit=cover`. Bar yang menempel di bawah memakai `pb-safe`, `body` memakai `px-safe` supaya isi tidak masuk ke bawah notch saat HP miring. Nilainya 0 di desktop dan di HP tanpa notch (D256) |
 
 ---
 
@@ -776,6 +778,18 @@ Ganti isi `src/app/globals.css` dengan isi berikut. Tailwind v4 memakai konfigur
   box-shadow: 0 0 0 4px var(--brand-glow);
 }
 
+/* Ruang aman layar (D256). Bernilai 0 di desktop dan di HP tanpa notch */
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+@utility px-safe {
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+@utility pb-nav-safe {
+  padding-bottom: calc(6rem + env(safe-area-inset-bottom));
+}
+
 @layer base {
   * {
     @apply border-border;
@@ -809,6 +823,7 @@ Tiga tambahan di luar token warna:
 
 - `tw-animate-css` menyediakan kelas animasi (`animate-in`, `fade-in`, `slide-in-from-bottom`) yang dipakai Dialog, Sheet, Popover, dan Dropdown dari shadcn
 - `shadcn/tailwind.css` menyediakan varian seperti `data-open:` yang dipakai komponen shadcn versi 4. Isinya varian, bukan warna, jadi tidak melanggar aturan token
+- Utilitas `pb-safe`, `px-safe`, dan `pb-nav-safe` membutuhkan `export const viewport = { viewportFit: "cover" }` di `app/layout.tsx`. `body` memakai `px-safe` (D256)
 - `@layer base` juga mengatur `text-wrap` judul dan paragraf, `touch-action`, serta kursor tombol (Tailwind v4 memakai `cursor: default` untuk `<button>`)
 - `@layer base` menjadikan `--border` sebagai warna garis bawaan. Tanpa ini, Tailwind v4 memakai `currentColor`, sehingga setiap `border` yang lupa diberi `border-border` tampil hitam pekat
 
@@ -861,6 +876,7 @@ Untuk sesi Claude Code yang memindahkan kode W0 dan W2 ke v2.1. Struktur kompone
 | Formulir | Atribut field Bagian 6.1b, fokus ke error pertama, error `body-sm` 500 (D248) |
 | Layout | Tautan "Lewati ke konten" (D248) |
 | `EscrowNote` | Komponen domain baru (D250) |
+| Ruang aman layar | `viewport-fit=cover`, utilitas `pb-safe`, `px-safe`, `pb-nav-safe` di bar bawah, `body`, dan `main` area pelanggan dan pekerja (D256) |
 | `Button` ukuran `md` | 40 px jadi 44 px. Pemakaian `sm` di area publik, pelanggan, dan pekerja diganti `md` (D252) |
 | Hasil pencarian | `ActiveFilters` dengan chip `removable` (D253), `ListingCard` varian `compact` lewat container query (D254) |
 | Logo | Ikon `jasana-mark.svg` + teks `text-logo` di semua header, ukuran footer sesuai Bagian 5. Favicon `src/app/icon.svg`, `favicon.ico` bawaan dihapus (D251) |
@@ -887,3 +903,4 @@ Untuk sesi Claude Code yang memindahkan kode W0 dan W2 ke v2.1. Struktur kompone
 | 2.2 | 22 November 2026 | Logo Jasana (D251): ikon `jasana-mark.svg` diikuti teks "Jasana" dengan token baru `text-logo` (22/28 px, 700), ukuran per tempat di Bagian 5, favicon `src/app/icon.svg` |
 | 2.3 | 22 November 2026 | Dari M3 halaman `/cari`. Tombol `md` jadi 44 px dan `sm` hanya di area usaha dan admin (D252). Chip filter varian `removable` dan komponen `ActiveFilters` (D253). `ListingCard` varian `compact` untuk hasil pencarian di HP (D254) |
 | 2.4 | 23 November 2026 | Dari M3 halaman detail jasa. `EscrowNote` juga dipakai di detail jasa (D255). Catatan D254: varian `compact` dipilih lewat container query (36rem), bukan titik henti `sm`, karena pemilihan lewat JavaScript menimbulkan kilasan tata letak (CLS 0,21 di 1280 px) |
+| 2.5 | 23 November 2026 | Ruang aman layar untuk iPhone (D256): `viewport-fit=cover`, utilitas `pb-safe`, `px-safe`, dan `pb-nav-safe` |
