@@ -34,6 +34,16 @@ export function isActive(item: NavItem, pathname: string): boolean {
   return pathname === item.href || (!item.exact && pathname.startsWith(`${item.href}/`))
 }
 
+/**
+ * Di mana navigasi bawah tampil (PRD Frontend 4.1): pekerja di semua lebar; pelanggan hanya di HP,
+ * di halaman area pelanggan dan halaman tujuan menunya (Beranda, Cari).
+ */
+export function bottomNavAt(pathname: string): "all" | "mobile" | null {
+  if (pathname === "/pekerja" || pathname.startsWith("/pekerja/")) return "all"
+  if (pathname.startsWith("/pesan/") || PELANGGAN_NAV.some((item) => isActive(item, pathname))) return "mobile"
+  return null
+}
+
 export const PELANGGAN_NAV: NavItem[] = [
   { href: "/", label: "Beranda", icon: House, exact: true },
   { href: "/cari", label: "Cari", icon: Search },
@@ -74,3 +84,14 @@ export const ADMIN_NAV: NavItem[] = [
 // Karena itu layout mengirim nama area, lalu komponen navigasi mengambil menunya di sini.
 export const NAV = { pelanggan: PELANGGAN_NAV, pekerja: PEKERJA_NAV, usaha: USAHA_NAV, admin: ADMIN_NAV } as const
 export type NavName = keyof typeof NAV
+
+/** Item menu untuk halaman penampung `[...slug]` sebuah area. */
+export function findNavItem(nav: NavName, slug: string[]): NavItem | undefined {
+  const href = `/${nav}/${slug.join("/")}`
+  return NAV[nav].find((item) => item.href === href)
+}
+
+/** Seluruh slug menu sebuah area (tanpa akarnya), untuk generateStaticParams halaman penampung. */
+export function navSlugs(nav: NavName): { slug: string[] }[] {
+  return NAV[nav].filter((item) => !item.exact).map((item) => ({ slug: item.href.split("/").slice(2) }))
+}

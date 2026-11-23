@@ -15,7 +15,7 @@ export function SiteHeader() {
 
           <HeaderSearch />
 
-          <HeaderAccount />
+          <HeaderAccount customerLinks />
         </div>
       </header>
       <EmailVerificationBanner />

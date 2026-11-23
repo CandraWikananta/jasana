@@ -13,6 +13,7 @@ export const qk = {
   worker: { orders: ["worker", "orders"] as const },
   wallet: ["wallet"] as const,
   notifications: ["notifications"] as const,
+  notificationsUnread: ["notifications", "unread"] as const,
   listings: {
     all: ["listings"] as const,
     search: (params: SearchListingsParams) => ["listings", "search", params] as const,

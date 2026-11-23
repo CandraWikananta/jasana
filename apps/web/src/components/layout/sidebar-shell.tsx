@@ -35,7 +35,7 @@ export function SidebarShell({
           {showNav && (
             <Sheet open={open} onOpenChange={setOpen}>
               <SheetTrigger asChild>
-                <Button variant="ghost" size="sm" className="size-11 p-0 lg:hidden" aria-label="Buka menu">
+                <Button variant="ghost" size="icon" className="lg:hidden" aria-label="Buka menu">
                   <Menu aria-hidden />
                 </Button>
               </SheetTrigger>

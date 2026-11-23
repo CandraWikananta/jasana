@@ -52,12 +52,13 @@ export function useAreaNavVisible(area: Area): boolean {
   return me === undefined || getCapabilities(me).areas.includes(area)
 }
 
+// Sebentuk PlaceholderPage (judul h1 36 px, lalu panel), tanpa padding sendiri karena main sudah
+// berpadding, supaya konten tidak meloncat saat /auth/me tiba.
 function GateSkeleton() {
   return (
-    <div className="flex flex-col gap-4 p-4 md:p-6" aria-busy="true" aria-label="Memuat">
-      <Skeleton className="h-8 w-48" />
-      <Skeleton className="h-4 w-72 max-w-full" />
-      <Skeleton className="h-40 w-full" />
+    <div className="flex flex-col gap-4" aria-busy="true" aria-label="Memuat">
+      <Skeleton className="h-9 w-48" />
+      <Skeleton className="h-48 w-full rounded-lg" />
     </div>
   )
 }

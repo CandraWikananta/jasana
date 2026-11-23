@@ -29,6 +29,8 @@ const buttonVariants = cva(
         sm: "h-9 px-3 text-sm [&_svg:not([class*='size-'])]:size-4",
         md: "h-11 px-5 text-sm",
         lg: "h-12 px-6 text-base",
+        // Tombol ikon persegi 44 px, sama tinggi dengan md (usulan D257). Wajib punya nama aksesibel.
+        icon: "size-11 p-0",
       },
     },
     defaultVariants: {

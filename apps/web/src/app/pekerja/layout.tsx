@@ -13,7 +13,7 @@ export default function PekerjaLayout({ children }: LayoutProps<"/pekerja">) {
         <div className="mx-auto flex h-16 max-w-md items-center gap-3 px-4">
           <BrandLogo href="/" />
           <span className="text-sm font-semibold text-muted-foreground">Pekerja</span>
-          <HeaderAccount />
+          <HeaderAccount size="lg" />
         </div>
       </header>
       <EmailVerificationBanner />
