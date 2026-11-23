@@ -86,6 +86,12 @@ export const LOGIN_UNAUTHORIZED_MESSAGE = "Email, nomor ponsel, atau kata sandi 
 /** Pesan 429 khusus halaman masuk; diikuti retryAfterMessage, atau ajakan menunggu kalau tanpa Retry-After. */
 export const LOGIN_RATE_LIMITED_MESSAGE = "Terlalu banyak percobaan masuk."
 
+/**
+ * Awal kalimat 429 di luar halaman masuk, saat Retry-After terbaca. Tanpa Retry-After dipakai pesan
+ * RATE_LIMIT_EXCEEDED dari peta, yang sudah mengajak menunggu, supaya "coba lagi" tidak dobel.
+ */
+export const RATE_LIMITED_MESSAGE = "Terlalu banyak permintaan."
+
 /** "Coba lagi dalam N menit" untuk 429 yang membawa Retry-After (PRD Frontend 7.2). */
 export function retryAfterMessage(seconds: number | null): string | null {
   if (seconds === null || seconds <= 0) return null

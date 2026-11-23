@@ -37,3 +37,17 @@ export interface LoginResult extends AccessTokenResult {
 }
 
 export type LoginInput = { email: string; password: string } | { phone: string; password: string }
+
+/** POST /auth/register. Nomor ponsel dinormalisasi server ke +628… */
+export interface RegisterInput {
+  full_name: string
+  email: string
+  phone: string
+  password: string
+}
+
+/** Balasan POST /auth/register: tanpa token, jadi masuk tetap lewat /api/session/login (D260). */
+export interface RegisterResult {
+  user: UserDto
+  message: string
+}

@@ -1,24 +1,9 @@
 import type { Metadata } from "next"
 import { Suspense } from "react"
-import { Skeleton } from "@/components/ui/skeleton"
+import { FormSkeleton } from "@/features/auth/components/form-skeleton"
 import { LoginForm } from "@/features/auth/components/login-form"
 
 export const metadata: Metadata = { title: "Masuk", robots: { index: false } }
-
-function LoginFormSkeleton() {
-  return (
-    // Tinggi sama dengan isian asli (label 20 + jarak 6 + input 44) dan tombol lg 48.
-    <div className="flex flex-col gap-5">
-      {[0, 1].map((i) => (
-        <div key={i} className="flex flex-col gap-1.5">
-          <Skeleton className="h-5 w-40" />
-          <Skeleton className="h-11" />
-        </div>
-      ))}
-      <Skeleton className="h-12" />
-    </div>
-  )
-}
 
 export default function MasukPage() {
   return (
@@ -28,7 +13,7 @@ export default function MasukPage() {
         <p className="text-sm text-muted-foreground">Pesan jasa dan pantau pesananmu dari satu akun.</p>
       </div>
       {/* useSearchParams di LoginForm butuh batas Suspense (cacheComponents). */}
-      <Suspense fallback={<LoginFormSkeleton />}>
+      <Suspense fallback={<FormSkeleton fields={["plain", "plain"]} footer />}>
         <LoginForm />
       </Suspense>
     </>
