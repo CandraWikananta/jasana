@@ -227,6 +227,7 @@ describe.skipIf(!hasTestDatabase)('alur akun', () => {
     it('token dari email memverifikasi akun, dan hanya bisa dipakai sekali', async () => {
       const user = await registerUser(app);
       const token = tokenFrom(lastEmailTo(sent, user.email));
+      expect(lastEmailTo(sent, user.email)?.text).toMatch(/\/verifikasi-email\?token=/);
 
       const verified = await request(app).post('/api/v1/auth/verify-email').send({ token });
       expect(verified.status).toBe(200);
@@ -345,6 +346,7 @@ describe.skipIf(!hasTestDatabase)('alur akun', () => {
 
       await request(app).post('/api/v1/auth/forgot-password').send({ email: user.email });
       const token = tokenFrom(lastEmailTo(sent, user.email));
+      expect(lastEmailTo(sent, user.email)?.text).toMatch(/\/atur-ulang-sandi\?token=/);
 
       const reset = await request(app)
         .post('/api/v1/auth/reset-password')

@@ -4,8 +4,8 @@
 **Nama sistem:** Jasana
 **Penyusun:** I Nyoman Gede Candra Wikananta (2305551065)
 **Bidang Keahlian:** Sistem Informasi, Teknologi Informasi, Universitas Udayana
-**Versi:** 2.52
-**Terakhir diperbarui:** 23 November 2026 (versi 2.52)
+**Versi:** 2.53
+**Terakhir diperbarui:** 23 November 2026 (versi 2.53)
 **Tahap saat ini:** Implementasi backend Fase 0 sampai Fase 10 selesai, data simulasi sudah terisi di Supabase dev. Frontend dibangun ulang di lapisan visual di branch `feat/frontend-v2` dengan Design System v2.6 (D241 sampai D257); logika W0 dan W2 dipertahankan, versi lama diarsipkan di tag `frontend-v1`. Berikutnya migrasi W0 dan W2 ke v2.1, field `OrderDto` di backend (H131), W1, stress test k6, dan UAT
 
 ---
@@ -67,7 +67,12 @@
 | Frontend: detail jasa (D255) | 1 | 0 |
 | Frontend: ruang aman layar (D256) | 1 | 0 |
 | Frontend: tombol ikon dan navigasi pelanggan desktop (D257) | 1 | 0 |
+| Frontend: halaman autentikasi (D258 sampai D261, D258 dibatalkan) | 4 | 0 |
 | Keputusan terbuka tanpa nomor D (Bagian 7) | | 0 |
+
+**Perubahan pada versi 2.53:**
+
+1. Empat keputusan dari halaman autentikasi W1a (D258 sampai D261, Bagian 4AT). D258 dibatalkan. H143 dan H144 baru
 
 **Perubahan pada versi 2.52:**
 
@@ -2279,6 +2284,17 @@ Dari M3 putaran layout empat area, 23 November 2026. Tanpa perubahan backend.
 |---|---|---|
 | D257 | **Ukuran tombol `icon` 44 x 44 px**, untuk tombol berisi ikon saja (Menu sidebar, Notifikasi), ikon 20 px, wajib punya nama aksesibel. **Navigasi pelanggan di desktop:** mulai `md`, header pelanggan yang login menampilkan tautan "Pesanan" (pola tautan aktif header publik) dan tombol `icon` `Bell` ke Notifikasi dengan lencana notifikasi baru; "Akun" masuk menu avatar. Di HP, navigasi bawah pelanggan juga tampil di Beranda dan Cari untuk pengguna yang login | Navigasi bawah pelanggan disembunyikan mulai `md`, sehingga di desktop Notifikasi dan Akun tidak bisa dicapai sama sekali dan Pesanan hanya lewat menu avatar. Tombol Menu sidebar sebelumnya mengakali ukuran lewat `className`; dengan ukuran resmi, tombol ikon seragam dan memenuhi area sentuh 44 px. Lencana notifikasi dan pola tautan aktif sudah ada di Design System 6.4, jadi tidak ada pola visual baru selain ukuran tombol |
 
+## 4AT. Keputusan Versi 2.53 (D258 sampai D261): Halaman Autentikasi
+
+Dari W1a (halaman daftar, verifikasi email, lupa dan atur ulang sandi, konfirmasi email), 23 November 2026. D259 butuh perubahan kecil di backend.
+
+| # | Keputusan | Alasan |
+|---|---|---|
+| D258 | **Dibatalkan.** Semula: `export const instant = false` di empat layout area untuk menghilangkan peringatan "instant-unrendered-segment" di mode dev. Diganti catatan di `apps/web/CLAUDE.md` bahwa peringatan itu sudah diketahui penyebabnya dan tidak perlu diperbaiki | Saat dicoba, ekspor di layout tidak cukup karena Next 16.4 tetap memvalidasi halaman di bawahnya. Menambahkannya di setiap halaman area berarti beban di puluhan halaman W3 sampai W7, dan mematikan validasi lewat konfigurasi ikut mematikan pemeriksaan halaman publik. Peringatannya hanya muncul di mode dev dan tidak mengubah perilaku production. Tujuan awalnya, supaya sesi Claude Code berikutnya tidak menyelidikinya lagi, cukup dicapai dengan catatan |
+| D259 | **Path halaman link email mengikuti PRD Frontend 4.2**: `/verifikasi-email`, `/atur-ulang-sandi`, `/konfirmasi-email`. Template `account-emails.ts` di backend disesuaikan | Seluruh rute frontend berbahasa Indonesia. Backend semula memakai `/verify-email`, `/reset-password`, dan `/confirm-email-change`, sehingga link di email membuka 404. Mengubah tiga string di sumbernya lebih bersih daripada menambah lapisan redirect |
+| D260 | **Setelah daftar berhasil, frontend langsung masuk** dengan kredensial yang sama, lalu menampilkan konfirmasi "Akunmu sudah dibuat" dengan tombol Lanjut ke `next` atau beranda. Kalau masuk otomatis gagal (misalnya kena batas 429), tombolnya menjadi Masuk | `POST /auth/register` tidak mengembalikan token. D62 membolehkan masuk sebelum verifikasi email. W8 mensyaratkan tamu yang mendaftar di tengah percakapan dengan Asisten bisa langsung melanjutkan |
+| D261 | **`/verifikasi-email` dan `/konfirmasi-email` menunggu satu ketukan tombol**, bukan mengirim permintaan otomatis saat halaman dibuka | Pemindai link di layanan email yang menjalankan JavaScript bisa menghabiskan token sekali pakai sebelum pengguna sempat mengklik. Permintaan otomatis juga terkirim dua kali di React StrictMode dan berujung `TOKEN_ALREADY_USED` |
+
 ---
 
 ## 5. Alur Sistem End-to-End
@@ -2949,6 +2965,8 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 - [ ] **H140** `GET /providers/:id` hanya membawa `id` dan `title` per jasa dan tidak membawa ulasan, sedangkan `GET /listings` tidak punya filter `provider_id`. Akibatnya profil penyedia belum bisa memakai `ListingCard` (foto, harga, rating, mode) dan panel ulasan. Paling sederhana: endpoint penyedia menambah foto utama, harga, rating, dan `supports_available_now` per jasa, serta ringkasan ulasan. Dikerjakan di `main` **(baru, M3 profil penyedia)**
 - [ ] **H141** Foto listing di data simulasi berupa gradien dan bentuk geometris, dan ada judul jasa yang sama berulang (misalnya "Servis Ringan dan Tune Up Motor" tiga kali). Halaman publik jadi terasa placeholder saat asistensi dan UAT. Ganti dengan foto asli berlisensi bebas dan judul yang beragam lewat script seed di `main`. Terkait H92: tanpa pekerja online simulasi, filter mode Sekarang menghasilkan nol jasa, sehingga fitur pembeda Jasana tidak bisa didemokan **(baru, review taste T2 di M3 beranda)**
 - [ ] **H142** Tipe `PaginationMeta` di `packages/shared` belum memuat `unread_count`, padahal `GET /notifications` mengirimnya. Frontend sementara membacanya secara lokal di `features/notifications/api.ts`. Perbaiki tipenya di `main`, lalu hapus pembacaan lokal itu **(baru, M3 layout empat area)**
+- [ ] **H143** `POST /auth/register` tidak punya batas permintaan, padahal masuk dan lupa sandi punya. Orang bisa membuat akun palsu secara massal. Tambahkan pembatas per IP di `main` **(baru, W1a)**
+- [x] **H144** **(ditutup 23 November 2026 bersama D259)** CORS backend (`apps/api/src/app.ts`) hanya mengekspos `X-Request-Id`, sehingga browser tidak bisa membaca `Retry-After` dari jawaban 429 di lupa sandi dan kirim ulang verifikasi; frontend jatuh ke pesan umum. Tambahkan `Retry-After` ke `exposedHeaders`. `/masuk` tidak terdampak karena lewat Route Handler. Dikerjakan bersama D259 di `main` **(baru, W1a)**
 - [ ] **H82** Admin fee withdrawal berupa nilai flat yang mengikuti perkiraan biaya payout Xendit **(baru, D84)**. Untuk nominal di atas Rp250.000 biaya sebenarnya sedikit lebih besar dan selisihnya ditanggung platform
 
 ---
@@ -3052,6 +3070,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 | 2.50 | 23 November 2026 | `EscrowNote` di detail jasa (D255) dan catatan container query untuk D254. Design System v2.4. Tanpa migrasi |
 | 2.51 | 23 November 2026 | Ruang aman layar (D256). Design System v2.5. H140 dan H141 baru. Tanpa migrasi |
 | 2.52 | 23 November 2026 | Ukuran tombol `icon` dan navigasi pelanggan di desktop (D257). Design System v2.6. H142 baru. Tanpa migrasi |
+| 2.53 | 23 November 2026 | Halaman autentikasi W1a: D258 dibatalkan, path link email (D259), masuk otomatis setelah daftar (D260), verifikasi lewat satu ketukan (D261). H143 dan H144 baru. Tanpa migrasi |
 
 ---
 

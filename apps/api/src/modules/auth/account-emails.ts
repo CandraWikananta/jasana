@@ -35,7 +35,7 @@ export function emailVerificationEmail(fullName: string, token: string): Account
       `Halo ${fullName},\n\n` +
       'Klik tautan berikut untuk memverifikasi alamat email Anda. ' +
       'Tautan berlaku 24 jam.\n\n' +
-      `${link('/verify-email', token)}\n\n` +
+      `${link('/verifikasi-email', token)}\n\n` +
       'Kalau Anda tidak mendaftar di Jasana, abaikan email ini.',
   };
 }
@@ -49,7 +49,7 @@ export function passwordResetEmail(fullName: string, token: string): AccountEmai
       `Halo ${fullName},\n\n` +
       'Ada permintaan untuk mengganti password akun Anda. Tautan berikut ' +
       'berlaku 1 jam dan hanya bisa dipakai sekali.\n\n' +
-      `${link('/reset-password', token)}\n\n` +
+      `${link('/atur-ulang-sandi', token)}\n\n` +
       'Kalau bukan Anda yang meminta, abaikan email ini. Password Anda tidak berubah.',
   };
 }
@@ -67,7 +67,7 @@ export function emailChangeConfirmationEmail(
       `Halo ${fullName},\n\n` +
       `Klik tautan berikut untuk menjadikan ${newEmail} alamat email akun Jasana Anda. ` +
       'Tautan berlaku 24 jam. Sampai dikonfirmasi, alamat lama tetap dipakai.\n\n' +
-      `${link('/confirm-email-change', token)}`,
+      `${link('/konfirmasi-email', token)}`,
   };
 }
 

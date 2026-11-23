@@ -66,7 +66,7 @@ function corsOptions(): CorsOptions {
       callback(new Error(CORS_REJECTION_MESSAGE));
     },
     credentials: true,
-    exposedHeaders: ['X-Request-Id'],
+    exposedHeaders: ['X-Request-Id', 'Retry-After'],
   };
 }
 
