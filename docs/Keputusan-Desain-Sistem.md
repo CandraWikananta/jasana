@@ -4,9 +4,9 @@
 **Nama sistem:** Jasana
 **Penyusun:** I Nyoman Gede Candra Wikananta (2305551065)
 **Bidang Keahlian:** Sistem Informasi, Teknologi Informasi, Universitas Udayana
-**Versi:** 2.49
-**Terakhir diperbarui:** 22 November 2026 (versi 2.49)
-**Tahap saat ini:** Implementasi backend Fase 0 sampai Fase 10 selesai, data simulasi sudah terisi di Supabase dev. Frontend dibangun ulang di lapisan visual di branch `feat/frontend-v2` dengan Design System v2.3 (D241 sampai D254); logika W0 dan W2 dipertahankan, versi lama diarsipkan di tag `frontend-v1`. Berikutnya migrasi W0 dan W2 ke v2.1, field `OrderDto` di backend (H131), W1, stress test k6, dan UAT
+**Versi:** 2.50
+**Terakhir diperbarui:** 23 November 2026 (versi 2.50)
+**Tahap saat ini:** Implementasi backend Fase 0 sampai Fase 10 selesai, data simulasi sudah terisi di Supabase dev. Frontend dibangun ulang di lapisan visual di branch `feat/frontend-v2` dengan Design System v2.4 (D241 sampai D255); logika W0 dan W2 dipertahankan, versi lama diarsipkan di tag `frontend-v1`. Berikutnya migrasi W0 dan W2 ke v2.1, field `OrderDto` di backend (H131), W1, stress test k6, dan UAT
 
 ---
 
@@ -64,7 +64,12 @@
 | Frontend: review Design System v2.1 (D242 sampai D250) | 9 | 0 |
 | Frontend: logo (D251) | 1 | 0 |
 | Frontend: halaman cari (D252 sampai D254) | 3 | 0 |
+| Frontend: detail jasa (D255) | 1 | 0 |
 | Keputusan terbuka tanpa nomor D (Bagian 7) | | 0 |
+
+**Perubahan pada versi 2.50:**
+
+1. `EscrowNote` di detail jasa (D255, Bagian 4AQ) dan catatan pelaksanaan D254. Design System naik ke v2.4
 
 **Perubahan pada versi 2.49:**
 
@@ -2234,6 +2239,18 @@ Dari M3 putaran 2 (desain ulang `/cari`), 22 November 2026. Ketiganya diusulkan 
 | D253 | **Chip filter aktif yang bisa dihapus satu per satu** (varian `removable`, komponen `ActiveFilters`) di antara baris judul dan hasil `/cari`. Kata kunci tidak ikut, karena sudah punya tombol "Hapus kata kunci" | Di HP panel filter tersembunyi di Sheet, sehingga tanpa baris ini pengguna tidak tahu filter apa yang sedang aktif. Menghapus satu filter tanpa membuka Sheet juga lebih cepat |
 | D254 | **`ListingCard` varian `compact`** untuk hasil `/cari` di bawah `sm`: baris horizontal dengan foto 112 px di kiri dan teks di kanan. Beranda tetap varian biasa | Dua belas kartu varian biasa satu kolom di 390 px tingginya sekitar 5.700 px. Daftar horizontal memotongnya menjadi sekitar seperempatnya dan sudah akrab di aplikasi marketplace Indonesia. Beranda hanya menampilkan empat kartu di HP, jadi tetap varian biasa |
 
+## 4AQ. Keputusan Versi 2.50 (D255): Detail Jasa
+
+Dari M3 putaran 3 (desain ulang `/listing/[id]`), 23 November 2026. Tanpa perubahan backend.
+
+| # | Keputusan | Alasan |
+|---|---|---|
+| D255 | **`EscrowNote` juga di detail jasa**: di panel harga di bawah tombol Pesan (desktop) dan di blok "Cara memesan" (HP). Memperluas D250, yang sebelumnya membatasinya ke form pesan, halaman bayar, dan banner `PAID` | Tamu yang menekan Pesan langsung diarahkan ke `/masuk`, sehingga jaminan dana ditahan tidak pernah terlihat sebelum ia memutuskan mendaftar. Escrow adalah alasan utama orang mau mencoba platform baru, jadi harus terlihat di titik keputusan |
+
+**Catatan untuk D254.** Varian `compact` dipilih lewat container query (lebar daftar hasil di bawah 36rem), bukan titik henti `sm` lewat JavaScript. Percobaan pertama dengan hook `matchMedia` menimbulkan kilasan kartu compact di layar lebar (CLS 0,21 di 1280 px), karena halaman ikut dirender di server tanpa mengetahui lebar layar. Dengan CSS saja, CLS turun ke 0,006.
+
+**Bentuk mode di detail jasa** (tanpa nomor keputusan, karena hanya menyusun komponen yang ada): blok "Cara memesan" berisi `ModeBadge` untuk setiap mode yang didukung, masing-masing dengan satu kalimat artinya. Kalimat mode Sekarang sengaja bersyarat ("kalau ada pekerja yang sedang siap"), karena API detail hanya tahu jasa ini mendukung mode Sekarang, bukan ada pekerja yang sedang online.
+
 ---
 
 ## 5. Alur Sistem End-to-End
@@ -2916,7 +2933,7 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 | 5 | Diagram UML | Belum | Aktor jadi empat |
 | 6 | Diagram Konteks dan DFD | Belum | Aktor jadi empat, tambah entitas eksternal layanan email |
 | 7 | Conversation flow dan system prompt chatbot | Belum | |
-| 8 | Desain antarmuka | Selesai, Design System v2.3 | Design System dan mockup menggantikan Figma (D224). Layar per fase mengikuti Design System |
+| 8 | Desain antarmuka | Selesai, Design System v2.4 | Design System dan mockup menggantikan Figma (D224). Layar per fase mengikuti Design System |
 
 **Aset yang bisa dipakai ulang:** dokumen test case `PPL_A_2305551065_UAS.docx` berisi 127 test case pada 15 modul fungsional dan 1 modul performa.
 
@@ -2937,7 +2954,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 
 ## 11. Langkah Berikutnya
 
-1. Frontend di branch `feat/frontend-v2` (versi lama di tag `frontend-v1`): logika W0 dan W2 selesai, lapisan visual dibangun ulang dengan Design System v2.3 (D241 sampai D254). Berikutnya migrasi W0 dan W2 ke v2.1 (Design System Bagian 14), lalu W1 autentikasi dan akun. Sebelum W3, kerjakan H131 di `main`. Paralel di `main`: H124, H125, dan H127
+1. Frontend di branch `feat/frontend-v2` (versi lama di tag `frontend-v1`): logika W0 dan W2 selesai, lapisan visual dibangun ulang dengan Design System v2.4 (D241 sampai D255). Berikutnya migrasi W0 dan W2 ke v2.1 (Design System Bagian 14), lalu W1 autentikasi dan akun. Sebelum W3, kerjakan H131 di `main`. Paralel di `main`: H124, H125, dan H127
 2. Fase 9 selesai 17 November 2026 setelah evaluasi tiga run (Bagian 4AB dan 4AG). Fase 10 selesai 17 November 2026 (1.004 test lulus, D177 sampai D203), dengan uji sandbox 10a dan 10b lulus dan uji sandbox 10c dijalankan penyusun. Paralel: penyusun menyusun dataset 30 sampai 50 skenario berlabel (H15, D153) dan mencatat model serta batas kuota project Gemini di AI Studio
 3. Selesai: Fase 8 (15 November 2026, 751 test lulus, D131 sampai D150) beserta uji sandbox payout dan refund. Uji sandbox refund PARTIAL hasil putusan sengketa lulus. Sebelumnya Fase 7 (11 November 2026, 627 test lulus) beserta uji sandbox Xendit sungguhan (12 November 2026), sebelumnya audit hutang teknis (9 November 2026) dan sesi perapian (10 November 2026)
 4. Selesai: data simulasi Bali di Supabase dev (D204 sampai D209)
@@ -3001,6 +3018,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 | 2.47 | 22 November 2026 | Sembilan keputusan dari review Design System v2.0 dengan empat skill desain: penanda mode Sekarang tanpa garis tepi kiri (D242), penanda posisi aktif pucat (D243), switch `--brand-hover` (D244), `SETTLED` jadi "Dana cair" (D245), `ModeBadge` di kartu listing hanya Sekarang (D246), skala tipografi (D247), aturan formulir dan aksesibilitas (D248), aturan komposisi dan nada (D249), dan `EscrowNote` (D250). Design System v2.1. H139 baru. Tanpa migrasi |
 | 2.48 | 22 November 2026 | Logo Jasana: ikon diikuti teks, token `text-logo`, favicon (D251). Design System v2.2. Tanpa migrasi |
 | 2.49 | 22 November 2026 | Halaman cari: tombol `md` 44 px dan `sm` hanya di area usaha dan admin (D252), chip filter aktif yang bisa dihapus (D253), `ListingCard` varian `compact` di HP (D254). Design System v2.3. Tanpa migrasi |
+| 2.50 | 23 November 2026 | `EscrowNote` di detail jasa (D255) dan catatan container query untuk D254. Design System v2.4. Tanpa migrasi |
 
 ---
 
