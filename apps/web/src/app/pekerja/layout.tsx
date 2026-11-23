@@ -17,7 +17,7 @@ export default function PekerjaLayout({ children }: LayoutProps<"/pekerja">) {
         </div>
       </header>
       <EmailVerificationBanner />
-      <main id="konten" tabIndex={-1} className="mx-auto w-full max-w-md flex-1 px-4 pt-6 pb-24 outline-none">
+      <main id="konten" tabIndex={-1} className="mx-auto w-full max-w-md flex-1 px-4 pt-6 pb-nav-safe outline-none">
         <AreaGate area="pekerja">{children}</AreaGate>
       </main>
       <BottomNav nav="pekerja" />

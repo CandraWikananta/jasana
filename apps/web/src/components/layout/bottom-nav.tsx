@@ -8,15 +8,16 @@ import { useAreaNavVisible } from "./area-gate"
 import { NAV, isActive, type NavItem, type NavName } from "./nav-items"
 
 // Navigasi bawah HP (Design System 3): tinggi 64 px, ikon + label. Aktif: pill --brand-subtle di
-// sekitar ikon, area sentuhnya tetap seluruh item (D243, DS 4 dan 6.4). Halaman di atasnya wajib
-// memberi ruang bawah (pb-16) supaya isi terakhir tidak tertutup.
+// sekitar ikon, area sentuhnya tetap seluruh item (D243, DS 4 dan 6.4). Tinggi isi 64 px ada di <ul>; <nav>
+// menambah ruang aman garis home di bawahnya (pb-safe, D256). Halaman di atasnya wajib memberi ruang
+// bawah (pb-nav-safe) supaya isi terakhir tidak tertutup.
 export function BottomNav({ nav, className }: { nav: NavName; className?: string }) {
   const items = NAV[nav]
   if (!useAreaNavVisible(nav)) return null
   return (
     <nav
       aria-label="Navigasi utama"
-      className={cn("fixed inset-x-0 bottom-0 z-40 h-16 border-t border-border bg-card", className)}
+      className={cn("fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card pb-safe", className)}
     >
       {/* usePathname di rute dinamis butuh batas Suspense (Cache Components). */}
       <Suspense fallback={<NavList items={items} pathname="" />}>
@@ -32,7 +33,7 @@ function ActiveNavList({ items }: { items: NavItem[] }) {
 
 function NavList({ items, pathname }: { items: NavItem[]; pathname: string }) {
   return (
-    <ul className="mx-auto flex h-full max-w-md">
+    <ul className="mx-auto flex h-16 max-w-md">
       {items.map((item) => {
         const active = isActive(item, pathname)
         const Icon = item.icon

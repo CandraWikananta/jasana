@@ -7,7 +7,7 @@ export default function PelangganLayout({ children }: LayoutProps<"/">) {
   return (
     <div className="flex min-h-dvh flex-col">
       <SiteHeader />
-      <main id="konten" tabIndex={-1} className="mx-auto w-full max-w-6xl flex-1 px-4 pt-6 pb-24 outline-none md:px-6 md:pb-10">
+      <main id="konten" tabIndex={-1} className="mx-auto w-full max-w-6xl flex-1 px-4 pt-6 pb-nav-safe outline-none md:px-6 md:pb-10">
         <AreaGate area="pelanggan">{children}</AreaGate>
       </main>
       <BottomNav nav="pelanggan" className="md:hidden" />

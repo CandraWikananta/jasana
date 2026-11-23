@@ -168,12 +168,26 @@
   box-shadow: 0 0 0 4px var(--brand-glow);
 }
 
+/* D256: ruang aman layar (viewport-fit=cover). Semua bernilai nol di desktop dan di HP tanpa notch. */
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+@utility px-safe {
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+/* Ruang bawah konten di atas navigasi bawah: 6rem (64 px bar + jarak) ditambah garis home. */
+@utility pb-nav-safe {
+  padding-bottom: calc(6rem + env(safe-area-inset-bottom));
+}
+
 @layer base {
   * {
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground font-sans antialiased;
+    /* px-safe: isi tidak masuk ke bawah notch saat landscape (D256). */
+    @apply bg-background text-foreground font-sans antialiased px-safe;
   }
   h1, h2, h3 {
     text-wrap: balance;

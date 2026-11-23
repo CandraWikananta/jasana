@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
@@ -14,6 +14,9 @@ export const metadata: Metadata = {
   title: { default: "Jasana", template: "%s | Jasana" },
   description: "Cari dan pesan jasa di sekitarmu.",
 };
+
+// D256: halaman memakai seluruh layar iPhone; ruang aman diberikan lewat pb-safe, px-safe, dan pb-nav-safe.
+export const viewport: Viewport = { viewportFit: "cover" };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
