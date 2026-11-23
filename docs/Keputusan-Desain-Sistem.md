@@ -4,9 +4,9 @@
 **Nama sistem:** Jasana
 **Penyusun:** I Nyoman Gede Candra Wikananta (2305551065)
 **Bidang Keahlian:** Sistem Informasi, Teknologi Informasi, Universitas Udayana
-**Versi:** 2.50
-**Terakhir diperbarui:** 23 November 2026 (versi 2.50)
-**Tahap saat ini:** Implementasi backend Fase 0 sampai Fase 10 selesai, data simulasi sudah terisi di Supabase dev. Frontend dibangun ulang di lapisan visual di branch `feat/frontend-v2` dengan Design System v2.4 (D241 sampai D255); logika W0 dan W2 dipertahankan, versi lama diarsipkan di tag `frontend-v1`. Berikutnya migrasi W0 dan W2 ke v2.1, field `OrderDto` di backend (H131), W1, stress test k6, dan UAT
+**Versi:** 2.51
+**Terakhir diperbarui:** 23 November 2026 (versi 2.51)
+**Tahap saat ini:** Implementasi backend Fase 0 sampai Fase 10 selesai, data simulasi sudah terisi di Supabase dev. Frontend dibangun ulang di lapisan visual di branch `feat/frontend-v2` dengan Design System v2.5 (D241 sampai D256); logika W0 dan W2 dipertahankan, versi lama diarsipkan di tag `frontend-v1`. Berikutnya migrasi W0 dan W2 ke v2.1, field `OrderDto` di backend (H131), W1, stress test k6, dan UAT
 
 ---
 
@@ -65,7 +65,12 @@
 | Frontend: logo (D251) | 1 | 0 |
 | Frontend: halaman cari (D252 sampai D254) | 3 | 0 |
 | Frontend: detail jasa (D255) | 1 | 0 |
+| Frontend: ruang aman layar (D256) | 1 | 0 |
 | Keputusan terbuka tanpa nomor D (Bagian 7) | | 0 |
+
+**Perubahan pada versi 2.51:**
+
+1. Ruang aman layar untuk iPhone (D256, Bagian 4AR). Design System naik ke v2.5. H140 (data profil penyedia) dan H141 (foto dan judul data simulasi) baru
 
 **Perubahan pada versi 2.50:**
 
@@ -2251,6 +2256,16 @@ Dari M3 putaran 3 (desain ulang `/listing/[id]`), 23 November 2026. Tanpa peruba
 
 **Bentuk mode di detail jasa** (tanpa nomor keputusan, karena hanya menyusun komponen yang ada): blok "Cara memesan" berisi `ModeBadge` untuk setiap mode yang didukung, masing-masing dengan satu kalimat artinya. Kalimat mode Sekarang sengaja bersyarat ("kalau ada pekerja yang sedang siap"), karena API detail hanya tahu jasa ini mendukung mode Sekarang, bukan ada pekerja yang sedang online.
 
+## 4AR. Keputusan Versi 2.51 (D256): Ruang Aman Layar
+
+Dari M3 putaran 4 (profil penyedia), 23 November 2026. Tanpa perubahan backend.
+
+| # | Keputusan | Alasan |
+|---|---|---|
+| D256 | **Ruang aman layar (safe area).** Viewport `viewport-fit=cover`. Utilitas `pb-safe` (`padding-bottom: env(safe-area-inset-bottom)`) di bar yang menempel di bawah: bar Pesan detail jasa serta navigasi bawah pelanggan dan pekerja; tinggi isi bar tetap, ruang aman ditambahkan di bawahnya. Utilitas `pb-nav-safe` (`calc(6rem + env(safe-area-inset-bottom))`) menggantikan `pb-24` di `main` area pelanggan dan pekerja. Utilitas `px-safe` (kiri dan kanan) di `body` dan di bar Pesan, supaya isi tidak masuk ke bawah notch saat HP miring. Semua bernilai nol di desktop dan di HP tanpa notch | Di iPhone tanpa tombol home, area sekitar garis gestur (sekitar 34 px) bisa menimpa bar yang menempel di bawah, sehingga tombol sempit ditekan atau ketukan terbaca sebagai gestur sistem. Area pekerja dirancang untuk HP (P3) dan bar bawah ada di tiga tempat. Aturan token melarang nilai `env()` ditulis langsung di kelas, jadi utilitasnya didaftarkan di Design System. Diukur di emulasi iPhone 14 dengan ruang aman tersimulasi |
+
+**Celah yang diketahui:** saat HP miring, latar header dan footer tidak sampai ke bawah notch, sehingga terlihat strip `--background` di sisi itu (warnanya nyaris sama dengan `--card`). Di detail jasa, bar Pesan di iPhone setinggi 107 px sedangkan `scroll-pb-24` 96 px, jadi elemen yang difokus bisa tertutup sekitar 11 px; masih memenuhi WCAG 2.4.11 karena tidak tertutup penuh.
+
 ---
 
 ## 5. Alur Sistem End-to-End
@@ -2918,6 +2933,8 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 - [x] **H137** **(ditutup 19 November 2026 lewat D240)** Kegagalan sementara saat refresh pernah mengalihkan pengguna ke `/masuk` sekali saat pengambilan screenshot, padahal menurut D231 sesi dibiarkan saat API mati atau 5xx. Penyebabnya dua jalur di client: `AreaGate` mengalihkan setiap status tamu, dan `apiFetch` menghapus sesi saat refresh setelah 401 gagal karena 5xx. Route Handler sudah benar **(baru, W0 bagian 4)**
 - [ ] **H138** Selama sesi tertunda (D240), header masih menampilkan tombol Masuk dan halaman publik tampil sebagai tamu sampai dimuat ulang. Jarang terjadi, dirapikan di W9 **(baru, perbaikan H137)**
 - [ ] **H139** Hero beranda belum menampilkan baris "N pekerja bisa datang sekarang" (usulan review taste, ditunda dari D242 sampai D250). Butuh angka jumlah pekerja online per area dari API. Cek dulu apakah endpoint pencarian sudah bisa memberi angka ini; kalau butuh endpoint baru, masuk saran pengembangan **(baru, review Design System)**
+- [ ] **H140** `GET /providers/:id` hanya membawa `id` dan `title` per jasa dan tidak membawa ulasan, sedangkan `GET /listings` tidak punya filter `provider_id`. Akibatnya profil penyedia belum bisa memakai `ListingCard` (foto, harga, rating, mode) dan panel ulasan. Paling sederhana: endpoint penyedia menambah foto utama, harga, rating, dan `supports_available_now` per jasa, serta ringkasan ulasan. Dikerjakan di `main` **(baru, M3 profil penyedia)**
+- [ ] **H141** Foto listing di data simulasi berupa gradien dan bentuk geometris, dan ada judul jasa yang sama berulang (misalnya "Servis Ringan dan Tune Up Motor" tiga kali). Halaman publik jadi terasa placeholder saat asistensi dan UAT. Ganti dengan foto asli berlisensi bebas dan judul yang beragam lewat script seed di `main`. Terkait H92: tanpa pekerja online simulasi, filter mode Sekarang menghasilkan nol jasa, sehingga fitur pembeda Jasana tidak bisa didemokan **(baru, review taste T2 di M3 beranda)**
 - [ ] **H82** Admin fee withdrawal berupa nilai flat yang mengikuti perkiraan biaya payout Xendit **(baru, D84)**. Untuk nominal di atas Rp250.000 biaya sebenarnya sedikit lebih besar dan selisihnya ditanggung platform
 
 ---
@@ -2933,7 +2950,7 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 | 5 | Diagram UML | Belum | Aktor jadi empat |
 | 6 | Diagram Konteks dan DFD | Belum | Aktor jadi empat, tambah entitas eksternal layanan email |
 | 7 | Conversation flow dan system prompt chatbot | Belum | |
-| 8 | Desain antarmuka | Selesai, Design System v2.4 | Design System dan mockup menggantikan Figma (D224). Layar per fase mengikuti Design System |
+| 8 | Desain antarmuka | Selesai, Design System v2.5 | Design System dan mockup menggantikan Figma (D224). Layar per fase mengikuti Design System |
 
 **Aset yang bisa dipakai ulang:** dokumen test case `PPL_A_2305551065_UAS.docx` berisi 127 test case pada 15 modul fungsional dan 1 modul performa.
 
@@ -2954,7 +2971,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 
 ## 11. Langkah Berikutnya
 
-1. Frontend di branch `feat/frontend-v2` (versi lama di tag `frontend-v1`): logika W0 dan W2 selesai, lapisan visual dibangun ulang dengan Design System v2.4 (D241 sampai D255). Berikutnya migrasi W0 dan W2 ke v2.1 (Design System Bagian 14), lalu W1 autentikasi dan akun. Sebelum W3, kerjakan H131 di `main`. Paralel di `main`: H124, H125, dan H127
+1. Frontend di branch `feat/frontend-v2` (versi lama di tag `frontend-v1`): logika W0 dan W2 selesai, lapisan visual dibangun ulang dengan Design System v2.5 (D241 sampai D256). Berikutnya migrasi W0 dan W2 ke v2.1 (Design System Bagian 14), lalu W1 autentikasi dan akun. Sebelum W3, kerjakan H131 di `main`. Paralel di `main`: H124, H125, dan H127
 2. Fase 9 selesai 17 November 2026 setelah evaluasi tiga run (Bagian 4AB dan 4AG). Fase 10 selesai 17 November 2026 (1.004 test lulus, D177 sampai D203), dengan uji sandbox 10a dan 10b lulus dan uji sandbox 10c dijalankan penyusun. Paralel: penyusun menyusun dataset 30 sampai 50 skenario berlabel (H15, D153) dan mencatat model serta batas kuota project Gemini di AI Studio
 3. Selesai: Fase 8 (15 November 2026, 751 test lulus, D131 sampai D150) beserta uji sandbox payout dan refund. Uji sandbox refund PARTIAL hasil putusan sengketa lulus. Sebelumnya Fase 7 (11 November 2026, 627 test lulus) beserta uji sandbox Xendit sungguhan (12 November 2026), sebelumnya audit hutang teknis (9 November 2026) dan sesi perapian (10 November 2026)
 4. Selesai: data simulasi Bali di Supabase dev (D204 sampai D209)
@@ -3019,6 +3036,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 | 2.48 | 22 November 2026 | Logo Jasana: ikon diikuti teks, token `text-logo`, favicon (D251). Design System v2.2. Tanpa migrasi |
 | 2.49 | 22 November 2026 | Halaman cari: tombol `md` 44 px dan `sm` hanya di area usaha dan admin (D252), chip filter aktif yang bisa dihapus (D253), `ListingCard` varian `compact` di HP (D254). Design System v2.3. Tanpa migrasi |
 | 2.50 | 23 November 2026 | `EscrowNote` di detail jasa (D255) dan catatan container query untuk D254. Design System v2.4. Tanpa migrasi |
+| 2.51 | 23 November 2026 | Ruang aman layar (D256). Design System v2.5. H140 dan H141 baru. Tanpa migrasi |
 
 ---
 
