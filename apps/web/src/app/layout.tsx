@@ -18,7 +18,8 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     // scroll-pt: header yang menempel tidak menutupi elemen yang difokus (dua baris di HP, satu baris mulai md).
-    <html lang="id" className={`${jakarta.variable} scroll-pt-32 md:scroll-pt-20`}>
+    // scroll-pb: sama untuk bar bawah yang menempel di bawah lg (bar Pesan di detail jasa, WCAG 2.4.11).
+    <html lang="id" className={`${jakarta.variable} scroll-pt-32 scroll-pb-24 md:scroll-pt-20 lg:scroll-pb-0`}>
       <body>
         <SkipLink />
         <Providers>{children}</Providers>

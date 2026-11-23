@@ -4,6 +4,7 @@ import Link from "next/link"
 import { notFound } from "next/navigation"
 import { Clock, ImageOff, MessageSquareText, Star, Store } from "lucide-react"
 import { EmptyState } from "@/components/shared/empty-state"
+import { EscrowNote } from "@/components/shared/escrow-note"
 import { ModeBadge } from "@/components/shared/mode-badge"
 import { MoneyText } from "@/components/shared/money-text"
 import { RatingStars } from "@/components/shared/rating-stars"
@@ -49,45 +50,45 @@ export default async function ListingPage({ params }: PageProps<"/listing/[id]">
 
   return (
     <div className="mx-auto max-w-6xl px-4 pt-6 pb-28 md:px-6 lg:pb-16">
+      {/* Judul di atas grid: di desktop judul, harga, dan Pesan masuk layar pertama bersama foto. */}
+      <header className="flex flex-col gap-5 pb-6">
+        <div className="flex flex-col gap-2">
+          <h1 className="text-h1 font-bold text-balance break-words">{listing.title}</h1>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+            <span className="text-muted-foreground">{listing.subcategory.name}</span>
+            {listing.rating_count > 0 ? (
+              <span className="flex items-center gap-1">
+                <Star aria-hidden className="size-4 fill-rating text-rating-stroke" />
+                <span className="font-semibold tabular-nums">{formatRating(listing.rating_average)}</span>
+                <span className="text-muted-foreground tabular-nums">({listing.rating_count} ulasan)</span>
+              </span>
+            ) : (
+              <span className="text-muted-foreground">Belum ada ulasan</span>
+            )}
+            {listing.order_count > 0 && (
+              <span className="text-muted-foreground tabular-nums">{listing.order_count} kali dipesan</span>
+            )}
+            {listing.estimated_duration_minutes !== null && (
+              <span className="flex items-center gap-1 text-muted-foreground">
+                <Clock aria-hidden className="size-4" />
+                Perkiraan {formatDurasi(listing.estimated_duration_minutes)}
+              </span>
+            )}
+          </div>
+        </div>
+        <BookingModes listing={listing} />
+      </header>
+
       <div className="grid gap-8 lg:grid-cols-3">
         <div className="flex min-w-0 flex-col gap-8 lg:col-span-2">
           <Gallery listing={listing} />
-
-          <header className="flex flex-col gap-3">
-            <p className="text-sm text-muted-foreground">{listing.subcategory.name}</p>
-            <h1 className="text-2xl font-bold">{listing.title}</h1>
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-              {listing.rating_count > 0 ? (
-                <span className="flex items-center gap-1">
-                  <Star aria-hidden className="size-4 fill-rating text-rating-stroke" />
-                  <span className="font-semibold tabular-nums">{formatRating(listing.rating_average)}</span>
-                  <span className="text-muted-foreground tabular-nums">({listing.rating_count} ulasan)</span>
-                </span>
-              ) : (
-                <span className="text-muted-foreground">Belum ada ulasan</span>
-              )}
-              {listing.order_count > 0 && (
-                <span className="text-muted-foreground tabular-nums">{listing.order_count} kali dipesan</span>
-              )}
-              {listing.estimated_duration_minutes !== null && (
-                <span className="flex items-center gap-1 text-muted-foreground">
-                  <Clock aria-hidden className="size-4" />
-                  Perkiraan {formatDurasi(listing.estimated_duration_minutes)}
-                </span>
-              )}
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {listing.supports_available_now && <ModeBadge mode="AVAILABLE_NOW" />}
-              {listing.supports_scheduled && <ModeBadge mode="SCHEDULED" />}
-            </div>
-          </header>
 
           <ProviderCard provider={listing.provider} />
 
           {listing.description && (
             <Section title="Deskripsi">
               {/* Konten pengguna dirender sebagai teks (CLAUDE.md jebakan 14). */}
-              <p className="max-w-xl text-base whitespace-pre-line">{listing.description}</p>
+              <p className="max-w-xl text-base break-words whitespace-pre-line">{listing.description}</p>
             </Section>
           )}
 
@@ -156,19 +157,20 @@ export default async function ListingPage({ params }: PageProps<"/listing/[id]">
               />
             ) : (
               <div className="flex flex-col gap-3">
-                <ul className="flex flex-col gap-3">
+                {/* Satu panel bergaris pemisah, sama dengan Pilihan dan harga (D249). */}
+                <ul className="divide-y divide-border rounded-lg border border-border bg-card">
                   {listing.reviews.map((r) => (
-                    <li key={r.id} className="flex flex-col gap-2 rounded-lg border border-border bg-card p-4">
+                    <li key={r.id} className="flex flex-col gap-2 p-4">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <span className="font-semibold">{r.reviewer_name}</span>
                         <span className="text-sm text-muted-foreground">{formatTanggal(r.created_at)}</span>
                       </div>
                       <RatingStars rating={r.rating} />
-                      {r.comment && <p className="text-base whitespace-pre-line">{r.comment}</p>}
+                      {r.comment && <p className="text-base break-words whitespace-pre-line">{r.comment}</p>}
                       {r.provider_reply && (
                         <div className="flex flex-col gap-1 rounded-md bg-muted p-3">
                           <span className="text-sm font-semibold">Balasan penyedia</span>
-                          <p className="text-sm whitespace-pre-line">{r.provider_reply}</p>
+                          <p className="text-sm break-words whitespace-pre-line">{r.provider_reply}</p>
                         </div>
                       )}
                     </li>
@@ -194,6 +196,8 @@ export default async function ListingPage({ params }: PageProps<"/listing/[id]">
             <p className="text-sm text-muted-foreground">
               Total dihitung dari pilihanmu saat memesan. Bayar setelah penyedia menerima pesanan.
             </p>
+            {/* D255: tamu bertemu /masuk sebelum form pesan, jadi jaminan dana ditahan ditampilkan di sini. */}
+            <EscrowNote />
           </div>
         </aside>
       </div>
@@ -255,11 +259,43 @@ function Section({ title, description, children }: { title: string; description?
   return (
     <section className="flex flex-col gap-3">
       <div className="flex flex-col gap-1">
-        <h2 className="text-xl font-semibold">{title}</h2>
+        <h2 className="text-h2 font-semibold text-balance">{title}</h2>
         {description && <p className="text-sm text-muted-foreground">{description}</p>}
       </div>
       {children}
     </section>
+  )
+}
+
+const MODE_HINT = {
+  AVAILABLE_NOW: "Datang secepatnya, kalau ada pekerja yang sedang siap",
+  SCHEDULED: "Pilih tanggal dan jam kunjungan",
+} as const
+
+/** Mode yang didukung beserta artinya; badge tidak berdiri sendiri (DS P5). */
+function BookingModes({ listing }: { listing: ListingDetail }) {
+  const modes = [
+    ...(listing.supports_available_now ? (["AVAILABLE_NOW"] as const) : []),
+    ...(listing.supports_scheduled ? (["SCHEDULED"] as const) : []),
+  ]
+  return (
+    <div className="flex flex-col gap-3">
+      <p id="cara-memesan" className="text-sm font-semibold">
+        Cara memesan
+      </p>
+      <dl aria-labelledby="cara-memesan" className="flex flex-col gap-2">
+        {modes.map((mode) => (
+          <div key={mode} className="flex items-center gap-3">
+            <dt className="w-28 shrink-0">
+              <ModeBadge mode={mode} />
+            </dt>
+            <dd className="text-sm text-muted-foreground text-pretty">{MODE_HINT[mode]}</dd>
+          </div>
+        ))}
+      </dl>
+      {/* Versi HP dari EscrowNote di panel harga (D255); bar bawah tidak punya ruang untuk kalimat. */}
+      <EscrowNote className="lg:hidden" />
+    </div>
   )
 }
 
@@ -281,6 +317,7 @@ function ProviderCard({ provider }: { provider: ListingDetail["provider"] }) {
           {provider.rating_count > 0 && (
             <>
               {" · "}
+              <Star aria-hidden className="inline size-4 fill-rating align-text-bottom text-rating-stroke" />{" "}
               <span className="tabular-nums">
                 {formatRating(provider.rating_average)} ({provider.rating_count} ulasan)
               </span>
