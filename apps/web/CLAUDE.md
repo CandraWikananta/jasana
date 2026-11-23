@@ -174,6 +174,12 @@ Deskripsi jasa, FAQ, ulasan, pesan dalam order, dan jawaban Asisten dirender seb
 | Membaca durasi dari `listings.attributes` | `estimated_duration_minutes` | D90 |
 | `middleware.ts` | `proxy.ts` | Next.js 16 |
 
+### 16. Peringatan `instant-unrendered-segment` di halaman area
+
+`next dev` melaporkan "Could not validate that a segment in your UI has instant navigation … Dropped segment: `app/usaha/page.tsx`" (juga di pekerja, admin, dan pelanggan). **Penyebabnya sudah diketahui dan disengaja:** `AreaGate` tidak merender isi halaman sebelum sesi dan `/auth/me` diketahui (lapis kedua penjagaan, PRD 4.3), jadi segmen page di bawahnya selalu "terbuang" saat validasi. Peringatan ini hanya muncul di mode dev dan **tidak perlu diselidiki atau diperbaiki**.
+
+Jangan menambahkan `export const instant = false`, karena di layout saja tidak cukup (turunannya tetap divalidasi), dan `validationLevel: 'manual-warning'` ikut mematikan validasi halaman publik. Usulan memasangnya di layout (D258) dibatalkan. Halaman publik dan auth tidak memunculkan peringatan ini. Kalau muncul di sana, itu temuan baru.
+
 ---
 
 ## Konvensi kode
