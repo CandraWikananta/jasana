@@ -3,9 +3,8 @@
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useQueryClient } from "@tanstack/react-query"
 import { CircleX, Eye, EyeOff } from "lucide-react"
-import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
-import { useEffect, useId, useState } from "react"
+import { useEffect, useId, useRef, useState } from "react"
 import { useForm } from "react-hook-form"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -17,13 +16,10 @@ import { login } from "@/lib/session"
 import { useSessionStatus } from "@/lib/use-session-status"
 import { loginFormSchema, mapLoginError, toLoginInput, type LoginFormValues } from "../schemas"
 
-const linkClass =
-  "rounded-sm font-medium text-primary outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
-
 function FieldError({ id, message }: { id: string; message?: string }) {
   if (!message) return null
   return (
-    <p id={id} className="flex items-center gap-1.5 text-sm text-destructive">
+    <p id={id} className="flex items-center gap-1.5 text-sm font-medium text-destructive">
       <CircleX aria-hidden className="size-4 shrink-0" />
       {message}
     </p>
@@ -45,6 +41,7 @@ export function LoginForm() {
   const identifierId = useId()
   const passwordId = useId()
   const formErrorId = useId()
+  const formErrorRef = useRef<HTMLDivElement>(null)
 
   const {
     register,
@@ -56,6 +53,12 @@ export function LoginForm() {
     mode: "onTouched",
     defaultValues: { identifier: "", password: "" },
   })
+
+  // DS 10: setelah kirim gagal tanpa field yang salah (401, 429, jaringan), fokus ke ringkasan error di atas
+  // formulir. Error per field difokuskan react-hook-form (shouldFocusError dan setError shouldFocus).
+  useEffect(() => {
+    if (formError) formErrorRef.current?.focus()
+  }, [formError])
 
   // Sudah masuk (misalnya /masuk dibuka lagi dari riwayat): langsung ke tujuan.
   useEffect(() => {
@@ -72,9 +75,9 @@ export function LoginForm() {
         return
       }
       const view = mapLoginError(error)
-      for (const [field, message] of Object.entries(view.fields)) {
-        setError(field as keyof LoginFormValues, { message })
-      }
+      Object.entries(view.fields).forEach(([field, message], i) => {
+        setError(field as keyof LoginFormValues, { message }, { shouldFocus: i === 0 })
+      })
       setFormError(view.form)
       return
     }
@@ -93,8 +96,10 @@ export function LoginForm() {
       {formError && (
         <div
           id={formErrorId}
+          ref={formErrorRef}
+          tabIndex={-1}
           role="alert"
-          className="flex items-start gap-3 rounded-md border border-destructive-border bg-destructive-surface p-3 text-sm text-destructive-subtle-foreground"
+          className="flex items-start gap-3 rounded-md border border-destructive-border bg-destructive-surface p-3 text-sm text-destructive-subtle-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card"
         >
           <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-destructive-border text-destructive">
             <CircleX aria-hidden className="size-4" />
@@ -109,8 +114,13 @@ export function LoginForm() {
         </label>
         <Input
           id={identifierId}
-          autoComplete="username"
+          // Satu isian untuk email atau nomor ponsel: bukan type="email". "username" dipasangkan pengelola kata
+          // sandi dengan current-password (DS 6.1b, baris Identitas masuk).
+          type="text"
           inputMode="email"
+          autoComplete="username"
+          autoCapitalize="none"
+          spellCheck={false}
           aria-invalid={errors.identifier ? true : undefined}
           aria-describedby={errors.identifier ? `${identifierId}-error` : undefined}
           {...register("identifier")}
@@ -119,14 +129,10 @@ export function LoginForm() {
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <div className="flex items-center justify-between gap-3">
-          <label htmlFor={passwordId} className="text-sm font-medium">
-            Kata sandi
-          </label>
-          <Link href="/lupa-sandi" className={`text-sm ${linkClass}`}>
-            Lupa kata sandi?
-          </Link>
-        </div>
+        {/* "Lupa kata sandi?" dan "Daftar" menunggu halamannya di W1; tautan ke 404 tidak dipasang. */}
+        <label htmlFor={passwordId} className="text-sm font-medium">
+          Kata sandi
+        </label>
         <div className="relative">
           <Input
             id={passwordId}
@@ -151,15 +157,8 @@ export function LoginForm() {
       </div>
 
       <Button type="submit" size="lg" loading={isSubmitting || redirecting} className="w-full">
-        Masuk
+        {isSubmitting || redirecting ? "Masuk…" : "Masuk"}
       </Button>
-
-      <p className="text-center text-sm text-muted-foreground">
-        Belum punya akun?{" "}
-        <Link href="/daftar" className={linkClass}>
-          Daftar
-        </Link>
-      </p>
     </form>
   )
 }

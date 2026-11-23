@@ -1,6 +1,6 @@
 import { z } from "zod"
 import type { ApiError } from "@/lib/api-error"
-import { getErrorMessage, LOGIN_UNAUTHORIZED_MESSAGE, retryAfterMessage } from "@/lib/error-messages"
+import { LOGIN_RATE_LIMITED_MESSAGE, LOGIN_UNAUTHORIZED_MESSAGE, retryAfterMessage } from "@/lib/error-messages"
 import type { LoginInput } from "@/types/api/auth"
 
 // Aturan isi diserahkan ke server. Di sini hanya memastikan tidak kosong, supaya pesan galat
@@ -50,9 +50,8 @@ export function mapLoginError(error: ApiError): LoginErrorView {
   }
 
   if (error.status === 429) {
-    const wait = retryAfterMessage(error.retryAfterSeconds)
-    const base = getErrorMessage(error.code)
-    return { fields: {}, form: wait ? `${base} ${wait}` : base }
+    const wait = retryAfterMessage(error.retryAfterSeconds) ?? "Tunggu sebentar lalu coba lagi."
+    return { fields: {}, form: `${LOGIN_RATE_LIMITED_MESSAGE} ${wait}` }
   }
 
   return { fields: {}, form: error.message }

@@ -33,9 +33,9 @@ describe("formulir masuk", () => {
 
   it("429 menyebut kapan bisa mencoba lagi kalau ada Retry-After", () => {
     const view = mapLoginError(new ApiError(429, "RATE_LIMIT_EXCEEDED", [], 540))
-    expect(view.form).toBe("Terlalu banyak permintaan. Tunggu sebentar lalu coba lagi. Coba lagi dalam 9 menit.")
+    expect(view.form).toBe("Terlalu banyak percobaan masuk. Coba lagi dalam 9 menit.")
     expect(mapLoginError(new ApiError(429, "RATE_LIMIT_EXCEEDED")).form).toBe(
-      "Terlalu banyak permintaan. Tunggu sebentar lalu coba lagi.",
+      "Terlalu banyak percobaan masuk. Tunggu sebentar lalu coba lagi.",
     )
   })
 

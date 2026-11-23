@@ -81,7 +81,10 @@ export function getErrorMessage(code: string | null | undefined): string {
  * yang salah arti untuk kredensial keliru. Akun nonaktif juga 401 dengan kode yang sama, dan
  * sengaja tidak dibedakan supaya status akun tidak bocor.
  */
-export const LOGIN_UNAUTHORIZED_MESSAGE = "Email, nomor ponsel, atau kata sandi salah."
+export const LOGIN_UNAUTHORIZED_MESSAGE = "Email, nomor ponsel, atau kata sandi salah. Periksa lagi lalu coba masuk."
+
+/** Pesan 429 khusus halaman masuk; diikuti retryAfterMessage, atau ajakan menunggu kalau tanpa Retry-After. */
+export const LOGIN_RATE_LIMITED_MESSAGE = "Terlalu banyak percobaan masuk."
 
 /** "Coba lagi dalam N menit" untuk 429 yang membawa Retry-After (PRD Frontend 7.2). */
 export function retryAfterMessage(seconds: number | null): string | null {
