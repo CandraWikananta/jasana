@@ -162,7 +162,7 @@ describe.skipIf(!hasTestDatabase)('akun pemanggil', () => {
       // Tautan konfirmasi ke alamat BARU, pemberitahuan ke alamat LAMA.
       const confirmation = lastEmailTo(sent, 'baru@jasana.test');
       const notice = lastEmailTo(sent, user.email);
-      expect(confirmation?.text).toMatch(/confirm-email-change\?token=/);
+      expect(confirmation?.text).toMatch(/\/konfirmasi-email\?token=/);
       expect(notice?.subject).toMatch(/penggantian email/i);
       expect(notice?.text).not.toMatch(/token=/);
 

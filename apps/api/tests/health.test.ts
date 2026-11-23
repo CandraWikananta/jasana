@@ -152,5 +152,7 @@ describe('envelope error lapisan infrastruktur', () => {
       .set('Origin', 'http://localhost:3000');
 
     expect(response.status).toBe(200);
+    // H144: tanpa ini browser tidak bisa membaca Retry-After pada 429.
+    expect(response.headers['access-control-expose-headers']).toContain('Retry-After');
   });
 });
