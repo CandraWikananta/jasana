@@ -2,7 +2,7 @@
 
 **Artefak frontend 2 dari 4**
 Platform Jasana, Tugas Akhir I Nyoman Gede Candra Wikananta (2305551065)
-**Versi 2.5 (disetujui)**, 23 November 2026
+**Versi 2.6 (disetujui)**, 23 November 2026
 
 Dokumen ini menetapkan bahasa visual dan bahasa teks seluruh antarmuka Jasana: warna, tipografi, jarak, komponen, label status, format angka dan waktu, serta glosarium. Tujuannya satu: **empat area (publik dan client, usaha, pekerja, admin) terlihat dan terbaca seperti satu produk**, walaupun dibangun dalam belasan sesi Claude Code yang terpisah.
 
@@ -311,7 +311,7 @@ Dasar komponen dari **shadcn/ui** (disalin ke `src/components/ui`, berbasis Radi
 | Komponen | Varian | Aturan pakai |
 |---|---|---|
 | `Button` | `primary` (hitam), `secondary` (latar `--muted`), `outline` (garis `--input`), `ghost`, `destructive`, `now` (latar `--brand`, teks hitam, **khusus aksi mode Sekarang**: Ambil dan Terima) | Satu `primary` per tampilan. State per varian di tabel Bagian 6.4. Saat memproses: label berubah ke bentuk proses berakhiran "…" ("Membayar…", "Mengambil…"), ditambah spinner, dan dinonaktifkan supaya tidak terkirim dua kali. Label selalu kata kerja |
-| Ukuran tombol | `sm` 36 px, `md` **44 px** (bawaan), `lg` 48 px | `md` sama tinggi dengan input (44 px), jadi kotak cari dan tombolnya sejajar. **`sm` hanya di area usaha dan admin** (desktop, dipakai dengan mouse), tidak di area publik, pelanggan, dan pekerja (D252). **Area pekerja memakai `lg`** untuk seluruh aksi lapangan |
+| Ukuran tombol | `sm` 36 px, `md` **44 px** (bawaan), `lg` 48 px, `icon` **44 x 44 px** | `md` sama tinggi dengan input (44 px), jadi kotak cari dan tombolnya sejajar. **`sm` hanya di area usaha dan admin** (desktop, dipakai dengan mouse), tidak di area publik, pelanggan, dan pekerja (D252). **Area pekerja memakai `lg`** untuk seluruh aksi lapangan. **`icon`** (D257) untuk tombol berisi ikon saja (Menu, Notifikasi): persegi 44 px, ikon 20 px, wajib punya nama aksesibel lewat `aria-label` atau teks `sr-only`. Jangan menimpa ukuran tombol lewat `className` untuk membuat tombol ikon |
 | `Input`, `Textarea` | | Label selalu terlihat di atas input. Placeholder bukan pengganti label, berisi contoh isian nyata dan diakhiri "…". Saat error: garis `--destructive`, `aria-invalid`, pesan `body-sm` 500 berwarna `--destructive` dengan ikon 16 px, dihubungkan lewat `aria-describedby`. Atribut field mengikuti Bagian 6.1b |
 | Chip filter | pilihan, `removable` | Radius 10 px, tinggi 44 px. **Pilihan** (di panel filter): tidak aktif latar `--card`, garis `--input`, teks 500, hover `--muted`; aktif pucat (Bagian 6.4) dengan ikon `Check`. **`removable`** (D253): baris filter aktif di atas hasil pencarian, latar `--brand-subtle`, teks `--brand-subtle-foreground` 600, ikon `X` 16 px di kanan, seluruh chip satu tombol dengan `aria-label` "Hapus filter {label}", hover `--brand-subtle` dengan garis `--brand-subtle-foreground` |
 | `Select`, `Combobox` | | Combobox untuk daftar lebih dari 8 item |
@@ -422,6 +422,7 @@ Seluruh varian memakai cincin fokus yang sama: `box-shadow: 0 0 0 2px var(--card
 | Elemen | Tampilan |
 |---|---|
 | Tautan | `--brand-strong`, garis bawah dengan jarak 3 px. Hover `--brand-subtle-foreground` |
+| Header pelanggan mulai `md` (sesi login) | Tautan "Pesanan" dengan pola tautan aktif header publik, tombol `icon` varian `ghost` berikon `Bell` ke Notifikasi (aktif: pucat) dengan lencana notifikasi baru kalau ada yang belum dibaca, dan "Akun" di menu avatar. Navigasi bawah pelanggan hanya di HP (D257) |
 | Tautan aktif di header publik | Teks `--brand-strong` tebal 600 dengan garis bawah. Pengecualian dari penanda pucat, karena header publik berisi tautan halaman, bukan navigasi aplikasi |
 | Input fokus | Garis `--foreground` ditambah cincin `--ring` 2 px berjarak 2 px |
 | Input error | Garis `--destructive`. Saat fokus tetap memakai cincin `--ring` |
@@ -878,6 +879,7 @@ Untuk sesi Claude Code yang memindahkan kode W0 dan W2 ke v2.1. Struktur kompone
 | Layout | Tautan "Lewati ke konten" (D248) |
 | `EscrowNote` | Komponen domain baru (D250) |
 | Ruang aman layar | `viewport-fit=cover`, utilitas `pb-safe`, `px-safe`, `pb-nav-safe` di bar bawah, `body`, dan `main` area pelanggan dan pekerja (D256) |
+| `Button` ukuran `icon` | Ukuran baru 44 x 44 px. Tombol Menu sidebar dan Bell memakainya, override `size-11 p-0` dihapus (D257) |
 | `Button` ukuran `md` | 40 px jadi 44 px. Pemakaian `sm` di area publik, pelanggan, dan pekerja diganti `md` (D252) |
 | Hasil pencarian | `ActiveFilters` dengan chip `removable` (D253), `ListingCard` varian `compact` lewat container query (D254) |
 | Logo | Ikon `jasana-mark.svg` + teks `text-logo` di semua header, ukuran footer sesuai Bagian 5. Favicon `src/app/icon.svg`, `favicon.ico` bawaan dihapus (D251) |
@@ -905,3 +907,4 @@ Untuk sesi Claude Code yang memindahkan kode W0 dan W2 ke v2.1. Struktur kompone
 | 2.3 | 22 November 2026 | Dari M3 halaman `/cari`. Tombol `md` jadi 44 px dan `sm` hanya di area usaha dan admin (D252). Chip filter varian `removable` dan komponen `ActiveFilters` (D253). `ListingCard` varian `compact` untuk hasil pencarian di HP (D254) |
 | 2.4 | 23 November 2026 | Dari M3 halaman detail jasa. `EscrowNote` juga dipakai di detail jasa (D255). Catatan D254: varian `compact` dipilih lewat container query (36rem), bukan titik henti `sm`, karena pemilihan lewat JavaScript menimbulkan kilasan tata letak (CLS 0,21 di 1280 px) |
 | 2.5 | 23 November 2026 | Ruang aman layar untuk iPhone (D256): `viewport-fit=cover`, utilitas `pb-safe`, `px-safe`, dan `pb-nav-safe`. Bagian 6.1b ditambah baris "Identitas masuk" untuk formulir masuk (pelengkap D248) |
+| 2.6 | 23 November 2026 | Dari M3 layout empat area. Ukuran tombol `icon` 44 x 44 px dan navigasi pelanggan di desktop (D257) |

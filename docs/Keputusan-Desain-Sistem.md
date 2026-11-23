@@ -4,9 +4,9 @@
 **Nama sistem:** Jasana
 **Penyusun:** I Nyoman Gede Candra Wikananta (2305551065)
 **Bidang Keahlian:** Sistem Informasi, Teknologi Informasi, Universitas Udayana
-**Versi:** 2.51
-**Terakhir diperbarui:** 23 November 2026 (versi 2.51)
-**Tahap saat ini:** Implementasi backend Fase 0 sampai Fase 10 selesai, data simulasi sudah terisi di Supabase dev. Frontend dibangun ulang di lapisan visual di branch `feat/frontend-v2` dengan Design System v2.5 (D241 sampai D256); logika W0 dan W2 dipertahankan, versi lama diarsipkan di tag `frontend-v1`. Berikutnya migrasi W0 dan W2 ke v2.1, field `OrderDto` di backend (H131), W1, stress test k6, dan UAT
+**Versi:** 2.52
+**Terakhir diperbarui:** 23 November 2026 (versi 2.52)
+**Tahap saat ini:** Implementasi backend Fase 0 sampai Fase 10 selesai, data simulasi sudah terisi di Supabase dev. Frontend dibangun ulang di lapisan visual di branch `feat/frontend-v2` dengan Design System v2.6 (D241 sampai D257); logika W0 dan W2 dipertahankan, versi lama diarsipkan di tag `frontend-v1`. Berikutnya migrasi W0 dan W2 ke v2.1, field `OrderDto` di backend (H131), W1, stress test k6, dan UAT
 
 ---
 
@@ -66,7 +66,12 @@
 | Frontend: halaman cari (D252 sampai D254) | 3 | 0 |
 | Frontend: detail jasa (D255) | 1 | 0 |
 | Frontend: ruang aman layar (D256) | 1 | 0 |
+| Frontend: tombol ikon dan navigasi pelanggan desktop (D257) | 1 | 0 |
 | Keputusan terbuka tanpa nomor D (Bagian 7) | | 0 |
+
+**Perubahan pada versi 2.52:**
+
+1. Ukuran tombol `icon` dan navigasi pelanggan di desktop (D257, Bagian 4AS). Design System naik ke v2.6. H142 baru
 
 **Perubahan pada versi 2.51:**
 
@@ -2266,6 +2271,14 @@ Dari M3 putaran 4 (profil penyedia), 23 November 2026. Tanpa perubahan backend.
 
 **Celah yang diketahui:** saat HP miring, latar header dan footer tidak sampai ke bawah notch, sehingga terlihat strip `--background` di sisi itu (warnanya nyaris sama dengan `--card`). Di detail jasa, bar Pesan di iPhone setinggi 107 px sedangkan `scroll-pb-24` 96 px, jadi elemen yang difokus bisa tertutup sekitar 11 px; masih memenuhi WCAG 2.4.11 karena tidak tertutup penuh.
 
+## 4AS. Keputusan Versi 2.52 (D257): Tombol Ikon dan Navigasi Pelanggan Desktop
+
+Dari M3 putaran layout empat area, 23 November 2026. Tanpa perubahan backend.
+
+| # | Keputusan | Alasan |
+|---|---|---|
+| D257 | **Ukuran tombol `icon` 44 x 44 px**, untuk tombol berisi ikon saja (Menu sidebar, Notifikasi), ikon 20 px, wajib punya nama aksesibel. **Navigasi pelanggan di desktop:** mulai `md`, header pelanggan yang login menampilkan tautan "Pesanan" (pola tautan aktif header publik) dan tombol `icon` `Bell` ke Notifikasi dengan lencana notifikasi baru; "Akun" masuk menu avatar. Di HP, navigasi bawah pelanggan juga tampil di Beranda dan Cari untuk pengguna yang login | Navigasi bawah pelanggan disembunyikan mulai `md`, sehingga di desktop Notifikasi dan Akun tidak bisa dicapai sama sekali dan Pesanan hanya lewat menu avatar. Tombol Menu sidebar sebelumnya mengakali ukuran lewat `className`; dengan ukuran resmi, tombol ikon seragam dan memenuhi area sentuh 44 px. Lencana notifikasi dan pola tautan aktif sudah ada di Design System 6.4, jadi tidak ada pola visual baru selain ukuran tombol |
+
 ---
 
 ## 5. Alur Sistem End-to-End
@@ -2935,6 +2948,7 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 - [ ] **H139** Hero beranda belum menampilkan baris "N pekerja bisa datang sekarang" (usulan review taste, ditunda dari D242 sampai D250). Butuh angka jumlah pekerja online per area dari API. Cek dulu apakah endpoint pencarian sudah bisa memberi angka ini; kalau butuh endpoint baru, masuk saran pengembangan **(baru, review Design System)**
 - [ ] **H140** `GET /providers/:id` hanya membawa `id` dan `title` per jasa dan tidak membawa ulasan, sedangkan `GET /listings` tidak punya filter `provider_id`. Akibatnya profil penyedia belum bisa memakai `ListingCard` (foto, harga, rating, mode) dan panel ulasan. Paling sederhana: endpoint penyedia menambah foto utama, harga, rating, dan `supports_available_now` per jasa, serta ringkasan ulasan. Dikerjakan di `main` **(baru, M3 profil penyedia)**
 - [ ] **H141** Foto listing di data simulasi berupa gradien dan bentuk geometris, dan ada judul jasa yang sama berulang (misalnya "Servis Ringan dan Tune Up Motor" tiga kali). Halaman publik jadi terasa placeholder saat asistensi dan UAT. Ganti dengan foto asli berlisensi bebas dan judul yang beragam lewat script seed di `main`. Terkait H92: tanpa pekerja online simulasi, filter mode Sekarang menghasilkan nol jasa, sehingga fitur pembeda Jasana tidak bisa didemokan **(baru, review taste T2 di M3 beranda)**
+- [ ] **H142** Tipe `PaginationMeta` di `packages/shared` belum memuat `unread_count`, padahal `GET /notifications` mengirimnya. Frontend sementara membacanya secara lokal di `features/notifications/api.ts`. Perbaiki tipenya di `main`, lalu hapus pembacaan lokal itu **(baru, M3 layout empat area)**
 - [ ] **H82** Admin fee withdrawal berupa nilai flat yang mengikuti perkiraan biaya payout Xendit **(baru, D84)**. Untuk nominal di atas Rp250.000 biaya sebenarnya sedikit lebih besar dan selisihnya ditanggung platform
 
 ---
@@ -2950,7 +2964,7 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 | 5 | Diagram UML | Belum | Aktor jadi empat |
 | 6 | Diagram Konteks dan DFD | Belum | Aktor jadi empat, tambah entitas eksternal layanan email |
 | 7 | Conversation flow dan system prompt chatbot | Belum | |
-| 8 | Desain antarmuka | Selesai, Design System v2.5 | Design System dan mockup menggantikan Figma (D224). Layar per fase mengikuti Design System |
+| 8 | Desain antarmuka | Selesai, Design System v2.6 | Design System dan mockup menggantikan Figma (D224). Layar per fase mengikuti Design System |
 
 **Aset yang bisa dipakai ulang:** dokumen test case `PPL_A_2305551065_UAS.docx` berisi 127 test case pada 15 modul fungsional dan 1 modul performa.
 
@@ -2971,7 +2985,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 
 ## 11. Langkah Berikutnya
 
-1. Frontend di branch `feat/frontend-v2` (versi lama di tag `frontend-v1`): logika W0 dan W2 selesai, lapisan visual dibangun ulang dengan Design System v2.5 (D241 sampai D256). Berikutnya migrasi W0 dan W2 ke v2.1 (Design System Bagian 14), lalu W1 autentikasi dan akun. Sebelum W3, kerjakan H131 di `main`. Paralel di `main`: H124, H125, dan H127
+1. Frontend di branch `feat/frontend-v2` (versi lama di tag `frontend-v1`): logika W0 dan W2 selesai, lapisan visual dibangun ulang dengan Design System v2.6 (D241 sampai D257). Berikutnya migrasi W0 dan W2 ke v2.1 (Design System Bagian 14), lalu W1 autentikasi dan akun. Sebelum W3, kerjakan H131 di `main`. Paralel di `main`: H124, H125, dan H127
 2. Fase 9 selesai 17 November 2026 setelah evaluasi tiga run (Bagian 4AB dan 4AG). Fase 10 selesai 17 November 2026 (1.004 test lulus, D177 sampai D203), dengan uji sandbox 10a dan 10b lulus dan uji sandbox 10c dijalankan penyusun. Paralel: penyusun menyusun dataset 30 sampai 50 skenario berlabel (H15, D153) dan mencatat model serta batas kuota project Gemini di AI Studio
 3. Selesai: Fase 8 (15 November 2026, 751 test lulus, D131 sampai D150) beserta uji sandbox payout dan refund. Uji sandbox refund PARTIAL hasil putusan sengketa lulus. Sebelumnya Fase 7 (11 November 2026, 627 test lulus) beserta uji sandbox Xendit sungguhan (12 November 2026), sebelumnya audit hutang teknis (9 November 2026) dan sesi perapian (10 November 2026)
 4. Selesai: data simulasi Bali di Supabase dev (D204 sampai D209)
@@ -3037,6 +3051,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 | 2.49 | 22 November 2026 | Halaman cari: tombol `md` 44 px dan `sm` hanya di area usaha dan admin (D252), chip filter aktif yang bisa dihapus (D253), `ListingCard` varian `compact` di HP (D254). Design System v2.3. Tanpa migrasi |
 | 2.50 | 23 November 2026 | `EscrowNote` di detail jasa (D255) dan catatan container query untuk D254. Design System v2.4. Tanpa migrasi |
 | 2.51 | 23 November 2026 | Ruang aman layar (D256). Design System v2.5. H140 dan H141 baru. Tanpa migrasi |
+| 2.52 | 23 November 2026 | Ukuran tombol `icon` dan navigasi pelanggan di desktop (D257). Design System v2.6. H142 baru. Tanpa migrasi |
 
 ---
 
