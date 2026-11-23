@@ -2,7 +2,7 @@
 
 **Artefak frontend 2 dari 4**
 Platform Jasana, Tugas Akhir I Nyoman Gede Candra Wikananta (2305551065)
-**Versi 2.3 (disetujui)**, 22 November 2026
+**Versi 2.4 (disetujui)**, 23 November 2026
 
 Dokumen ini menetapkan bahasa visual dan bahasa teks seluruh antarmuka Jasana: warna, tipografi, jarak, komponen, label status, format angka dan waktu, serta glosarium. Tujuannya satu: **empat area (publik dan client, usaha, pekerja, admin) terlihat dan terbaca seperti satu produk**, walaupun dibangun dalam belasan sesi Claude Code yang terpisah.
 
@@ -351,7 +351,7 @@ Setiap input punya `name` dan atribut berikut (D248), supaya isi otomatis browse
 | `PriceBreakdown` | Baris harga dasar, tiap opsi beserta deltanya, total. Prop `estimate` menambahkan label "Perkiraan" | Form pesan (perkiraan), detail order (dari server) |
 | `Countdown` | Sisa waktu dari timestamp server, ikon `Clock` abu dan angka `--foreground`. Di bawah 5 menit angkanya `--destructive` | Tawaran, batas bayar, batas komplain, kode |
 | `DateTimeText` | Tanggal dan jam WITA dengan label | Seluruh tampilan waktu |
-| `ListingCard` | Foto 4:3, judul (maksimal 2 baris, `line-clamp-2`), nama usaha (1 baris, `truncate` dengan `min-w-0`), rating, "Mulai Rp...", jarak, `ModeBadge` hanya untuk mode Sekarang (D246). **Varian `compact`** (D254): baris horizontal, foto 4:3 lebar 112 px di kiri (`radius-md`), di kanan judul `body` bobot 600 `line-clamp-2`, nama usaha `body-sm` `--muted-foreground` `truncate`, baris rating dan harga, badge Sekarang kalau ada; padding 12 px, seluruh kartu satu tautan | Pencarian, beranda, rekomendasi Asisten. Varian `compact` dipakai di hasil `/cari` di bawah `sm`; beranda tetap varian biasa |
+| `ListingCard` | Foto 4:3, judul (maksimal 2 baris, `line-clamp-2`), nama usaha (1 baris, `truncate` dengan `min-w-0`), rating, "Mulai Rp...", jarak, `ModeBadge` hanya untuk mode Sekarang (D246). **Varian `compact`** (D254): baris horizontal, foto 4:3 lebar 112 px di kiri (`radius-md`), di kanan judul `body` bobot 600 `line-clamp-2`, nama usaha `body-sm` `--muted-foreground` `truncate`, baris rating dan harga, badge Sekarang kalau ada; padding 12 px, seluruh kartu satu tautan | Pencarian, beranda, rekomendasi Asisten. Varian `compact` dipakai di hasil `/cari`. Pergantiannya lewat container query: kartu tampil compact selama lebar daftar hasil di bawah 36rem (sekitar layar 608 px), sehingga server dan browser menghasilkan tampilan yang sama dan tidak ada kilasan tata letak. Beranda tetap varian biasa |
 | `ActiveFilters` | Baris chip `removable` untuk setiap filter aktif (lokasi, kategori, mode, bisa datang sekarang), membungkus ke baris berikutnya, hanya tampil kalau ada filter aktif. Kata kunci tidak ikut, karena punya tombol "Hapus kata kunci" sendiri (D253) | `/cari`, di antara baris judul dan hasil, di semua lebar layar |
 | `OptionPicker` | Perender atribut OPTION berdasarkan definisi (PRD Frontend Bagian 6) | Form pesan |
 | `AttributeFields` | Perender atribut SPEC untuk editor listing | Editor jasa |
@@ -364,7 +364,7 @@ Setiap input punya `name` dan atribut berikut (D248), supaya isi otomatis browse
 | `MapView`, `MapPicker` | Peta baca saja dan peta pemilih pin. Dimuat dinamis tanpa SSR | Form pesan, alamat, detail order, profil usaha |
 | `FileDropzone` | Varian `multipart` (e-KYC, bukti) dan `signedUrl` (foto listing) | Pendaftaran penyedia, komplain, editor jasa |
 | `AvailabilityToggle` | Toggle besar "Siap terima pesanan sekarang" sesuai Bagian 1.3b, dengan status izin lokasi | Area pekerja |
-| `EscrowNote` | Ikon `ShieldCheck` dan satu kalimat "Dana ditahan sampai pekerjaan selesai", `body-sm`, nada netral (`--muted-foreground`), tanpa kotak berwarna (D250) | Form pesan, halaman bayar, banner `PAID` |
+| `EscrowNote` | Ikon `ShieldCheck` dan satu kalimat "Dana ditahan sampai pekerjaan selesai", `body-sm`, nada netral (`--muted-foreground`), tanpa kotak berwarna (D250) | Form pesan, halaman bayar, banner `PAID`, dan **detail jasa** (D255): di panel harga di bawah tombol Pesan (desktop) dan di blok "Cara memesan" (HP) |
 | `RoleSwitcher` | Pindah area: Pelanggan, Usaha, Pekerja, Admin, hanya yang dimiliki | Menu avatar di header |
 | `EmptyState`, `ErrorState` | Ikon, judul, satu kalimat, satu aksi | Seluruh halaman data |
 | `AssistantWidget` | Tombol melayang "Tanya Asisten" dan panel percakapan | Area publik dan client |
@@ -862,7 +862,7 @@ Untuk sesi Claude Code yang memindahkan kode W0 dan W2 ke v2.1. Struktur kompone
 | Layout | Tautan "Lewati ke konten" (D248) |
 | `EscrowNote` | Komponen domain baru (D250) |
 | `Button` ukuran `md` | 40 px jadi 44 px. Pemakaian `sm` di area publik, pelanggan, dan pekerja diganti `md` (D252) |
-| Hasil pencarian | `ActiveFilters` dengan chip `removable` (D253), `ListingCard` varian `compact` di bawah `sm` (D254) |
+| Hasil pencarian | `ActiveFilters` dengan chip `removable` (D253), `ListingCard` varian `compact` lewat container query (D254) |
 | Logo | Ikon `jasana-mark.svg` + teks `text-logo` di semua header, ukuran footer sesuai Bagian 5. Favicon `src/app/icon.svg`, `favicon.ico` bawaan dihapus (D251) |
 | `/dev/ui` | Tambah bagian penanda aktif (Bagian 6.4) dan state tombol |
 | `check-design-tokens.mjs` | Tambah aturan: `text-brand` dan `text-white` bersamaan `bg-brand` dilarang, `border-l-brand` dan `max-w-prose` dilarang |
@@ -886,3 +886,4 @@ Untuk sesi Claude Code yang memindahkan kode W0 dan W2 ke v2.1. Struktur kompone
 | 2.1 | 22 November 2026 | **Hasil review dengan empat skill desain** terhadap `/dev/ds` (D242 sampai D250). Palet tetap. Penanda mode Sekarang tanpa garis tepi kiri, memakai badge yang sama di semua tempat (D242). Menu, tab, dan navigasi bawah aktif jadi pucat (D243). Switch menyala `--brand-hover` (D244). `SETTLED` jadi "Dana cair" (D245). `ListingCard` hanya menandai mode Sekarang (D246). Skala tipografi baru dan lebar baris (D247). Bagian baru 6.1b (atribut field), aturan formulir, aksesibilitas, dan gerak (D248). Aturan dua lapis kotak, aturan bentuk, dan nada judul (D249). Komponen `EscrowNote` (D250). Koreksi angka kontras di 1.5, penanda grafis yang dibenarkan, state `secondary`, `ghost`, `destructive`, chip filter, dan token `--destructive-hover` |
 | 2.2 | 22 November 2026 | Logo Jasana (D251): ikon `jasana-mark.svg` diikuti teks "Jasana" dengan token baru `text-logo` (22/28 px, 700), ukuran per tempat di Bagian 5, favicon `src/app/icon.svg` |
 | 2.3 | 22 November 2026 | Dari M3 halaman `/cari`. Tombol `md` jadi 44 px dan `sm` hanya di area usaha dan admin (D252). Chip filter varian `removable` dan komponen `ActiveFilters` (D253). `ListingCard` varian `compact` untuk hasil pencarian di HP (D254) |
+| 2.4 | 23 November 2026 | Dari M3 halaman detail jasa. `EscrowNote` juga dipakai di detail jasa (D255). Catatan D254: varian `compact` dipilih lewat container query (36rem), bukan titik henti `sm`, karena pemilihan lewat JavaScript menimbulkan kilasan tata letak (CLS 0,21 di 1280 px) |
