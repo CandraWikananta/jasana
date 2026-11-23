@@ -335,6 +335,7 @@ Setiap input punya `name` dan atribut berikut (D248), supaya isi otomatis browse
 |---|---|---|---|
 | Nama | `text` | `name` | |
 | Email | `email` | `email` | `spellCheck={false}` |
+| Identitas masuk (email atau nomor ponsel) | `text` / `inputMode="email"` | `username` | `spellCheck={false}`, `autoCapitalize="none"`. Bukan `type="email"`, karena isiannya bisa berupa nomor ponsel. `username` adalah nilai yang dipasangkan pengelola kata sandi dengan `current-password` di formulir masuk |
 | Nomor HP | `tel` | `tel` | |
 | Kata sandi | `password` | `current-password` atau `new-password` | |
 | Alamat | `text` | `street-address` | |
@@ -903,4 +904,4 @@ Untuk sesi Claude Code yang memindahkan kode W0 dan W2 ke v2.1. Struktur kompone
 | 2.2 | 22 November 2026 | Logo Jasana (D251): ikon `jasana-mark.svg` diikuti teks "Jasana" dengan token baru `text-logo` (22/28 px, 700), ukuran per tempat di Bagian 5, favicon `src/app/icon.svg` |
 | 2.3 | 22 November 2026 | Dari M3 halaman `/cari`. Tombol `md` jadi 44 px dan `sm` hanya di area usaha dan admin (D252). Chip filter varian `removable` dan komponen `ActiveFilters` (D253). `ListingCard` varian `compact` untuk hasil pencarian di HP (D254) |
 | 2.4 | 23 November 2026 | Dari M3 halaman detail jasa. `EscrowNote` juga dipakai di detail jasa (D255). Catatan D254: varian `compact` dipilih lewat container query (36rem), bukan titik henti `sm`, karena pemilihan lewat JavaScript menimbulkan kilasan tata letak (CLS 0,21 di 1280 px) |
-| 2.5 | 23 November 2026 | Ruang aman layar untuk iPhone (D256): `viewport-fit=cover`, utilitas `pb-safe`, `px-safe`, dan `pb-nav-safe` |
+| 2.5 | 23 November 2026 | Ruang aman layar untuk iPhone (D256): `viewport-fit=cover`, utilitas `pb-safe`, `px-safe`, dan `pb-nav-safe`. Bagian 6.1b ditambah baris "Identitas masuk" untuk formulir masuk (pelengkap D248) |
