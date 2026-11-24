@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input"
 import { ApiError } from "@/lib/api-error"
 import { UNKNOWN_ERROR_MESSAGE } from "@/lib/error-messages"
 import { forgotPassword } from "../api"
+import { keepFieldFocus } from "../keep-field-focus"
 import { forgotPasswordFormSchema, mapForgotPasswordError, type ForgotPasswordFormValues } from "../schemas"
 import { describedBy, FieldError } from "./field-error"
 import { FormAlert } from "./form-alert"
@@ -89,6 +90,7 @@ export function ForgotPasswordForm() {
     <div className="flex flex-col gap-6">
       <form
         onSubmit={onSubmit}
+        onMouseDown={keepFieldFocus}
         noValidate
         aria-describedby={formError ? formErrorId : undefined}
         className="flex flex-col gap-5"

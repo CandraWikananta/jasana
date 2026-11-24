@@ -29,9 +29,9 @@ export function EmailVerificationBanner() {
           <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-warning-border text-warning">
             <TriangleAlert aria-hidden className="size-5" />
           </span>
-          <div className="flex flex-col gap-0.5">
+          <div className="flex min-w-0 flex-col gap-0.5">
             <p className="text-base font-semibold text-warning-title">Email kamu belum diverifikasi</p>
-            <p className="text-sm text-warning-subtle-foreground">{feedback}</p>
+            <p className="text-sm break-words text-warning-subtle-foreground">{feedback}</p>
           </div>
         </div>
         <Button

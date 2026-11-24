@@ -3,6 +3,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { useEffect, useState } from "react"
 import { RealtimeIndicator } from "@/components/layout/realtime-indicator"
+import { Toaster } from "@/components/ui/sonner"
 import { shouldRetry } from "@/lib/api-client"
 import { qk } from "@/lib/query-keys"
 import { bootstrapSession, getSessionStatus, listenForLogout, subscribeSession } from "@/lib/session"
@@ -39,6 +40,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <QueryClientProvider client={client}>
       {children}
       <RealtimeIndicator />
+      <Toaster />
     </QueryClientProvider>
   )
 }

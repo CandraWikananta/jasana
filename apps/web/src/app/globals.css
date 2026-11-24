@@ -72,6 +72,16 @@
   --neutral: #57534E;
   --neutral-subtle: #F5F5F4;
   --neutral-subtle-foreground: #44403C;
+
+  /* Jarak toast dari tepi bawah: di atas navigasi bawah HP (64 px + 16 px) ditambah ruang aman (D256). */
+  --toast-offset-bottom: calc(5rem + env(safe-area-inset-bottom));
+}
+
+/* shortcut: area pekerja tetap punya navigasi bawah mulai md. Atur per area saat toast pertama dipakai di sana (W5). */
+@media (min-width: 48rem) {
+  :root {
+    --toast-offset-bottom: 1.5rem;
+  }
 }
 
 @theme inline {

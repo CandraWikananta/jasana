@@ -39,7 +39,7 @@ export function FormAlert({
   ref,
 }: {
   tone: Tone
-  title?: string
+  title?: React.ReactNode
   children: React.ReactNode
   id?: string
   ref?: React.Ref<HTMLDivElement>

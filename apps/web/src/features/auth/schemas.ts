@@ -127,7 +127,7 @@ export interface FormErrorView<F extends string> {
  * formulir. Pesan field dari frontend, bukan dari server: pesan Zod backend memakai nama kolom
  * ("phone harus nomor ponsel…").
  */
-function mapFormError<F extends string>(
+export function mapFormError<F extends string>(
   error: ApiError,
   fieldFromPath: Record<string, F>,
   messageFor: (field: F, serverMessage: string) => string,

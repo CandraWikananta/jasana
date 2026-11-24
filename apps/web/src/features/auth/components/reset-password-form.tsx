@@ -10,6 +10,7 @@ import { ApiError } from "@/lib/api-error"
 import { UNKNOWN_ERROR_MESSAGE } from "@/lib/error-messages"
 import { getSessionStatus, hasSessionFlag, logout } from "@/lib/session"
 import { resetPassword } from "../api"
+import { keepFieldFocus } from "../keep-field-focus"
 import {
   isLinkTokenError,
   linkTokenMessage,
@@ -107,6 +108,7 @@ export function ResetPasswordForm() {
   return (
     <form
       onSubmit={onSubmit}
+      onMouseDown={keepFieldFocus}
       noValidate
       aria-describedby={formError ? formErrorId : undefined}
       className="flex flex-col gap-5"

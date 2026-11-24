@@ -10,7 +10,7 @@ import { getMe } from "./api"
  * aktif. Klaim access token bisa basi sampai 15 menit, jadi keputusan tampilan memakai data ini,
  * bukan isi JWT (CLAUDE.md web jebakan 11).
  */
-export function useMe() {
+export function useMe(options?: { refetchOnWindowFocus?: "always" }) {
   const status = useSessionStatus()
-  return useQuery({ queryKey: qk.me, queryFn: getMe, enabled: status === "authenticated" })
+  return useQuery({ queryKey: qk.me, queryFn: getMe, enabled: status === "authenticated", ...options })
 }

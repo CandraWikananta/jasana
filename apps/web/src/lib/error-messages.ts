@@ -1,4 +1,5 @@
 import type { ErrorCode } from "@jasana/shared"
+import { formatDurasi } from "./format"
 
 // PRD Frontend Lampiran A. Record memaksa setiap kode di @jasana/shared punya pesan,
 // termasuk kode Fase 2 sampai 10 yang belum tercatat di Lampiran A.
@@ -92,9 +93,9 @@ export const LOGIN_RATE_LIMITED_MESSAGE = "Terlalu banyak percobaan masuk."
  */
 export const RATE_LIMITED_MESSAGE = "Terlalu banyak permintaan."
 
-/** "Coba lagi dalam N menit" untuk 429 yang membawa Retry-After (PRD Frontend 7.2). */
+/** "Coba lagi dalam N menit" (atau jam: ganti email dibatasi per hari) untuk 429 yang membawa Retry-After (PRD Frontend 7.2). */
 export function retryAfterMessage(seconds: number | null): string | null {
   if (seconds === null || seconds <= 0) return null
   if (seconds < 60) return `Coba lagi dalam ${seconds} detik.`
-  return `Coba lagi dalam ${Math.ceil(seconds / 60)} menit.`
+  return `Coba lagi dalam ${formatDurasi(Math.ceil(seconds / 60))}.`
 }

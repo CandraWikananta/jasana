@@ -27,17 +27,20 @@ export function PasswordInput({ className, ...props }: Omit<React.ComponentProps
   )
 }
 
-/** Isian kata sandi baru dengan aturan yang selalu terlihat, dipakai juga di atur ulang sandi. */
+/** Isian kata sandi berlabel. Kata sandi baru menampilkan aturannya, yang sekarang tidak. */
 export function PasswordField({
   label = "Kata sandi",
+  autoComplete = "new-password",
   error,
   field,
 }: {
   label?: string
+  autoComplete?: "new-password" | "current-password"
   error?: string
   field: UseFormRegisterReturn
 }) {
   const id = useId()
+  const isNew = autoComplete === "new-password"
   return (
     <div className="flex flex-col gap-1.5">
       <label htmlFor={id} className="text-sm font-medium">
@@ -45,12 +48,12 @@ export function PasswordField({
       </label>
       <PasswordInput
         id={id}
-        autoComplete="new-password"
+        autoComplete={autoComplete}
         aria-invalid={error ? true : undefined}
-        aria-describedby={describedBy(`${id}-hint`, error && `${id}-error`)}
+        aria-describedby={describedBy(isNew && `${id}-hint`, error && `${id}-error`)}
         {...field}
       />
-      <FieldHint id={`${id}-hint`}>Minimal 8 karakter.</FieldHint>
+      {isNew && <FieldHint id={`${id}-hint`}>Minimal 8 karakter.</FieldHint>}
       <FieldError id={`${id}-error`} message={error} />
     </div>
   )

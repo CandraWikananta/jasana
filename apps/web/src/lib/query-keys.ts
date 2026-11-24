@@ -3,6 +3,7 @@ import type { SearchListingsParams } from "@/types/api/listing"
 // Satu-satunya pembuat kunci query (PRD Frontend 7.3). Awalan yang sama dipakai untuk invalidasi.
 export const qk = {
   me: ["me"] as const,
+  sessions: ["sessions"] as const,
   orders: {
     all: ["orders"] as const,
     lists: ["orders", "list"] as const,

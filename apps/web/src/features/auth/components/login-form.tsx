@@ -16,6 +16,7 @@ import { safeNext } from "@/lib/safe-next"
 import { login } from "@/lib/session"
 import { useSessionStatus } from "@/lib/use-session-status"
 import { cn } from "@/lib/utils"
+import { keepFieldFocus } from "../keep-field-focus"
 import { loginFormSchema, mapLoginError, toLoginInput, type LoginFormValues } from "../schemas"
 import { describedBy, FieldError } from "./field-error"
 import { FormAlert } from "./form-alert"
@@ -85,6 +86,7 @@ export function LoginForm() {
     <div className="flex flex-col gap-6">
       <form
         onSubmit={onSubmit}
+        onMouseDown={keepFieldFocus}
         noValidate
         aria-describedby={formError ? formErrorId : undefined}
         className="flex flex-col gap-5"

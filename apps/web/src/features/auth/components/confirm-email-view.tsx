@@ -18,9 +18,8 @@ type Outcome =
   | { kind: "link-error"; error: ApiError | null }
   | { kind: "email-taken" }
 
-// Halaman akun tempat penggantian email diajukan. /akun/keamanan (PRD 4.2) belum dibangun, jadi
-// sementara ke /akun supaya tidak menautkan ke 404 (pola yang sama dengan /masuk sebelum W1).
-const ACCOUNT_HREF = "/akun"
+// Halaman tempat penggantian email diajukan (PRD 4.2).
+const ACCOUNT_HREF = "/akun/keamanan"
 
 // D261: konfirmasi menunggu satu ketukan, bukan POST otomatis saat halaman dibuka (alasannya sama
 // dengan verifikasi email). Link ini publik: token menentukan akunnya, bukan sesi di tab ini (D64).
@@ -88,11 +87,11 @@ export function ConfirmEmailView() {
           ref={resultRef}
         >
           {taken
-            ? "Emailmu tidak berubah. Ajukan penggantian dengan alamat lain dari halaman akunmu."
-            : `${linkTokenMessage(outcome.error)} Ajukan penggantian lagi dari halaman akunmu.`}
+            ? "Emailmu tidak berubah. Ajukan penggantian dengan alamat lain dari halaman keamanan akun."
+            : `${linkTokenMessage(outcome.error)} Ajukan penggantian lagi dari halaman keamanan akun.`}
         </FormAlert>
         <Button asChild size="lg" className="w-full">
-          <Link href={ACCOUNT_HREF}>Buka halaman akun</Link>
+          <Link href={ACCOUNT_HREF}>Buka keamanan akun</Link>
         </Button>
       </div>
     )

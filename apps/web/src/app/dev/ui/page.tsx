@@ -25,6 +25,7 @@ import { ButtonMatrix } from "../ds/components/button-matrix"
 import { FormDemo } from "../ds/components/form-demo"
 import { TabsDemo } from "../ds/components/tabs-demo"
 import { COMPACT_LISTINGS } from "../ds/data"
+import { FeedbackDemo } from "./feedback-demo"
 import { ListingDemo } from "./listing-demo"
 import { ChipsDemo, ErrorStateDemo, NavMarkersDemo } from "./markers-demo"
 import { OrderActionsDemo } from "./order-actions-demo"
@@ -277,6 +278,10 @@ export default function DevUiPage() {
             </Accordion>
           </div>
         </div>
+      </Section>
+
+      <Section title="Dialog dan toast" note="Konfirmasi aksi yang tidak bisa dibatalkan; di HP menempel di bawah. Toast satu kalimat.">
+        <FeedbackDemo />
       </Section>
 
       <Section title="Memuat, kosong, dan error" note="Empat state halaman data (aturan 10). Aksi empty state satu, varian outline.">

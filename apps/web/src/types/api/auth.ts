@@ -46,6 +46,28 @@ export interface RegisterInput {
   password: string
 }
 
+/** PATCH /users/me. Email tidak lewat sini (D64). */
+export interface UpdateMeInput {
+  full_name: string
+  phone: string
+}
+
+/** Balasan PATCH /users/me/email. Email lama tetap aktif sampai alamat baru dikonfirmasi (D64). */
+export interface EmailChangeResult {
+  pending_email: string
+  expires_at: string
+}
+
+/** Satu baris GET /auth/sessions: satu family refresh token = satu perangkat (D76). */
+export interface ActiveSession {
+  session_id: string
+  user_agent: string | null
+  ip_address: string | null
+  signed_in_at: string
+  last_used_at: string
+  expires_at: string
+}
+
 /** Balasan POST /auth/register: tanpa token, jadi masuk tetap lewat /api/session/login (D260). */
 export interface RegisterResult {
   user: UserDto

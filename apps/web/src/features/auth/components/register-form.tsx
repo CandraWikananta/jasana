@@ -5,10 +5,9 @@ import { useQueryClient } from "@tanstack/react-query"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useId, useRef, useState } from "react"
-import { useForm, type UseFormRegisterReturn } from "react-hook-form"
+import { useForm } from "react-hook-form"
 import { LINK_CLASS } from "@/components/shared/link-class"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { ApiError } from "@/lib/api-error"
 import { UNKNOWN_ERROR_MESSAGE } from "@/lib/error-messages"
 import { qk } from "@/lib/query-keys"
@@ -16,10 +15,11 @@ import { loginHref, safeNext } from "@/lib/safe-next"
 import { login } from "@/lib/session"
 import { useSessionStatus } from "@/lib/use-session-status"
 import { register as registerAccount } from "../api"
+import { keepFieldFocus } from "../keep-field-focus"
 import { mapRegisterError, registerFormSchema, toRegisterInput, type RegisterFormValues } from "../schemas"
-import { describedBy, FieldError, FieldHint } from "./field-error"
 import { FormAlert } from "./form-alert"
 import { PasswordField } from "./password-input"
+import { TextField } from "./text-field"
 
 type Registered = { email: string; signedIn: boolean }
 
@@ -115,6 +115,7 @@ export function RegisterForm() {
     <div className="flex flex-col gap-6">
       <form
         onSubmit={onSubmit}
+        onMouseDown={keepFieldFocus}
         noValidate
         aria-describedby={formError ? formErrorId : undefined}
         className="flex flex-col gap-5"
@@ -156,37 +157,6 @@ export function RegisterForm() {
           Masuk
         </Link>
       </p>
-    </div>
-  )
-}
-
-function TextField({
-  label,
-  hint,
-  error,
-  field,
-  ...inputProps
-}: {
-  label: string
-  hint?: string
-  error?: string
-  field: UseFormRegisterReturn
-} & Pick<React.ComponentProps<"input">, "type" | "autoComplete" | "autoCapitalize" | "spellCheck">) {
-  const id = useId()
-  return (
-    <div className="flex flex-col gap-1.5">
-      <label htmlFor={id} className="text-sm font-medium">
-        {label}
-      </label>
-      <Input
-        id={id}
-        aria-invalid={error ? true : undefined}
-        aria-describedby={describedBy(hint && `${id}-hint`, error && `${id}-error`)}
-        {...inputProps}
-        {...field}
-      />
-      {hint && <FieldHint id={`${id}-hint`}>{hint}</FieldHint>}
-      <FieldError id={`${id}-error`} message={error} />
     </div>
   )
 }
