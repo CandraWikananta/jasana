@@ -4,9 +4,9 @@
 **Nama sistem:** Jasana
 **Penyusun:** I Nyoman Gede Candra Wikananta (2305551065)
 **Bidang Keahlian:** Sistem Informasi, Teknologi Informasi, Universitas Udayana
-**Versi:** 2.53
-**Terakhir diperbarui:** 23 November 2026 (versi 2.53)
-**Tahap saat ini:** Implementasi backend Fase 0 sampai Fase 10 selesai, data simulasi sudah terisi di Supabase dev. Frontend dibangun ulang di lapisan visual di branch `feat/frontend-v2` dengan Design System v2.6 (D241 sampai D257); logika W0 dan W2 dipertahankan, versi lama diarsipkan di tag `frontend-v1`. Berikutnya migrasi W0 dan W2 ke v2.1, field `OrderDto` di backend (H131), W1, stress test k6, dan UAT
+**Versi:** 2.54
+**Terakhir diperbarui:** 24 November 2026 (versi 2.54)
+**Tahap saat ini:** Implementasi backend Fase 0 sampai Fase 10 selesai, data simulasi sudah terisi di Supabase dev. Frontend dibangun ulang di lapisan visual di branch `feat/frontend-v2` dengan Design System v2.7 (D241 sampai D263); logika W0 dan W2 dipertahankan, versi lama diarsipkan di tag `frontend-v1`. Berikutnya migrasi W0 dan W2 ke v2.1, field `OrderDto` di backend (H131), W1, stress test k6, dan UAT
 
 ---
 
@@ -68,7 +68,12 @@
 | Frontend: ruang aman layar (D256) | 1 | 0 |
 | Frontend: tombol ikon dan navigasi pelanggan desktop (D257) | 1 | 0 |
 | Frontend: halaman autentikasi (D258 sampai D261, D258 dibatalkan) | 4 | 0 |
+| Frontend: halaman akun (D262 sampai D263) | 2 | 0 |
 | Keputusan terbuka tanpa nomor D (Bagian 7) | | 0 |
+
+**Perubahan pada versi 2.54:**
+
+1. Dua keputusan dari halaman akun W1b (D262 dan D263, Bagian 4AU). Design System naik ke v2.7. H127 ditutup. H145 sampai H149 baru
 
 **Perubahan pada versi 2.53:**
 
@@ -2295,6 +2300,17 @@ Dari W1a (halaman daftar, verifikasi email, lupa dan atur ulang sandi, konfirmas
 | D260 | **Setelah daftar berhasil, frontend langsung masuk** dengan kredensial yang sama, lalu menampilkan konfirmasi "Akunmu sudah dibuat" dengan tombol Lanjut ke `next` atau beranda. Kalau masuk otomatis gagal (misalnya kena batas 429), tombolnya menjadi Masuk | `POST /auth/register` tidak mengembalikan token. D62 membolehkan masuk sebelum verifikasi email. W8 mensyaratkan tamu yang mendaftar di tengah percakapan dengan Asisten bisa langsung melanjutkan |
 | D261 | **`/verifikasi-email` dan `/konfirmasi-email` menunggu satu ketukan tombol**, bukan mengirim permintaan otomatis saat halaman dibuka | Pemindai link di layanan email yang menjalankan JavaScript bisa menghabiskan token sekali pakai sebelum pengguna sempat mengklik. Permintaan otomatis juga terkirim dua kali di React StrictMode dan berujung `TOKEN_ALREADY_USED` |
 
+## 4AU. Keputusan Versi 2.54 (D262 sampai D263): Halaman Akun
+
+Dari W1b (profil dan keamanan akun), 24 November 2026. Tanpa perubahan backend.
+
+| # | Keputusan | Alasan |
+|---|---|---|
+| D262 | **Setelah ganti kata sandi, frontend langsung masuk lagi** dengan kata sandi baru. Kalau gagal (misalnya kena batas 429), tampil "Kata sandi sudah diganti" dengan tombol Masuk | Server mencabut semua sesi termasuk sesi pemanggil (D76, H65). Tanpa ini pengguna terlempar ke `/masuk` sebelum pesannya terbaca. Pengguna baru saja membuktikan tahu kata sandi lama, jadi aman. Hasilnya sesuai harapan umum: perangkat ini tetap masuk, perangkat lain keluar. Polanya sama dengan D260 |
+| D263 | **Formulir ganti email dan kata sandi dibuka di tempat**, bukan di Dialog, dan hanya satu yang terbuka sekaligus. Formulir ditutup saat halaman ditinggalkan. Dialog hanya untuk konfirmasi. Memperjelas "formulir pendek" di Design System 6.1 | Isian kata sandi di sheet bawah berisiko tertutup keyboard HP dan kurang cocok untuk pengelola kata sandi. Satu formulir terbuka menjaga satu tombol primary (P2). Formulir ditutup saat halaman ditinggalkan supaya isian kata sandi tidak tertinggal di halaman tersembunyi yang disimpan Next |
+
+**Juga dari W1b:** port dev frontend dikunci di 3100, dan `.env.example` root kini menulis `APP_BASE_URL` dan `CORS_ORIGIN` ke alamat frontend (H127 ditutup). Toast (sonner) dipasang sesuai Design System 10, dengan jarak bawah `--toast-offset-bottom`.
+
 ---
 
 ## 5. Alur Sistem End-to-End
@@ -2949,7 +2965,7 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 - [ ] **H124** Objek penyedia di kartu listing dan di `GET /listings/:id` tidak membawa `display_name`, sehingga penyedia INDIVIDUAL tanpa `business_name` tampil "Penyedia perorangan" di frontend. Usulan: tambahkan `display_name` seperti di `GET /providers/:id` **(baru, W0 bagian 2)**
 - [ ] **H125** `categories.icon_name` di Supabase dev diisi manual lewat SQL (`cog`, `camera`, `perfume-bottle`, `wrench`) dan belum ada di skrip seed, sehingga hilang kalau katalog di-seed ulang (D229) **(baru, W2)**
 - [ ] **H126** Halaman listing dan penyedia yang tidak ditemukan menjawab status 200 dengan `noindex`, bukan 404 (D228). Bisa dirapikan di W9 dengan memeriksa data sebelum streaming dimulai **(baru, W2)**
-- [ ] **H127** `.env.example` di root masih menulis `CORS_ORIGIN=http://localhost:3000`, padahal Next berjalan di `http://localhost:3100` saat pengembangan **(baru, W0 bagian 2)**
+- [x] **H127** **(ditutup 24 November 2026 di W1b)** `.env.example` di root masih menulis `CORS_ORIGIN=http://localhost:3000`, padahal Next berjalan di `http://localhost:3100` saat pengembangan **(baru, W0 bagian 2)**
 - [ ] **H128** Saat deploy, `TRUST_PROXY` (D117) harus sama dengan jumlah hop di jalur publik browser ke Express, dan `API_INTERNAL_BASE_URL` harus lewat jalur dengan jumlah hop yang sama. Kalau tidak, `req.ip` terbaca sebagai IP server Next dan rate limit login berlaku untuk seluruh pengguna sekaligus. Pemeriksaan `Origin` (D233) juga dicek ulang di balik reverse proxy. Pertimbangkan dukungan nilai berupa daftar IP atau loopback di D117 **(baru, W0 bagian 3)**
 - [ ] **H129** Kalau tab ditutup tepat saat refresh berjalan, server sudah merotasi token tetapi browser tidak menerima cookie barunya. Refresh berikutnya terbaca sebagai pemakaian ulang dan pengguna ter-logout. Akibat rotasi tanpa jeda toleransi (D76), kemungkinannya kecil, dan ditulis sebagai batasan **(baru, W0 bagian 3)**
 - [ ] **H130** Sesi login belum diuji di Firefox dan Safari, dan logout antar tab lewat `BroadcastChannel` belum diuji otomatis. Dikerjakan di W9 **(baru, W0 bagian 3)**
@@ -2967,6 +2983,11 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 - [ ] **H142** Tipe `PaginationMeta` di `packages/shared` belum memuat `unread_count`, padahal `GET /notifications` mengirimnya. Frontend sementara membacanya secara lokal di `features/notifications/api.ts`. Perbaiki tipenya di `main`, lalu hapus pembacaan lokal itu **(baru, M3 layout empat area)**
 - [ ] **H143** `POST /auth/register` tidak punya batas permintaan, padahal masuk dan lupa sandi punya. Orang bisa membuat akun palsu secara massal. Tambahkan pembatas per IP di `main` **(baru, W1a)**
 - [x] **H144** **(ditutup 23 November 2026 bersama D259)** CORS backend (`apps/api/src/app.ts`) hanya mengekspos `X-Request-Id`, sehingga browser tidak bisa membaca `Retry-After` dari jawaban 429 di lupa sandi dan kirim ulang verifikasi; frontend jatuh ke pesan umum. Tambahkan `Retry-After` ke `exposedHeaders`. `/masuk` tidak terdampak karena lewat Route Handler. Dikerjakan bersama D259 di `main` **(baru, W1a)**
+- [ ] **H145** `GET /auth/sessions` tidak menandai sesi pemanggil, sehingga daftar perangkat aktif belum bisa menampilkan label "Perangkat ini". Frontend sengaja tidak menebak dari user agent **(baru, W1b)**
+- [ ] **H146** `POST /users/me/change-password` tidak punya batas permintaan, sehingga kata sandi lama bisa ditebak berulang dari sesi yang dicuri. Tambahkan pembatas per pengguna di `main` **(baru, W1b)**
+- [ ] **H147** Jalur unggah avatar belum ada di backend: `/uploads/signed-url` hanya untuk foto listing, dan `PATCH /users/me` hanya menerima `avatar_url` jadi. Frontend menampilkan inisial saja **(baru, W1b, PRD Frontend 12.1 nomor 10)**
+- [ ] **H148** Link email `/subcategories/:id` di `taxonomy-emails.ts` tidak ada di peta rute frontend. Diputuskan saat W4 (usulan taksonomi) **(baru, W1b)**
+- [ ] **H149** Isian kata sandi di `/masuk` tertinggal di halaman tersembunyi yang disimpan Next setelah masuk. Formulir W1a lain perlu dicek juga. Perbaikannya sama dengan D263: tutup atau kosongkan formulir saat halaman ditinggalkan. Dikerjakan di awal W1c **(baru, W1b)**
 - [ ] **H82** Admin fee withdrawal berupa nilai flat yang mengikuti perkiraan biaya payout Xendit **(baru, D84)**. Untuk nominal di atas Rp250.000 biaya sebenarnya sedikit lebih besar dan selisihnya ditanggung platform
 
 ---
@@ -2982,7 +3003,7 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 | 5 | Diagram UML | Belum | Aktor jadi empat |
 | 6 | Diagram Konteks dan DFD | Belum | Aktor jadi empat, tambah entitas eksternal layanan email |
 | 7 | Conversation flow dan system prompt chatbot | Belum | |
-| 8 | Desain antarmuka | Selesai, Design System v2.6 | Design System dan mockup menggantikan Figma (D224). Layar per fase mengikuti Design System |
+| 8 | Desain antarmuka | Selesai, Design System v2.7 | Design System dan mockup menggantikan Figma (D224). Layar per fase mengikuti Design System |
 
 **Aset yang bisa dipakai ulang:** dokumen test case `PPL_A_2305551065_UAS.docx` berisi 127 test case pada 15 modul fungsional dan 1 modul performa.
 
@@ -3003,7 +3024,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 
 ## 11. Langkah Berikutnya
 
-1. Frontend di branch `feat/frontend-v2` (versi lama di tag `frontend-v1`): logika W0 dan W2 selesai, lapisan visual dibangun ulang dengan Design System v2.6 (D241 sampai D257). Berikutnya migrasi W0 dan W2 ke v2.1 (Design System Bagian 14), lalu W1 autentikasi dan akun. Sebelum W3, kerjakan H131 di `main`. Paralel di `main`: H124, H125, dan H127
+1. Frontend di branch `feat/frontend-v2` (versi lama di tag `frontend-v1`): W0 dan W2 selesai dan dipindah ke Design System v2.7 (D241 sampai D263). W1a (autentikasi) dan W1b (akun) selesai. Urutan berikutnya: W1c (alamat dengan peta, diawali H149), W8 (Asisten), W3, W5, W4, W6, W7, W9. Sebelum W3, kerjakan H131 di `main`. Sebelum W5, kerjakan H92 dan H141 di `main`. Hutang backend lain di `main`: H124, H125, H140, H142, H143, H145 sampai H148
 2. Fase 9 selesai 17 November 2026 setelah evaluasi tiga run (Bagian 4AB dan 4AG). Fase 10 selesai 17 November 2026 (1.004 test lulus, D177 sampai D203), dengan uji sandbox 10a dan 10b lulus dan uji sandbox 10c dijalankan penyusun. Paralel: penyusun menyusun dataset 30 sampai 50 skenario berlabel (H15, D153) dan mencatat model serta batas kuota project Gemini di AI Studio
 3. Selesai: Fase 8 (15 November 2026, 751 test lulus, D131 sampai D150) beserta uji sandbox payout dan refund. Uji sandbox refund PARTIAL hasil putusan sengketa lulus. Sebelumnya Fase 7 (11 November 2026, 627 test lulus) beserta uji sandbox Xendit sungguhan (12 November 2026), sebelumnya audit hutang teknis (9 November 2026) dan sesi perapian (10 November 2026)
 4. Selesai: data simulasi Bali di Supabase dev (D204 sampai D209)
@@ -3071,6 +3092,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 | 2.51 | 23 November 2026 | Ruang aman layar (D256). Design System v2.5. H140 dan H141 baru. Tanpa migrasi |
 | 2.52 | 23 November 2026 | Ukuran tombol `icon` dan navigasi pelanggan di desktop (D257). Design System v2.6. H142 baru. Tanpa migrasi |
 | 2.53 | 23 November 2026 | Halaman autentikasi W1a: D258 dibatalkan, path link email (D259), masuk otomatis setelah daftar (D260), verifikasi lewat satu ketukan (D261). H143 dan H144 baru. Tanpa migrasi |
+| 2.54 | 24 November 2026 | Halaman akun W1b: masuk lagi otomatis setelah ganti sandi (D262), formulir sensitif dibuka di tempat (D263). Design System v2.7. H127 ditutup, H145 sampai H149 baru. Tanpa migrasi |
 
 ---
 

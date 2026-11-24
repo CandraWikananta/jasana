@@ -2,7 +2,7 @@
 
 **Artefak frontend 2 dari 4**
 Platform Jasana, Tugas Akhir I Nyoman Gede Candra Wikananta (2305551065)
-**Versi 2.6 (disetujui)**, 23 November 2026
+**Versi 2.7 (disetujui)**, 24 November 2026
 
 Dokumen ini menetapkan bahasa visual dan bahasa teks seluruh antarmuka Jasana: warna, tipografi, jarak, komponen, label status, format angka dan waktu, serta glosarium. Tujuannya satu: **empat area (publik dan client, usaha, pekerja, admin) terlihat dan terbaca seperti satu produk**, walaupun dibangun dalam belasan sesi Claude Code yang terpisah.
 
@@ -317,12 +317,12 @@ Dasar komponen dari **shadcn/ui** (disalin ke `src/components/ui`, berbasis Radi
 | `Select`, `Combobox` | | Combobox untuk daftar lebih dari 8 item |
 | `Checkbox`, `RadioGroup`, `Switch` | | Area sentuh minimal 44 px termasuk labelnya. Switch menyala: trek dan garis `--brand-hover` (D244). Switch mati: trek `--muted`, garis `--input`. Thumb selalu `--card` |
 | `InputOTP` | 6 kotak | Untuk kode verifikasi di sisi pekerja. `inputMode="numeric"`, `autoComplete="one-time-code"`, `spellCheck={false}` |
-| `Dialog` | | Konfirmasi aksi berbahaya dan formulir pendek. Di HP berubah jadi `Sheet` dari bawah |
+| `Dialog` | | Konfirmasi aksi berbahaya. Di HP berubah jadi `Sheet` dari bawah. Formulir yang berisi isian kata sandi atau lebih dari satu isian dibuka **di tempat** (di dalam panelnya), bukan di Dialog, dan hanya satu formulir terbuka sekaligus (D263) |
 | `Sheet` | bawah, kanan | Filter pencarian di HP, detail cepat di admin. `overscroll-behavior: contain` |
 | `Tabs` | | Maksimal 5 tab, tinggi daftar tab 44 px. Di HP bisa digeser. Tab aktif mengikuti penanda aktif pucat (Bagian 6.4). Tab yang dipilih disimpan di query URL (Bagian 10) |
 | `Table` / `DataTable` | | Area usaha dan admin. Header `caption` kapital, angka uang rata kanan dan `tabular-nums` |
 | `Skeleton` | | Mengikuti bentuk konten yang dimuat, bukan blok abu-abu tunggal |
-| `Toast` (sonner) | sukses, error, info | Pesan maksimal satu kalimat. Posisi bawah tengah di HP, kanan bawah di desktop |
+| `Toast` (sonner) | sukses, error, info | Pesan maksimal satu kalimat. Posisi bawah tengah di HP, kanan bawah di desktop. Jarak bawah lewat `--toast-offset-bottom`, supaya tidak menutupi navigasi bawah |
 | `Alert` / banner | success, info, warning, destructive | Banner status di atas halaman detail order (Bagian 1.4b) |
 | `Badge` | nada `warning`, `info`, `success`, `destructive`, `neutral` (lihat Bagian 7), `outline` (latar `--card`, garis `--border`, teks `--muted-foreground`), dan `now` (latar `--card`, garis `--brand`, titik live, teks `--foreground` 600) | Selalu teks + ikon atau titik. Teks `caption` 12 px bobot 600, tinggi 28 px |
 | `Avatar`, `Tooltip`, `Popover`, `Accordion`, `Pagination`, `Breadcrumb` | | Sesuai bawaan |
@@ -780,6 +780,17 @@ Ganti isi `src/app/globals.css` dengan isi berikut. Tailwind v4 memakai konfigur
   box-shadow: 0 0 0 4px var(--brand-glow);
 }
 
+/* Jarak bawah toast: di atas navigasi bawah HP (64 px + 16 px) plus ruang aman (D256).
+   Mulai md navigasi bawah pelanggan tidak ada. Area pekerja diatur lagi di W5 */
+:root {
+  --toast-offset-bottom: calc(5rem + env(safe-area-inset-bottom));
+}
+@media (min-width: 48rem) {
+  :root {
+    --toast-offset-bottom: 1.5rem;
+  }
+}
+
 /* Ruang aman layar (D256). Bernilai 0 di desktop dan di HP tanpa notch */
 @utility pb-safe {
   padding-bottom: env(safe-area-inset-bottom);
@@ -908,3 +919,4 @@ Untuk sesi Claude Code yang memindahkan kode W0 dan W2 ke v2.1. Struktur kompone
 | 2.4 | 23 November 2026 | Dari M3 halaman detail jasa. `EscrowNote` juga dipakai di detail jasa (D255). Catatan D254: varian `compact` dipilih lewat container query (36rem), bukan titik henti `sm`, karena pemilihan lewat JavaScript menimbulkan kilasan tata letak (CLS 0,21 di 1280 px) |
 | 2.5 | 23 November 2026 | Ruang aman layar untuk iPhone (D256): `viewport-fit=cover`, utilitas `pb-safe`, `px-safe`, dan `pb-nav-safe`. Bagian 6.1b ditambah baris "Identitas masuk" untuk formulir masuk (pelengkap D248) |
 | 2.6 | 23 November 2026 | Dari M3 layout empat area. Ukuran tombol `icon` 44 x 44 px dan navigasi pelanggan di desktop (D257) |
+| 2.7 | 24 November 2026 | Dari W1b. Formulir sensitif dibuka di tempat, bukan di Dialog (D263). Variabel `--toast-offset-bottom` di Bagian 13 |
