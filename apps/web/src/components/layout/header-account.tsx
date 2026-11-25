@@ -57,7 +57,7 @@ export function HeaderAccount(props: HeaderAccountProps) {
 }
 
 function AccountSkeleton() {
-  return <Skeleton className="ml-auto h-10 w-24" />
+  return <Skeleton className="ml-auto h-11 w-24" />
 }
 
 function HeaderAccountInner({ customerLinks = false, size = "md" }: HeaderAccountProps) {

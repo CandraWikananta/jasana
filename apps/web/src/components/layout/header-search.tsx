@@ -5,6 +5,7 @@ import { usePathname, useSearchParams } from "next/navigation"
 import { Suspense } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { cn } from "@/lib/utils"
 
 // Kotak cari header publik. Di beranda disembunyikan karena hero sudah memuat kotak cari, supaya
 // satu layar hanya punya satu aksi utama (P2). Form GET biasa ke /cari, tetap jalan tanpa JavaScript.
@@ -21,6 +22,8 @@ export function HeaderSearch() {
 function HeaderSearchInner() {
   const pathname = usePathname()
   if (pathname === "/") return null
+  // Layar penuh Asisten (usulan D267): di HP baris kotak cari memakan ruang percakapan.
+  if (pathname === "/asisten") return <SearchForm className="hidden md:flex" />
   if (pathname !== "/cari") return <SearchForm />
   // useSearchParams hanya di /cari: dipanggil di atas akan membuat "/" ikut jatuh ke fallback saat prerender.
   return (
@@ -36,13 +39,13 @@ function CariSearchForm() {
   return <SearchForm key={q} defaultValue={q} />
 }
 
-function SearchForm({ defaultValue }: { defaultValue?: string }) {
+function SearchForm({ defaultValue, className }: { defaultValue?: string; className?: string }) {
   return (
     <form
       role="search"
       action="/cari"
       method="get"
-      className="order-last flex w-full gap-2 md:order-none md:max-w-xl md:flex-1"
+      className={cn("order-last flex w-full gap-2 md:order-none md:max-w-xl md:flex-1", className)}
     >
       <label htmlFor="cari-jasa" className="sr-only">
         Cari jasa

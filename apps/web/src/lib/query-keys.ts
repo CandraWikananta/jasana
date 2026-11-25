@@ -20,6 +20,12 @@ export const qk = {
     all: ["listings"] as const,
     search: (params: SearchListingsParams) => ["listings", "search", params] as const,
     detail: (id: string) => ["listings", "detail", id] as const,
+    card: (id: string) => ["listings", "card", id] as const,
+  },
+  chat: {
+    /** Daftar percakapan akun; id pengguna ditambahkan di hook-nya. */
+    sessions: ["chat", "sessions"] as const,
+    messages: (scope: "guest" | "account", sessionId: string | null) => ["chat", "messages", scope, sessionId] as const,
   },
   categories: ["categories"] as const,
 }

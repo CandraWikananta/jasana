@@ -14,6 +14,10 @@ import type { ListingCard as ListingCardData } from "@/types/api/listing"
 // @xl (36rem); mulai @xl kembali ke bentuk biasa. Satu DOM yang diatur CSS, bukan dua kartu atau media query di
 // JavaScript, supaya server dan browser menghasilkan tampilan yang sama (tanpa kilasan dan pergeseran) dan foto
 // hanya terunduh sekali. Pemakainya wajib membungkus daftar dengan `@container`.
+//
+// `actions` (usulan D266, rekomendasi Asisten): badan kartu dan baris aksi bersaudara, jadi tidak ada elemen interaktif
+// di dalam tautan. Harga pindah ke baris aksi dan jarak tampil juga di compact. Tautan badan tidak ikut urutan Tab,
+// karena tombol Lihat di baris aksi menuju halaman yang sama.
 type Variant = "default" | "compact"
 
 const STYLE = {
@@ -41,23 +45,32 @@ const SIZES = {
   compact: "(min-width: 640px) 368px, 112px",
 } as const
 
+const FRAME = "overflow-hidden rounded-lg border border-border bg-card text-card-foreground"
+
 /** `eager` untuk kartu di atas lipatan, supaya fotonya tidak menunggu lazy load (LCP). */
 export function ListingCard({
   listing,
   eager = false,
   variant = "default",
+  actions,
 }: {
   listing: ListingCardData
   eager?: boolean
   variant?: Variant
+  actions?: React.ReactNode
 }) {
   const { provider } = listing
   const s = STYLE[variant]
-  return (
-    <Link
-      href={`/listing/${listing.id}`}
-      className={`group flex overflow-hidden rounded-lg border border-border bg-card text-card-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${s.link}`}
-    >
+  const href = `/listing/${listing.id}`
+  const price = (
+    <p className="text-sm text-muted-foreground">
+      Mulai <MoneyText amount={listing.price} className={`font-semibold text-foreground ${s.price}`} />
+    </p>
+  )
+  const nowBadge = listing.supports_available_now && <ModeBadge mode="AVAILABLE_NOW" />
+
+  const body = (
+    <>
       <div className={`relative aspect-4/3 overflow-hidden bg-muted ${s.photo}`}>
         {listing.primary_photo_url ? (
           <Image
@@ -93,39 +106,74 @@ export function ListingCard({
             <span className="text-muted-foreground">Belum ada ulasan</span>
           )}
           {listing.distance_km !== null && (
-            <span className={`items-center gap-1 text-muted-foreground ${s.distance}`}>
+            <span className={`items-center gap-1 text-muted-foreground ${actions ? "flex" : s.distance}`}>
               <MapPin aria-hidden className="size-4" />
               {/* API memberi km, formatJarak menerima meter (DS 8). */}
               {formatJarak(listing.distance_km * 1000)}
             </span>
           )}
+          {actions && nowBadge}
         </div>
 
-        <div className="mt-auto flex min-h-7 flex-wrap items-end justify-between gap-2 pt-1">
-          <p className="text-sm text-muted-foreground">
-            Mulai <MoneyText amount={listing.price} className={`font-semibold text-foreground ${s.price}`} />
-          </p>
-          {listing.supports_available_now && <ModeBadge mode="AVAILABLE_NOW" />}
-        </div>
+        {!actions && (
+          <div className="mt-auto flex min-h-7 flex-wrap items-end justify-between gap-2 pt-1">
+            {price}
+            {nowBadge}
+          </div>
+        )}
       </div>
+    </>
+  )
+
+  if (actions) {
+    return (
+      <article className={FRAME}>
+        <Link href={href} tabIndex={-1} className={`group flex outline-none ${s.link}`}>
+          {body}
+        </Link>
+        <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 border-t border-border px-3 py-2">
+          {price}
+          <div className="ml-auto flex gap-2">{actions}</div>
+        </div>
+      </article>
+    )
+  }
+  return (
+    <Link
+      href={href}
+      className={`group flex ${FRAME} outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${s.link}`}
+    >
+      {body}
     </Link>
   )
 }
 
 /** Kerangka sebentuk kartu, varian dan aturan @container yang sama dengan `ListingCard`. */
-export function ListingCardSkeleton({ variant = "default" }: { variant?: Variant }) {
+export function ListingCardSkeleton({ variant = "default", actions = false }: { variant?: Variant; actions?: boolean }) {
   const s = STYLE[variant]
-  return (
-    <div className={`flex overflow-hidden rounded-lg border border-border bg-card ${s.link}`}>
+  const body = (
+    <div className={`flex ${actions ? "" : FRAME} ${s.link}`}>
       <Skeleton className={`aspect-4/3 rounded-none ${s.photo}`} />
       <div className={`flex min-w-0 flex-1 flex-col ${s.body}`}>
         <Skeleton className="h-6 w-3/4" />
         <Skeleton className="h-4 w-1/2" />
         <Skeleton className="h-4 w-1/3" />
-        <div className="flex justify-between pt-1">
-          <Skeleton className="h-6 w-28" />
-          <Skeleton className="h-7 w-24 rounded-full" />
-        </div>
+        {!actions && (
+          <div className="flex justify-between pt-1">
+            <Skeleton className="h-6 w-28" />
+            <Skeleton className="h-7 w-24 rounded-full" />
+          </div>
+        )}
+      </div>
+    </div>
+  )
+  if (!actions) return body
+  return (
+    <div className={FRAME}>
+      {body}
+      <div className="flex items-center justify-between border-t border-border px-3 py-2">
+        <Skeleton className="h-5 w-28" />
+        <Skeleton className="h-11 w-40" />
       </div>
     </div>
   )

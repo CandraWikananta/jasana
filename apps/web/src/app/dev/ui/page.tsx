@@ -25,6 +25,7 @@ import { ButtonMatrix } from "../ds/components/button-matrix"
 import { FormDemo } from "../ds/components/form-demo"
 import { TabsDemo } from "../ds/components/tabs-demo"
 import { COMPACT_LISTINGS } from "../ds/data"
+import { AssistantDemo } from "./assistant-demo"
 import { FeedbackDemo } from "./feedback-demo"
 import { ListingDemo } from "./listing-demo"
 import { MapDemo } from "./map-demo"
@@ -251,6 +252,10 @@ export default function DevUiPage() {
 
       <Section title="Peta" note="MapView baca saja dengan tiga penanda DS 5, dan MapPicker dengan pin diam di tengah.">
         <MapDemo />
+      </Section>
+
+      <Section title="Percakapan Asisten" note="Usulan D266 dan D268: gelembung, kartu dengan baris aksi, indikator mengetik, pemberitahuan, dan kotak tulis.">
+        <AssistantDemo />
       </Section>
 
       <Section title="Kartu, banner, dan akordeon">
