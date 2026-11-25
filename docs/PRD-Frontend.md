@@ -120,7 +120,7 @@ Tiga aturan arsitektur:
 | Data fetching | TanStack Query v5 | Cache, refetch, invalidasi dari event socket |
 | Formulir | react-hook-form + Zod | |
 | Real-time | `socket.io-client` | Sesuai S5 |
-| Peta | Leaflet + react-leaflet, tile OpenStreetMap | Sesuai S7. Dimuat dinamis tanpa SSR |
+| Peta | Leaflet 1.9.4 langsung, tanpa react-leaflet (D264), tile OpenStreetMap | Sesuai S7. Dimuat dinamis tanpa SSR. Hanya `components/shared/map/leaflet-map.tsx` yang mengimpor `leaflet` |
 | Toast | sonner (bawaan shadcn) | |
 | Huruf | Plus Jakarta Sans lewat `next/font/google` | |
 | Pengujian | Vitest + Testing Library (unit), Playwright (smoke E2E dan verifikasi visual) | |

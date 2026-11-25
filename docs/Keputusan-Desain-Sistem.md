@@ -4,9 +4,9 @@
 **Nama sistem:** Jasana
 **Penyusun:** I Nyoman Gede Candra Wikananta (2305551065)
 **Bidang Keahlian:** Sistem Informasi, Teknologi Informasi, Universitas Udayana
-**Versi:** 2.54
-**Terakhir diperbarui:** 24 November 2026 (versi 2.54)
-**Tahap saat ini:** Implementasi backend Fase 0 sampai Fase 10 selesai, data simulasi sudah terisi di Supabase dev. Frontend dibangun ulang di lapisan visual di branch `feat/frontend-v2` dengan Design System v2.7 (D241 sampai D263); logika W0 dan W2 dipertahankan, versi lama diarsipkan di tag `frontend-v1`. Berikutnya migrasi W0 dan W2 ke v2.1, field `OrderDto` di backend (H131), W1, stress test k6, dan UAT
+**Versi:** 2.55
+**Terakhir diperbarui:** 25 November 2026 (versi 2.55)
+**Tahap saat ini:** Implementasi backend Fase 0 sampai Fase 10 selesai, data simulasi sudah terisi di Supabase dev. Frontend dibangun ulang di lapisan visual di branch `feat/frontend-v2` dengan Design System v2.8 (D241 sampai D265); logika W0 dan W2 dipertahankan, versi lama diarsipkan di tag `frontend-v1`. Berikutnya migrasi W0 dan W2 ke v2.1, field `OrderDto` di backend (H131), W1, stress test k6, dan UAT
 
 ---
 
@@ -69,7 +69,12 @@
 | Frontend: tombol ikon dan navigasi pelanggan desktop (D257) | 1 | 0 |
 | Frontend: halaman autentikasi (D258 sampai D261, D258 dibatalkan) | 4 | 0 |
 | Frontend: halaman akun (D262 sampai D263) | 2 | 0 |
+| Frontend: peta dan alamat (D264 sampai D265) | 2 | 0 |
 | Keputusan terbuka tanpa nomor D (Bagian 7) | | 0 |
+
+**Perubahan pada versi 2.55:**
+
+1. Dua keputusan dari alamat dengan peta W1c (D264 dan D265, Bagian 4AV). Design System naik ke v2.8, PRD Frontend 2.2 direvisi. H149 ditutup. H150 sampai H152 baru
 
 **Perubahan pada versi 2.54:**
 
@@ -2311,6 +2316,17 @@ Dari W1b (profil dan keamanan akun), 24 November 2026. Tanpa perubahan backend.
 
 **Juga dari W1b:** port dev frontend dikunci di 3100, dan `.env.example` root kini menulis `APP_BASE_URL` dan `CORS_ORIGIN` ke alamat frontend (H127 ditutup). Toast (sonner) dipasang sesuai Design System 10, dengan jarak bawah `--toast-offset-bottom`.
 
+## 4AV. Keputusan Versi 2.55 (D264 sampai D265): Peta dan Alamat
+
+Dari W1c (alamat tersimpan dengan peta), 25 November 2026. Tanpa perubahan backend.
+
+| # | Keputusan | Alasan |
+|---|---|---|
+| D264 | **Peta memakai Leaflet 1.9.4 langsung, tanpa react-leaflet.** Hanya `components/shared/map/leaflet-map.tsx` yang mengimpor `leaflet`; halaman memakai `MapView` dan `MapPicker`. Merevisi PRD Frontend 2.2 dan stack di `apps/web/CLAUDE.md` | `MapContainer` react-leaflet 5.0.0 menghapus peta saat efeknya dibersihkan dan tidak membuatnya lagi ketika halaman yang disimpan Next (`cacheComponents`) ditampilkan kembali, sehingga petanya mati. Dengan Leaflet langsung, peta dibuat dan dilepas di satu tempat dan posisinya bertahan. Diuji: peta tetap hidup setelah halaman disembunyikan lalu dibuka lagi |
+| D265 | **Bentuk peta.** Kontrol dan atribusi bawaan Leaflet diganti komponen bertoken (tombol zoom `outline` ukuran `icon`, atribusi `caption` selalu terlihat dengan area sentuh 24 px). Penanda: lokasi layanan `MapPin` 40 px, basis usaha lingkaran `--neutral` 36 px, penanggung jawab lingkaran 16 px berdenyut tiga kali. `MapPicker` memakai pin diam di tengah, bisa digeser, diketuk, atau dengan tombol panah; titik baru sah mulai zoom 16; pusat awal Denpasar. `MapView` baca saja. Roda mouse tidak memperbesar peta | Warna bawaan Leaflet bukan token Design System. Pin diam di tengah tidak tertutup jari dan bisa dipakai lewat keyboard (WCAG 2.5.7). Titik yang terlalu kasar bisa menggagalkan check-in pekerja yang dicek berdasarkan radius |
+
+**Juga dari W1c:** H149 ditutup lewat komponen `ResetOnLeave` di empat halaman autentikasi (ternyata `/masuk` yang dibuka lagi setelah keluar menampilkan email dan kata sandi pengguna sebelumnya, dengan tombol macet). Atribut field alamat ditambahkan ke Design System 6.1b.
+
 ---
 
 ## 5. Alur Sistem End-to-End
@@ -2987,7 +3003,10 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 - [ ] **H146** `POST /users/me/change-password` tidak punya batas permintaan, sehingga kata sandi lama bisa ditebak berulang dari sesi yang dicuri. Tambahkan pembatas per pengguna di `main` **(baru, W1b)**
 - [ ] **H147** Jalur unggah avatar belum ada di backend: `/uploads/signed-url` hanya untuk foto listing, dan `PATCH /users/me` hanya menerima `avatar_url` jadi. Frontend menampilkan inisial saja **(baru, W1b, PRD Frontend 12.1 nomor 10)**
 - [ ] **H148** Link email `/subcategories/:id` di `taxonomy-emails.ts` tidak ada di peta rute frontend. Diputuskan saat W4 (usulan taksonomi) **(baru, W1b)**
-- [ ] **H149** Isian kata sandi di `/masuk` tertinggal di halaman tersembunyi yang disimpan Next setelah masuk. Formulir W1a lain perlu dicek juga. Perbaikannya sama dengan D263: tutup atau kosongkan formulir saat halaman ditinggalkan. Dikerjakan di awal W1c **(baru, W1b)**
+- [x] **H149** **(ditutup 25 November 2026 di W1c, komponen `ResetOnLeave`)** Isian kata sandi di `/masuk` tertinggal di halaman tersembunyi yang disimpan Next setelah masuk. Formulir W1a lain perlu dicek juga. Perbaikannya sama dengan D263: tutup atau kosongkan formulir saat halaman ditinggalkan. Dikerjakan di awal W1c **(baru, W1b)**
+- [ ] **H150** `POST /orders` dengan alamat tersimpan hanya menyalin `address_line` ke snapshot pesanan; kecamatan, kota, dan kode pos hilang di sisi pekerja. Sementara ditutup teks bantu di formulir alamat ("teks ini yang dilihat pekerja"). Perbaiki di `main` sebelum W5 **(baru, W1c)**
+- [ ] **H151** Toast menutupi dialog yang tampil sebagai sheet bawah di HP. Baru dialog hapus alamat yang ditangani; dialog lain perlu pola yang sama, idealnya di komponen dialog atau Toaster supaya berlaku umum. Dikerjakan saat W3 menambah dialog baru **(baru, W1c)**
+- [ ] **H152** Tile OpenStreetMap publik punya kebijakan pemakaian yang membatasi pemakaian berat. Aman untuk demo dan UAT, tapi pemakaian sungguhan butuh penyedia tile lain. Masuk saran pengembangan **(baru, W1c)**
 - [ ] **H82** Admin fee withdrawal berupa nilai flat yang mengikuti perkiraan biaya payout Xendit **(baru, D84)**. Untuk nominal di atas Rp250.000 biaya sebenarnya sedikit lebih besar dan selisihnya ditanggung platform
 
 ---
@@ -3003,7 +3022,7 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 | 5 | Diagram UML | Belum | Aktor jadi empat |
 | 6 | Diagram Konteks dan DFD | Belum | Aktor jadi empat, tambah entitas eksternal layanan email |
 | 7 | Conversation flow dan system prompt chatbot | Belum | |
-| 8 | Desain antarmuka | Selesai, Design System v2.7 | Design System dan mockup menggantikan Figma (D224). Layar per fase mengikuti Design System |
+| 8 | Desain antarmuka | Selesai, Design System v2.8 | Design System dan mockup menggantikan Figma (D224). Layar per fase mengikuti Design System |
 
 **Aset yang bisa dipakai ulang:** dokumen test case `PPL_A_2305551065_UAS.docx` berisi 127 test case pada 15 modul fungsional dan 1 modul performa.
 
@@ -3024,7 +3043,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 
 ## 11. Langkah Berikutnya
 
-1. Frontend di branch `feat/frontend-v2` (versi lama di tag `frontend-v1`): W0 dan W2 selesai dan dipindah ke Design System v2.7 (D241 sampai D263). W1a (autentikasi) dan W1b (akun) selesai. Urutan berikutnya: W1c (alamat dengan peta, diawali H149), W8 (Asisten), W3, W5, W4, W6, W7, W9. Sebelum W3, kerjakan H131 di `main`. Sebelum W5, kerjakan H92 dan H141 di `main`. Hutang backend lain di `main`: H124, H125, H140, H142, H143, H145 sampai H148
+1. Frontend di branch `feat/frontend-v2` (versi lama di tag `frontend-v1`): W0 dan W2 selesai dan dipindah ke Design System v2.8 (D241 sampai D265). W1 selesai (W1a autentikasi, W1b akun, W1c alamat dengan peta). Urutan berikutnya: W8 (Asisten), W3, W5, W4, W6, W7, W9. Sebelum W3, kerjakan H131 di `main`. Sebelum W5, kerjakan H92, H141, dan H150 di `main`. Hutang backend lain di `main`: H124, H125, H140, H142, H143, H145 sampai H148
 2. Fase 9 selesai 17 November 2026 setelah evaluasi tiga run (Bagian 4AB dan 4AG). Fase 10 selesai 17 November 2026 (1.004 test lulus, D177 sampai D203), dengan uji sandbox 10a dan 10b lulus dan uji sandbox 10c dijalankan penyusun. Paralel: penyusun menyusun dataset 30 sampai 50 skenario berlabel (H15, D153) dan mencatat model serta batas kuota project Gemini di AI Studio
 3. Selesai: Fase 8 (15 November 2026, 751 test lulus, D131 sampai D150) beserta uji sandbox payout dan refund. Uji sandbox refund PARTIAL hasil putusan sengketa lulus. Sebelumnya Fase 7 (11 November 2026, 627 test lulus) beserta uji sandbox Xendit sungguhan (12 November 2026), sebelumnya audit hutang teknis (9 November 2026) dan sesi perapian (10 November 2026)
 4. Selesai: data simulasi Bali di Supabase dev (D204 sampai D209)
@@ -3093,6 +3112,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 | 2.52 | 23 November 2026 | Ukuran tombol `icon` dan navigasi pelanggan di desktop (D257). Design System v2.6. H142 baru. Tanpa migrasi |
 | 2.53 | 23 November 2026 | Halaman autentikasi W1a: D258 dibatalkan, path link email (D259), masuk otomatis setelah daftar (D260), verifikasi lewat satu ketukan (D261). H143 dan H144 baru. Tanpa migrasi |
 | 2.54 | 24 November 2026 | Halaman akun W1b: masuk lagi otomatis setelah ganti sandi (D262), formulir sensitif dibuka di tempat (D263). Design System v2.7. H127 ditutup, H145 sampai H149 baru. Tanpa migrasi |
+| 2.55 | 25 November 2026 | Peta dan alamat W1c: Leaflet langsung tanpa react-leaflet (D264), bentuk peta (D265). Design System v2.8, PRD Frontend 2.2 direvisi. H149 ditutup, H150 sampai H152 baru. Tanpa migrasi |
 
 ---
 
