@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import { Suspense } from "react"
+import { ResetOnLeave } from "@/components/shared/reset-on-leave"
 import { FormSkeleton } from "@/features/auth/components/form-skeleton"
 import { ResetPasswordForm } from "@/features/auth/components/reset-password-form"
 
@@ -15,7 +16,9 @@ export default function AturUlangSandiPage() {
       </div>
       {/* Token dibaca lewat useSearchParams, yang butuh batas Suspense (cacheComponents). */}
       <Suspense fallback={<FormSkeleton fields={["hint"]} />}>
-        <ResetPasswordForm />
+        <ResetOnLeave>
+          <ResetPasswordForm />
+        </ResetOnLeave>
       </Suspense>
     </>
   )

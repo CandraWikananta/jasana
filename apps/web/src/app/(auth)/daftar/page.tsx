@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import { Suspense } from "react"
+import { ResetOnLeave } from "@/components/shared/reset-on-leave"
 import { FormSkeleton } from "@/features/auth/components/form-skeleton"
 import { RegisterForm } from "@/features/auth/components/register-form"
 
@@ -14,7 +15,9 @@ export default function DaftarPage() {
       </div>
       {/* useSearchParams (?next=) di RegisterForm butuh batas Suspense (cacheComponents). */}
       <Suspense fallback={<FormSkeleton fields={["plain", "plain", "hint", "hint"]} footer />}>
-        <RegisterForm />
+        <ResetOnLeave>
+          <RegisterForm />
+        </ResetOnLeave>
       </Suspense>
     </>
   )

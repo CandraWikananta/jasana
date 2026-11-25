@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import { Suspense } from "react"
+import { ResetOnLeave } from "@/components/shared/reset-on-leave"
 import { FormSkeleton } from "@/features/auth/components/form-skeleton"
 import { LoginForm } from "@/features/auth/components/login-form"
 
@@ -14,7 +15,9 @@ export default function MasukPage() {
       </div>
       {/* useSearchParams di LoginForm butuh batas Suspense (cacheComponents). */}
       <Suspense fallback={<FormSkeleton fields={["plain", "plain"]} footer />}>
-        <LoginForm />
+        <ResetOnLeave>
+          <LoginForm />
+        </ResetOnLeave>
       </Suspense>
     </>
   )
