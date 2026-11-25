@@ -4,6 +4,7 @@ import type { SearchListingsParams } from "@/types/api/listing"
 export const qk = {
   me: ["me"] as const,
   sessions: ["sessions"] as const,
+  addresses: ["addresses"] as const,
   orders: {
     all: ["orders"] as const,
     lists: ["orders", "list"] as const,

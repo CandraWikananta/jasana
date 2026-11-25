@@ -20,7 +20,7 @@ Dokumen frontend disusun dari register v2.11 dan sudah disinkronkan ke register 
 
 ## Stack
 
-Next.js 16 (App Router, Turbopack), React 19, TypeScript `strict`, Tailwind CSS v4, shadcn/ui, lucide-react, TanStack Query v5, react-hook-form + Zod, socket.io-client, Leaflet + react-leaflet, sonner, Vitest, Playwright.
+Next.js 16 (App Router, Turbopack), React 19, TypeScript `strict`, Tailwind CSS v4, shadcn/ui, lucide-react, TanStack Query v5, react-hook-form + Zod, socket.io-client, Leaflet 1.9.4 langsung tanpa react-leaflet (D264), sonner, Vitest, Playwright.
 
 **Versi dipin setelah Fase W0.** Jangan menaikkan versi mayor tanpa keputusan tercatat.
 
@@ -113,6 +113,8 @@ const MapView = dynamic(() => import('@/components/shared/map-view'), { ssr: fal
 ```
 
 Impor juga `leaflet/dist/leaflet.css`. Ikon penanda bawaan Leaflet sering hilang setelah dibundel karena path gambarnya rusak. Pakai ikon sendiri (`L.divIcon` dengan ikon lucide), jangan bergantung pada ikon bawaan.
+
+Jangan memasang `react-leaflet` (D264): `MapContainer` menghapus peta saat efeknya dibersihkan dan tidak membuatnya lagi ketika halaman yang disimpan Next ditampilkan kembali, sehingga petanya mati. Satu-satunya berkas yang mengimpor `leaflet` adalah `components/shared/map/leaflet-map.tsx`; pakai `MapView` dan `MapPicker`, jangan membuat peta baru sendiri.
 
 ### 6. `window`, `navigator`, dan hook di Server Component
 

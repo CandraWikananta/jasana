@@ -58,16 +58,26 @@ export function ProfileView() {
         </div>
       </SettingsSection>
 
+      <SettingsSection title="Alamat" description="Alamat tersimpan untuk memesan jasa.">
+        <SettingsLink href="/akun/alamat">Atur alamat</SettingsLink>
+      </SettingsSection>
+
       <SettingsSection title="Keamanan" description="Email, kata sandi, dan perangkat aktif.">
-        <Link
-          href="/akun/keamanan"
-          className="flex min-h-14 items-center justify-between gap-4 rounded-lg px-4 py-3 font-semibold outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset md:px-6"
-        >
-          <span className="min-w-0">Atur keamanan akun</span>
-          <ChevronRight aria-hidden className="size-5 shrink-0 text-muted-foreground" />
-        </Link>
+        <SettingsLink href="/akun/keamanan">Atur keamanan akun</SettingsLink>
       </SettingsSection>
     </div>
+  )
+}
+
+function SettingsLink({ href, children }: { href: "/akun/alamat" | "/akun/keamanan"; children: string }) {
+  return (
+    <Link
+      href={href}
+      className="flex min-h-14 items-center justify-between gap-4 rounded-lg px-4 py-3 font-semibold outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset md:px-6"
+    >
+      <span className="min-w-0">{children}</span>
+      <ChevronRight aria-hidden className="size-5 shrink-0 text-muted-foreground" />
+    </Link>
   )
 }
 

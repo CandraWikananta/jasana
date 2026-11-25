@@ -1,4 +1,5 @@
 import { apiFetch } from "@/lib/api-client"
+import type { AddressDto, AddressInput } from "@/types/api/address"
 import type { ActiveSession, EmailChangeResult, UpdateMeInput, UserDto } from "@/types/api/auth"
 
 function send<T>(method: "POST" | "PATCH", path: string, body: unknown) {
@@ -28,6 +29,25 @@ export async function cancelEmailChange(): Promise<{ cancelled: boolean }> {
 
 export async function getSessions(): Promise<ActiveSession[]> {
   return (await apiFetch<ActiveSession[]>("/auth/sessions")).data
+}
+
+/** Alamat utama dulu, lalu yang terbaru. */
+export async function getAddresses(): Promise<AddressDto[]> {
+  return (await apiFetch<AddressDto[]>("/users/me/addresses")).data
+}
+
+/** Alamat pertama otomatis jadi utama. */
+export async function createAddress(input: AddressInput): Promise<AddressDto> {
+  return (await send<AddressDto>("POST", "/users/me/addresses", input)).data
+}
+
+export async function updateAddress(id: string, input: AddressInput | { is_default: true }): Promise<AddressDto> {
+  return (await send<AddressDto>("PATCH", `/users/me/addresses/${id}`, input)).data
+}
+
+/** Menghapus alamat utama memindahkan tandanya ke alamat terbaru. */
+export async function deleteAddress(id: string): Promise<void> {
+  await apiFetch<{ deleted: true }>(`/users/me/addresses/${id}`, { method: "DELETE" })
 }
 
 /** Mencabut refresh token semua perangkat. Cookie di browser ini dihapus oleh logout() setelahnya. */

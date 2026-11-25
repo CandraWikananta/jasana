@@ -27,6 +27,7 @@ import { TabsDemo } from "../ds/components/tabs-demo"
 import { COMPACT_LISTINGS } from "../ds/data"
 import { FeedbackDemo } from "./feedback-demo"
 import { ListingDemo } from "./listing-demo"
+import { MapDemo } from "./map-demo"
 import { ChipsDemo, ErrorStateDemo, NavMarkersDemo } from "./markers-demo"
 import { OrderActionsDemo } from "./order-actions-demo"
 
@@ -246,6 +247,10 @@ export default function DevUiPage() {
 
       <Section title="Formulir" note="Atribut field DS 6.1b, error body-sm 500, fokus ke error pertama (D248).">
         <FormDemo />
+      </Section>
+
+      <Section title="Peta" note="MapView baca saja dengan tiga penanda DS 5, dan MapPicker dengan pin diam di tengah.">
+        <MapDemo />
       </Section>
 
       <Section title="Kartu, banner, dan akordeon">

@@ -15,7 +15,7 @@ export function TextField({
   hint?: string
   error?: string
   field: UseFormRegisterReturn
-} & Pick<React.ComponentProps<"input">, "type" | "autoComplete" | "autoCapitalize" | "spellCheck">) {
+} & Pick<React.ComponentProps<"input">, "type" | "inputMode" | "autoComplete" | "autoCapitalize" | "spellCheck">) {
   const id = useId()
   return (
     <div className="flex flex-col gap-1.5">
