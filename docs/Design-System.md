@@ -2,7 +2,7 @@
 
 **Artefak frontend 2 dari 4**
 Platform Jasana, Tugas Akhir I Nyoman Gede Candra Wikananta (2305551065)
-**Versi 2.7 (disetujui)**, 24 November 2026
+**Versi 2.8 (disetujui)**, 25 November 2026
 
 Dokumen ini menetapkan bahasa visual dan bahasa teks seluruh antarmuka Jasana: warna, tipografi, jarak, komponen, label status, format angka dan waktu, serta glosarium. Tujuannya satu: **empat area (publik dan client, usaha, pekerja, admin) terlihat dan terbaca seperti satu produk**, walaupun dibangun dalam belasan sesi Claude Code yang terpisah.
 
@@ -290,15 +290,17 @@ Aturan:
 | Avatar | Lingkaran. Tanpa foto: inisial `--brand-subtle-foreground` di atas `--brand-subtle` |
 | Empty state | Ikon lucide 24 px di dalam lingkaran `--muted`, bukan ilustrasi stok |
 | Dokumen e-KYC dan bukti komplain | **Tidak lewat `next/image`.** Signed URL privat berumur pendek tidak boleh ikut di-cache optimizer server Next. Pakai `<img>` biasa atau buka di tab baru |
-| Peta | Tile OpenStreetMap dengan atribusi "© OpenStreetMap contributors" yang selalu terlihat |
+| Peta | Tile OpenStreetMap. Kontrol dan atribusi bawaan Leaflet dimatikan karena membawa warna sendiri, diganti komponen bertoken (D265): tombol zoom `Button` `outline` ukuran `icon` (`Plus`, `Minus`) di kanan atas; atribusi "© OpenStreetMap contributors" bertaut ke halaman hak cipta OSM, `caption` `--muted-foreground` di atas `--card`, pojok kanan bawah, selalu terlihat, area sentuh 24 px (pengecualian dari 44 px supaya tidak mengganggu geseran peta). Latar peta `--muted`. Roda mouse tidak memperbesar peta, dan animasi Leaflet mati saat `prefers-reduced-motion` |
+| `MapPicker` | Pin diam di tengah, petanya yang digeser (pola aplikasi ojek). Ketuk peta membawa titik itu ke bawah pin dan memperbesar. Tombol panah dan `+`/`-` untuk keyboard. Tombol `outline` "Pakai lokasiku". Titik baru sah mulai zoom 16, supaya titik kasar tidak menggagalkan check-in pekerja. Pusat awal Denpasar. Status titik diumumkan lewat `aria-live` (D265) |
+| `MapView` | Baca saja tanpa gestur, `role="img"` berlabel, otomatis memuat semua penanda (D265) |
 
 Penanda peta:
 
 | Penanda | Warna |
 |---|---|
-| Lokasi layanan (rumah client) | `--primary` (hitam), ikon `MapPin` |
-| Posisi penanggung jawab | Lingkaran `--brand` dengan garis tepi 2 px `--brand-foreground` dan cahaya `--brand-glow`, berdenyut pelan. Garis gelap wajib, karena hijau terang kurang terlihat di atas tile peta yang terang |
-| Lokasi basis usaha | `--neutral`, ikon `Store` |
+| Lokasi layanan (rumah client) | Ikon `MapPin` 40 px terisi `--primary` (hitam) dengan garis `--primary-foreground` |
+| Posisi penanggung jawab | Lingkaran `--brand` dengan garis tepi 2 px `--brand-foreground` dan cahaya `--brand-glow`, berdenyut pelan. Garis gelap wajib, karena hijau terang kurang terlihat di atas tile peta yang terang. Lingkaran 16 px, denyut memakai `.live-dot` (tiga kali, mati saat `prefers-reduced-motion`) |
+| Lokasi basis usaha | Lingkaran 36 px `--neutral` berikon `Store` |
 
 ---
 
@@ -338,7 +340,11 @@ Setiap input punya `name` dan atribut berikut (D248), supaya isi otomatis browse
 | Identitas masuk (email atau nomor ponsel) | `text` / `inputMode="email"` | `username` | `spellCheck={false}`, `autoCapitalize="none"`. Bukan `type="email"`, karena isiannya bisa berupa nomor ponsel. `username` adalah nilai yang dipasangkan pengelola kata sandi dengan `current-password` di formulir masuk |
 | Nomor HP | `tel` | `tel` | |
 | Kata sandi | `password` | `current-password` atau `new-password` | |
-| Alamat | `text` | `street-address` | |
+| Alamat lengkap | `Textarea` | `street-address` | |
+| Kecamatan | `text` | `address-level3` | |
+| Kota atau kabupaten | `text` | `address-level2` | |
+| Provinsi | `text` | `address-level1` | |
+| Kode pos | `inputMode="numeric"` | `postal-code` | |
 | Kode verifikasi | `inputMode="numeric"` | `one-time-code` | `spellCheck={false}` |
 | Nominal uang | `inputMode="numeric"` | `off` | Ditampilkan terformat lewat `formatRupiah` |
 | Pencarian | `search` | `off` | |
@@ -920,3 +926,4 @@ Untuk sesi Claude Code yang memindahkan kode W0 dan W2 ke v2.1. Struktur kompone
 | 2.5 | 23 November 2026 | Ruang aman layar untuk iPhone (D256): `viewport-fit=cover`, utilitas `pb-safe`, `px-safe`, dan `pb-nav-safe`. Bagian 6.1b ditambah baris "Identitas masuk" untuk formulir masuk (pelengkap D248) |
 | 2.6 | 23 November 2026 | Dari M3 layout empat area. Ukuran tombol `icon` 44 x 44 px dan navigasi pelanggan di desktop (D257) |
 | 2.7 | 24 November 2026 | Dari W1b. Formulir sensitif dibuka di tempat, bukan di Dialog (D263). Variabel `--toast-offset-bottom` di Bagian 13 |
+| 2.8 | 25 November 2026 | Dari W1c. Bentuk peta, `MapPicker`, dan `MapView` (D265), ukuran penanda peta, dan baris atribut field alamat di 6.1b |
