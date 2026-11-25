@@ -2,7 +2,7 @@
 
 **Artefak frontend 2 dari 4**
 Platform Jasana, Tugas Akhir I Nyoman Gede Candra Wikananta (2305551065)
-**Versi 2.8 (disetujui)**, 25 November 2026
+**Versi 2.9 (disetujui)**, 26 November 2026
 
 Dokumen ini menetapkan bahasa visual dan bahasa teks seluruh antarmuka Jasana: warna, tipografi, jarak, komponen, label status, format angka dan waktu, serta glosarium. Tujuannya satu: **empat area (publik dan client, usaha, pekerja, admin) terlihat dan terbaca seperti satu produk**, walaupun dibangun dalam belasan sesi Claude Code yang terpisah.
 
@@ -375,7 +375,10 @@ Setiap input punya `name` dan atribut berikut (D248), supaya isi otomatis browse
 | `EscrowNote` | Ikon `ShieldCheck` dan satu kalimat "Dana ditahan sampai pekerjaan selesai", `body-sm`, nada netral (`--muted-foreground`), tanpa kotak berwarna (D250) | Form pesan, halaman bayar, banner `PAID`, dan **detail jasa** (D255): di panel harga di bawah tombol Pesan (desktop) dan di blok "Cara memesan" (HP) |
 | `RoleSwitcher` | Pindah area: Pelanggan, Usaha, Pekerja, Admin, hanya yang dimiliki | Menu avatar di header |
 | `EmptyState`, `ErrorState` | Ikon, judul, satu kalimat, satu aksi | Seluruh halaman data |
-| `AssistantWidget` | Tombol melayang "Tanya Asisten" dan panel percakapan | Area publik dan client |
+| `AssistantWidget` | Tombol melayang "Tanya Asisten" dan panel percakapan, memakai komponen percakapan yang sama dengan `/asisten` | Area publik dan client (W8b) |
+| Halaman `/asisten` | Kerangka layar penuh (D267): setinggi `dvh`, latar `--card`, tanpa footer dan navigasi bawah, kotak cari header disembunyikan di HP. Bilah percakapan berjudul `h1` berukuran `h3`, kolom `max-w-2xl`, hanya daftar pesan yang menggulir, kotak tulis menempel di bawah dengan `pb-safe`. Tinggi minimum 384 px | Asisten |
+| Komponen percakapan | (D268) Gelembung `rounded-lg` `max-w-lg`: sendiri `--primary` rata kanan, Asisten `--muted` rata kiri, berawalan `sr-only` "Kamu:" dan "Asisten:". Jawaban model selalu teks biasa, tidak pernah HTML. Indikator mengetik: tiga titik 6 px `--muted-foreground` di gelembung `--muted`, ditambah "Masih memproses…" setelah 4 detik. Kotak tulis: `Textarea` yang tumbuh sampai 160 px, tombol `icon` `primary` `ArrowUp`, Enter kirim, Shift+Enter baris baru, penghitung mulai 800 dari 1.000 karakter. Contoh pertanyaan memakai chip pilihan tidak aktif dan **mengisi** kotak tulis, tidak langsung mengirim. Pemberitahuan memakai banner 1.4b. Keterangan "Jawaban dibuat AI. Cek detail jasa sebelum memesan" (`caption`) selalu tampil di bawah kotak tulis | `/asisten`, widget |
+| Rekomendasi Asisten | (D266) `ListingCard` varian `compact` dengan baris aksi: badan kartu (tautan, `tabIndex={-1}`) dan baris aksi adalah saudara, tidak ada elemen interaktif bersarang. Badan: foto, judul, usaha, rating, jarak, badge Sekarang. Baris aksi: harga di kiri, tombol `ghost` "Lihat" dan `outline` "Pesan" ukuran `md` di kanan, bernama "Lihat {judul}" dan "Pesan {judul}". Tiga kartu tampil, sisanya lewat "Tampilkan N jasa lainnya". Wadah `max-w-lg` | `/asisten`, widget |
 
 ### 6.3 Galeri komponen
 
@@ -433,7 +436,7 @@ Seluruh varian memakai cincin fokus yang sama: `box-shadow: 0 0 0 2px var(--card
 | Input fokus | Garis `--foreground` ditambah cincin `--ring` 2 px berjarak 2 px |
 | Input error | Garis `--destructive`. Saat fokus tetap memakai cincin `--ring` |
 | Input kode yang sedang diisi | Garis 2 px `--brand` ditambah cincin 3 px `--brand-subtle` |
-| Gelembung pesan sendiri | Latar `--primary`, teks putih. Gelembung lawan: latar `--muted` |
+| Gelembung pesan sendiri | Latar `--primary`, teks putih. Gelembung lawan: latar `--muted`. Berlaku juga untuk Asisten (D268) |
 | Lencana notifikasi baru | Titik `--destructive` dengan garis putih |
 
 ---
@@ -605,7 +608,7 @@ Istilah di kolom tengah adalah satu-satunya yang dipakai di UI.
 |---|---|
 | Durasi | 150 ms untuk hover dan tekan, 200 ms untuk elemen masuk dan keluar |
 | Kurva | `ease-out` untuk masuk, `ease-in` untuk keluar |
-| Yang boleh bergerak | Kartu tawaran masuk (geser pelan dari atas), toast, dialog, sheet, denyut penanda posisi pekerja, denyut titik live (maksimal tiga kali) |
+| Yang boleh bergerak | Kartu tawaran masuk (geser pelan dari atas), toast, dialog, sheet, denyut penanda posisi pekerja, denyut titik live (maksimal tiga kali), indikator mengetik Asisten (hanya `opacity`, diam saat `prefers-reduced-motion`, D268) |
 | Properti yang dianimasikan | Hanya `transform` dan `opacity`. Jangan menganimasikan `box-shadow`, `width`, atau `top` |
 | Yang tidak boleh | Parallax, konfeti, animasi angka berputar pada uang, loader dekoratif |
 
@@ -927,3 +930,4 @@ Untuk sesi Claude Code yang memindahkan kode W0 dan W2 ke v2.1. Struktur kompone
 | 2.6 | 23 November 2026 | Dari M3 layout empat area. Ukuran tombol `icon` 44 x 44 px dan navigasi pelanggan di desktop (D257) |
 | 2.7 | 24 November 2026 | Dari W1b. Formulir sensitif dibuka di tempat, bukan di Dialog (D263). Variabel `--toast-offset-bottom` di Bagian 13 |
 | 2.8 | 25 November 2026 | Dari W1c. Bentuk peta, `MapPicker`, dan `MapView` (D265), ukuran penanda peta, dan baris atribut field alamat di 6.1b |
+| 2.9 | 26 November 2026 | Dari W8a. Rekomendasi Asisten (D266), kerangka `/asisten` (D267), komponen percakapan (D268), dan indikator mengetik di Bagian 12 |

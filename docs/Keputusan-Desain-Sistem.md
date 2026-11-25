@@ -4,9 +4,9 @@
 **Nama sistem:** Jasana
 **Penyusun:** I Nyoman Gede Candra Wikananta (2305551065)
 **Bidang Keahlian:** Sistem Informasi, Teknologi Informasi, Universitas Udayana
-**Versi:** 2.55
-**Terakhir diperbarui:** 25 November 2026 (versi 2.55)
-**Tahap saat ini:** Implementasi backend Fase 0 sampai Fase 10 selesai, data simulasi sudah terisi di Supabase dev. Frontend dibangun ulang di lapisan visual di branch `feat/frontend-v2` dengan Design System v2.8 (D241 sampai D265); logika W0 dan W2 dipertahankan, versi lama diarsipkan di tag `frontend-v1`. Berikutnya migrasi W0 dan W2 ke v2.1, field `OrderDto` di backend (H131), W1, stress test k6, dan UAT
+**Versi:** 2.56
+**Terakhir diperbarui:** 26 November 2026 (versi 2.56)
+**Tahap saat ini:** Implementasi backend Fase 0 sampai Fase 10 selesai, data simulasi sudah terisi di Supabase dev. Frontend dibangun ulang di lapisan visual di branch `feat/frontend-v2` dengan Design System v2.9 (D241 sampai D270); logika W0 dan W2 dipertahankan, versi lama diarsipkan di tag `frontend-v1`. Berikutnya migrasi W0 dan W2 ke v2.1, field `OrderDto` di backend (H131), W1, stress test k6, dan UAT
 
 ---
 
@@ -70,7 +70,12 @@
 | Frontend: halaman autentikasi (D258 sampai D261, D258 dibatalkan) | 4 | 0 |
 | Frontend: halaman akun (D262 sampai D263) | 2 | 0 |
 | Frontend: peta dan alamat (D264 sampai D265) | 2 | 0 |
+| Frontend: halaman Asisten (D266 sampai D270) | 5 | 0 |
 | Keputusan terbuka tanpa nomor D (Bagian 7) | | 0 |
+
+**Perubahan pada versi 2.56:**
+
+1. Lima keputusan dari halaman Asisten W8a (D266 sampai D270, Bagian 4AW). Design System naik ke v2.9. H153 sampai H156 baru
 
 **Perubahan pada versi 2.55:**
 
@@ -2327,6 +2332,18 @@ Dari W1c (alamat tersimpan dengan peta), 25 November 2026. Tanpa perubahan backe
 
 **Juga dari W1c:** H149 ditutup lewat komponen `ResetOnLeave` di empat halaman autentikasi (ternyata `/masuk` yang dibuka lagi setelah keluar menampilkan email dan kata sandi pengguna sebelumnya, dengan tombol macet). Atribut field alamat ditambahkan ke Design System 6.1b.
 
+## 4AW. Keputusan Versi 2.56 (D266 sampai D270): Halaman Asisten
+
+Dari W8a (halaman `/asisten` dan komponen percakapan), 26 November 2026. Tanpa perubahan backend. Uji dengan Gemini sungguhan dibatasi paling banyak lima panggilan, sisanya memakai respons tiruan.
+
+| # | Keputusan | Alasan |
+|---|---|---|
+| D266 | **Rekomendasi Asisten memakai `ListingCard` compact dengan baris aksi** (Lihat dan Pesan), badan kartu dan baris aksi bersaudara tanpa elemen interaktif bersarang, tiga kartu tampil dan sisanya lewat "Tampilkan N jasa lainnya" | PRD 5.15 meminta tombol Lihat dan Pesan, sedangkan D254 menetapkan kartu compact sebagai satu tautan penuh. Server mengirim sampai lima jasa per jawaban; lima kartu sekaligus sekitar 950 px di HP. Geser mendatar ditolak karena mudah terlewat dan bertabrakan dengan gestur HP |
+| D267 | **Kerangka layar penuh untuk `/asisten`**: setinggi layar, tanpa footer dan navigasi bawah, kotak cari header disembunyikan di HP, hanya daftar pesan yang menggulir | Header publik dua baris ditambah footer menghabiskan ruang vertikal yang dibutuhkan percakapan di HP. Pola ini umum di aplikasi percakapan |
+| D268 | **Komponen percakapan** (gelembung, indikator mengetik, kotak tulis, contoh pertanyaan, pemberitahuan, keterangan AI) sesuai Design System 6.2 | Komponen yang sama dipakai halaman `/asisten` dan widget W8b. Contoh pertanyaan mengisi kotak tulis, bukan langsung mengirim, supaya kuota Gemini tidak terpakai sebelum pengguna yakin. Indikator mengetik menandai menunggu server, bukan hiasan |
+| D269 | **Izin lokasi Asisten lewat tombol**, di atas kotak tulis (tamu) dan di bawah jawaban yang butuh lokasi, tidak pernah diminta otomatis. Lokasi hanya disimpan di memori selama percakapan. Akun memakai alamat utama lebih dulu | Browser menghukum permintaan izin tanpa konteks, dan pengguna lebih mungkin mengizinkan saat jelas alasannya. Tanpa koordinat, server tidak mencari dan meminta lokasi (H66) |
+| D270 | **Siklus percakapan**: sesi dibuat saat pesan pertama dikirim. Tamu satu percakapan per tab (`sessionStorage`). Akun memakai `?percakapan=<id>` dan riwayat di Sheet kanan. Kartu jawaban terakhir dimuat otomatis, yang lebih lama lewat tombol | Sesi yang dibuat saat halaman dibuka akan mengotori data percakapan dengan sesi kosong. Riwayat pesan dari server hanya membawa id jasa (H153), jadi kartu jawaban lama dimuat sesuai permintaan untuk menghemat panggilan |
+
 ---
 
 ## 5. Alur Sistem End-to-End
@@ -3007,6 +3024,10 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 - [ ] **H150** `POST /orders` dengan alamat tersimpan hanya menyalin `address_line` ke snapshot pesanan; kecamatan, kota, dan kode pos hilang di sisi pekerja. Sementara ditutup teks bantu di formulir alamat ("teks ini yang dilihat pekerja"). Perbaiki di `main` sebelum W5 **(baru, W1c)**
 - [ ] **H151** Toast menutupi dialog yang tampil sebagai sheet bawah di HP. Baru dialog hapus alamat yang ditangani; dialog lain perlu pola yang sama, idealnya di komponen dialog atau Toaster supaya berlaku umum. Dikerjakan saat W3 menambah dialog baru **(baru, W1c)**
 - [ ] **H152** Tile OpenStreetMap publik punya kebijakan pemakaian yang membatasi pemakaian berat. Aman untuk demo dan UAT, tapi pemakaian sungguhan butuh penyedia tile lain. Masuk saran pengembangan **(baru, W1c)**
+- [ ] **H153** Riwayat pesan chat (`GET /chat/sessions/:id/messages`) hanya membawa `recommended_listing_ids`, bukan kartunya. Frontend mengambil sampai lima `GET /listings/:id` per jawaban, tanpa jarak. Idealnya backend menyertakan kartu ringkas di riwayat **(baru, W8a)**
+- [ ] **H154** `chat_sessions.title` tidak pernah diisi, sehingga riwayat percakapan hanya bisa menampilkan tanggal dan jumlah pesan. Isi otomatis dari pesan pertama pengguna **(baru, W8a)**
+- [ ] **H155** Templat jawaban Asisten menyebut "halaman Bantuan" yang tidak ada dan "alamat default di profilmu" (di UI: "alamat utama" di Akun), dan menulis "asisten Jasana" dengan huruf kecil. Selaraskan dengan glosarium Design System 9.2 **(baru, W8a)**
+- [ ] **H156** Kirim ulang setelah 502 (Gemini gagal) mencatat pesan pengguna kedua dan memotong kuota tamu lagi. Di layar pasangan yang gagal diganti, tetapi di server keduanya tersimpan. Pertimbangkan endpoint ulang yang memakai pesan yang sama **(baru, W8a)**
 - [ ] **H82** Admin fee withdrawal berupa nilai flat yang mengikuti perkiraan biaya payout Xendit **(baru, D84)**. Untuk nominal di atas Rp250.000 biaya sebenarnya sedikit lebih besar dan selisihnya ditanggung platform
 
 ---
@@ -3022,7 +3043,7 @@ Kolom akses **W** adalah pekerja aktif, yaitu user yang punya baris `provider_wo
 | 5 | Diagram UML | Belum | Aktor jadi empat |
 | 6 | Diagram Konteks dan DFD | Belum | Aktor jadi empat, tambah entitas eksternal layanan email |
 | 7 | Conversation flow dan system prompt chatbot | Belum | |
-| 8 | Desain antarmuka | Selesai, Design System v2.8 | Design System dan mockup menggantikan Figma (D224). Layar per fase mengikuti Design System |
+| 8 | Desain antarmuka | Selesai, Design System v2.9 | Design System dan mockup menggantikan Figma (D224). Layar per fase mengikuti Design System |
 
 **Aset yang bisa dipakai ulang:** dokumen test case `PPL_A_2305551065_UAS.docx` berisi 127 test case pada 15 modul fungsional dan 1 modul performa.
 
@@ -3043,7 +3064,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 
 ## 11. Langkah Berikutnya
 
-1. Frontend di branch `feat/frontend-v2` (versi lama di tag `frontend-v1`): W0 dan W2 selesai dan dipindah ke Design System v2.8 (D241 sampai D265). W1 selesai (W1a autentikasi, W1b akun, W1c alamat dengan peta). Urutan berikutnya: W8 (Asisten), W3, W5, W4, W6, W7, W9. Sebelum W3, kerjakan H131 di `main`. Sebelum W5, kerjakan H92, H141, dan H150 di `main`. Hutang backend lain di `main`: H124, H125, H140, H142, H143, H145 sampai H148
+1. Frontend di branch `feat/frontend-v2` (versi lama di tag `frontend-v1`): W0 dan W2 selesai dan dipindah ke Design System v2.9 (D241 sampai D270). W1 selesai (W1a autentikasi, W1b akun, W1c alamat dengan peta). Urutan berikutnya: W8 (W8a halaman `/asisten` selesai; W8b widget dan klaim sesi), W3, W5, W4, W6, W7, W9. Sebelum W3, kerjakan H131 di `main`. Sebelum W5, kerjakan H92, H141, dan H150 di `main`. Hutang backend lain di `main`: H124, H125, H140, H142, H143, H145 sampai H148
 2. Fase 9 selesai 17 November 2026 setelah evaluasi tiga run (Bagian 4AB dan 4AG). Fase 10 selesai 17 November 2026 (1.004 test lulus, D177 sampai D203), dengan uji sandbox 10a dan 10b lulus dan uji sandbox 10c dijalankan penyusun. Paralel: penyusun menyusun dataset 30 sampai 50 skenario berlabel (H15, D153) dan mencatat model serta batas kuota project Gemini di AI Studio
 3. Selesai: Fase 8 (15 November 2026, 751 test lulus, D131 sampai D150) beserta uji sandbox payout dan refund. Uji sandbox refund PARTIAL hasil putusan sengketa lulus. Sebelumnya Fase 7 (11 November 2026, 627 test lulus) beserta uji sandbox Xendit sungguhan (12 November 2026), sebelumnya audit hutang teknis (9 November 2026) dan sesi perapian (10 November 2026)
 4. Selesai: data simulasi Bali di Supabase dev (D204 sampai D209)
@@ -3113,6 +3134,7 @@ Sumber: dokumentasi Xendit Payout Webhook Notification dan Handling Webhooks.
 | 2.53 | 23 November 2026 | Halaman autentikasi W1a: D258 dibatalkan, path link email (D259), masuk otomatis setelah daftar (D260), verifikasi lewat satu ketukan (D261). H143 dan H144 baru. Tanpa migrasi |
 | 2.54 | 24 November 2026 | Halaman akun W1b: masuk lagi otomatis setelah ganti sandi (D262), formulir sensitif dibuka di tempat (D263). Design System v2.7. H127 ditutup, H145 sampai H149 baru. Tanpa migrasi |
 | 2.55 | 25 November 2026 | Peta dan alamat W1c: Leaflet langsung tanpa react-leaflet (D264), bentuk peta (D265). Design System v2.8, PRD Frontend 2.2 direvisi. H149 ditutup, H150 sampai H152 baru. Tanpa migrasi |
+| 2.56 | 26 November 2026 | Halaman Asisten W8a: rekomendasi (D266), kerangka layar penuh (D267), komponen percakapan (D268), izin lokasi (D269), siklus percakapan (D270). Design System v2.9. H153 sampai H156 baru. Tanpa migrasi |
 
 ---
 
