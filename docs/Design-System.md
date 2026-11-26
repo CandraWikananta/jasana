@@ -2,7 +2,7 @@
 
 **Artefak frontend 2 dari 4**
 Platform Jasana, Tugas Akhir I Nyoman Gede Candra Wikananta (2305551065)
-**Versi 2.9 (disetujui)**, 26 November 2026
+**Versi 2.10 (disetujui)**, 27 November 2026
 
 Dokumen ini menetapkan bahasa visual dan bahasa teks seluruh antarmuka Jasana: warna, tipografi, jarak, komponen, label status, format angka dan waktu, serta glosarium. Tujuannya satu: **empat area (publik dan client, usaha, pekerja, admin) terlihat dan terbaca seperti satu produk**, walaupun dibangun dalam belasan sesi Claude Code yang terpisah.
 
@@ -375,7 +375,7 @@ Setiap input punya `name` dan atribut berikut (D248), supaya isi otomatis browse
 | `EscrowNote` | Ikon `ShieldCheck` dan satu kalimat "Dana ditahan sampai pekerjaan selesai", `body-sm`, nada netral (`--muted-foreground`), tanpa kotak berwarna (D250) | Form pesan, halaman bayar, banner `PAID`, dan **detail jasa** (D255): di panel harga di bawah tombol Pesan (desktop) dan di blok "Cara memesan" (HP) |
 | `RoleSwitcher` | Pindah area: Pelanggan, Usaha, Pekerja, Admin, hanya yang dimiliki | Menu avatar di header |
 | `EmptyState`, `ErrorState` | Ikon, judul, satu kalimat, satu aksi | Seluruh halaman data |
-| `AssistantWidget` | Tombol melayang "Tanya Asisten" dan panel percakapan, memakai komponen percakapan yang sama dengan `/asisten` | Area publik dan client (W8b) |
+| `AssistantWidget` | (D271) Tombol `outline` dengan `shadow-lg`, ukuran `md`, ikon `MessagesSquare` dan teks "Tanya Asisten", menempel di kanan bawah. **Di bawah `md`** tombolnya tautan ke `/asisten` (percakapan terakhir di tab itu). **Mulai `md`** tombolnya membuka panel non-modal 400 px di sudut yang sama: latar `--card`, garis `--border`, `radius-xl`, `shadow-lg`; bilah atas berisi judul "Asisten Jasana" (`h3`) dan tombol `icon` Buka di halaman penuh, Percakapan baru, dan Tutup. Panel tetap terbuka saat pindah halaman, Esc menutup dan mengembalikan fokus ke tombol. Memakai komponen percakapan yang sama dengan `/asisten`, jadi percakapannya satu | Layout publik dan pelanggan. Tidak tampil di `/asisten`, halaman autentikasi, usaha, pekerja, admin, dan `/pesan/*`. Di detail jasa baru tampil mulai `lg`, karena di bawahnya ada bar Pesan |
 | Halaman `/asisten` | Kerangka layar penuh (D267): setinggi `dvh`, latar `--card`, tanpa footer dan navigasi bawah, kotak cari header disembunyikan di HP. Bilah percakapan berjudul `h1` berukuran `h3`, kolom `max-w-2xl`, hanya daftar pesan yang menggulir, kotak tulis menempel di bawah dengan `pb-safe`. Tinggi minimum 384 px | Asisten |
 | Komponen percakapan | (D268) Gelembung `rounded-lg` `max-w-lg`: sendiri `--primary` rata kanan, Asisten `--muted` rata kiri, berawalan `sr-only` "Kamu:" dan "Asisten:". Jawaban model selalu teks biasa, tidak pernah HTML. Indikator mengetik: tiga titik 6 px `--muted-foreground` di gelembung `--muted`, ditambah "Masih memproses…" setelah 4 detik. Kotak tulis: `Textarea` yang tumbuh sampai 160 px, tombol `icon` `primary` `ArrowUp`, Enter kirim, Shift+Enter baris baru, penghitung mulai 800 dari 1.000 karakter. Contoh pertanyaan memakai chip pilihan tidak aktif dan **mengisi** kotak tulis, tidak langsung mengirim. Pemberitahuan memakai banner 1.4b. Keterangan "Jawaban dibuat AI. Cek detail jasa sebelum memesan" (`caption`) selalu tampil di bawah kotak tulis | `/asisten`, widget |
 | Rekomendasi Asisten | (D266) `ListingCard` varian `compact` dengan baris aksi: badan kartu (tautan, `tabIndex={-1}`) dan baris aksi adalah saudara, tidak ada elemen interaktif bersarang. Badan: foto, judul, usaha, rating, jarak, badge Sekarang. Baris aksi: harga di kiri, tombol `ghost` "Lihat" dan `outline` "Pesan" ukuran `md` di kanan, bernama "Lihat {judul}" dan "Pesan {judul}". Tiga kartu tampil, sisanya lewat "Tampilkan N jasa lainnya". Wadah `max-w-lg` | `/asisten`, widget |
@@ -800,6 +800,21 @@ Ganti isi `src/app/globals.css` dengan isi berikut. Tailwind v4 memakai konfigur
   }
 }
 
+/* Jarak bawah bersama (D272). --bottom-bar-height diisi 4rem di bawah md kalau halaman
+   punya navigasi bawah (:root:has([data-bottom-nav])). Tombol Asisten, toast, dan
+   scroll-padding-bottom mengikutinya. Toast naik di atas tombol Asisten selama tombol
+   tampil, dan bergeser ke kiri panel selama panel terbuka (--toast-offset-right).
+   Nilai lengkapnya di globals.css. */
+:root {
+  --bottom-bar-height: 0px;
+  --assistant-fab-bottom: calc(var(--bottom-bar-height) + 1rem + env(safe-area-inset-bottom));
+}
+@media (min-width: 48rem) {
+  :root {
+    --assistant-fab-bottom: 1.5rem;
+  }
+}
+
 /* Ruang aman layar (D256). Bernilai 0 di desktop dan di HP tanpa notch */
 @utility pb-safe {
   padding-bottom: env(safe-area-inset-bottom);
@@ -931,3 +946,4 @@ Untuk sesi Claude Code yang memindahkan kode W0 dan W2 ke v2.1. Struktur kompone
 | 2.7 | 24 November 2026 | Dari W1b. Formulir sensitif dibuka di tempat, bukan di Dialog (D263). Variabel `--toast-offset-bottom` di Bagian 13 |
 | 2.8 | 25 November 2026 | Dari W1c. Bentuk peta, `MapPicker`, dan `MapView` (D265), ukuran penanda peta, dan baris atribut field alamat di 6.1b |
 | 2.9 | 26 November 2026 | Dari W8a. Rekomendasi Asisten (D266), kerangka `/asisten` (D267), komponen percakapan (D268), dan indikator mengetik di Bagian 12 |
+| 2.10 | 27 November 2026 | Dari W8b. `AssistantWidget` (D271) dan jarak bawah bersama untuk tombol melayang, toast, dan `scroll-padding-bottom` (D272) |

@@ -450,7 +450,7 @@ Mengikuti Matriks Bagian 3.2. Daftar pesan terbaru di bawah, memuat pesan lama s
 
 | Aspek | Ketentuan |
 |---|---|
-| Titik masuk | Tombol melayang "Tanya Asisten" di area publik dan pelanggan, dan halaman `/asisten` |
+| Titik masuk | Tombol melayang "Tanya Asisten" di area publik dan pelanggan, dan halaman `/asisten`. Di HP tombolnya tautan ke `/asisten`, mulai `md` membuka panel (D271). Titik masuk lain bisa mengisi kotak tulis lewat `/asisten?isi=<teks>` tanpa mengirim otomatis (D274) |
 | Tamu | `POST /chat/guest-sessions`, simpan `guest_token` di **`sessionStorage`**. Ini satu-satunya token yang boleh di storage browser, karena hanya mengikat percakapan tamu, bukan akun |
 | Lokasi tamu | Minta izin geolokasi per percakapan (H66). Ditolak: Asisten tetap jalan tanpa lokasi |
 | Pengguna login | `POST /chat/sessions`, riwayat dari `GET /chat/sessions` |

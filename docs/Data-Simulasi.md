@@ -318,3 +318,19 @@ Langkah ini dijalankan penyusun. Hentikan server dev lebih dulu.
 5. Nyalakan server dev, lalu login dengan salah satu akun demo.
 
 **Jangan pernah `--bulk` ke Supabase dev.**
+
+---
+
+## 11. Data dari uji frontend (kecualikan dari penelitian)
+
+Uji frontend dengan server sungguhan menulis baris ke basis data dev yang sama dengan data simulasi. Baris berikut **bukan data pengguna atau skenario penelitian** dan harus dikecualikan saat mengolah data percakapan Asisten, akun, atau statistik lain untuk laporan.
+
+| Sesi uji | Tanggal | Jenis | Id |
+|---|---|---|---|
+| W1a | 23 November 2026 | Akun daftar (email kemudian diganti di uji W1b) | `w1a.44764522@sim.jasana.test` |
+| W8a | 26 November 2026 | Percakapan Asisten (tiga panggilan Gemini) | Belum dicatat, lihat laporan W8a |
+| W8b | 26 November 2026 | Akun baru | user `09dd8538-7d2a-4194-8394-e347b9675bfa`, `w8b-klaim-1795708805351@sim.jasana.test` |
+| W8b | 26 November 2026 | Sesi yang diklaim | chat_sessions `c472f9d4-609c-4128-a3a4-cf23db41d9dd`, chat_messages 47 sampai 50 |
+| W8b | 26 November 2026 | Sesi tamu yatim dari percobaan gagal | chat_sessions `dd88ce21-0f73-4504-8afd-01650af59135`, chat_messages 45 dan 46 |
+
+Akun `demo.client` dan `klien.40` juga dipakai uji W1b, W1c, dan W8 (profil, kata sandi, alamat), tetapi seluruh perubahannya sudah dikembalikan ke keadaan semula.
