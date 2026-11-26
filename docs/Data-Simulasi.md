@@ -332,5 +332,6 @@ Uji frontend dengan server sungguhan menulis baris ke basis data dev yang sama d
 | W8b | 26 November 2026 | Akun baru | user `09dd8538-7d2a-4194-8394-e347b9675bfa`, `w8b-klaim-1795708805351@sim.jasana.test` |
 | W8b | 26 November 2026 | Sesi yang diklaim | chat_sessions `c472f9d4-609c-4128-a3a4-cf23db41d9dd`, chat_messages 47 sampai 50 |
 | W8b | 26 November 2026 | Sesi tamu yatim dari percobaan gagal | chat_sessions `dd88ce21-0f73-4504-8afd-01650af59135`, chat_messages 45 dan 46 |
+| Uji manual | 26 November 2026, 23.50 WITA | Percakapan Asisten dicoba langsung di browser oleh Candra | chat_sessions `a763fb36-afe4-47a0-bafd-cd4934a12767`, chat_messages 43 dan 44, user `b955133a…` |
 
 Akun `demo.client` dan `klien.40` juga dipakai uji W1b, W1c, dan W8 (profil, kata sandi, alamat), tetapi seluruh perubahannya sudah dikembalikan ke keadaan semula.
