@@ -45,6 +45,8 @@ function BottomNavBar({ nav, className }: { nav: NavName; className?: string }) 
   return (
     <nav
       aria-label="Navigasi utama"
+      // Penanda untuk --bottom-bar-height di globals.css (usulan D272).
+      data-bottom-nav
       className={cn("fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card pb-safe", className)}
     >
       {/* usePathname di rute dinamis butuh batas Suspense (Cache Components). */}

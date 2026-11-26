@@ -75,12 +75,52 @@
 
   /* Jarak toast dari tepi bawah: di atas navigasi bawah HP (64 px + 16 px) ditambah ruang aman (D256). */
   --toast-offset-bottom: calc(5rem + env(safe-area-inset-bottom));
+  --toast-offset-right: 1rem;
+  --assistant-panel-width: 25rem;
+
+  /* Usulan D272: tinggi bar yang menempel di bawah layar saat ini. Diisi lewat :has() di bawah, jadi tombol
+     Tanya Asisten, toast, dan scroll-padding mengikutinya tanpa JS dan tanpa geseran tata letak. */
+  --bottom-bar-height: 0px;
+  --assistant-fab-inset: 1rem;
+  --assistant-fab-bottom: calc(var(--bottom-bar-height) + 1rem + env(safe-area-inset-bottom));
+  /* Ujung atas tombol (44 px) ditambah jarak 12 px. */
+  --assistant-fab-clearance: calc(var(--assistant-fab-bottom) + 3.5rem);
 }
 
 /* shortcut: area pekerja tetap punya navigasi bawah mulai md. Atur per area saat toast pertama dipakai di sana (W5). */
 @media (min-width: 48rem) {
   :root {
     --toast-offset-bottom: 1.5rem;
+    --toast-offset-right: 1.5rem;
+    --assistant-fab-inset: 1.5rem;
+    --assistant-fab-bottom: 1.5rem;
+  }
+}
+
+/* Navigasi bawah pelanggan hanya di HP (md:hidden): isi 64 px ditambah garis atas 1 px. */
+@media (max-width: 47.98rem) {
+  :root:has([data-bottom-nav]) {
+    --bottom-bar-height: calc(4rem + 1px);
+  }
+}
+
+/* Usulan D272: selama tombol Tanya Asisten tampil, toast muncul di atasnya, dan elemen yang difokus tidak
+   tertutup tombol (WCAG 2.4.11). Di detail jasa tombolnya baru tampil mulai lg (bar Pesan). */
+:root:has([data-assistant-launcher="all"]) {
+  --toast-offset-bottom: var(--assistant-fab-clearance);
+  scroll-padding-bottom: var(--assistant-fab-clearance);
+}
+@media (min-width: 64rem) {
+  :root:has([data-assistant-launcher="lg"]) {
+    --toast-offset-bottom: var(--assistant-fab-clearance);
+    scroll-padding-bottom: var(--assistant-fab-clearance);
+  }
+}
+/* Panel widget terbuka (md ke atas): toast pindah ke kiri panel, bukan menutupi kotak tulisnya. */
+@media (min-width: 48rem) {
+  :root:has([data-assistant-panel]:not([hidden])) {
+    --toast-offset-bottom: 1.5rem;
+    --toast-offset-right: calc(var(--assistant-panel-width) + 2.5rem);
   }
 }
 
@@ -186,6 +226,23 @@
   padding-left: env(safe-area-inset-left);
   padding-right: env(safe-area-inset-right);
 }
+/* Usulan D271: tombol Tanya Asisten di kanan bawah, di atas bar bawah yang sedang tampil. */
+@utility assistant-fab {
+  position: fixed;
+  right: max(var(--assistant-fab-inset), env(safe-area-inset-right));
+  bottom: var(--assistant-fab-bottom);
+}
+/* Panel widget (md ke atas) di sudut yang sama. Tingginya menyisakan header; minimal 24rem supaya percakapan
+   tetap terbaca di layar pendek. */
+@utility assistant-panel {
+  position: fixed;
+  right: max(1.5rem, env(safe-area-inset-right));
+  bottom: 1.5rem;
+  width: min(var(--assistant-panel-width), calc(100vw - 3rem));
+  height: min(40rem, calc(100dvh - 7.5rem));
+  min-height: 24rem;
+}
+
 /* Ruang bawah konten di atas navigasi bawah: 6rem (64 px bar + jarak) ditambah garis home. */
 @utility pb-nav-safe {
   padding-bottom: calc(6rem + env(safe-area-inset-bottom));

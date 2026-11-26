@@ -49,6 +49,16 @@ export async function listMessages(target: ChatTarget): Promise<ChatMessage[]> {
   }
 }
 
+/** D77: sesi tamu jadi milik akun. Butuh Bearer (dari apiFetch) dan token tamunya sekaligus (usulan D170). */
+export async function claimSession(sessionId: string, guestToken: string): Promise<ChatSession> {
+  return (
+    await apiFetch<ChatSession>(`/chat/sessions/${encodeURIComponent(sessionId)}/claim`, {
+      method: "POST",
+      headers: guestHeaders(guestToken),
+    })
+  ).data
+}
+
 export function listSessions(page: number) {
   return apiFetch<ChatSession[]>("/chat/sessions", { query: { page, limit: SESSIONS_PER_PAGE } })
 }

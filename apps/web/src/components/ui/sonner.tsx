@@ -5,8 +5,9 @@ import { Toaster as Sonner } from "sonner"
 
 // Diubah dari bawaan shadcn: tanpa next-themes (tidak ada mode gelap, FE13) dan tanpa gaya bawaan
 // sonner, supaya warna, radius, dan huruf dari token. Kanan bawah di desktop; di HP selebar layar di
-// bawah (DS 6.1), di atas navigasi bawah lewat --toast-offset-bottom.
-const OFFSET = { bottom: "var(--toast-offset-bottom)" }
+// bawah (DS 6.1), di atas navigasi bawah lewat --toast-offset-bottom. Keduanya bergeser saat tombol atau
+// panel Asisten tampil (globals.css, usulan D272).
+const OFFSET = { bottom: "var(--toast-offset-bottom)", right: "var(--toast-offset-right)" }
 
 function Toaster() {
   return (

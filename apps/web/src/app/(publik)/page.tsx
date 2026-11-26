@@ -14,8 +14,10 @@ import { searchListings } from "@/features/listings/api"
 import { getCategoryIcon } from "@/lib/category-icons"
 import { cn } from "@/lib/utils"
 
-// Titik masuk Asisten (W8). Tautan di hero dan panel di bawah menuju tempat yang sama.
+// Titik masuk Asisten (W8). Tautan di hero dan panel di bawah menuju tempat yang sama. Contoh pertanyaan
+// mengisi kotak tulis di /asisten lewat ?isi=, tidak langsung mengirim (D268), dan tetap tautan biasa tanpa JS.
 const ASISTEN_HREF = "/asisten"
+const ASISTEN_EXAMPLE = "Motor mogok di Sanur, bisa datang sore ini?"
 
 // Judul dan chip memakai daftar kategori yang sama; cache() membuat satu render cukup satu fetch.
 // Kegagalan tidak menjatuhkan hero: judul jatuh ke cadangan dan chip disembunyikan.
@@ -102,10 +104,20 @@ export default function BerandaPage() {
               <p className="max-w-lg text-sm text-muted-foreground">
                 Ceritakan kebutuhanmu ke Asisten Jasana, nanti dibantu mencarikan jasa yang cocok.
               </p>
-              <p className="text-sm text-foreground">Contoh: “Motor mogok di Sanur, bisa datang sore ini?”</p>
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 pt-2">
+                <span id="contoh-beranda" className="text-sm font-semibold">
+                  Contoh
+                </span>
+                <Link
+                  href={`${ASISTEN_HREF}?isi=${encodeURIComponent(ASISTEN_EXAMPLE)}`}
+                  aria-describedby="contoh-beranda"
+                  className={cn(filterChipClass(false), "h-auto min-h-11 py-2 text-left whitespace-normal")}
+                >
+                  {ASISTEN_EXAMPLE}
+                </Link>
+              </div>
             </div>
           </div>
-          {/* Halaman dan widget Asisten dibangun di W8. */}
           <Button asChild variant="outline" className="md:shrink-0">
             <Link href={ASISTEN_HREF}>Tanya Asisten</Link>
           </Button>

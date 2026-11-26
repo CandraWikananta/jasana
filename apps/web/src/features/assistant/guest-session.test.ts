@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { forgetGuestSessionForTests, getGuestSession, setGuestSession } from "./guest-session"
+import { forgetGuestSessionForTests, getGuestSession, markGuestResume, setGuestSession } from "./guest-session"
 
 const SESSION = { sessionId: "s1", token: "a".repeat(64) }
 
@@ -43,5 +43,15 @@ describe("guest session", () => {
   it.each(["bukan json", '{"sessionId":1,"token":"x"}', '"teks"', "{}"])("mengabaikan isi storage yang rusak: %s", (raw) => {
     vi.stubGlobal("window", { sessionStorage: fakeStorage({ getItem: () => raw }) })
     expect(getGuestSession()).toBeNull()
+  })
+
+  it("penanda lanjutkan ikut tersimpan dan bertahan saat dimuat ulang", () => {
+    vi.stubGlobal("window", { sessionStorage: fakeStorage() })
+    markGuestResume()
+    expect(getGuestSession()).toBeNull()
+    setGuestSession(SESSION)
+    markGuestResume()
+    forgetGuestSessionForTests()
+    expect(getGuestSession()).toEqual({ ...SESSION, resume: true })
   })
 })

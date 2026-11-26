@@ -44,6 +44,17 @@ export function bottomNavAt(pathname: string): "all" | "mobile" | null {
   return null
 }
 
+/**
+ * Di mana tombol Tanya Asisten tampil (usulan D271). Widget hanya dipasang di layout publik dan pelanggan,
+ * jadi usaha, pekerja, admin, auth, dan /asisten sudah tidak punya. Detail jasa: mulai lg saja, karena di
+ * bawahnya bar Pesan adalah aksi utama halaman. Form pesan (W3): tanpa widget.
+ */
+export function assistantWidgetAt(pathname: string): "all" | "lg" | null {
+  if (pathname === "/asisten" || pathname.startsWith("/pesan/")) return null
+  if (pathname.startsWith("/listing/")) return "lg"
+  return "all"
+}
+
 export const PELANGGAN_NAV: NavItem[] = [
   { href: "/", label: "Beranda", icon: House, exact: true },
   { href: "/cari", label: "Cari", icon: Search },

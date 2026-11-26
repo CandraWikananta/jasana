@@ -10,7 +10,9 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { getErrorMessage } from "@/lib/error-messages"
 import { getCurrentPoint, type Point } from "@/lib/geo"
 import { loginHref } from "@/lib/safe-next"
+import { cn } from "@/lib/utils"
 import type { ChatScope, ChatTarget } from "../api"
+import { getAssistantState, updateAssistant } from "../assistant-store"
 import { resolveChatFailure } from "../chat-failure"
 import { isFailedReply, type ConversationMessage } from "../conversation"
 import { useConversation } from "../queries"
@@ -21,7 +23,6 @@ import { Welcome } from "./welcome"
 
 /** Sisa kuota tamu baru disebut saat tinggal sedikit. Batasnya sendiri dari server (guest_quota). */
 const SHOW_QUOTA_BELOW = 5
-const ASISTEN_HREF = "/asisten"
 
 type Locating = "idle" | "locating" | "failed"
 
@@ -33,13 +34,45 @@ interface ConversationProps {
   /** Mulai percakapan baru, membawa teks yang belum terkirim. */
   onReset: (draft: string) => void
   initialDraft?: string
+  /** `panel`: widget selebar 400 px, jadi jarak tepi tidak ikut melebar di md (usulan D271). */
+  variant?: "page" | "panel"
+  /** Tujuan kembali setelah Daftar atau Masuk: /asisten di halaman, halaman yang sedang dibuka di widget. */
+  authReturn: string
+  /** Dipanggil saat Daftar atau Masuk ditekan, supaya percakapan dilanjutkan setelah klaim (usulan D273). */
+  onAuthLeave?: () => void
+  onDraftChange?: (draft: string) => void
+  /** Pemberitahuan di atas keadaan awal, misalnya klaim yang tidak mungkin lagi. */
+  notice?: React.ReactNode
 }
 
 // Isi percakapan tanpa kerangka halaman: mengisi tinggi induknya (flex), jadi bisa dipakai halaman /asisten
-// dan panel widget (W8b). Induk memberi `key` baru untuk percakapan lain, sehingga draf dan lokasi ikut kosong.
-export function Conversation({ scope, target, onSessionStart, onReset, initialDraft = "" }: ConversationProps) {
+// dan panel widget. Induk memberi `key` baru untuk percakapan lain, sehingga draf dan lokasi ikut kosong.
+export function Conversation({
+  scope,
+  target,
+  onSessionStart,
+  onReset,
+  initialDraft = "",
+  variant = "page",
+  authReturn,
+  onAuthLeave,
+  onDraftChange,
+  notice,
+}: ConversationProps) {
   const { history, messages, send, discard } = useConversation({ scope, target, onSessionStart })
-  const [draft, setDraft] = useState(initialDraft)
+  // Serahan dari bagian lain (panel ke halaman penuh, pertanyaan yang tertahan batas tamu) hanya dipakai sekali.
+  const [draft, setDraft] = useState(() => initialDraft || getAssistantState().handoffDraft)
+  useEffect(() => {
+    if (getAssistantState().handoffDraft) updateAssistant({ handoffDraft: "" })
+  }, [])
+  const draftListener = useRef(onDraftChange)
+  useEffect(() => {
+    draftListener.current = onDraftChange
+  })
+  useEffect(() => {
+    draftListener.current?.(draft)
+  }, [draft])
+  const gutter = variant === "panel" ? "px-4" : "px-4 md:px-6"
   // H66: lokasi hanya di memori, selama percakapan ini.
   const [point, setPoint] = useState<Point | null>(null)
   const [locating, setLocating] = useState<Locating>("idle")
@@ -107,7 +140,7 @@ export function Conversation({ scope, target, onSessionStart, onReset, initialDr
             description={
               scope === "account" ? "Buka percakapan lain di Riwayat, atau mulai yang baru." : "Mulai percakapan baru untuk melanjutkan."
             }
-            action={<Button onClick={() => onReset("")}>Mulai percakapan baru</Button>}
+            action={<Button onClick={() => onReset(draft)}>Mulai percakapan baru</Button>}
           />
         ) : (
           <ErrorState message={failure.message} onRetry={() => void history.refetch()} />
@@ -125,17 +158,21 @@ export function Conversation({ scope, target, onSessionStart, onReset, initialDr
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {target && history.isPending ? (
-        <MessagesSkeleton />
+        <MessagesSkeleton compact={variant === "panel"} />
       ) : messages.length === 0 ? (
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-          <div className="mx-auto max-w-2xl px-4 py-4 md:px-6">
-            <Welcome onPick={fill} />
+          <div className={cn("mx-auto flex max-w-2xl flex-col gap-4 py-4", gutter)}>
+            {notice}
+            <Welcome onPick={fill} compact={variant === "panel"} />
           </div>
         </div>
       ) : (
         <MessageList
           messages={messages}
           scope={scope}
+          compact={variant === "panel"}
+          authReturn={authReturn}
+          onAuthLeave={onAuthLeave}
           hasPoint={point !== null}
           locating={locating === "locating"}
           onRetry={(content, replaceIds) => send({ content, point, replaceIds })}
@@ -151,14 +188,18 @@ export function Conversation({ scope, target, onSessionStart, onReset, initialDr
       </p>
 
       <div className="border-t border-border bg-card pb-safe">
-        <div className="mx-auto flex max-w-2xl flex-col gap-2 px-4 py-3 md:px-6">
+        <div className={cn("mx-auto flex max-w-2xl flex-col gap-2 py-3", gutter)}>
           {blocked === "limit" ? (
             <ConversationNotice message={getErrorMessage("GUEST_CHAT_LIMIT_REACHED")} ref={noticeRef}>
               <Button asChild>
-                <Link href={`/daftar?next=${encodeURIComponent(ASISTEN_HREF)}`}>Daftar</Link>
+                <Link href={`/daftar?next=${encodeURIComponent(authReturn)}`} onClick={onAuthLeave}>
+                  Daftar
+                </Link>
               </Button>
               <Button asChild variant="outline">
-                <Link href={loginHref(ASISTEN_HREF)}>Masuk</Link>
+                <Link href={loginHref(authReturn)} onClick={onAuthLeave}>
+                  Masuk
+                </Link>
               </Button>
             </ConversationNotice>
           ) : blocked === "ended" ? (
@@ -214,10 +255,10 @@ function announcement(last: ConversationMessage | undefined): string {
   return `Asisten: ${last.content}${count > 0 ? ` ${count} jasa ditampilkan.` : ""}`
 }
 
-export function MessagesSkeleton() {
+export function MessagesSkeleton({ compact = false }: { compact?: boolean }) {
   return (
     <div className="min-h-0 flex-1 overflow-hidden" aria-busy="true" aria-label="Memuat percakapan">
-      <div className="mx-auto flex max-w-2xl flex-col gap-4 px-4 py-4 md:px-6">
+      <div className={cn("mx-auto flex max-w-2xl flex-col gap-4 py-4", compact ? "px-4" : "px-4 md:px-6")}>
         <Skeleton className="h-11 w-48 self-end rounded-lg" />
         <Skeleton className="h-17 w-3/4 max-w-lg rounded-lg" />
         <Skeleton className="h-11 w-32 self-end rounded-lg" />

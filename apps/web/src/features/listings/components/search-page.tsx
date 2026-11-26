@@ -167,7 +167,8 @@ export function SearchPage() {
                     </Button>
                   )}
                   <Button asChild variant={activeCount > 0 ? "ghost" : "outline"}>
-                    <Link href="/asisten">Tanya Asisten</Link>
+                    {/* Kata kunci yang tidak membuahkan hasil jadi awal pertanyaan; tidak dikirim otomatis (D268). */}
+                    <Link href={params.q ? `/asisten?isi=${encodeURIComponent(params.q)}` : "/asisten"}>Tanya Asisten</Link>
                   </Button>
                 </div>
               }

@@ -6,6 +6,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { getErrorMessage } from "@/lib/error-messages"
 import { loginHref } from "@/lib/safe-next"
+import { cn } from "@/lib/utils"
 import type { ChatScope } from "../api"
 import { answerScrollTop, isFailedReply, needsLocation, type ConversationMessage } from "../conversation"
 import { ConversationNotice } from "./conversation-notice"
@@ -32,9 +33,16 @@ export interface MessageActions {
   /** Memuat ulang riwayat dari server. */
   onReload: () => void
   reloading: boolean
+  /** Tujuan Masuk dari pemberitahuan rem harian tamu, dan penanda lanjutkan (lihat Conversation). */
+  authReturn: string
+  onAuthLeave?: () => void
 }
 
-export function MessageList({ messages, ...actions }: { messages: ConversationMessage[] } & MessageActions) {
+export function MessageList({
+  messages,
+  compact = false,
+  ...actions
+}: { messages: ConversationMessage[]; compact?: boolean } & MessageActions) {
   const areaRef = useRef<HTMLDivElement>(null)
   const lastRef = useRef<HTMLLIElement>(null)
   // Pesan terakhir yang sudah digulirkan. Next menyimpan halaman lama tersembunyi dan menjalankan ulang
@@ -114,7 +122,7 @@ export function MessageList({ messages, ...actions }: { messages: ConversationMe
         <h2 id="judul-percakapan" className="sr-only">
           Percakapan
         </h2>
-        <ol className="mx-auto flex max-w-2xl flex-col gap-4 px-4 py-4 md:px-6">
+        <ol className={cn("mx-auto flex max-w-2xl flex-col gap-4 py-4", compact ? "px-4" : "px-4 md:px-6")}>
           {messages.map((message, i) => (
             <li key={message.id} ref={message === last ? lastRef : undefined} className="flex flex-col gap-3">
               <MessageItem
@@ -163,6 +171,8 @@ function MessageItem({
   onEdit,
   onReload,
   reloading,
+  authReturn,
+  onAuthLeave,
 }: {
   message: ConversationMessage
   previous: ConversationMessage | undefined
@@ -178,7 +188,9 @@ function MessageItem({
           <ConversationNotice message={message.failure!.message}>
             <SearchLink />
             <Button asChild variant="ghost">
-              <Link href={loginHref("/asisten")}>Masuk</Link>
+              <Link href={loginHref(authReturn)} onClick={onAuthLeave}>
+                Masuk
+              </Link>
             </Button>
           </ConversationNotice>
         )}

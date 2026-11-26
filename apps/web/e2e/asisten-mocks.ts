@@ -102,13 +102,24 @@ export interface SentMessage {
   token: string | null
 }
 
+export interface ClaimRequest {
+  sessionId: string
+  /** Header X-Guest-Token. */
+  token: string | null
+  /** Header Authorization. */
+  bearer: string | null
+}
+
 export interface ChatMock {
   sent: SentMessage[]
   created: number
+  claims: ClaimRequest[]
+  /** Balasan untuk POST claim. Bawaan: berhasil. */
+  onClaim: (route: Route, claim: ClaimRequest, index: number) => unknown
   /** Balasan untuk POST messages. Diganti per uji. */
   onSend: (route: Route, sent: SentMessage, index: number) => unknown
-  /** Balasan untuk GET messages. */
-  onHistory: (route: Route, sessionId: string) => unknown
+  /** Balasan untuk GET messages. `token`: X-Guest-Token, null untuk akun. */
+  onHistory: (route: Route, sessionId: string, token: string | null) => unknown
   onSessions: (route: Route, page: number) => unknown
 }
 
@@ -116,6 +127,8 @@ export async function mockChat(page: Page): Promise<ChatMock> {
   const mock: ChatMock = {
     sent: [],
     created: 0,
+    claims: [],
+    onClaim: (route, { sessionId }) => ok(route, session(sessionId, { claimed_at: "2026-11-26T06:00:00.000Z" })),
     onSend: (route, { content }) => ok(route, reply(content, "Halo! Aku asisten Jasana.", { remaining: 19 }), undefined, 201),
     onHistory: (route) => ok(route, [], { page: 1, limit: 100, total: 0 }),
     onSessions: (route) => ok(route, [], { page: 1, limit: 20, total: 0 }),
@@ -140,39 +153,65 @@ export async function mockChat(page: Page): Promise<ChatMock> {
     }
     if (path === "/sessions") return mock.onSessions(route, Number(url.searchParams.get("page") ?? 1))
     const id = path.split("/")[2]!
-    if (request.method() === "GET") return mock.onHistory(route, id)
-    const sent: SentMessage = {
-      ...(request.postDataJSON() as Omit<SentMessage, "token">),
-      token: (await request.headerValue("x-guest-token")) ?? null,
+    const token = (await request.headerValue("x-guest-token")) ?? null
+    if (path.endsWith("/claim")) {
+      const claim = { sessionId: id, token, bearer: (await request.headerValue("authorization")) ?? null }
+      mock.claims.push(claim)
+      return mock.onClaim(route, claim, mock.claims.length - 1)
     }
+    if (request.method() === "GET") return mock.onHistory(route, id, token)
+    const sent: SentMessage = { ...(request.postDataJSON() as Omit<SentMessage, "token">), token }
     mock.sent.push(sent)
     return mock.onSend(route, sent, mock.sent.length - 1)
   })
   return mock
 }
 
+export const USER = {
+  id: "u1",
+  full_name: "Putu Ayu",
+  email: "putu@contoh.id",
+  pending_email: null,
+  phone: "+6281234567890",
+  role: "CLIENT",
+  avatar_url: null,
+  email_verified: true,
+  email_verified_at: "2026-11-01T00:00:00.000Z",
+  created_at: "2026-11-01T00:00:00.000Z",
+} as const
+
 /** Sesi login tiruan: cookie penanda, refresh, dan /auth/me. Tidak memakai jatah login server. */
 export async function mockLogin(page: Page) {
   await page.context().addCookies([{ name: "jasana_sesi", value: "1", url: "http://localhost:3100" }])
+  await mockAccountRoutes(page)
+}
+
+/**
+ * Daftar dan masuk tiruan untuk alur tamu yang mendaftar (D260): mulai sebagai tamu, lalu /auth/register
+ * dan /api/session/login memasang cookie penanda seperti Route Handler aslinya.
+ */
+export async function mockSignup(page: Page) {
+  const calls = { register: 0, login: 0 }
+  await page.route("**/api/v1/auth/register", (route) => {
+    calls.register++
+    return ok(route, { user: { ...USER, email_verified: false, email_verified_at: null }, message: "ok" }, undefined, 201)
+  })
+  await page.route("**/api/session/login", (route) => {
+    calls.login++
+    return route.fulfill({
+      headers: { "set-cookie": "jasana_sesi=1; Path=/" },
+      json: { success: true, data: { access_token: "uji", expires_in: 900, user: USER } },
+    })
+  })
+  await mockAccountRoutes(page)
+  return calls
+}
+
+async function mockAccountRoutes(page: Page) {
   await page.route("**/api/session/refresh", (route) =>
     route.fulfill({ json: { success: true, data: { access_token: "uji", expires_in: 900 } } }),
   )
-  await page.route("**/api/v1/auth/me", (route) =>
-    ok(route, {
-      id: "u1",
-      full_name: "Putu Ayu",
-      email: "putu@contoh.id",
-      pending_email: null,
-      phone: "+6281234567890",
-      role: "CLIENT",
-      avatar_url: null,
-      email_verified: true,
-      email_verified_at: "2026-11-01T00:00:00.000Z",
-      created_at: "2026-11-01T00:00:00.000Z",
-      provider: null,
-      worker: null,
-    }),
-  )
+  await page.route("**/api/v1/auth/me", (route) => ok(route, { ...USER, provider: null, worker: null }))
   await page.route("**/api/v1/notifications**", (route) => ok(route, [], { page: 1, limit: 1, total: 0 }))
   // Koneksi realtime dengan token tiruan pasti ditolak, dan indikatornya mengganggu screenshot.
   await page.route("**/socket.io/**", () => undefined)

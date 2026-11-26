@@ -3,11 +3,13 @@ import { useSyncExternalStore } from "react"
 // Sesi Asisten tamu (D77, PRD Frontend 5.15). guest_token adalah satu-satunya token yang boleh di storage
 // browser (aturan web nomor 7), dan hanya sessionStorage: hilang bersama tab. Dipakai bersama halaman
 // /asisten dan widget (W8b), jadi berupa store, bukan state komponen.
-// Tidak dihapus saat login, karena klaim sesi (W8b) membutuhkannya.
+// Tidak dihapus saat login: klaim sesi (D77, usulan D273) membutuhkannya, lalu menghapusnya sendiri.
 
 export interface GuestSession {
   sessionId: string
   token: string
+  /** Tamu meninggalkan percakapan lewat Daftar atau Masuk: setelah klaim, widget membuka panelnya lagi. Bukan token. */
+  resume?: boolean
 }
 
 const STORAGE_KEY = "jasana_asisten_tamu"
@@ -20,8 +22,9 @@ const listeners = new Set<() => void>()
 function read(): GuestSession | null {
   try {
     const value: unknown = JSON.parse(window.sessionStorage.getItem(STORAGE_KEY) ?? "null")
-    const { sessionId, token } = (value ?? {}) as Partial<GuestSession>
-    return typeof sessionId === "string" && typeof token === "string" ? { sessionId, token } : null
+    const { sessionId, token, resume } = (value ?? {}) as Partial<GuestSession>
+    if (typeof sessionId !== "string" || typeof token !== "string") return null
+    return resume === true ? { sessionId, token, resume } : { sessionId, token }
   } catch {
     return null
   }
@@ -42,6 +45,12 @@ export function setGuestSession(next: GuestSession | null) {
     // Storage diblokir atau penuh: percakapan tetap jalan dari memori.
   }
   for (const listener of listeners) listener()
+}
+
+/** Daftar atau Masuk ditekan dari percakapan. */
+export function markGuestResume() {
+  const session = getGuestSession()
+  if (session && !session.resume) setGuestSession({ ...session, resume: true })
 }
 
 function subscribe(listener: () => void) {

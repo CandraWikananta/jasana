@@ -25,7 +25,7 @@ import { ButtonMatrix } from "../ds/components/button-matrix"
 import { FormDemo } from "../ds/components/form-demo"
 import { TabsDemo } from "../ds/components/tabs-demo"
 import { COMPACT_LISTINGS } from "../ds/data"
-import { AssistantDemo } from "./assistant-demo"
+import { AssistantDemo, AssistantWidgetDemo } from "./assistant-demo"
 import { FeedbackDemo } from "./feedback-demo"
 import { ListingDemo } from "./listing-demo"
 import { MapDemo } from "./map-demo"
@@ -256,6 +256,13 @@ export default function DevUiPage() {
 
       <Section title="Percakapan Asisten" note="Usulan D266 dan D268: gelembung, kartu dengan baris aksi, indikator mengetik, pemberitahuan, dan kotak tulis.">
         <AssistantDemo />
+      </Section>
+
+      <Section
+        title="Widget Asisten"
+        note="Usulan D271: tombol outline melayang (shadow-lg) dan panel 400 px non-modal di kanan bawah mulai md. Di HP tombolnya tautan ke /asisten. Di sini tanpa posisi fixed."
+      >
+        <AssistantWidgetDemo />
       </Section>
 
       <Section title="Kartu, banner, dan akordeon">

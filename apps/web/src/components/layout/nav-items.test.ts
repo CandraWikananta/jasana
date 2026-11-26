@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { bottomNavAt, findNavItem, navSlugs } from "./nav-items"
+import { assistantWidgetAt, bottomNavAt, findNavItem, navSlugs } from "./nav-items"
 
 describe("bottomNavAt", () => {
   it("pekerja di semua lebar, termasuk halaman anaknya", () => {
@@ -17,6 +17,23 @@ describe("bottomNavAt", () => {
     for (const path of ["/listing/abc", "/penyedia/abc", "/usaha", "/admin/penyedia", "/pekerjaan", "/masuk"]) {
       expect(bottomNavAt(path), path).toBeNull()
     }
+  })
+})
+
+describe("assistantWidgetAt", () => {
+  it("publik dan pelanggan", () => {
+    for (const path of ["/", "/cari", "/penyedia/abc", "/akun", "/akun/alamat", "/notifikasi", "/pesanan", "/pesanan/abc"]) {
+      expect(assistantWidgetAt(path), path).toBe("all")
+    }
+  })
+
+  it("detail jasa mulai lg, karena bar Pesan", () => {
+    expect(assistantWidgetAt("/listing/abc")).toBe("lg")
+  })
+
+  it("tidak di /asisten dan form pesan", () => {
+    expect(assistantWidgetAt("/asisten")).toBeNull()
+    expect(assistantWidgetAt("/pesan/abc")).toBeNull()
   })
 })
 
