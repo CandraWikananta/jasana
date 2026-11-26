@@ -176,6 +176,8 @@ describe.skipIf(!hasTestDatabase)('pelaksanaan order (6e)', () => {
       const { code, expires_at } = await ok(await readCode(id, w.client));
       expect(code).toMatch(/^\d{6}$/);
       expect(new Date(expires_at).getTime()).toBeCloseTo(Date.now() + 60 * MINUTE, -4);
+      // H131: batasnya ikut di DTO untuk semua penampil, kodenya tidak.
+      expect(order.verification_expires_at).toBe(expires_at);
 
       for (const who of [w.w2, w.w3, w.w4, w.owner]) {
         expect((await readCode(id, who)).status).toBe(403);
@@ -223,6 +225,9 @@ describe.skipIf(!hasTestDatabase)('pelaksanaan order (6e)', () => {
       const locked = await prisma.order.findUniqueOrThrow({ where: { id } });
       expect(locked.verificationAttempts).toBe(5);
       expect(locked.verificationLockedUntil!.getTime()).toBeGreaterThan(Date.now() + 14 * MINUTE);
+      // H131: pekerja tahu terkunci sebelum menekan Verifikasi lagi.
+      const dto = await ok(await request(app).get(`/api/v1/orders/${id}`).set(...auth(w.w2)));
+      expect(dto.verification_locked_until).toBe(locked.verificationLockedUntil!.toISOString());
 
       const sixth = await post(id, 'verify', w.w2, { code });
       expect(sixth.status).toBe(429);

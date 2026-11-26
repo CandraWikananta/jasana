@@ -6,18 +6,26 @@
 import type { OrderStatusHistory, Prisma } from '@jasana/database';
 import type { PricedLine } from './order-pricing';
 
+/** State Machine 7: Scheduled boleh berangkat 60 menit sebelum jadwal. Dipakai guard T11 dan `depart_available_at` (H131). */
+export const DEPART_EARLY_MINUTES = 60;
+
 export const PAYMENT_SELECT = { status: true, amount: true, invoiceUrl: true, expiresAt: true, paidAt: true } as const satisfies Prisma.PaymentSelect;
 
 export const ORDER_INCLUDE = {
-  providerProfile: { select: { id: true, businessName: true } },
+  providerProfile: { select: { id: true, businessName: true, providerType: true } },
   crew: { select: { worker: { select: { id: true, displayName: true } } }, orderBy: { createdAt: 'asc' } },
   payments: { select: PAYMENT_SELECT, orderBy: { createdAt: 'desc' }, take: 1 },
+  dispute: { select: { id: true, status: true } },
+  review: { select: { id: true } },
 } as const satisfies Prisma.OrderInclude;
 
 export type OrderRow = Prisma.OrderGetPayload<{ include: typeof ORDER_INCLUDE }>;
 
 const iso = (date: Date | null) => date?.toISOString() ?? null;
 const rupiah = (value: Prisma.Decimal) => value.toNumber();
+const shift = (date: Date | null, ms: number) => (date ? new Date(date.getTime() + ms).toISOString() : null);
+const MINUTE_MS = 60_000;
+const DAY_MS = 24 * 60 * MINUTE_MS;
 
 export function toPaymentDto(payment: Prisma.PaymentGetPayload<{ select: typeof PAYMENT_SELECT }>) {
   return {
@@ -29,7 +37,8 @@ export function toPaymentDto(payment: Prisma.PaymentGetPayload<{ select: typeof 
   };
 }
 
-export function toOrderDto(row: OrderRow) {
+/** `reviewWindowDays` dari platform_settings `review_window_days`, dibaca sekali per request oleh pemanggil (H131). */
+export function toOrderDto(row: OrderRow, reviewWindowDays: number) {
   const payment = row.payments[0];
   return {
     id: row.id,
@@ -37,8 +46,10 @@ export function toOrderDto(row: OrderRow) {
     status: row.status,
     booking_mode: row.bookingMode,
     scheduled_at: iso(row.scheduledAt),
+    // Null untuk AVAILABLE_NOW: tidak ada batas berangkat (State Machine 7).
+    depart_available_at: shift(row.scheduledAt, -DEPART_EARLY_MINUTES * MINUTE_MS),
     client_id: row.clientId,
-    provider: { id: row.providerProfile.id, business_name: row.providerProfile.businessName },
+    provider: { id: row.providerProfile.id, business_name: row.providerProfile.businessName, provider_type: row.providerProfile.providerType },
     listing: { id: row.listingId, title: row.snapshotListingTitle },
     assigned_worker: row.assignedWorkerId ? { id: row.assignedWorkerId, name: row.snapshotAssigneeName } : null,
     crew: row.crew.map(({ worker }) => ({ id: worker.id, display_name: worker.displayName })),
@@ -68,6 +79,12 @@ export function toOrderDto(row: OrderRow) {
     started_at: iso(row.startedAt),
     completed_at: iso(row.completedAt),
     settlement_due_at: iso(row.settlementDueAt),
+    verification_expires_at: iso(row.verificationExpiresAt),
+    verification_locked_until: iso(row.verificationLockedUntil),
+    dispute: row.dispute ? { id: row.dispute.id, status: row.dispute.status } : null,
+    has_review: row.review !== null,
+    // Rumus yang sama dengan createReview (reviews.service.ts).
+    review_deadline_at: shift(row.completedAt, reviewWindowDays * DAY_MS),
     cancelled_at: iso(row.cancelledAt),
     cancelled_by: row.cancelledBy,
     cancellation_reason: row.cancellationReason,

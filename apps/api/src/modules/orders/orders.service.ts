@@ -238,7 +238,11 @@ export async function createOrder(userId: string, body: CreateOrderBody): Promis
 }
 
 export async function getOrder(orderId: string): Promise<OrderDto> {
-  return toOrderDto(await prisma.order.findUniqueOrThrow({ where: { id: orderId }, include: ORDER_INCLUDE }));
+  const [row, reviewWindowDays] = await Promise.all([
+    prisma.order.findUniqueOrThrow({ where: { id: orderId }, include: ORDER_INCLUDE }),
+    getNumberSetting('review_window_days'),
+  ]);
+  return toOrderDto(row, reviewWindowDays);
 }
 
 /** GET /orders sesuai peran. Pekerja melihat order sebagai penanggung jawab ATAU pendamping (PRD 5.2). */
@@ -261,11 +265,14 @@ export async function listOrders(userId: string, query: ListOrdersQuery): Promis
   }
   if (query.status) where = { AND: [where, { status: query.status }] };
 
-  const [rows, total] = await prisma.$transaction([
-    prisma.order.findMany({ where, include: ORDER_INCLUDE, orderBy: { createdAt: 'desc' }, ...skipTake(query) }),
-    prisma.order.count({ where }),
+  const [[rows, total], reviewWindowDays] = await Promise.all([
+    prisma.$transaction([
+      prisma.order.findMany({ where, include: ORDER_INCLUDE, orderBy: { createdAt: 'desc' }, ...skipTake(query) }),
+      prisma.order.count({ where }),
+    ]),
+    getNumberSetting('review_window_days'),
   ]);
-  return { items: rows.map(toOrderDto), meta: pageMeta(query, total) };
+  return { items: rows.map((row) => toOrderDto(row, reviewWindowDays)), meta: pageMeta(query, total) };
 }
 
 export async function getOrderHistory(orderId: string) {

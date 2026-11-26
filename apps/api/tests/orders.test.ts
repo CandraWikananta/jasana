@@ -96,7 +96,15 @@ describe.skipIf(!hasTestDatabase)('order Scheduled (6c)', () => {
           platform_fee: 102500,
           provider_earning: 922500,
         },
+        // H131
+        provider: { provider_type: 'BUSINESS' },
+        verification_expires_at: null,
+        verification_locked_until: null,
+        dispute: null,
+        has_review: false,
+        review_deadline_at: null,
       });
+      expect(new Date(order.depart_available_at as string).getTime()).toBe(new Date(order.scheduled_at as string).getTime() - 60 * 60_000);
       expect((order.price as { options: unknown[] }).options).toHaveLength(4);
       // D58: order Scheduled masuk memberi tahu pemilik.
       expect(await prisma.notification.count({ where: { channel: 'EMAIL', userId: w.owner.id, referenceId: order.id } })).toBe(1);
