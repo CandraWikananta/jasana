@@ -57,8 +57,15 @@ describe.skipIf(!hasTestDatabase)('review (10b)', () => {
 
   it('client memberi review setelah COMPLETED: 201, cache listing dan penyedia, notifikasi in-app ke pemilik', async () => {
     const { id } = await completedOrder(app, w);
+    const orderDto = async () => (await request(app).get(`/api/v1/orders/${id}`).set(...auth(w.client))).body.data;
+    // H131: has_review dan review_deadline_at = completed_at + review_window_days (default 14).
+    const before = await orderDto();
+    expect(before.has_review).toBe(false);
+    expect(new Date(before.review_deadline_at).getTime()).toBe(new Date(before.completed_at).getTime() + 14 * DAY);
+
     const res = await review(id, w.client);
     expect(res.status, JSON.stringify(res.body)).toBe(201);
+    expect((await orderDto()).has_review).toBe(true);
     expect(res.body.data).toMatchObject({ order_id: id, listing_id: w.listingId, rating: 4, comment: 'Rapi dan tepat waktu', is_visible: true, provider_reply: null });
     expect(await cache()).toEqual({ listing: [4, 1], provider: [4, 1] });
     const notes = await prisma.notification.findMany({ where: { type: 'REVIEW' } });
@@ -97,6 +104,9 @@ describe.skipIf(!hasTestDatabase)('review (10b)', () => {
     expect(late.body.error.code).toBe('REVIEW_WINDOW_CLOSED');
 
     await prisma.platformSetting.create({ data: { key: 'review_window_days', value: 15 } });
+    // H131: batas di DTO ikut parameter, bukan angka tetap.
+    const dto = (await request(app).get(`/api/v1/orders/${id}`).set(...auth(w.client))).body.data;
+    expect(new Date(dto.review_deadline_at).getTime()).toBe(new Date(dto.completed_at).getTime() + 15 * DAY);
     await review(id, w.client).expect(201);
   });
 

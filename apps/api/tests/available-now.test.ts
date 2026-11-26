@@ -168,6 +168,8 @@ describe.skipIf(!hasTestDatabase)('order Available Now (6d)', () => {
       const res = await claim(order.id, w.w2);
       expect(res.status, JSON.stringify(res.body)).toBe(200);
       expect(res.body.data).toMatchObject({ status: 'ACCEPTED', assigned_worker: { id: w.w2.workerId }, payment: { status: 'PENDING' } });
+      // H131: Available Now tidak punya batas berangkat.
+      expect(res.body.data.depart_available_at).toBeNull();
 
       const saved = await prisma.order.findUniqueOrThrow({ where: { id: order.id } });
       expect(saved.acceptedBy).toBe(w.w2.id);

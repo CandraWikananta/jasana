@@ -132,6 +132,9 @@ describe.skipIf(!hasTestDatabase)('sengketa (8d)', () => {
         category: 'POOR_QUALITY',
       });
       expect((await orderOf(orderId)).status).toBe('DISPUTED');
+      // H131: id komplain tersedia di DTO untuk tambah bukti.
+      const dto = (await request(app).get(`/api/v1/orders/${orderId}`).set(...auth(as))).body.data;
+      expect(dto.dispute).toEqual({ id: res.body.data.id, status: 'OPEN' });
       const history = await prisma.orderStatusHistory.findFirstOrThrow({ where: { orderId, toStatus: 'DISPUTED' } });
       expect(history).toMatchObject({ fromStatus: stage, actor: who === 'client' ? 'CLIENT' : 'PROVIDER', changedByUserId: as.id });
       const notified = await prisma.notification.findMany({ where: { channel: 'EMAIL', referenceId: orderId, title: { startsWith: 'Sengketa dibuka' } } });

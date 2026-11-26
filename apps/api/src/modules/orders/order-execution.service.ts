@@ -23,7 +23,7 @@ import { getNumberSetting } from '../settings/settings.service';
 import { notifyUsers } from './order-notify';
 import { assertTransition, lockOrder, transitionOrder, withOrderTransaction, type AfterCommitTask } from './order-transition.service';
 import { getOrder } from './orders.service';
-import type { OrderDto } from './orders.mapper';
+import { DEPART_EARLY_MINUTES, type OrderDto } from './orders.mapper';
 import type { CheckInBody } from './orders.schema';
 
 type Tx = Prisma.TransactionClient;
@@ -31,8 +31,6 @@ type AfterCommit = (task: AfterCommitTask) => void;
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
-/** State Machine 7: Scheduled boleh berangkat 60 menit sebelum jadwal. */
-const DEPART_EARLY_MINUTES = 60;
 /** H9. */
 const CODE_TTL_MINUTES = 60;
 
