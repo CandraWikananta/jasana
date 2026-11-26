@@ -23,3 +23,16 @@ tmp/
 # Gambar override seed simulasi (D206): hanya README yang masuk repo
 scripts/sim-photos/*
 !scripts/sim-photos/README.md
+
+# Hasil build dan uji frontend (apps/web). Ditulis di sini juga supaya tidak
+# muncul sebagai untracked saat berada di branch main, yang belum punya
+# apps/web/.gitignore
+apps/web/.next/
+apps/web/out/
+apps/web/next-env.d.ts
+apps/web/*.tsbuildinfo
+apps/web/test-results/
+apps/web/playwright-report/
+
+# Cache otomatis skill impeccable
+.impeccable/hook.cache.json
